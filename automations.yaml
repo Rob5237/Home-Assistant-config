@@ -71,32 +71,71 @@
       option: Second heatsource
     action: select.select_option
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
-    data:
-      operation_mode: electric
-    action: water_heater.set_operation_mode
+      entity_id: switch.luxtronik_280807_0450_heating
+    action: switch.turn_off
+  - choose:
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
+        above: 15
+      sequence:
+      - target:
+          entity_id: water_heater.luxtronik_280807_0450_domestic_water
+        data:
+          operation_mode: electric
+        action: water_heater.set_operation_mode
   mode: single
 - id: '1778941860493'
   alias: Warmwater bij Zonne-overschot - Uitschakelen
-  description: Zet elektrisch element uit als teruglevering stopt
+  description: >
+    TDI afhandeling bij wegvallen zonne-overschot of TDI voltooid (>=65°C).
+    Als zonne-overschot stopt maar TDI nog niet klaar is: laat Luxtronik TDI
+    afmaken op heat_pump. Volledig herstellen zodra TDI klaar is (>=65°C).
   triggers:
-  - entity_id: sensor.p1_meter_power
+  - id: solar_stopt
+    entity_id: sensor.p1_meter_power
     above: -1500
     for:
       minutes: 1
     trigger: numeric_state
-  - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+  - id: tdi_klaar
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 65
     trigger: numeric_state
   actions:
-  - target:
-      entity_id: select.luxtronik_280807_0450_dhw_mode
-    data:
-      option: Automatic
-    action: select.select_option
-  - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
-    data:
-      temperature: 61
-    action: water_heater.set_temperature
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: solar_stopt
+      - condition: numeric_state
+        entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+        below: 65
+      sequence:
+      - target:
+          entity_id: water_heater.luxtronik_280807_0450_domestic_water
+        data:
+          operation_mode: heat_pump
+        action: water_heater.set_operation_mode
+      - target:
+          entity_id: switch.luxtronik_280807_0450_heating
+        action: switch.turn_on
+    default:
+    - target:
+        entity_id: select.luxtronik_280807_0450_dhw_mode
+      data:
+        option: Automatic
+      action: select.select_option
+    - target:
+        entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      data:
+        temperature: 61
+      action: water_heater.set_temperature
+    - target:
+        entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      data:
+        operation_mode: heat_pump
+      action: water_heater.set_operation_mode
+    - target:
+        entity_id: switch.luxtronik_280807_0450_heating
+      action: switch.turn_on
   mode: single
