@@ -70,6 +70,11 @@
     data:
       option: Second heatsource
     action: select.select_option
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      operation_mode: electric
+    action: water_heater.set_operation_mode
   mode: single
 - id: '1778941860493'
   alias: Warmwater bij Zonne-overschot - Uitschakelen
