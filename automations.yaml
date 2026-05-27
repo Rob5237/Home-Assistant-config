@@ -51,7 +51,9 @@
   mode: single
 - id: tdi_legionella_solar_overschot
   alias: Legionella TDI bij zonne-overschot
-  description: Stel TDI klokprogramma in op 09:30-16:00 bij teruglevering >= 2000W
+  description: >
+    TDI starten bij >= 2000W zonne-overschot. Klokprogramma 09:30-16:00 (buiten
+    >= 15°C) of 12:00-16:00 (buiten < 15°C, woning eerst opwarmen).
   triggers:
   - entity_id: sensor.p1_meter_power
     below: -2000
@@ -59,7 +61,15 @@
       minutes: 2
     trigger: numeric_state
   actions:
-  - action: shell_command.tdi_legionella_solar
+  - choose:
+    - conditions:
+      - condition: numeric_state
+        entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
+        below: 15
+      sequence:
+      - action: shell_command.tdi_legionella_solar_koud
+    default:
+    - action: shell_command.tdi_legionella_solar
   - target:
       entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
     data:
