@@ -1,0 +1,38 @@
+# utility_meter en sensor definities voor Energie & Solar
+# (Gecorrigeerd op inspringing)
+
+sensor:
+  # Totaal export kWh (geïntegreerde waarde)
+  - platform: integration
+    name: "Totaal export kWh"
+    source: sensor.energy_export_power
+    unit_prefix: k
+    round: 2
+    method: left
+
+utility_meter:
+  # SOLAR METERS
+  solar_daily:
+    source: sensor.solar_export 
+    cycle: daily
+
+  solar_monthly:
+    source: sensor.solar_export
+    cycle: monthly
+
+  solar_yearly:
+    source: sensor.solar_export
+    cycle: yearly
+
+  # ENERGY METERS
+  energy_daily:
+    source: sensor.energy_import
+    cycle: daily
+
+  energy_monthly:
+    source: sensor.energy_import
+    cycle: monthly
+
+  energy_yearly:
+    source: sensor.energy_import
+    cycle: yearly

@@ -1,0 +1,72 @@
+# Package: Planten — wateradvies, voeding- en verpotreminders
+
+automation:
+  - alias: "Ficus water reminder"
+    trigger:
+      - platform: time
+        at: "09:00:00"
+    condition:
+      - condition: template
+        value_template: "{{ now().weekday() == 0 }}"  # Elke maandag
+    action:
+      - service: notify.mobile_app_telefoon_van_rob
+        data:
+          title: "Water Ficus"
+          message: >
+            Geef {{ states('sensor.ficus_wateradvies') }} ml water aan de Ficus.
+
+  - alias: "Monstera water reminder"
+    trigger:
+      - platform: time
+        at: "09:30:00"
+    condition:
+      - condition: template
+        value_template: "{{ now().weekday() == 0 }}"  # Elke maandag
+    action:
+      - service: notify.mobile_app_telefoon_van_rob
+        data:
+          title: "Water Monstera"
+          message: >
+            Geef {{ states('sensor.monstera_wateradvies') }} ml water aan de Monstera.
+
+  - alias: "Ficus voeding reminder"
+    trigger:
+      - platform: time
+        at: "10:00:00"
+    condition:
+      - condition: template
+        value_template: "{{ now().month in [4,5,6,7,8,9] and now().day == 1 }}"
+    action:
+      - service: notify.mobile_app_telefoon_van_rob
+        data:
+          title: "Ficus voeding"
+          message: "Geef vloeibare voeding na water geven."
+
+  - alias: "Ficus verpot reminder"
+    trigger:
+      - platform: time
+        at: "10:00:00"
+    condition:
+      - condition: template
+        value_template: "{{ now().month == 4 and now().day == 15 }}"
+    action:
+      - service: notify.mobile_app_telefoon_van_rob
+        data:
+          title: "Ficus verpotten"
+          message: "April is de maand om de Ficus te verpotten."
+
+template:
+  - sensor:
+      - name: "Ficus wateradvies"
+        unique_id: ficus_wateradvies
+        state: >
+          {% set plant = states('input_number.ficus_height') | float %}
+          {{ ((plant / 10) * 500) | round(0) }}
+        unit_of_measurement: "ml"
+
+      - name: "Monstera wateradvies"
+        unique_id: monstera_wateradvies
+        state: >
+          {% set plant = states('input_number.monstera_height') | float %}
+          {{ ((plant / 10) * 400) | round(0) }}
+        unit_of_measurement: "ml"

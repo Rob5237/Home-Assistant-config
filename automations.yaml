@@ -1,0 +1,97 @@
+- id: enphase_snelle_polling
+  alias: Enphase productie elke 5 seconden verversen
+  triggers:
+  - platform: time_pattern
+    seconds: /5
+  actions:
+  - service: homeassistant.update_entity
+    target:
+      entity_id: sensor.envoy_122331077486_current_power_production
+  mode: single
+  max_exceeded: silent
+- id: 07ea0d9b5b9145db88c0ebdaec3cd174
+  alias: Waarschuwing bij herinstallatie
+  triggers:
+  - platform: event
+    event_type: home_assistant_start
+  actions:
+  - service: persistent_notification.create
+    data:
+      title: Let op!
+      message: 'Je staat op het punt Home Assistant te herstarten of te herinstalleren.
+        De map /share kan worden overschreven, met submappen /Documenten, /Afbeeldingen
+        en /Downloads. Maak eerst een back-up!
+
+        '
+  mode: single
+- id: '1778941827789'
+  alias: Warmwater bij Zonne-overschot
+  description: Verwarm boiler met elektrisch element bij teruglevering >= 2000W
+  triggers:
+  - entity_id: sensor.p1_meter_power
+    below: -2000
+    for:
+      minutes: 1
+    trigger: numeric_state
+  conditions:
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 61
+  actions:
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Second heatsource
+    action: select.select_option
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      temperature: 65
+    action: water_heater.set_temperature
+  mode: single
+- id: tdi_legionella_solar_overschot
+  alias: Legionella TDI bij zonne-overschot
+  description: Stel TDI klokprogramma in op 09:30-16:00 bij teruglevering >= 2000W
+  triggers:
+  - entity_id: sensor.p1_meter_power
+    below: -2000
+    for:
+      minutes: 2
+    trigger: numeric_state
+  actions:
+  - action: shell_command.tdi_legionella_solar
+  - target:
+      entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
+    data:
+      option: "{{ now().strftime('%A') }}"
+    action: select.select_option
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Second heatsource
+    action: select.select_option
+  mode: single
+- id: '1778941860493'
+  alias: Warmwater bij Zonne-overschot - Uitschakelen
+  description: Zet elektrisch element uit als teruglevering stopt
+  triggers:
+  - entity_id: sensor.p1_meter_power
+    above: -1500
+    for:
+      minutes: 1
+    trigger: numeric_state
+  - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    above: 65
+    trigger: numeric_state
+  actions:
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Automatic
+    action: select.select_option
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      temperature: 61
+    action: water_heater.set_temperature
+  mode: single

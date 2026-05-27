@@ -1,0 +1,20 @@
+- sensor:
+    - name: "Aantal Smartphones Thuis"
+      unique_id: dynamic_smartphone_counter
+      icon: mdi:cellphone-check
+      unit_of_measurement: "telefoons"
+      state: >
+        {{ states.device_tracker 
+          | selectattr('attributes.source_type', 'defined')
+          | selectattr('attributes.source_type', 'eq', 'gps')
+          | selectattr('state', 'eq', 'home') 
+          | list | count 
+        }}
+      attributes:
+        namen: >
+          {{ states.device_tracker 
+            | selectattr('attributes.source_type', 'defined')
+            | selectattr('attributes.source_type', 'eq', 'gps')
+            | selectattr('state', 'eq', 'home') 
+            | map(attribute='name') | list | join(', ') 
+          }}

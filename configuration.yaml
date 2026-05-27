@@ -1,0 +1,23 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Home Assistant instellingen
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
+    - 100.64.0.0/10
+
+homeassistant:
+  packages: !include_dir_named packages
+
+# Templates inladen vanuit een aparte map
+template: !include_dir_merge_list templates/
+
+# Thema's inladen
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+scene: !include scenes.yaml

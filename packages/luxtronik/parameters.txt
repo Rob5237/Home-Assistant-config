@@ -1,0 +1,26 @@
+# Luxtronik LDV9 - Bekende parameters (command 3004)
+# Waarde = raw / 10
+
+# Temperaturen
+10 = Aanvoertemperatuur vloerverwarming (°C)
+11 = Retourtemperatuur vloerverwarming (°C)
+12 = Retour berekend (°C)
+15 = Buitentemperatuur (°C)
+16 = Gemiddelde buitentemperatuur (°C)
+17 = Tapwater gemeten (°C)
+18 = Tapwater ingesteld (°C)
+21 = Dekking WP (°C)
+
+# Bedrijfsuren (seconden / 3600 = uren)
+56 = Bedrijfsuren WP (sec)
+57 = Impulsen VD1
+64 = Bedrijfsuren verwarming (sec)
+65 = Bedrijfsuren tapwater (sec)
+
+# Nog te identificeren
+100-104 = ~79.1 (mogelijk druk?)
+175 = ~34.2
+176 = ~44.0
+177 = ~59.8
+178 = ~14.6
+179 = ~23.0

@@ -1,0 +1,127 @@
+title: Huis & Warmtepomp Overzicht
+views:
+  - title: Overzicht
+    path: overzicht
+    icon: mdi:home-automation
+    cards:
+
+      # ==============================
+      # Raspberry Pi Status
+      # ==============================
+      - type: vertical-stack
+        title: Raspberry Pi 5 Status
+        cards:
+          - type: entities
+            title: CPU & Fan
+            entities:
+              - entity: sensor.cpu_temperatuur
+                name: CPU Temperatuur
+              - entity: binary_sensor.rpi_fan_running_01
+                name: Fan Draait
+              - entity: sensor.rpi_fan_status_01
+                name: Fan Status
+
+          - type: gauge
+            title: CPU Temperatuur
+            entity: sensor.cpu_temperatuur
+            min: 30
+            max: 90
+            severity:
+              green: 30
+              yellow: 60
+              red: 75
+
+      # ==============================
+      # Warmtepomp Modbus
+      # ==============================
+      - type: vertical-stack
+        title: Warmtepomp Modbus
+        cards:
+          - type: entities
+            title: Temperatuur & Verbinding
+            entities:
+              - entity: sensor.luxtronik_aanvoertemperatuur
+                name: Aanvoertemperatuur
+              - entity: sensor.luxtronik_data
+                name: Luxtronik Verbinding
+
+          - type: gauge
+            title: Warmtepomp Aanvoer
+            entity: sensor.luxtronik_aanvoertemperatuur
+            min: 20
+            max: 60
+            severity:
+              green: 20
+              yellow: 45
+              red: 55
+
+      # ==============================
+      # Energie & Utility Meters
+      # ==============================
+      - type: vertical-stack
+        title: Energie & Export/Import
+        cards:
+          - type: entities
+            title: Dagelijkse waarden
+            entities:
+              - entity: sensor.energy_import_daily
+                name: Energie Import Dag
+              - entity: sensor.energy_export_daily
+                name: Energie Export Dag
+
+          - type: entities
+            title: Jaaroverzicht
+            entities:
+              - entity: sensor.energy_import_yearly
+                name: Energie Import Jaar
+              - entity: sensor.energy_export_yearly
+                name: Energie Export Jaar
+              - entity: sensor.export_365dagen
+                name: Export Laatste 365 dagen
+
+          - type: gauge
+            title: Energie Export Laatste 365 dagen
+            entity: sensor.export_365dagen
+            min: 0
+            max: 10000
+            severity:
+              green: 0
+              yellow: 5000
+              red: 8000
+
+# ==============================
+# Plantensysteem Dashboard met kleurgecodeerd wateradvies
+# ==============================
+  - title: Planten
+    path: planten
+    icon: mdi:leaf
+    cards:
+      - type: entities
+        title: Ficus
+        entities:
+          - entity: sensor.ficus_wateradvies
+            name: Wateradvies (ml)
+            # ⚡ kleurcodering afhankelijk van hoeveelheid
+            state_color: true
+            attributes:
+              unit_of_measurement: "ml"
+
+          - input_boolean.ficus_watered
+          - input_number.ficus_height
+          - input_number.ficus_pot_diameter
+          - input_select.ficus_location
+
+      - type: entities
+        title: Monstera
+        entities:
+          - entity: sensor.monstera_wateradvies
+            name: Wateradvies (ml)
+            state_color: true
+            attributes:
+              unit_of_measurement: "ml"
+
+          - input_boolean.monstera_watered
+          - input_number.monstera_height
+          - input_number.monstera_pot_diameter
+          - input_select.monstera_location
+

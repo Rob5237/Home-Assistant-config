@@ -1,0 +1,310 @@
+LUXTRONIK – VOLLEDIG MENUOVERZICHT
+====================================
+
+1. STARTSCHERM
+--------------
+- Binnentemperatuur: 8,6°C
+- Verwarming: Auto / +/- +0,0°C
+- Donderdag 18.12.25 10:01
+
+
+2. KLOKPROGRAMMA
+----------------
+- Week formaat
+- Modus
+- Gebeurtenis
+- Status
+
+
+3. MODES
+--------
+- Mode
+    - Bewerken
+    - Hernoemen
+    - Verwijderen
+- Tapwater verwarmen
+- Mode
+- Invoegen
+
+
+4. INFO + INSTELLING
+--------------------
+- Verwarming  --> Automatisch / +0,0°C
+- Tapwater    --> Automatisch / Berekend: 75,0°C
+- Zwembad     --> Automatisch
+
+
+5. VERWARMING – INSTELLINGEN
+-----------------------------
+
+  5.1 Bedrijfsmode
+      - Automatisch (actief)
+      - Party
+      - Vakantie
+      - 2e warm.opwek
+      - Uit
+
+  5.2 Temperatuur +/-
+      - +/- +0,0°C
+
+  5.3 Stooklijnen
+      - Stooklijn verwarming:
+          Stooklijn : +35,0°C / -20,0°C
+          Nacht     : +18,0°C / +18,0°C
+          Nacht offset: +0,0°C
+
+  5.4 Klokprogramma
+      - Week formaat
+      - Modus
+      - Gebeurtenis
+      - Status
+
+  5.5 Verwarmingsgrens
+      - Verwarmingsgrens: 16,0°C
+
+
+6. TAPWATER – INSTELLINGEN
+---------------------------
+
+  6.1 Bedrijfsmode
+      - Automatisch (actief)
+      - Party
+      - Vakantie
+      - 2e warm.opwek
+      - Uit
+
+  6.2 Temperatuur +/-
+      - Gewenste temperatuur: +50,0°C
+      - Dekking wp: +75,0°C
+      - Attentie: naverwarming actief
+
+  6.3 Klokprogramma
+      - Week formaat
+      - Modus
+      - Gebeurtenis
+      - Status
+
+  6.4 Snelopwarmen
+      - Snelopwarmen: UIT
+      - WWS is beëindigd
+
+  6.5 Onderhoudsprogramma
+      - Thermische desinfectie
+      - Circulatie tapwater
+
+  6.6 Extra warmtapwater
+      - Gew.waarde: 58,0°C
+      - Duur extra warmwater: 02:30
+      - Extra warmtapwater: Uit
+      - Looptijd: 00:00
+
+
+7. SERVICE
+----------
+
+  7.1 Informatie
+      - Temperaturen
+      - Ingangen
+      - Uitgangen
+      - Aflooptijden
+      - Bedrijfsuren
+      - Storingsbuffer
+      - Afschakelingen
+      - Installatiestatus
+      - Energiemonitor
+      - GBS
+
+  7.2 Instellingen (Installateur)
+
+      7.2.1 Datatoegang
+
+      7.2.2 Verkortprogramma
+            - Verkortprogramma       : UIT
+            - Geforceerd verwarmen   : UIT
+            - Geforceerd tapwater    : UIT
+            - Ontdooien              : UIT
+
+      7.2.3 Temperaturen
+            - Retour-begrensd        : 45,0°C
+            - Hysterese HR           : 2,0 K
+            - Hysterese TW           : 9,0 K
+            - TR Verhoging max       : 7,0 K
+            - Vrijgave ZWE           : -2,0°C
+            - TDI-Ingestelde temp.   : 65,0°C
+            - Tbuiten max.           : 45,0°C
+            - Tbuiten min.           : -22,0°C
+            - Verlagen tot           : -20,0°C
+            - Tapwater max.          : 58,0°C
+            - Min. retourtemp.       : 19,0°C
+            - Nachtverl. CV          : 0,0°C
+            - Gew.ruimtetemp.        : 20,0°C
+            - Aanv. max. offset      : 0,0 K
+
+      7.2.4 Prioriteiten
+            - Tapwater   : 1
+            - Verwarmen  : 2
+            - Zwembad    : 3
+
+      7.2.5 Systeeminstelling
+            - EVU-blokkering         : zonder ZWE
+            - Ruimteopnemer          : RBE
+            - Inpassing              : Retour
+            - Menggroep 1            : Nee
+            - Storing                : zonder ZWE
+            - Tapwater1              : Voeler
+            - Tapwater3              : zonder ZUP
+            - Tapwater4              : Gw.waarde
+            - Tapwater5              : met HUP
+            - TW+WP max              : 0,0 h
+            - Pompen optimal.        : Ja
+            - Toegang                : Servdienst.
+            - Regeling verwarm.      : BT-afhank.
+            - Regeling MG1           : BT-afhank.
+            - Opwarmen               : met mengkl.
+            - Elektrische anode      : Nee
+            - Verwarmingsgrens       : Ja
+            - Afstandsbeheer         : Ja
+            - Pompenoptim. Tijd      : 10 min
+            - Melding TDI            : Ja
+            - Vrijgave ZWE verw.     : 60 min
+            - Vrijgave ZWE warmw.    : 60 min
+            - Warmw. naverw.         : Ja
+            - Warmw. naverw. max     : 1,0 h
+            - Smart Grid             : SG 1.1
+            - Regeling MG1           : midden
+            - VD-verwarming          : Ja
+            - Ontdooifactor          : 100 %
+
+      7.2.6 Systeem ontluchten
+            - HUP                    : UIT
+            - ZUP                    : UIT
+            - BUP                    : UIT
+            - VBO                    : UIT
+            - MA1                    : UIT
+            - MZ1                    : UIT
+            - ZIP                    : UIT
+            - Exp. ventiel openen    : UIT
+            - Looptijd               : 1h
+
+      7.2.7 Parameters IBN instell.
+            - Wilt u de parameters als IBN-parameters gebruiken?
+              (Stooklijnen, Instellingen, Temperaturen)
+
+      7.2.8 E.zuinige pomp
+            - Afgiftesysteem         : RAD
+            - Verwarming aansturing  : Automatisch
+            - TW aansturing          : Automatisch
+            - Bypassventiel instel.  : Nee
+            - Stuur signaal pomp     : 82,2 %
+            - Debiet is              : 1110 l/h
+
+      7.2.9 Serienummer ingeven
+
+      7.2.10 RBE
+             - Invloedsfactor RT     : 100%
+             - Afgiftesysteem        : VLV
+
+      7.2.11 2e warm.opwek
+             2e warm.opwek 1:
+             - Soort                 : E-element
+             - Functie               : Verw en TW
+             - Positie               : Geïntegreerd
+             - Uitgang               : Out 1
+             - Vermogen              : 6,0 kW
+
+             2e warm.opwek 2:
+             - Soort                 : Nee
+             - Functie               : Nee
+             - Positie               : ---
+             - Uitgang               : ---
+             - Vermogen              : ---
+
+      7.2.12 FlexConfig
+             - OUT 2                 : ZIP
+             - OUT 3                 : ZWE2
+
+      7.2.13 Inverter
+             - Warmwater             : normaal
+
+      7.2.14 Silent Mode
+             - Silent Mode           : Nee
+
+      7.2.15 Circulatiepomp draait
+             - Circulatiepomp draait     : 60 s
+             - Circulatiepomp draait ZUP : 60 s
+
+      7.2.16 Smart Grid
+             - Begrenzing            : Aan
+             - Verhoging Verwarming  : 2,0 K
+             - Verhoging Tapwater    : 2,0 K
+
+      7.2.17 Vermogensbeperking
+             - Begrenzing            : Aan
+             - Vermogenslimiet       : 5,5 kW
+             - Consument status:
+                 E-element 1         : BLOCKED
+                 Compressor          : NO LIMIT
+             - Export
+             (melding: Geen USB-stick aanwezig – insteken a.u.b.)
+
+  7.3 Taal
+
+  7.4 Datum en tijd
+
+  7.5 Opwarmprogramma
+      - Aanvoer 8  : 40,0°C / Tijd: 24h
+      - Aanvoer 9  : 35,0°C / Tijd: 24h
+      - Aanvoer 10 : 25,0°C / Tijd: 24h
+      - Opwarmprog. starten
+
+  7.6 Installatieconfiguratie
+      - Verwarmen  : AAN
+      - Tapwater   : AAN
+
+  7.7 IBN-assistent
+      Stap-voor-stap inbedrijfstelling:
+       1. Geeft u het nummer in van het hydraulisch schema: 0
+       2. Is de elektrische aansluiting OK? (draai-veld, spanning)
+       3. Is de cv-installatie gevuld? (Druk?)
+       4. Wilt u het ontluchtingsprogramma starten?
+       5. Wilt u de stooklijn verw. instellen?
+       6. Wilt u de kloktijden voor de verwarming instellen?
+       7. Wilt u de temperatuur voor tapwaterbereiding instellen?
+       8. Wilt u de kloktijden voor tapwaterbereiding instellen?
+       9. Wilt u de thermische desinfectie nu instellen?
+      10. Wilt u de kloktijden voor de warmwatercirculatie instellen?
+      11. Wilt u de prioriteiten instellen?
+      12. Wilt u in de systeeminstellingen veranderingen uitvoeren?
+      13. Wilt u in de temperatuurinstellingen veranderingen uitvoeren?
+      14. Wilt u myUplink nu activeren en configureren?
+      15. De IBN-assistent is gereed. Veel plezier met uw warmtepomp!
+
+  7.8 Datalogger
+      - De USB-stick insteken en bevestigen
+      - De datalogger wordt op de USB-stick opgeslagen
+
+  7.9 Systeemaansturing
+      - Contrast display
+      - Webserver
+      - DHCP
+      - IP-adres
+      - Afstandsbeheer
+      - Connectiviteit
+
+
+8. STATUS
+---------
+- Warmtepomp in bedrijf vanaf: 03:24
+- Verwarmingsbedrijf
+
+====================================
+Ontbrekend:
+
+Sectie 2 (Klokprogramma) hoort bij de Modes bovenbalk, niet als apart hoofdmenu
+Opwarmprogramma had meer stappen zichtbaar (Aanvoer 1 t/m 7 ontbreken, we zagen alleen 8-10)
+7.1 Informatie submenu's zijn nog leeg (Temperaturen, Ingangen, Uitgangen etc. hebben zelf ook subschermen die we niet hebben gefotografeerd)
+7.3 Taal en 7.4 Datum en tijd zijn leeg (geen foto's van de inhoud)
+7.9 Systeemaansturing – we zagen Contrast display, Webserver, DHCP, IP-adres, Afstandsbeheer, Connectiviteit maar de inhoud per item ontbreekt
+Tapwater2 ontbreekt in Systeeminstelling (we zagen Tapwater1, 3, 4, 5)
+
+Einde document

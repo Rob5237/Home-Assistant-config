@@ -1,0 +1,8 @@
+- id: scene_alle_apparaten_uit
+  name: Alles uit
+  entities:
+    light.woonkamer: false
+    light.keuken: false
+    switch.ratio_solar_charger: false
+    switch.ratio_charger: false
+    switch.mechanische_ventilatie: false

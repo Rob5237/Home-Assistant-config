@@ -1,0 +1,93 @@
+# templates/elektriciteit_verbruik.yaml
+- sensor:
+
+  # ⭐ BLOK 1: Elektriciteit prijs terugwerkend
+  - name: "Electriciteit prijs terugwerkend"
+    unique_id: "electriciteit_prijs_terugwerkend"
+    unit_of_measurement: "€/kWh"
+    state: >
+      {% set start = as_datetime("2025-02-05T00:00:00") %}
+      {% if now() >= start %}
+        0.2554
+      {% else %}
+        0
+      {% endif %}
+
+  # ⭐ BLOK 2: Huisverbruik totaal in kWh
+  - name: "Huisverbruik totaal kWh"
+    unique_id: "huisverbruik_totaal_kwh"
+    unit_of_measurement: "kWh"
+    state_class: measurement
+    device_class: energy
+    state: >
+      {{ states('sensor.p1_meter_energy_import') | float(0) | round(2) }}
+
+  # ⭐ BLOK 3: Teruglevering totaal in kWh
+  - name: "Teruglevering totaal kWh"
+    unique_id: "teruglevering_totaal_kwh"
+    unit_of_measurement: "kWh"
+    state_class: measurement
+    device_class: energy
+    state: >
+      {{ states('sensor.p1_meter_energy_export') | float(0) | round(2) }}
+
+  # ⭐ BLOK 4: Netto verbruik / zelfverbruik
+  - name: "Netto elektriciteitsverbruik kWh"
+    unique_id: "netto_verbruik_kwh"
+    unit_of_measurement: "kWh"
+    state_class: measurement
+    device_class: energy
+    state: >
+      {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
+      {% set teruglevering = states('sensor.p1_meter_energy_export') | float(0) %}
+      {% set netto = verbruik - teruglevering %}
+      {{ netto | round(2) }}
+
+  # ⭐ BLOK 5: Zelfverbruik indicatie (verbruik min productie zonnepanelen)
+  - name: "Zelfverbruik kWh"
+    unique_id: "zelfverbruik_kwh"
+    unit_of_measurement: "kWh"
+    state_class: measurement
+    device_class: energy
+    state: >
+      {% set productie = states('sensor.zonnepanelen_teruglevering') | float(0) %}
+      {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
+      {% set netto = verbruik - productie %}
+      {{ netto | round(2) }}
+
+  # ⭐ BLOK 6: Kosten huisverbruik in €
+  - name: "Huisverbruik Kosten €"
+    unique_id: "huisverbruik_kosten_euro"
+    unit_of_measurement: "€"
+    state_class: measurement
+    state: >
+      {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
+      {% set prijs = 0.14 %}
+      {{ (verbruik * prijs) | round(2) }}
+
+  # ⭐ BLOK 7: Teruglevering waarde in €
+  - name: "Teruglevering waarde €"
+    unique_id: "teruglevering_waarde_euro"
+    unit_of_measurement: "€"
+    state_class: measurement
+    state: >
+      {% set terug = states('sensor.p1_meter_energy_export') | float(0) %}
+      {% set terugprijs = 0.09 %}
+      {{ (terug * terugprijs) | round(2) }}
+
+  # ⭐ Export laatste 365 dagen (gemigreerd van legacy platform: template)
+  - name: "Export laatste 365 dagen"
+    unique_id: "export_365dagen"
+    unit_of_measurement: "kWh"
+    state: "{{ state_attr('sensor.export_yearly_energy', 'last_period') | float(0) }}"
+
+  # ⭐ BLOK 8: Netto kosten (verbruik - teruglevering)
+  - name: "Netto elektriciteitskosten €"
+    unique_id: "netto_kosten_euro"
+    unit_of_measurement: "€"
+    state_class: measurement
+    state: >
+      {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
+      {% set terug = states('sensor.p1_meter_energy_export') | float(0) %}
+      {% set kosten = (verbruik * 0.14) - (terug * 0.09) %}
+      {{ kosten | round(2) }}

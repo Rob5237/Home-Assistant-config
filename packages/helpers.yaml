@@ -1,0 +1,54 @@
+# ⚙️ helpers voor dashboard & automatiseringen
+input_boolean:
+  ficus_watered:
+    name: "Ficus water gegeven"
+    initial: false
+  monstera_watered:
+    name: "Monstera water gegeven"
+    initial: false
+
+input_select:
+  ficus_location:
+    name: "Ficus werkelijke locatie"
+    options:
+      - Noord
+      - Oost
+      - Zuid
+      - West
+      - Geen direct zonlicht
+    initial: "Zuid"
+  monstera_location:
+    name: "Monstera werkelijke locatie"
+    options:
+      - Noord
+      - Oost
+      - Zuid
+      - West
+      - Geen direct zonlicht
+    initial: "West"
+
+input_number:
+  ficus_height:
+    name: "Ficus hoogte (cm)"
+    initial: 120
+    min: 10
+    max: 300
+    step: 1
+  ficus_pot_diameter:
+    name: "Ficus potdiameter (cm)"
+    initial: 25
+    min: 5
+    max: 100
+    step: 1
+  monstera_height:
+    name: "Monstera hoogte (cm)"
+    initial: 90
+    min: 10
+    max: 300
+    step: 1
+  monstera_pot_diameter:
+    name: "Monstera potdiameter (cm)"
+    initial: 20
+    min: 5
+    max: 100
+    step: 1
