@@ -1,3 +1,2 @@
 shell_command:
   tdi_legionella_solar: "python3 /config/packages/luxtronik/tdi_klokprogramma.py 9 30 16 0"
-  tdi_legionella_solar_koud: "python3 /config/packages/luxtronik/tdi_klokprogramma.py 12 0 16 0"

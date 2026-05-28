@@ -89,9 +89,246 @@ views:
               yellow: 5000
               red: 8000
 
-# ==============================
-# Plantensysteem Dashboard met kleurgecodeerd wateradvies
-# ==============================
+  # ==============================
+  # Laadpalen
+  # ==============================
+  - title: Laadpalen
+    path: laadpalen
+    icon: mdi:ev-station
+    cards:
+
+      # ==============================
+      # Laadpaal 1 — Solar Charger
+      # ==============================
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Laadpaal 1 — Zonnestroom
+            entities:
+              - entity: switch.ratio_solar_charger
+                name: Laden actief
+              - entity: switch.solarcharger_ratio_solar_charger_sun_trigger
+                name: Zon-trigger
+              - entity: switch.solarcharger_ratio_solar_charger_plugin_trigger
+                name: Insteken-trigger
+              - entity: switch.solarcharger_ratio_solar_charger_schedule_charge
+                name: Gepland laden
+              - entity: switch.solarcharger_ratio_solar_charger_fast_charge_mode
+                name: Snelladen
+              - entity: sensor.solarcharger_ratio_solar_charger_charge_status
+                name: Laadstatus
+              - entity: sensor.solarcharger_ratio_solar_charger_charge_power
+                name: Laadvermogen (W)
+              - entity: sensor.solarcharger_ratio_solar_charger_charge_energy
+                name: Geladen energie (kWh)
+              - entity: datetime.solarcharger_ratio_solar_charger_next_charge_time
+                name: Volgende laadtijd
+
+      # ==============================
+      # Laadpaal 2 — Direct Charger
+      # ==============================
+      - type: vertical-stack
+        cards:
+          - type: entities
+            title: Laadpaal 2 — Direct
+            entities:
+              - entity: switch.ratio_charger
+                name: Laden actief
+              - entity: switch.solarcharger_ratio_charger_sun_trigger
+                name: Zon-trigger
+              - entity: switch.solarcharger_ratio_charger_plugin_trigger
+                name: Insteken-trigger
+              - entity: switch.solarcharger_ratio_charger_schedule_charge
+                name: Gepland laden
+              - entity: switch.solarcharger_ratio_charger_fast_charge_mode
+                name: Snelladen
+              - entity: sensor.solarcharger_ratio_charger_charge_status
+                name: Laadstatus
+              - entity: sensor.solarcharger_ratio_charger_charge_power
+                name: Laadvermogen (W)
+              - entity: sensor.solarcharger_ratio_charger_charge_energy
+                name: Geladen energie (kWh)
+              - entity: datetime.solarcharger_ratio_charger_next_charge_time
+                name: Volgende laadtijd
+
+      # ==============================
+      # OCPP Server
+      # ==============================
+      - type: entities
+        title: OCPP Central System
+        entities:
+          - entity: sensor.central_status
+            name: Server Status
+          - entity: sensor.central_charge_point_count
+            name: Verbonden laadpalen
+          - entity: update.open_charge_point_protocol_ocpp_update
+            name: OCPP versie
+
+      # ==============================
+      # Stroom per fase (laden bewaken)
+      # ==============================
+      - type: entities
+        title: Netaansluiting per Fase
+        entities:
+          - entity: sensor.p1_meter_power
+            name: Totaal Netverbruik (W)
+          - entity: sensor.p1_meter_power_phase_1
+            name: Vermogen Fase 1 (W)
+          - entity: sensor.p1_meter_power_phase_2
+            name: Vermogen Fase 2 (W)
+          - entity: sensor.p1_meter_power_phase_3
+            name: Vermogen Fase 3 (W)
+          - entity: sensor.p1_meter_current_phase_1
+            name: Stroom Fase 1 (A)
+          - entity: sensor.p1_meter_current_phase_2
+            name: Stroom Fase 2 (A)
+          - entity: sensor.p1_meter_current_phase_3
+            name: Stroom Fase 3 (A)
+
+      # ==============================
+      # Zon & Tarieven (slim laden)
+      # ==============================
+      - type: entities
+        title: Zonne-overschot & Tarieven
+        entities:
+          - entity: sensor.envoy_122331077486_current_power_production
+            name: Zonne-productie (W)
+          - entity: sensor.zonneplan_current_electricity_tariff
+            name: Huidig Tarief (€/kWh)
+          - entity: sensor.zonneplan_current_tariff_group
+            name: Tariefgroep
+          - entity: sensor.zonneplan_forcast_tariff_1
+            name: Verwacht Tarief +1u
+          - entity: sensor.zonneplan_forcast_tariff_2
+            name: Verwacht Tarief +2u
+          - entity: sensor.zonneplan_forcast_tariff_3
+            name: Verwacht Tarief +3u
+
+  # ==============================
+  # Zonne-energie Voorspelling
+  # ==============================
+  - title: Zonne-energie
+    path: zonne-energie
+    icon: mdi:solar-power-variant
+    cards:
+
+      # Opbrengst vandaag: verwacht vs actueel
+      - type: vertical-stack
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: gauge
+                title: Verwacht vandaag
+                entity: sensor.energy_production_today
+                unit: kWh
+                min: 0
+                max: 40
+                severity:
+                  green: 20
+                  yellow: 10
+                  red: 0
+              - type: gauge
+                title: Actueel vandaag
+                entity: sensor.envoy_122331077486_energy_production_today
+                unit: kWh
+                min: 0
+                max: 40
+                severity:
+                  green: 20
+                  yellow: 10
+                  red: 0
+              - type: gauge
+                title: Verwacht morgen
+                entity: sensor.energy_production_tomorrow
+                unit: kWh
+                min: 0
+                max: 40
+                severity:
+                  green: 20
+                  yellow: 10
+                  red: 0
+
+          - type: entities
+            title: Opbrengst Vandaag & Morgen
+            entities:
+              - entity: sensor.energy_production_today
+                name: Verwacht vandaag (kWh)
+                icon: mdi:weather-sunny
+              - entity: sensor.energy_production_today_remaining
+                name: Resterende verwachting (kWh)
+                icon: mdi:weather-partly-cloudy
+              - entity: sensor.envoy_122331077486_energy_production_today
+                name: Actueel vandaag (kWh)
+                icon: mdi:solar-power
+              - entity: sensor.energy_production_tomorrow
+                name: Verwacht morgen (kWh)
+                icon: mdi:weather-sunny-alert
+              - entity: sensor.envoy_122331077486_energy_production_last_seven_days
+                name: Afgelopen 7 dagen (kWh)
+                icon: mdi:calendar-week
+
+      # Vermogensvoorspelling
+      - type: entities
+        title: Vermogensvoorspelling
+        entities:
+          - entity: sensor.envoy_122331077486_current_power_production
+            name: Actueel vermogen (W)
+            icon: mdi:flash
+          - entity: sensor.power_production_now
+            name: Verwacht nu (W)
+            icon: mdi:weather-sunny
+          - entity: sensor.power_production_next_hour
+            name: Verwacht komend uur (W)
+            icon: mdi:clock-time-one
+          - entity: sensor.power_production_next_12hours
+            name: Verwacht komende 12u (Wh)
+            icon: mdi:clock-time-twelve
+          - entity: sensor.power_production_next_24hours
+            name: Verwacht komende 24u (Wh)
+            icon: mdi:hours-24
+
+      # Grafiek: actueel vermogen afgelopen 24 uur
+      - type: statistics-graph
+        title: Productievermogen afgelopen 24 uur (W)
+        entities:
+          - entity: sensor.envoy_122331077486_current_power_production
+            name: Actuele productie
+        days_to_show: 1
+        period:
+          calendar:
+            period: hour
+        stat_types:
+          - mean
+        chart_type: line
+
+      # Grafiek: dagelijkse opbrengst afgelopen 30 dagen
+      - type: statistics-graph
+        title: Dagelijkse opbrengst afgelopen 30 dagen (kWh)
+        entities:
+          - entity: sensor.envoy_122331077486_lifetime_energy_production
+            name: Zonne-opbrengst
+        days_to_show: 30
+        period:
+          calendar:
+            period: day
+        stat_types:
+          - change
+        chart_type: bar
+
+      # Grafiek: maandelijkse opbrengst afgelopen jaar
+      - type: statistics-graph
+        title: Maandelijkse opbrengst afgelopen jaar (kWh)
+        entities:
+          - entity: sensor.envoy_122331077486_lifetime_energy_production
+            name: Zonne-opbrengst
+        days_to_show: 365
+        period:
+          calendar:
+            period: month
+        stat_types:
+          - change
+        chart_type: bar
+
   - title: Planten
     path: planten
     icon: mdi:leaf

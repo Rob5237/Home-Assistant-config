@@ -1,17 +1,12 @@
 # templates/elektriciteit_verbruik.yaml
 - sensor:
 
-  # ⭐ BLOK 1: Elektriciteit prijs terugwerkend
+  # ⭐ BLOK 1: Elektriciteit prijs (via input_number.verbruiksprijs_kwh)
   - name: "Electriciteit prijs terugwerkend"
     unique_id: "electriciteit_prijs_terugwerkend"
     unit_of_measurement: "€/kWh"
     state: >
-      {% set start = as_datetime("2025-02-05T00:00:00") %}
-      {% if now() >= start %}
-        0.2554
-      {% else %}
-        0
-      {% endif %}
+      {{ states('input_number.verbruiksprijs_kwh') | float(0.2554) }}
 
   # ⭐ BLOK 2: Huisverbruik totaal in kWh
   - name: "Huisverbruik totaal kWh"
@@ -43,17 +38,17 @@
       {% set netto = verbruik - teruglevering %}
       {{ netto | round(2) }}
 
-  # ⭐ BLOK 5: Zelfverbruik indicatie (verbruik min productie zonnepanelen)
+  # ⭐ BLOK 5: Zelfverbruik (productie − teruglevering aan net)
+  # Controleer of sensor.envoy_122331077486_lifetime_energy_production bestaat in Developer Tools → States
   - name: "Zelfverbruik kWh"
     unique_id: "zelfverbruik_kwh"
     unit_of_measurement: "kWh"
     state_class: measurement
     device_class: energy
     state: >
-      {% set productie = states('sensor.zonnepanelen_teruglevering') | float(0) %}
-      {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
-      {% set netto = verbruik - productie %}
-      {{ netto | round(2) }}
+      {% set productie = states('sensor.envoy_122331077486_lifetime_energy_production') | float(0) %}
+      {% set teruglevering = states('sensor.p1_meter_energy_export') | float(0) %}
+      {{ [productie - teruglevering, 0] | max | round(2) }}
 
   # ⭐ BLOK 6: Kosten huisverbruik in €
   - name: "Huisverbruik Kosten €"
@@ -62,7 +57,7 @@
     state_class: measurement
     state: >
       {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
-      {% set prijs = 0.14 %}
+      {% set prijs = states('input_number.verbruiksprijs_kwh') | float(0.2554) %}
       {{ (verbruik * prijs) | round(2) }}
 
   # ⭐ BLOK 7: Teruglevering waarde in €
@@ -72,14 +67,27 @@
     state_class: measurement
     state: >
       {% set terug = states('sensor.p1_meter_energy_export') | float(0) %}
-      {% set terugprijs = 0.09 %}
+      {% set terugprijs = states('input_number.terugleverprijs_kwh') | float(0.09) %}
       {{ (terug * terugprijs) | round(2) }}
 
   # ⭐ Export laatste 365 dagen (gemigreerd van legacy platform: template)
   - name: "Export laatste 365 dagen"
     unique_id: "export_365dagen"
     unit_of_measurement: "kWh"
-    state: "{{ state_attr('sensor.export_yearly_energy', 'last_period') | float(0) }}"
+    state: "{{ state_attr('sensor.solar_yearly', 'last_period') | float(0) }}"
+
+  # ⭐ BLOK 9: Actueel huisverbruik in Watt
+  # p1_meter_power: positief = afname net, negatief = teruglevering
+  # Huisverbruik = netafname + zonneopwekking
+  - name: "Huisverbruik vermogen"
+    unique_id: "huisverbruik_vermogen_watt"
+    unit_of_measurement: "W"
+    state_class: measurement
+    device_class: power
+    state: >
+      {% set net = states('sensor.p1_meter_power') | float(0) %}
+      {% set zon = states('sensor.envoy_122331077486_current_power_production') | float(0) %}
+      {{ [net + zon, 0] | max | round(0) | int }}
 
   # ⭐ BLOK 8: Netto kosten (verbruik - teruglevering)
   - name: "Netto elektriciteitskosten €"
@@ -89,5 +97,6 @@
     state: >
       {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
       {% set terug = states('sensor.p1_meter_energy_export') | float(0) %}
-      {% set kosten = (verbruik * 0.14) - (terug * 0.09) %}
-      {{ kosten | round(2) }}
+      {% set prijs = states('input_number.verbruiksprijs_kwh') | float(0.2554) %}
+      {% set terugprijs = states('input_number.terugleverprijs_kwh') | float(0.09) %}
+      {{ ((verbruik * prijs) - (terug * terugprijs)) | round(2) }}

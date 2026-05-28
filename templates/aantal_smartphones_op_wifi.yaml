@@ -2,8 +2,8 @@
     - name: "Aantal Smartphones"
       unique_id: aantal_smartphones
       state: >
-        {% set oui_list = ['A4:C1:38', 'B8:27:EB', 'F0:99:B6', 'F0:39'] %}
-        {% set oui_list = ['F0:39:65:14:6D:C9'] %}        
+        {% set oui_list = ['F0:39:65:14:6D:C9'] %}
+
         {% set online = states.device_tracker
            | selectattr('state','equalto','home') | list %}
         {% set phones = online
