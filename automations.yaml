@@ -1,14 +1,3 @@
-- id: enphase_snelle_polling
-  alias: Enphase productie elke 5 seconden verversen
-  triggers:
-  - platform: time_pattern
-    seconds: /5
-  actions:
-  - service: homeassistant.update_entity
-    target:
-      entity_id: sensor.envoy_122331077486_current_power_production
-  mode: single
-  max_exceeded: silent
 - id: 07ea0d9b5b9145db88c0ebdaec3cd174
   alias: Waarschuwing bij herinstallatie
   triggers:
@@ -26,126 +15,231 @@
   mode: single
 - id: '1778941827789'
   alias: Warmwater bij Zonne-overschot
-  description: Verwarm boiler met elektrisch element bij teruglevering >= 2000W
+  description: Verwarm boiler met elektrisch element bij teruglevering >= 2000W. Zonne-energie
+    is altijd gratis, dus geen tariefblokkering.
   triggers:
-  - entity_id: sensor.p1_meter_power
+  - entity_id:
+    - sensor.p1_meter_power
     below: -2000
     for:
-      minutes: 1
+      hours: 0
+      minutes: 5
+      seconds: 0
     trigger: numeric_state
   conditions:
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 61
+    below: 52
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
     data:
-      option: Second heatsource
+      option: Automatic
     action: select.select_option
   - target:
       entity_id: water_heater.luxtronik_280807_0450_domestic_water
     data:
-      temperature: 65
+      temperature: 57
     action: water_heater.set_temperature
   mode: single
 - id: tdi_legionella_solar_overschot
-  alias: Legionella TDI bij zonne-overschot
-  description: >
-    TDI starten bij >= 2000W zonne-overschot. Klokprogramma 09:30-16:00 (buiten
-    >= 15°C) of 12:00-16:00 (buiten < 15°C, woning eerst opwarmen).
+  alias: Legionella TDI bij laagste tarief overdag
+  description: 'Elk heel uur overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
+    resterende uur is op basis van Zonneplan tarieven. Klokprogramma 09:30-16:00
+    (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).'
   triggers:
-  - entity_id: sensor.p1_meter_power
-    below: -2000
-    for:
-      minutes: 2
-    trigger: numeric_state
+  - trigger: time_pattern
+    minutes: '0'
   actions:
   - choose:
     - conditions:
-      - condition: numeric_state
-        entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
-        below: 15
+      - condition: state
+        entity_id: sun.sun
+        state: above_horizon
+      - condition: time
+        after: '09:00:00'
+        before: '16:00:00'
+      - condition: template
+        value_template: >
+          {% set last = state_attr('automation.legionella_tdi_bij_laagste_tarief_overdag',
+            'last_triggered') %}
+          {{ last is none or (now() - as_datetime(last)).days >= 7 }}
+      - condition: template
+        value_template: >
+          {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff',
+            'forecast') %}
+          {% if forecast %}
+            {% set ns = namespace(min_price=none, min_hour=none) %}
+            {% for h in forecast %}
+              {% set dt = as_datetime(h.datetime) | as_local %}
+              {% if dt.date() == now().date() and now().hour <= dt.hour < 16 %}
+                {% if ns.min_price is none or h.electricity_price < ns.min_price %}
+                  {% set ns.min_price = h.electricity_price %}
+                  {% set ns.min_hour = dt.hour %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.min_hour is not none and now().hour == ns.min_hour }}
+          {% else %}
+            false
+          {% endif %}
       sequence:
-      - action: shell_command.tdi_legionella_solar_koud
-    default:
-    - action: shell_command.tdi_legionella_solar
-  - target:
-      entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
-    data:
-      option: "{{ now().strftime('%A') }}"
-    action: select.select_option
-  - target:
-      entity_id: select.luxtronik_280807_0450_dhw_mode
-    data:
-      option: Second heatsource
-    action: select.select_option
-  - target:
-      entity_id: switch.luxtronik_280807_0450_heating
-    action: switch.turn_off
-  - choose:
-    - conditions:
-      - condition: numeric_state
-        entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
-        above: 15
-      sequence:
+      - action: shell_command.tdi_legionella_solar
+      - target:
+          entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
+        data:
+          option: '{{ now().strftime(''%A'') }}'
+        action: select.select_option
+      - target:
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+        data:
+          option: Automatic
+        action: select.select_option
       - target:
           entity_id: water_heater.luxtronik_280807_0450_domestic_water
         data:
-          operation_mode: electric
-        action: water_heater.set_operation_mode
+          temperature: 65
+        action: water_heater.set_temperature
+      - target:
+          entity_id: switch.luxtronik_280807_0450_heating
+        action: switch.turn_on
   mode: single
 - id: '1778941860493'
   alias: Warmwater bij Zonne-overschot - Uitschakelen
-  description: >
-    TDI afhandeling bij wegvallen zonne-overschot of TDI voltooid (>=65°C).
-    Als zonne-overschot stopt maar TDI nog niet klaar is: laat Luxtronik TDI
-    afmaken op heat_pump. Volledig herstellen zodra TDI klaar is (>=65°C).
+  description: Reset naar normale stand zodra TDI klaar is (>=65°C).
   triggers:
-  - id: solar_stopt
-    entity_id: sensor.p1_meter_power
-    above: -1500
-    for:
-      minutes: 1
-    trigger: numeric_state
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 65
     trigger: numeric_state
   actions:
-  - choose:
-    - conditions:
-      - condition: trigger
-        id: solar_stopt
-      - condition: numeric_state
-        entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-        below: 65
-      sequence:
-      - target:
-          entity_id: water_heater.luxtronik_280807_0450_domestic_water
-        data:
-          operation_mode: heat_pump
-        action: water_heater.set_operation_mode
-      - target:
-          entity_id: switch.luxtronik_280807_0450_heating
-        action: switch.turn_on
-    default:
-    - target:
-        entity_id: select.luxtronik_280807_0450_dhw_mode
-      data:
-        option: Automatic
-      action: select.select_option
-    - target:
-        entity_id: water_heater.luxtronik_280807_0450_domestic_water
-      data:
-        temperature: 61
-      action: water_heater.set_temperature
-    - target:
-        entity_id: water_heater.luxtronik_280807_0450_domestic_water
-      data:
-        operation_mode: heat_pump
-      action: water_heater.set_operation_mode
-    - target:
-        entity_id: switch.luxtronik_280807_0450_heating
-      action: switch.turn_on
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Automatic
+    action: select.select_option
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      temperature: 43
+    action: water_heater.set_temperature
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      operation_mode: heat_pump
+    action: water_heater.set_operation_mode
+  mode: single
+- id: tapwater_bijverwarmen
+  alias: Tapwater bijverwarmen bij lage temperatuur
+  description: >
+    Verwarm tapwater naar 57°C als het onder 47°C zakt. Blokkeert bij hoog tarief
+    (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 41°C).
+  triggers:
+  - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 47
+    for:
+      minutes: 5
+    trigger: numeric_state
+  conditions:
+  - condition: or
+    conditions:
+    - condition: numeric_state
+      entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+      below: 41
+    - condition: template
+      value_template: >
+        {% set tarief = states('sensor.zonneplan_current_electricity_tariff') | float(0.30) %}
+        {% set drempel = states('input_number.tapwater_tarief_drempel') | float(0.25) %}
+        {{ tarief <= drempel }}
+  actions:
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Automatic
+    action: select.select_option
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      temperature: 57
+    action: water_heater.set_temperature
+  mode: single
+
+- id: tapwater_reset_na_bijverwarmen
+  alias: Tapwater reset naar normaalstand na bijverwarmen
+  description: >
+    Zet setpoint terug naar 43°C zodra tapwater 55°C bereikt. Niet tijdens TDI
+    (setpoint 65°C) en niet bij actief zonne-overschot (dan blijven doorladen).
+  triggers:
+  - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    above: 55
+    trigger: numeric_state
+  conditions:
+  - condition: template
+    value_template: >
+      {% set setpoint = state_attr('water_heater.luxtronik_280807_0450_domestic_water',
+        'temperature') | float(0) %}
+      {% set solar = states('sensor.p1_meter_power') | float(0) %}
+      {{ 50 < setpoint < 65 and solar > -2000 }}
+  actions:
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      temperature: 43
+    action: water_heater.set_temperature
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      operation_mode: heat_pump
+    action: water_heater.set_operation_mode
+  mode: single
+
+- id: tapwater_goedkoopste_nachtuur
+  alias: Tapwater verwarmen in goedkoopste nachtuur
+  description: >
+    Elk heel uur tussen 22:00 en 06:00 wordt gecheckt of dit het goedkoopste uur
+    in het nachtvenster is (Zonneplan forecast). Als ja en tapwater < 54°C → opwarmen
+    naar 57°C. Reset volgt via tapwater_reset_na_bijverwarmen.
+  triggers:
+  - trigger: time_pattern
+    minutes: '0'
+  conditions:
+  - condition: template
+    value_template: >
+      {% set hr = now().hour %}
+      {{ hr >= 22 or hr < 6 }}
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 54
+  - condition: template
+    value_template: >
+      {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff',
+        'forecast') %}
+      {% if forecast %}
+        {% set ns = namespace(min_price=none, min_dt=none) %}
+        {% for h in forecast %}
+          {% set dt = as_datetime(h.datetime) | as_local %}
+          {% set hr = dt.hour %}
+          {% if (hr >= 22 or hr < 6) and dt >= now() %}
+            {% if ns.min_price is none or h.electricity_price < ns.min_price %}
+              {% set ns.min_price = h.electricity_price %}
+              {% set ns.min_dt = dt %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.min_dt is not none and now().hour == ns.min_dt.hour
+           and now().date() == ns.min_dt.date() }}
+      {% else %}
+        false
+      {% endif %}
+  actions:
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Automatic
+    action: select.select_option
+  - target:
+      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+    data:
+      temperature: 57
+    action: water_heater.set_temperature
   mode: single

@@ -28,6 +28,33 @@ input_select:
     initial: "West"
 
 input_number:
+  tapwater_tarief_drempel:
+    name: "Tapwater max. tarief bijverwarmen (€/kWh)"
+    initial: 0.25
+    min: 0.00
+    max: 1.00
+    step: 0.01
+    unit_of_measurement: "€/kWh"
+    icon: mdi:thermometer-water
+
+  verbruiksprijs_kwh:
+    name: "Verbruiksprijs elektriciteit (€/kWh)"
+    initial: 0.2554
+    min: 0
+    max: 2
+    step: 0.0001
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+
+  terugleverprijs_kwh:
+    name: "Terugleverprijs elektriciteit (€/kWh)"
+    initial: 0.09
+    min: 0
+    max: 2
+    step: 0.0001
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+
   ficus_height:
     name: "Ficus hoogte (cm)"
     initial: 120
