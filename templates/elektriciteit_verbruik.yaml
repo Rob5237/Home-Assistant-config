@@ -12,7 +12,7 @@
   - name: "Huisverbruik totaal kWh"
     unique_id: "huisverbruik_totaal_kwh"
     unit_of_measurement: "kWh"
-    state_class: measurement
+    state_class: total_increasing
     device_class: energy
     state: >
       {{ states('sensor.p1_meter_energy_import') | float(0) | round(2) }}
@@ -21,7 +21,7 @@
   - name: "Teruglevering totaal kWh"
     unique_id: "teruglevering_totaal_kwh"
     unit_of_measurement: "kWh"
-    state_class: measurement
+    state_class: total_increasing
     device_class: energy
     state: >
       {{ states('sensor.p1_meter_energy_export') | float(0) | round(2) }}
@@ -30,7 +30,6 @@
   - name: "Netto elektriciteitsverbruik kWh"
     unique_id: "netto_verbruik_kwh"
     unit_of_measurement: "kWh"
-    state_class: measurement
     device_class: energy
     state: >
       {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
@@ -39,11 +38,10 @@
       {{ netto | round(2) }}
 
   # ⭐ BLOK 5: Zelfverbruik (productie − teruglevering aan net)
-  # Controleer of sensor.envoy_122331077486_lifetime_energy_production bestaat in Developer Tools → States
   - name: "Zelfverbruik kWh"
     unique_id: "zelfverbruik_kwh"
     unit_of_measurement: "kWh"
-    state_class: measurement
+    state_class: total_increasing
     device_class: energy
     state: >
       {% set productie = states('sensor.envoy_122331077486_lifetime_energy_production') | float(0) %}

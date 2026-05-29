@@ -106,7 +106,8 @@
   mode: single
 - id: '1778941860493'
   alias: Warmwater bij Zonne-overschot - Uitschakelen
-  description: Reset naar normale stand zodra TDI klaar is (>=65°C).
+  description: Reset naar normale stand zodra TDI klaar is (>=65°C). Zet ook verwarmingsswitch
+    terug uit zodat de controller niet onnodig ruimteverwarming probeert te draaien.
   triggers:
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
@@ -124,10 +125,8 @@
       temperature: 43
     action: water_heater.set_temperature
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
-    data:
-      operation_mode: heat_pump
-    action: water_heater.set_operation_mode
+      entity_id: switch.luxtronik_280807_0450_heating
+    action: switch.turn_off
   mode: single
 - id: tapwater_bijverwarmen
   alias: Tapwater bijverwarmen bij lage temperatuur
@@ -167,11 +166,12 @@
 - id: tapwater_reset_na_bijverwarmen
   alias: Tapwater reset naar normaalstand na bijverwarmen
   description: >
-    Zet setpoint terug naar 43°C zodra tapwater 55°C bereikt. Niet tijdens TDI
-    (setpoint 65°C) en niet bij actief zonne-overschot (dan blijven doorladen).
+    Zet setpoint terug naar 43°C zodra tapwater 57°C bereikt (setpoint bereikt).
+    Niet tijdens TDI (setpoint 65°C) en niet bij actief zonne-overschot (dan
+    blijven doorladen).
   triggers:
   - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    above: 55
+    above: 57
     trigger: numeric_state
   conditions:
   - condition: template
@@ -186,11 +186,6 @@
     data:
       temperature: 43
     action: water_heater.set_temperature
-  - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
-    data:
-      operation_mode: heat_pump
-    action: water_heater.set_operation_mode
   mode: single
 
 - id: tapwater_goedkoopste_nachtuur

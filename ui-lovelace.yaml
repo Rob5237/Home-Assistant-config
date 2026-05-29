@@ -38,16 +38,14 @@ views:
         title: Warmtepomp Modbus
         cards:
           - type: entities
-            title: Temperatuur & Verbinding
+            title: Temperatuur
             entities:
-              - entity: sensor.luxtronik_aanvoertemperatuur
+              - entity: sensor.luxtronik_280807_0450_flow_in_temperature
                 name: Aanvoertemperatuur
-              - entity: sensor.luxtronik_data
-                name: Luxtronik Verbinding
 
           - type: gauge
             title: Warmtepomp Aanvoer
-            entity: sensor.luxtronik_aanvoertemperatuur
+            entity: sensor.luxtronik_280807_0450_flow_in_temperature
             min: 20
             max: 60
             severity:
@@ -329,36 +327,4 @@ views:
           - change
         chart_type: bar
 
-  - title: Planten
-    path: planten
-    icon: mdi:leaf
-    cards:
-      - type: entities
-        title: Ficus
-        entities:
-          - entity: sensor.ficus_wateradvies
-            name: Wateradvies (ml)
-            # ⚡ kleurcodering afhankelijk van hoeveelheid
-            state_color: true
-            attributes:
-              unit_of_measurement: "ml"
-
-          - input_boolean.ficus_watered
-          - input_number.ficus_height
-          - input_number.ficus_pot_diameter
-          - input_select.ficus_location
-
-      - type: entities
-        title: Monstera
-        entities:
-          - entity: sensor.monstera_wateradvies
-            name: Wateradvies (ml)
-            state_color: true
-            attributes:
-              unit_of_measurement: "ml"
-
-          - input_boolean.monstera_watered
-          - input_number.monstera_height
-          - input_number.monstera_pot_diameter
-          - input_select.monstera_location
 

@@ -2,7 +2,6 @@
     - name: "CPU gebruik"
       unique_id: system_monitor_cpu
       unit_of_measurement: "%"
-      device_class: power_factor
       state: "{{ states('sensor.system_monitor_processor_use') }}"
 
     - name: "Geheugengebruik"
