@@ -1,0 +1,174 @@
+# templates/warmtepomp.yaml
+- sensor:
+
+  - name: "Warmtepomp COP Verwarming"
+    unique_id: "warmtepomp_cop_verwarming"
+    unit_of_measurement: ""
+    state_class: measurement
+    icon: mdi:heat-pump
+    state: >
+      {% set warmte = states('sensor.luxtronik_280807_0450_heat_amount_heating') | float(0) %}
+      {% set input = states('sensor.luxtronik_280807_0450_heat_energy_input') | float(0) %}
+      {% if input > 0 %}
+        {{ (warmte / input) | round(2) }}
+      {% else %}
+        {{ 'unavailable' }}
+      {% endif %}
+    attributes:
+      buitentemperatuur: >
+        {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(None) }}
+
+  - name: "Warmtepomp COP Tapwater"
+    unique_id: "warmtepomp_cop_tapwater"
+    unit_of_measurement: ""
+    state_class: measurement
+    icon: mdi:water-boiler
+    state: >
+      {% set warmte = states('sensor.luxtronik_280807_0450_dhw_heat_amount') | float(0) %}
+      {% set input = states('sensor.luxtronik_280807_0450_dhw_energy_input') | float(0) %}
+      {% if input > 0 %}
+        {{ (warmte / input) | round(2) }}
+      {% else %}
+        {{ 'unavailable' }}
+      {% endif %}
+    attributes:
+      buitentemperatuur: >
+        {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(None) }}
+
+  - name: "Warmtepomp COP Totaal"
+    unique_id: "warmtepomp_cop_totaal"
+    unit_of_measurement: ""
+    state_class: measurement
+    icon: mdi:heat-pump-outline
+    state: >
+      {% set warmte_v = states('sensor.luxtronik_280807_0450_heat_amount_heating') | float(0) %}
+      {% set warmte_t = states('sensor.luxtronik_280807_0450_dhw_heat_amount') | float(0) %}
+      {% set input_v = states('sensor.luxtronik_280807_0450_heat_energy_input') | float(0) %}
+      {% set input_t = states('sensor.luxtronik_280807_0450_dhw_energy_input') | float(0) %}
+      {% set totaal_input = input_v + input_t %}
+      {% if totaal_input > 0 %}
+        {{ ((warmte_v + warmte_t) / totaal_input) | round(2) }}
+      {% else %}
+        {{ 'unavailable' }}
+      {% endif %}
+    attributes:
+      buitentemperatuur: >
+        {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(None) }}
+
+  - name: "Warmtepomp COP Geschat"
+    unique_id: "warmtepomp_cop_geschat"
+    unit_of_measurement: ""
+    state_class: measurement
+    icon: mdi:heat-pump
+    state: >
+      {% set t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(none) %}
+      {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(none) %}
+      {% if t is not none and t_aanvoer is not none and (t_aanvoer - t) >= 10 %}
+        {% set lift = t_aanvoer - t %}
+        {{ [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min | round(2) }}
+      {% else %}
+        {{ 'unavailable' }}
+      {% endif %}
+    attributes:
+      buitentemperatuur: >
+        {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(None) }}
+      aanvoertemperatuur: >
+        {{ states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(None) }}
+
+- trigger:
+    - platform: time_pattern
+      hours: "/1"
+    - platform: homeassistant
+      event: start
+  action:
+    - action: weather.get_forecasts
+      target:
+        entity_id: weather.thuis
+      data:
+        type: hourly
+      response_variable: weer_forecast
+  sensor:
+    - name: "Warmtepomp Optimaal Startuur"
+      unique_id: "warmtepomp_optimaal_startuur"
+      icon: mdi:clock-start
+      state: >
+        {% set weer = weer_forecast['weather.thuis'].forecast %}
+        {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+        {% if weer and prijzen %}
+          {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+          {% set ns = namespace(beste_uur=none, laagste_kosten=999) %}
+          {% for p in prijzen %}
+            {% set p_dt = as_datetime(p.datetime) | as_local %}
+            {% if p_dt >= now() %}
+              {% for w in weer %}
+                {% set w_dt = as_datetime(w.datetime) | as_local %}
+                {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
+                  {% set t = w.temperature | float(10) %}
+                  {% set lift = [1, t_aanvoer - t] | max %}
+                  {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
+                  {% set kosten = (p.electricity_price | float(30000)) / 100000 / cop %}
+                  {% if kosten < ns.laagste_kosten %}
+                    {% set ns.laagste_kosten = kosten %}
+                    {% set ns.beste_uur = p_dt %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.beste_uur.strftime('%H:%M') if ns.beste_uur else 'onbekend' }}
+        {% else %}
+          onbekend
+        {% endif %}
+      attributes:
+        kosten_per_kwh_warmte: >
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+            {% set ns = namespace(laagste_kosten=999) %}
+            {% for p in prijzen %}
+              {% set p_dt = as_datetime(p.datetime) | as_local %}
+              {% if p_dt >= now() %}
+                {% for w in weer %}
+                  {% set w_dt = as_datetime(w.datetime) | as_local %}
+                  {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
+                    {% set t = w.temperature | float(10) %}
+                    {% set lift = [1, t_aanvoer - t] | max %}
+                    {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
+                    {% set kosten = (p.electricity_price | float(30000)) / 100000 / cop %}
+                    {% if kosten < ns.laagste_kosten %}
+                      {% set ns.laagste_kosten = kosten %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.laagste_kosten | round(4) }}
+          {% else %}
+            {{ none }}
+          {% endif %}
+        uurlijks_overzicht: >
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+            {% set ns = namespace(uren=[]) %}
+            {% for p in prijzen %}
+              {% set p_dt = as_datetime(p.datetime) | as_local %}
+              {% if p_dt >= now() %}
+                {% for w in weer %}
+                  {% set w_dt = as_datetime(w.datetime) | as_local %}
+                  {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
+                    {% set t = w.temperature | float(10) %}
+                    {% set lift = [1, t_aanvoer - t] | max %}
+                    {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
+                    {% set kosten = (p.electricity_price | float(30000)) / 100000 / cop %}
+                    {% set ns.uren = ns.uren + [{'uur': p_dt.strftime('%d-%m %H:%M'), 'temp': t | round(1), 'aanvoer': t_aanvoer | round(1), 'cop': cop | round(2), 'prijs': (p.electricity_price / 100000) | round(4), 'kosten_warmte': kosten | round(4)}] %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.uren }}
+          {% else %}
+            {{ [] }}
+          {% endif %}
