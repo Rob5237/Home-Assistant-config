@@ -147,11 +147,75 @@
           {% else %}
             {{ none }}
           {% endif %}
+        tdi_dagen_geleden: >
+          {% set s = states('input_datetime.tdi_laatste_start') %}
+          {% if s in ('unknown', 'unavailable') %}
+            999
+          {% else %}
+            {{ (now().date() - (as_datetime(s) | as_local).date()).days }}
+          {% endif %}
+        tdi_kandidaat_uur: >
+          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% set s = states('input_datetime.tdi_laatste_start') %}
+          {% set tdi_dagen = (now().date() - (as_datetime(s) | as_local).date()).days if s not in ('unknown', 'unavailable') else 999 %}
+          {% if prijzen %}
+            {% set ns = namespace(eerste_dag=none) %}
+            {% for p in prijzen %}
+              {% set p_dt = as_datetime(p.datetime) | as_local %}
+              {% if p_dt >= now() and 9 <= p_dt.hour < 16 and ns.eerste_dag is none %}
+                {% if tdi_dagen + (p_dt.date() - now().date()).days >= 7 %}
+                  {% set ns.eerste_dag = p_dt.strftime('%Y-%m-%d') %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {% if ns.eerste_dag is not none %}
+              {% set ns2 = namespace(kandidaat_dt=none, kandidaat_prijs=999) %}
+              {% for p in prijzen %}
+                {% set p_dt = as_datetime(p.datetime) | as_local %}
+                {% if p_dt.strftime('%Y-%m-%d') == ns.eerste_dag and 9 <= p_dt.hour < 16 %}
+                  {% if p.electricity_price < ns2.kandidaat_prijs %}
+                    {% set ns2.kandidaat_prijs = p.electricity_price %}
+                    {% set ns2.kandidaat_dt = p_dt %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              {{ ns2.kandidaat_dt.strftime('%d-%m %H:%M') if ns2.kandidaat_dt else 'onbekend' }}
+            {% else %}
+              {{ 'buiten venster (nog ' ~ (7 - tdi_dagen) ~ ' dagen)' }}
+            {% endif %}
+          {% else %}
+            onbekend
+          {% endif %}
         uurlijks_overzicht: >
           {% set weer = weer_forecast['weather.thuis'].forecast %}
           {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
             {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+            {% set s = states('input_datetime.tdi_laatste_start') %}
+            {% set tdi_dagen = (now().date() - (as_datetime(s) | as_local).date()).days if s not in ('unknown', 'unavailable') else 999 %}
+            {% set ns_tdi = namespace(eerste_dag=none) %}
+            {% for p in prijzen %}
+              {% set p_dt = as_datetime(p.datetime) | as_local %}
+              {% if p_dt >= now() and 9 <= p_dt.hour < 16 and ns_tdi.eerste_dag is none %}
+                {% if tdi_dagen + (p_dt.date() - now().date()).days >= 7 %}
+                  {% set ns_tdi.eerste_dag = p_dt.strftime('%Y-%m-%d') %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {% set ns_tdi2 = namespace(kandidaat_uur=-1, kandidaat_dag='') %}
+            {% if ns_tdi.eerste_dag is not none %}
+              {% set ns_best = namespace(prijs=999) %}
+              {% for p in prijzen %}
+                {% set p_dt = as_datetime(p.datetime) | as_local %}
+                {% if p_dt.strftime('%Y-%m-%d') == ns_tdi.eerste_dag and 9 <= p_dt.hour < 16 %}
+                  {% if p.electricity_price < ns_best.prijs %}
+                    {% set ns_best.prijs = p.electricity_price %}
+                    {% set ns_tdi2.kandidaat_uur = p_dt.hour %}
+                    {% set ns_tdi2.kandidaat_dag = p_dt.strftime('%Y-%m-%d') %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
             {% set ns = namespace(uren=[]) %}
             {% for p in prijzen %}
               {% set p_dt = as_datetime(p.datetime) | as_local %}
@@ -163,7 +227,8 @@
                     {% set lift = [1, t_aanvoer - t] | max %}
                     {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
                     {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
-                    {% set ns.uren = ns.uren + [{'uur': p_dt.strftime('%d-%m %H:%M'), 'temp': t | round(1), 'aanvoer': t_aanvoer | round(1), 'cop': cop | round(2), 'prijs': (p.electricity_price / 10000000) | round(4), 'kosten_warmte': kosten | round(4)}] %}
+                    {% set is_tdi = p_dt.strftime('%Y-%m-%d') == ns_tdi2.kandidaat_dag and p_dt.hour == ns_tdi2.kandidaat_uur %}
+                    {% set ns.uren = ns.uren + [{'uur': p_dt.strftime('%d-%m %H:%M'), 'temp': t | round(1), 'aanvoer': t_aanvoer | round(1), 'cop': cop | round(2), 'prijs': (p.electricity_price / 10000000) | round(4), 'kosten_warmte': kosten | round(4), 'tdi_kandidaat': is_tdi}] %}
                   {% endif %}
                 {% endfor %}
               {% endif %}
