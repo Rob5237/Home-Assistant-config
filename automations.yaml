@@ -1,3 +1,43 @@
+- id: warmtepomp_goedkoop_uur_opwarmen
+  alias: "Warmtepomp: extra opwarmen bij goedkoopste uur"
+  description: >
+    Zet heating_target_correction tijdelijk op +0.5°C op het optimale stookuur.
+    Het tijdswindow is groter bij koud weer (meer thermische opslag nodig) en
+    kleiner bij mild weer. Formule: clamp(1u…3u, 1 + 2×(14−t)/24).
+  triggers:
+    - platform: time_pattern
+      minutes: "/1"
+  conditions:
+    - condition: template
+      value_template: >
+        {{ now().strftime('%H:%M') == states('sensor.warmtepomp_optimaal_startuur') }}
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_heating_mode
+          state: "Off"
+  action:
+    - variables:
+        t_buiten: >
+          {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) }}
+        window_min: >
+          {% set t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+          {% set raw = 1 + 2 * (14 - t) / 24 %}
+          {{ [[1, (raw * 2) | round | int * 30] | max, 180] | min }}
+    - service: number.set_value
+      target:
+        entity_id: number.luxtronik_280807_0450_heating_target_correction
+      data:
+        value: 0.5
+    - delay:
+        minutes: "{{ window_min }}"
+    - service: number.set_value
+      target:
+        entity_id: number.luxtronik_280807_0450_heating_target_correction
+      data:
+        value: 0
+  mode: single
+
 - id: 07ea0d9b5b9145db88c0ebdaec3cd174
   alias: Waarschuwing bij herinstallatie
   triggers:

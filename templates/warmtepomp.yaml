@@ -95,7 +95,10 @@
         {% set weer = weer_forecast['weather.thuis'].forecast %}
         {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
         {% if weer and prijzen %}
-          {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+          {% set t_aanvoer_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+          {% set t_aanvoer_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+          {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+          {% set stooklijn_helling = (t_aanvoer_max - t_aanvoer_min) / (t_drempel - (-10)) %}
           {% set ns = namespace(beste_uur=none, laagste_kosten=999) %}
           {% for p in prijzen %}
             {% set p_dt = as_datetime(p.datetime) | as_local %}
@@ -104,6 +107,7 @@
                 {% set w_dt = as_datetime(w.datetime) | as_local %}
                 {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
                   {% set t = w.temperature | float(10) %}
+                  {% set t_aanvoer = [[t_aanvoer_min, t_aanvoer_min + stooklijn_helling * (t_drempel - t)] | max, t_aanvoer_max] | min %}
                   {% set lift = [1, t_aanvoer - t] | max %}
                   {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
                   {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
@@ -124,7 +128,10 @@
           {% set weer = weer_forecast['weather.thuis'].forecast %}
           {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
-            {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+            {% set t_aanvoer_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_aanvoer_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set stooklijn_helling = (t_aanvoer_max - t_aanvoer_min) / (t_drempel - (-10)) %}
             {% set ns = namespace(laagste_kosten=999) %}
             {% for p in prijzen %}
               {% set p_dt = as_datetime(p.datetime) | as_local %}
@@ -133,6 +140,7 @@
                   {% set w_dt = as_datetime(w.datetime) | as_local %}
                   {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
                     {% set t = w.temperature | float(10) %}
+                    {% set t_aanvoer = [[t_aanvoer_min, t_aanvoer_min + stooklijn_helling * (t_drempel - t)] | max, t_aanvoer_max] | min %}
                     {% set lift = [1, t_aanvoer - t] | max %}
                     {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
                     {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
@@ -156,9 +164,11 @@
           {% endif %}
         tdi_kandidaat_uur: >
           {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
           {% set s = states('input_datetime.tdi_laatste_start') %}
           {% set tdi_dagen = (now().date() - (as_datetime(s) | as_local).date()).days if s not in ('unknown', 'unavailable') else 999 %}
-          {% if prijzen %}
+          {% set t_aanvoer_tdi = 65 %}
+          {% if prijzen and weer %}
             {% set ns = namespace(eerste_dag=none) %}
             {% for p in prijzen %}
               {% set p_dt = as_datetime(p.datetime) | as_local %}
@@ -169,14 +179,23 @@
               {% endif %}
             {% endfor %}
             {% if ns.eerste_dag is not none %}
-              {% set ns2 = namespace(kandidaat_dt=none, kandidaat_prijs=999) %}
+              {% set ns2 = namespace(kandidaat_dt=none, kandidaat_kosten=999) %}
               {% for p in prijzen %}
                 {% set p_dt = as_datetime(p.datetime) | as_local %}
                 {% if p_dt.strftime('%Y-%m-%d') == ns.eerste_dag and 9 <= p_dt.hour < 16 %}
-                  {% if p.electricity_price < ns2.kandidaat_prijs %}
-                    {% set ns2.kandidaat_prijs = p.electricity_price %}
-                    {% set ns2.kandidaat_dt = p_dt %}
-                  {% endif %}
+                  {% for w in weer %}
+                    {% set w_dt = as_datetime(w.datetime) | as_local %}
+                    {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
+                      {% set t = w.temperature | float(10) %}
+                      {% set lift = [1, t_aanvoer_tdi - t] | max %}
+                      {% set cop = [[1.5, 0.4 * (t_aanvoer_tdi + 273) / lift] | max, 6.0] | min %}
+                      {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
+                      {% if kosten < ns2.kandidaat_kosten %}
+                        {% set ns2.kandidaat_kosten = kosten %}
+                        {% set ns2.kandidaat_dt = p_dt %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
                 {% endif %}
               {% endfor %}
               {{ ns2.kandidaat_dt.strftime('%d-%m %H:%M') if ns2.kandidaat_dt else 'onbekend' }}
@@ -190,7 +209,10 @@
           {% set weer = weer_forecast['weather.thuis'].forecast %}
           {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
-            {% set t_aanvoer = states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(35) %}
+            {% set t_aanvoer_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_aanvoer_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set stooklijn_helling = (t_aanvoer_max - t_aanvoer_min) / (t_drempel - (-10)) %}
             {% set s = states('input_datetime.tdi_laatste_start') %}
             {% set tdi_dagen = (now().date() - (as_datetime(s) | as_local).date()).days if s not in ('unknown', 'unavailable') else 999 %}
             {% set ns_tdi = namespace(eerste_dag=none) %}
@@ -202,17 +224,27 @@
                 {% endif %}
               {% endif %}
             {% endfor %}
+            {% set t_aanvoer_tdi = 65 %}
             {% set ns_tdi2 = namespace(kandidaat_uur=-1, kandidaat_dag='') %}
             {% if ns_tdi.eerste_dag is not none %}
-              {% set ns_best = namespace(prijs=999) %}
+              {% set ns_best = namespace(kosten=999) %}
               {% for p in prijzen %}
                 {% set p_dt = as_datetime(p.datetime) | as_local %}
                 {% if p_dt.strftime('%Y-%m-%d') == ns_tdi.eerste_dag and 9 <= p_dt.hour < 16 %}
-                  {% if p.electricity_price < ns_best.prijs %}
-                    {% set ns_best.prijs = p.electricity_price %}
-                    {% set ns_tdi2.kandidaat_uur = p_dt.hour %}
-                    {% set ns_tdi2.kandidaat_dag = p_dt.strftime('%Y-%m-%d') %}
-                  {% endif %}
+                  {% for w in weer %}
+                    {% set w_dt = as_datetime(w.datetime) | as_local %}
+                    {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
+                      {% set t = w.temperature | float(10) %}
+                      {% set lift = [1, t_aanvoer_tdi - t] | max %}
+                      {% set cop = [[1.5, 0.4 * (t_aanvoer_tdi + 273) / lift] | max, 6.0] | min %}
+                      {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
+                      {% if kosten < ns_best.kosten %}
+                        {% set ns_best.kosten = kosten %}
+                        {% set ns_tdi2.kandidaat_uur = p_dt.hour %}
+                        {% set ns_tdi2.kandidaat_dag = p_dt.strftime('%Y-%m-%d') %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
                 {% endif %}
               {% endfor %}
             {% endif %}
@@ -224,6 +256,7 @@
                   {% set w_dt = as_datetime(w.datetime) | as_local %}
                   {% if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour %}
                     {% set t = w.temperature | float(10) %}
+                    {% set t_aanvoer = [[t_aanvoer_min, t_aanvoer_min + stooklijn_helling * (t_drempel - t)] | max, t_aanvoer_max] | min %}
                     {% set lift = [1, t_aanvoer - t] | max %}
                     {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
                     {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
