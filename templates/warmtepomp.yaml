@@ -106,7 +106,7 @@
                   {% set t = w.temperature | float(10) %}
                   {% set lift = [1, t_aanvoer - t] | max %}
                   {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
-                  {% set kosten = (p.electricity_price | float(30000)) / 100000 / cop %}
+                  {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
                   {% if kosten < ns.laagste_kosten %}
                     {% set ns.laagste_kosten = kosten %}
                     {% set ns.beste_uur = p_dt %}
@@ -135,7 +135,7 @@
                     {% set t = w.temperature | float(10) %}
                     {% set lift = [1, t_aanvoer - t] | max %}
                     {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
-                    {% set kosten = (p.electricity_price | float(30000)) / 100000 / cop %}
+                    {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
                     {% if kosten < ns.laagste_kosten %}
                       {% set ns.laagste_kosten = kosten %}
                     {% endif %}
@@ -162,8 +162,8 @@
                     {% set t = w.temperature | float(10) %}
                     {% set lift = [1, t_aanvoer - t] | max %}
                     {% set cop = [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min %}
-                    {% set kosten = (p.electricity_price | float(30000)) / 100000 / cop %}
-                    {% set ns.uren = ns.uren + [{'uur': p_dt.strftime('%d-%m %H:%M'), 'temp': t | round(1), 'aanvoer': t_aanvoer | round(1), 'cop': cop | round(2), 'prijs': (p.electricity_price / 100000) | round(4), 'kosten_warmte': kosten | round(4)}] %}
+                    {% set kosten = (p.electricity_price | float(3000000)) / 10000000 / cop %}
+                    {% set ns.uren = ns.uren + [{'uur': p_dt.strftime('%d-%m %H:%M'), 'temp': t | round(1), 'aanvoer': t_aanvoer | round(1), 'cop': cop | round(2), 'prijs': (p.electricity_price / 10000000) | round(4), 'kosten_warmte': kosten | round(4)}] %}
                   {% endif %}
                 {% endfor %}
               {% endif %}
