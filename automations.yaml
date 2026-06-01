@@ -61,9 +61,8 @@
         before: '16:00:00'
       - condition: template
         value_template: >
-          {% set last = state_attr('automation.legionella_tdi_bij_laagste_tarief_overdag',
-            'last_triggered') %}
-          {{ last is none or (now() - as_datetime(last)).days >= 7 }}
+          {% set last = states('input_datetime.tdi_laatste_start') %}
+          {{ last in ('unknown', 'unavailable') or (now() - as_datetime(last)).days >= 7 }}
       - condition: template
         value_template: >
           {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff',
@@ -84,6 +83,11 @@
             false
           {% endif %}
       sequence:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.tdi_laatste_start
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
       - action: shell_command.tdi_legionella_solar
       - target:
           entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
@@ -122,7 +126,7 @@
   - target:
       entity_id: water_heater.luxtronik_280807_0450_domestic_water
     data:
-      temperature: 43
+      temperature: 48
     action: water_heater.set_temperature
   - target:
       entity_id: switch.luxtronik_280807_0450_heating
@@ -166,9 +170,10 @@
 - id: tapwater_reset_na_bijverwarmen
   alias: Tapwater reset naar normaalstand na bijverwarmen
   description: >
-    Zet setpoint terug naar 43°C zodra tapwater 57°C bereikt (setpoint bereikt).
+    Zet setpoint terug naar 48°C zodra tapwater 57°C bereikt (setpoint bereikt).
     Niet tijdens TDI (setpoint 65°C) en niet bij actief zonne-overschot (dan
-    blijven doorladen).
+    blijven doorladen). 48°C als rust-setpoint voorkomt dat de Luxtronik autonoom
+    cycli draait onder 39°C (48 - 9K hysterese).
   triggers:
   - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 57
@@ -184,7 +189,7 @@
   - target:
       entity_id: water_heater.luxtronik_280807_0450_domestic_water
     data:
-      temperature: 43
+      temperature: 48
     action: water_heater.set_temperature
   mode: single
 

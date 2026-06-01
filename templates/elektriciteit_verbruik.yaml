@@ -1,31 +1,6 @@
 # templates/elektriciteit_verbruik.yaml
 - sensor:
 
-  # ⭐ BLOK 1: Elektriciteit prijs (via input_number.verbruiksprijs_kwh)
-  - name: "Electriciteit prijs terugwerkend"
-    unique_id: "electriciteit_prijs_terugwerkend"
-    unit_of_measurement: "€/kWh"
-    state: >
-      {{ states('input_number.verbruiksprijs_kwh') | float(0.2554) }}
-
-  # ⭐ BLOK 2: Huisverbruik totaal in kWh
-  - name: "Huisverbruik totaal kWh"
-    unique_id: "huisverbruik_totaal_kwh"
-    unit_of_measurement: "kWh"
-    state_class: total_increasing
-    device_class: energy
-    state: >
-      {{ states('sensor.p1_meter_energy_import') | float(0) | round(2) }}
-
-  # ⭐ BLOK 3: Teruglevering totaal in kWh
-  - name: "Teruglevering totaal kWh"
-    unique_id: "teruglevering_totaal_kwh"
-    unit_of_measurement: "kWh"
-    state_class: total_increasing
-    device_class: energy
-    state: >
-      {{ states('sensor.p1_meter_energy_export') | float(0) | round(2) }}
-
   # ⭐ BLOK 4: Netto verbruik / zelfverbruik
   - name: "Netto elektriciteitsverbruik kWh"
     unique_id: "netto_verbruik_kwh"

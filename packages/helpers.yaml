@@ -27,3 +27,10 @@ input_number:
     unit_of_measurement: "€/kWh"
     icon: mdi:currency-eur
 
+input_datetime:
+  tdi_laatste_start:
+    name: "TDI laatste start"
+    has_date: true
+    has_time: true
+    icon: mdi:water-boiler
+

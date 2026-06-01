@@ -14,7 +14,7 @@ views:
           - type: entities
             title: CPU & Fan
             entities:
-              - entity: sensor.cpu_temperatuur
+              - entity: sensor.system_monitor_processortemperatuur
                 name: CPU Temperatuur
               - entity: binary_sensor.rpi_fan_running_01
                 name: Fan Draait
@@ -23,7 +23,7 @@ views:
 
           - type: gauge
             title: CPU Temperatuur
-            entity: sensor.cpu_temperatuur
+            entity: sensor.system_monitor_processortemperatuur
             min: 30
             max: 90
             severity:
@@ -62,17 +62,17 @@ views:
           - type: entities
             title: Dagelijkse waarden
             entities:
-              - entity: sensor.energy_import_daily
+              - entity: sensor.energy_daily
                 name: Energie Import Dag
-              - entity: sensor.energy_export_daily
+              - entity: sensor.solar_daily
                 name: Energie Export Dag
 
           - type: entities
             title: Jaaroverzicht
             entities:
-              - entity: sensor.energy_import_yearly
+              - entity: sensor.energy_yearly
                 name: Energie Import Jaar
-              - entity: sensor.energy_export_yearly
+              - entity: sensor.solar_yearly
                 name: Energie Export Jaar
               - entity: sensor.export_365dagen
                 name: Export Laatste 365 dagen
@@ -86,6 +86,47 @@ views:
               green: 0
               yellow: 5000
               red: 8000
+
+  # ==============================
+  # Warmtepomp
+  # ==============================
+  - title: Warmtepomp
+    path: warmtepomp
+    icon: mdi:heat-pump
+    cards:
+
+      # Status
+      - type: entities
+        title: Status
+        entities:
+          - entity: sensor.luxtronik_280807_0450_status
+            name: Status
+          - entity: binary_sensor.luxtronik_280807_0450_compressor
+            name: Compressor
+          - entity: sensor.warmtepomp_cop_totaal
+            name: COP (totaal, cumulatief)
+          - entity: sensor.warmtepomp_cop_verwarming
+            name: COP Verwarming
+          - entity: sensor.warmtepomp_cop_tapwater
+            name: COP Tapwater
+          - entity: sensor.warmtepomp_cop_geschat
+            name: COP Geschat (nu)
+
+      # Slimme Sturing
+      - type: entities
+        title: Slimme Sturing
+        entities:
+          - entity: sensor.warmtepomp_optimaal_startuur
+            name: Optimaal Startuur
+            icon: mdi:clock-start
+          - type: attribute
+            entity: sensor.warmtepomp_optimaal_startuur
+            attribute: kosten_per_kwh_warmte
+            name: Laagste warmtekosten (€/kWh)
+            icon: mdi:currency-eur
+          - entity: sensor.luxtronik_280807_0450_outdoor_temperature
+            name: Buitentemperatuur
+            icon: mdi:thermometer
 
   # ==============================
   # Laadpalen
