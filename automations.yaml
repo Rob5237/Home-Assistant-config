@@ -4,6 +4,7 @@
     Zet heating_target_correction tijdelijk op +0.5°C op het optimale stookuur.
     Het tijdswindow is groter bij koud weer (meer thermische opslag nodig) en
     kleiner bij mild weer. Formule: clamp(1u…3u, 1 + 2×(14−t)/24).
+    Alleen actief als kamertemperatuur onder het Luxtronik setpoint ligt.
   triggers:
     - platform: time_pattern
       minutes: "/1"
@@ -16,6 +17,11 @@
         - condition: state
           entity_id: select.luxtronik_280807_0450_heating_mode
           state: "Off"
+    - condition: template
+      value_template: >
+        {% set t_kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(none) %}
+        {% set t_setpoint = states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') | float(none) %}
+        {{ t_kamer is not none and t_setpoint is not none and t_kamer < t_setpoint }}
   action:
     - variables:
         t_buiten: >
