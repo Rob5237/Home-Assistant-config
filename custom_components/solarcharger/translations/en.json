@@ -1,0 +1,422 @@
+{
+    "title": "SolarCharger",
+    "config": {
+        "error": {
+            "invalid_current_update_period": "The charger current update period must not be less than 5 seconds."
+        },
+        "step": {
+            "user": {
+                "title": "SolarCharger config",
+                "description": "Config for net power sensor and how often to adjust the charger current.",
+                "data": {
+                    "net_power_sensor": "Net power sensor (W)",
+                    "charger_current_update_period": "Charger current update period (default: 60 sec)"
+                },
+                "data_description": {
+                    "net_power_sensor": "Sensor that expresses negative value in Watts for power exported to grid, or positive value for power imported from grid. This sensor is the feedback loop for adjusting power consumption.",
+                    "charger_current_update_period": "The charger current update period must be greater than or equal to the net power sensor update period."
+                }
+            }
+        },
+        "abort": {
+            "reconfigure_successful": "Re-configuration was successful",
+            "single_instance_allowed": "Only a single instance of SolarCharger is allowed"
+        }
+    },
+    "config_subentries": {
+        "charger": {
+            "initiate_flow": {
+                "user": "Add charger device",
+                "reconfigure": "Reconfigure charger device"
+            },
+            "error": {
+                "unknown_error": "Unknown error"
+            },
+            "step": {
+                "user": {
+                    "title": "Add charger device",
+                    "description": "Select charger device to add.",
+                    "data": {
+                        "charger_device_id": "Detected integrations"
+                    },
+                    "data_description": {
+                        "charger_device_id": "Select from list of supported device integrations."
+                    }
+                }
+            },
+            "entry_type": "Charger device",
+            "abort": {
+                "device_already_added": "Error: Device already added",
+                "device_subentry_created": "Added charger device.\n\n\u23F9 IMPORTANT\n\nPlease set charger voltage in \"Global defaults\", max current in charger device, and configs in Settings (cog wheel) if required.\n\nIn Settings (cog wheel), please note that device local configs, if defined, will always take precedence over global defaults."
+            }
+        },
+        "custom": {
+            "initiate_flow": {
+                "user": "Add custom device",
+                "reconfigure": "Reconfigure custom device"
+            },
+            "error": {
+                "unknown_error": "Unknown error"
+            },
+            "step": {
+                "user": {
+                    "title": "Add custom device",
+                    "description": "Custom charger name to create.",
+                    "data": {
+                        "charger_device_name": "Custom charger name"
+                    },
+                    "data_description": {
+                        "charger_device_name": "Create custom charger and to specify your own charger control entities."
+                    }
+                }
+            },
+            "entry_type": "Custom device",
+            "abort": {
+                "device_already_added": "Error: Device already added",
+                "device_subentry_created": "Added charger device.\n\n\u23F9 IMPORTANT\n\nPlease set charger voltage in \"Global defaults\", max current in charger device, and configs in Settings (cog wheel) if required.\n\nIn Settings (cog wheel), please note that device local configs, if defined, will always take precedence over global defaults."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "SolarCharger settings",
+                "description": "Device local configs, if defined, will always take precedence over global defaults.",
+                "data": {
+                    "select_global_or_local_settings": "Select global defaults or device local configs"
+                }
+            },
+            "config_device": {
+                "title": "Charger options",
+                "description": "These are entities controlling charger behaviour with values defined in \"Configuration\" section. Replace with your own entities if required. Greyed-out entries are FYI only.\n\nTo delete an entity, select a dummy entity with name *.deleteme, eg. sensor.deleteme\n\nTo delete a string, replace string with 2 spaces.",
+                "data": {
+                    "charger_effective_voltage": "Charger effective voltage (V)",
+                    "default_charge_limit_monday": "Monday default charge limit (%)",
+                    "default_charge_limit_tuesday": "Tuesday default charge limit (%)",
+                    "default_charge_limit_wednesday": "Wednesday default charge limit (%)",
+                    "default_charge_limit_thursday": "Thursday default charge limit (%)",
+                    "default_charge_limit_friday": "Friday default charge limit (%)",
+                    "default_charge_limit_saturday": "Saturday default charge limit (%)",
+                    "default_charge_limit_sunday": "Sunday default charge limit (%)",
+                    "reduce_charge_limit_difference": "Reduce charge limit difference",
+                    "charge_limit_monday": "Monday charge limit (%)",
+                    "charge_limit_tuesday": "Tuesday charge limit (%)",
+                    "charge_limit_wednesday": "Wednesday charge limit (%)",
+                    "charge_limit_thursday": "Thursday charge limit (%)",
+                    "charge_limit_friday": "Friday charge limit (%)",
+                    "charge_limit_saturday": "Saturday charge limit (%)",
+                    "charge_limit_sunday": "Sunday charge limit (%)",
+                    "charge_endtime_monday": "Monday charge end time",
+                    "charge_endtime_tuesday": "Tuesday charge end time",
+                    "charge_endtime_wednesday": "Wednesday charge end time",
+                    "charge_endtime_thursday": "Thursday charge end time",
+                    "charge_endtime_friday": "Friday charge end time",
+                    "charge_endtime_saturday": "Saturday charge end time",
+                    "charge_endtime_sunday": "Sunday charge end time",
+                    "sunrise_elevation_start_trigger": "Sunrise elevation start trigger (degrees)",
+                    "sunset_elevation_end_trigger": "Sunset elevation end trigger (degrees)",
+                    "power_monitor_duration": "Power monitor duration (minutes)",
+                    "wait_chargee_wakeup": "Wait device wakeup (seconds)",
+                    "wait_chargee_update_ha": "Wait device update HA (seconds)",
+                    "wait_chargee_limit_change": "Wait device charge limit change (seconds)",
+                    "wait_charger_on": "Wait charger on (seconds)",
+                    "wait_charger_off": "Wait charger off (seconds)",
+                    "wait_charger_amp_change": "Wait charger AMP change (seconds)",
+                    "adjust_charge_limit_based_on_weather": "Adjust charge limit based on weather forecast",
+                    "charger_max_speed": "Charger max speed (%/hour)",
+                    "charger_min_current": "Charger min current (AMP)",
+                    "charger_min_workable_current": "Charger min workable current (AMP, current=0A for anything below this limit)",
+                    "charger_min_workable_power_pause_threshold": "Min workable power pause threshold (%)",
+                    "charger_min_workable_power_resume_threshold": "Min workable power resume threshold (%)",
+                    "charger_priority": "Charger priority (0 = highest priority)",
+                    "charger_power_allocation_weight": "Charger power allocation weight (allocation=net power*weight/total weight)",
+                    "delta_allocated_power": "Delta allocated power sensor (W)",
+                    "max_consumed_energy_limit": "Max consumed energy limit (kWh)",
+                    "chargee_min_charge_limit": "Device min charge limit (%)",
+                    "chargee_max_charge_limit": "Device max charge limit (%)",
+                    "charger_name": "Charger name (single space to clear)",
+                    "charger_plugged_in_sensor": "Charger plugged-in sensor",
+                    "charger_connect_trigger_list": "Charger connect trigger list",
+                    "charger_connect_state_list": "Charger connect state list",
+                    "charger_on_off_switch": "Charger on/off switch",
+                    "charger_charging_sensor": "Charger charging sensor",
+                    "charger_charging_state_list": "Charger charging state list",
+                    "charger_max_current": "Charger max current (AMP)",
+                    "charger_get_charge_current": "Charger get charge current (AMP)",
+                    "charger_set_charge_current": "Charger set charge current (AMP)",
+                    "chargee_soc_sensor": "Device state-of-charge sensor (%)",
+                    "chargee_get_charge_limit": "Device get charge limit (%)",
+                    "chargee_set_charge_limit": "Device set charge limit (%)",
+                    "chargee_location_sensor": "Device location sensor",
+                    "chargee_location_state_list": "Device location state list",
+                    "chargee_wake_up_button": "Device wake-up button",
+                    "chargee_update_ha_button": "Device update HA button"
+                }
+            }
+        },
+        "error": {
+            "invalid_charge_limit": "Charge limit must be within configured limits",
+            "invalid_number_format": "Numbers must not contain alphanumeric characters"
+        },
+        "abort": {
+            "invalid_default_charge_limit": "Default charge limit must be within configured min and max charge limits",
+            "empty_charger_device_list": "No charger device to configure. Add charger device before setting options for device."
+        }
+    },
+    "entity": {
+        "sensor": {
+            "run_state": {
+                "name": "Run state",
+                "state": {
+                    "starting": "Starting",
+                    "initialising": "Initialising",
+                    "charging": "Charging",
+                    "paused": "Paused",
+                    "ending": "Ending",
+                    "ended": "Ended"
+                }
+            },
+            "delta_allocated_power": {
+                "name": "Delta allocated power"
+            },
+            "net_allocated_power": {
+                "name": "Net allocated power"
+            },
+            "net_allocated_power_sample_size": {
+                "name": "Net allocated power sample size"
+            },
+            "net_allocated_power_data_set": {
+                "name": "Net allocated power data set",
+                "state": {
+                    "not_ready": "Not ready",
+                    "ready": "Ready"
+                }
+            },
+            "median_net_allocated_power": {
+                "name": "Median net allocated power"
+            },
+            "median_net_allocated_power_period": {
+                "name": "Median net allocated power period"
+            },
+            "sma_net_allocated_power": {
+                "name": "SMA net allocated power"
+            },
+            "consumed_power": {
+                "name": "Consumed power"
+            },
+            "consumed_energy_today": {
+                "name": "Consumed energy today"
+            },
+            "instance_count": {
+                "name": "Instance count"
+            },
+            "share_allocation": {
+                "name": "Share allocation"
+            },
+            "pause_count": {
+                "name": "Pause count"
+            },
+            "average_pause_duration": {
+                "name": "Average pause duration"
+            },
+            "last_pause_duration": {
+                "name": "Last pause duration"
+            },
+            "sync_update": {
+                "name": "Sync update"
+            },
+            "last_check": {
+                "name": "Last check"
+            }
+        },
+        "button": {
+            "reset_charge_limit_and_time": {
+                "name": "Reset charge limit and time"
+            }
+        },
+        "switch": {
+            "charge": {
+                "name": "Charge"
+            },
+            "fast_charge_mode": {
+                "name": "Fast charge mode"
+            },
+            "poll_charger_update": {
+                "name": "Poll charger update"
+            },
+            "end_on_max_consumed_energy": {
+                "name": "End on max consumed energy"
+            },
+            "pause_on_start": {
+                "name": "Pause on start"
+            },
+            "schedule_charge": {
+                "name": "Schedule charge"
+            },
+            "reduce_charge_limit_difference": {
+                "name": "Reduce charge limit difference"
+            },
+            "plugin_trigger": {
+                "name": "Plugin trigger"
+            },
+            "presence_trigger": {
+                "name": "Presence trigger"
+            },
+            "sun_trigger": {
+                "name": "Sun trigger"
+            },
+            "calibrate_max_charge_speed": {
+                "name": "Calibrate max charge speed"
+            }
+        },
+        "select": {
+            "device_presence_sensor": {
+                "name": "Device presence sensor"
+            }
+        },
+        "number": {
+            "chargee_charge_limit": {
+                "name": "Charge limit"
+            },
+            "charger_effective_voltage": {
+                "name": "Effective voltage"
+            },
+            "charger_max_current": {
+                "name": "Max current"
+            },
+            "charger_max_speed": {
+                "name": "Max charge speed"
+            },
+            "charger_min_current": {
+                "name": "Min current"
+            },
+            "charger_min_workable_current": {
+                "name": "Min workable current"
+            },
+            "charger_min_workable_power_pause_threshold": {
+                "name": "Min workable power pause threshold"
+            },
+            "charger_min_workable_power_resume_threshold": {
+                "name": "Min workable power resume threshold"
+            },
+            "charger_priority": {
+                "name": "Priority"
+            },
+            "charger_power_allocation_weight": {
+                "name": "Power allocation weight"
+            },
+            "max_consumed_energy_limit": {
+                "name": "Max consumed energy limit"
+            },
+            "chargee_min_charge_limit": {
+                "name": "Min charge limit"
+            },
+            "chargee_max_charge_limit": {
+                "name": "Max charge limit"
+            },
+            "sunrise_elevation_start_trigger": {
+                "name": "Sunrise elevation start trigger"
+            },
+            "sunset_elevation_end_trigger": {
+                "name": "Sunset elevation end trigger"
+            },
+            "power_monitor_duration": {
+                "name": "Power monitor duration"
+            },
+            "ocpp_profile_id": {
+                "name": "Charge profile ID"
+            },
+            "ocpp_profile_stack_level": {
+                "name": "Charge profile stack level"
+            },
+            "wait_chargee_wakeup": {
+                "name": "Wait wakeup"
+            },
+            "wait_chargee_update_ha": {
+                "name": "Wait update HA"
+            },
+            "wait_chargee_limit_change": {
+                "name": "Wait limit change"
+            },
+            "wait_charger_on": {
+                "name": "Wait charger on"
+            },
+            "wait_charger_off": {
+                "name": "Wait charger off"
+            },
+            "wait_charger_amp_change": {
+                "name": "Wait current change"
+            },
+            "default_charge_limit_monday": {
+                "name": "Monday default charge limit"
+            },
+            "default_charge_limit_tuesday": {
+                "name": "Tuesday default charge limit"
+            },
+            "default_charge_limit_wednesday": {
+                "name": "Wednesday default charge limit"
+            },
+            "default_charge_limit_thursday": {
+                "name": "Thursday default charge limit"
+            },
+            "default_charge_limit_friday": {
+                "name": "Friday default charge limit"
+            },
+            "default_charge_limit_saturday": {
+                "name": "Saturday default charge limit"
+            },
+            "default_charge_limit_sunday": {
+                "name": "Sunday default charge limit"
+            },
+            "charge_limit_monday": {
+                "name": "Monday charge limit"
+            },
+            "charge_limit_tuesday": {
+                "name": "Tuesday charge limit"
+            },
+            "charge_limit_wednesday": {
+                "name": "Wednesday charge limit"
+            },
+            "charge_limit_thursday": {
+                "name": "Thursday charge limit"
+            },
+            "charge_limit_friday": {
+                "name": "Friday charge limit"
+            },
+            "charge_limit_saturday": {
+                "name": "Saturday charge limit"
+            },
+            "charge_limit_sunday": {
+                "name": "Sunday charge limit"
+            }
+        },
+        "time": {
+            "charge_endtime_monday": {
+                "name": "Monday charge end time"
+            },
+            "charge_endtime_tuesday": {
+                "name": "Tuesday charge end time"
+            },
+            "charge_endtime_wednesday": {
+                "name": "Wednesday charge end time"
+            },
+            "charge_endtime_thursday": {
+                "name": "Thursday charge end time"
+            },
+            "charge_endtime_friday": {
+                "name": "Friday charge end time"
+            },
+            "charge_endtime_saturday": {
+                "name": "Saturday charge end time"
+            },
+            "charge_endtime_sunday": {
+                "name": "Sunday charge end time"
+            }
+        },
+        "datetime": {
+            "next_charge_time": {
+                "name": "Next charge time"
+            }
+        }
+    }
+}

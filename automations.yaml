@@ -289,3 +289,14 @@
       temperature: 57
     action: water_heater.set_temperature
   mode: single
+
+- id: github_nachtelijke_backup
+  alias: "GitHub: nachtelijke config backup"
+  description: Pusht gewijzigde configuratiebestanden elke nacht om 03:00 naar GitHub.
+  triggers:
+    - platform: time
+      at: "03:00:00"
+  conditions: []
+  actions:
+    - action: shell_command.git_backup
+  mode: single

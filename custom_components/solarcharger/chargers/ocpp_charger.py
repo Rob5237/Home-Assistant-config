@@ -1,0 +1,215 @@
+# ruff: noqa: TID252
+"""OCPP charger implementation."""
+
+import logging
+from typing import Any, cast
+
+from propcache.api import cached_property
+
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.core import HomeAssistant, ServiceResponse
+from homeassistant.helpers.device_registry import DeviceEntry
+
+from ..const import (
+    DOMAIN_OCPP,
+    ENTITY_CHARGER_CHARGING_SENSOR,
+    ENTITY_CHARGER_SET_CHARGE_CURRENT,
+    ENTITY_OCPP_CHARGER_ID,
+    ENTITY_OCPP_TRANSACTION_ID,
+    NUMBER,
+    NUMBER_OCPP_PROFILE_ID,
+    NUMBER_OCPP_PROFILE_STACK_LEVEL,
+    OCPP_CHARGING_STATE,
+)
+from ..entity import compose_entity_id
+from ..models.model_config import ConfigValue, ConfigValueDict
+from .charger_chargeable_base import ChargerChargeableBase
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+_LOGGER = logging.getLogger(__name__)
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+class OcppCharger(ChargerChargeableBase):
+    """Implementation of the Charger class for OCPP chargers."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        subentry: ConfigSubentry,
+        device: DeviceEntry,
+    ) -> None:
+        """Initialize the OCPP charger."""
+
+        ChargerChargeableBase.__init__(self, hass, entry, subentry, device)
+
+    # ----------------------------------------------------------------------------
+    @cached_property
+    def ocpp_profile_id_entity_id(self) -> str:
+        """Return the ocpp charge profile id number entity ID."""
+        return compose_entity_id(
+            NUMBER, self._subentry.unique_id, NUMBER_OCPP_PROFILE_ID
+        )
+
+    @cached_property
+    def ocpp_profile_stack_level_entity_id(self) -> str:
+        """Return the ocpp charge profile stack level number entity ID."""
+        return compose_entity_id(
+            NUMBER, self._subentry.unique_id, NUMBER_OCPP_PROFILE_STACK_LEVEL
+        )
+
+    # ----------------------------------------------------------------------------
+    # Chargeable interface implementation
+    # ----------------------------------------------------------------------------
+    @staticmethod
+    def is_chargeable_device(device: DeviceEntry) -> bool:
+        """Check if the given device is an OCPP charger."""
+
+        _LOGGER.debug("%s: %s", device.name, device)
+        return any(id_domain == DOMAIN_OCPP for id_domain, _ in device.identifiers)
+
+    # ----------------------------------------------------------------------------
+    # Charger interface implementation
+    # ----------------------------------------------------------------------------
+    @staticmethod
+    def is_charger_device(device: DeviceEntry) -> bool:
+        """Check if the given device is an OCPP charger."""
+
+        _LOGGER.debug("%s: %s", device.name, device)
+        return any(id_domain == DOMAIN_OCPP for id_domain, _ in device.identifiers)
+
+    # ----------------------------------------------------------------------------
+    def can_set_charge_current(self) -> bool:
+        """Check if charger has ability to set charge current."""
+
+        return True
+
+    # ----------------------------------------------------------------------------
+    # 2025-11-03 11:53:39.370 INFO (MainThread) [ocpp] sn123456789: send [2,"3cf0a97a-6bd3-4ecd-b914-c9a57ec0b3be","GetConfiguration",{"key":["ChargeProfileMaxStackLevel"]}]
+    # 2025-11-03 11:53:39.376 INFO (MainThread) [ocpp] sn123456789: receive message [3,"3cf0a97a-6bd3-4ecd-b914-c9a57ec0b3be",
+    # {"configurationKey":[{"key":"ChargeProfileMaxStackLevel","readonly":true,"value":"20"}]}]
+
+    async def _async_get_ocpp_max_stack_level(
+        self, ocpp_charger_id: str
+    ) -> ServiceResponse:
+        """Get OCPP charge profile max stack level. This stack level will be used to override all others."""
+        # ocpp_max_stack_level_map: dict[str, Any] = {}
+
+        # service_name = "ocpp.get_configuration"
+        service_name = "get_configuration"
+        service_data: dict[str, Any] = {
+            "devid": ocpp_charger_id,
+            "ocpp_key": "ChargeProfileMaxStackLevel",
+        }
+
+        ocpp_max_stack_level_map: ServiceResponse = await self.async_ha_call(
+            DOMAIN_OCPP,
+            service_name,
+            service_data,
+            # target=ocpp_max_stack_level_map,
+            return_response=True,
+        )
+
+        return ocpp_max_stack_level_map
+
+    # ----------------------------------------------------------------------------
+    async def async_set_charge_current(
+        self, charge_current: float, val_dict: ConfigValueDict | None = None
+    ) -> float:
+        """Set charger charge current."""
+
+        # Fake the entity ID since there is no such entity for OCPP charger.
+        if val_dict is not None:
+            entity_id = compose_entity_id(
+                NUMBER, self._subentry.unique_id, "fake_set_charge_current"
+            )
+            config_val = ConfigValue(ENTITY_CHARGER_SET_CHARGE_CURRENT, entity_id, None)
+            val_dict.config_values[ENTITY_CHARGER_SET_CHARGE_CURRENT] = config_val
+
+        # Only set charge current when charger is in OCPP_CHARGING_STATE.
+        state = self.option_get_entity_string(ENTITY_CHARGER_CHARGING_SENSOR)
+        if state != OCPP_CHARGING_STATE:
+            _LOGGER.warning(
+                "%s: Cannot set current due to charger in state %s",
+                self.caller,
+                state,
+            )
+            return 0
+
+        new_charge_current = round(charge_current)
+
+        # Get OCPP charger ID
+        ocpp_charger_id = self.option_get_entity_string(ENTITY_OCPP_CHARGER_ID)
+
+        # Get charge profile id
+        charge_profile_id = self.get_integer(self.ocpp_profile_id_entity_id)
+
+        # Get charge profile stack level
+        charge_profile_stack_level: int | None = self.get_integer(
+            self.ocpp_profile_stack_level_entity_id
+        )
+
+        if charge_profile_stack_level is None or charge_profile_stack_level < 0:
+            # Get the OCPP charge profile max stack level to override all other profiles.
+            ocpp_max_stack_level_map: ServiceResponse = (
+                await self._async_get_ocpp_max_stack_level(ocpp_charger_id)
+            )
+            if ocpp_max_stack_level_map is None:
+                raise ValueError("Failed to get max stack level")
+
+            json_val: str = cast(str, ocpp_max_stack_level_map.get("value"))
+            charge_profile_stack_level = int(json_val)
+
+        # Get OCPP transaction id
+        ocpp_charger_transaction_id = self.option_get_entity_integer_or_abort(
+            ENTITY_OCPP_TRANSACTION_ID
+        )
+        service_name = "set_charge_rate"
+        service_data: dict[str, Any] = {
+            "devid": ocpp_charger_id,
+            "custom_profile": {
+                "transactionId": ocpp_charger_transaction_id,
+                "chargingProfileId": charge_profile_id,
+                "stackLevel": charge_profile_stack_level,
+                "chargingProfilePurpose": "TxProfile",
+                "chargingProfileKind": "Relative",
+                "chargingSchedule": {
+                    "chargingRateUnit": "A",
+                    "chargingSchedulePeriod": [
+                        {"startPeriod": 0, "limit": new_charge_current}
+                    ],
+                },
+            },
+            "conn_id": 1,
+        }
+
+        await self.async_ha_call(DOMAIN_OCPP, service_name, service_data)
+
+        return new_charge_current
+
+    # ----------------------------------------------------------------------------
+    # async def async_set_charge_current(
+    #     self, charge_current: float, val_dict: ConfigValueDict | None = None
+    # ) -> None:
+    #     """Set charger charge current."""
+    #     min_current = charge_current
+
+    #     try:
+    #         await self.hass.services.async_call(
+    #             domain=CHARGER_DOMAIN_OCPP,
+    #             service="set_charge_rate",
+    #             service_data={
+    #                 "device_id": self.device_entry.id,
+    #                 "limit_amps": min_current,
+    #             },
+    #             blocking=True,
+    #         )
+    #     except (ValueError, RuntimeError, TimeoutError) as e:
+    #         _LOGGER.warning(
+    #             "Failed to set current limit for OCPP charger %s: %s",
+    #             self.device_entry.id,
+    #             e,
+    #         )

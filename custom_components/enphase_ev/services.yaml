@@ -1,0 +1,804 @@
+
+start_charging:
+  name: Start Charging
+  description: Start charging on the Enphase Energy charger
+  target:
+    entity:
+      integration: enphase_ev
+      domain: button
+  fields:
+    advanced:
+      collapsed: true
+      fields:
+        charging_level:
+          required: false
+          selector:
+            number:
+              min: 6
+              max: 40
+              step: 1
+        connector_id:
+          required: false
+          selector:
+            number:
+              min: 1
+              max: 2
+              step: 1
+
+stop_charging:
+  name: Stop Charging
+  description: Stop charging on the Enphase Energy charger
+  target:
+    entity:
+      integration: enphase_ev
+      domain: button
+
+trigger_message:
+  name: Trigger OCPP Message
+  target:
+    entity:
+      integration: enphase_ev
+      domain: button
+  fields:
+    requested_message:
+      required: true
+      selector:
+        select:
+          options:
+            - BootNotification
+            - DiagnosticsStatusNotification
+            - FirmwareStatusNotification
+            - Heartbeat
+            - MeterValues
+            - StatusNotification
+      example: MeterValues
+    advanced:
+      collapsed: true
+      fields:
+        confirm_advanced:
+          name: Confirm Advanced Trigger
+          description: Required for advanced OCPP trigger messages that may prompt charger diagnostics, firmware, or boot notifications.
+          required: false
+          selector:
+            boolean:
+          default: false
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+
+clear_reauth_issue:
+  name: Clear Reauth Issue
+  description: Manually clear the integration's reauthentication issue notification
+  target:
+    entity:
+      integration: enphase_ev
+      domain: sensor
+  fields:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: enphase_ev
+          multiple: true
+    site_id:
+      required: false
+      selector:
+        text:
+          multiline: false
+      example: "1234567"
+
+try_reauth_now:
+  name: Try Reauth Now
+  description: Use stored credentials to try Enphase reauthentication immediately
+  target:
+    entity:
+      integration: enphase_ev
+      domain: sensor
+  fields:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: enphase_ev
+          multiple: true
+    site_id:
+      required: false
+      selector:
+        text:
+          multiline: false
+      example: "1234567"
+
+clear_hems_auth_backoff:
+  name: Clear HEMS Auth Backoff
+  description: Clear the temporary HEMS/Heat Pump auth backoff without performing password login
+  target:
+    entity:
+      integration: enphase_ev
+      domain: sensor
+  fields:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: enphase_ev
+          multiple: true
+    site_id:
+      required: false
+      selector:
+        text:
+          multiline: false
+      example: "1234567"
+start_live_stream:
+  name: Start Live Stream
+  description: Request faster cloud status updates for a short period
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+
+stop_live_stream:
+  name: Stop Live Stream
+  description: Stop the cloud live stream request
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+
+sync_schedules:
+  name: Sync Schedules
+  description: Refresh Enphase schedules from the cloud
+  fields:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: enphase_ev
+          multiple: true
+
+force_refresh:
+  name: Force Refresh
+  description: Refresh battery schedule data from the Enphase cloud immediately
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+        config_entry_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+
+update_tariff:
+  name: Update Tariff
+  description: Update Enphase billing-cycle details, guided tariff structures, and one or more existing import or export tariff rate values.
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    rate_entity:
+      required: false
+      selector:
+        entity:
+          integration: enphase_ev
+      example: number.iq_gateway_import_rate_peak
+    import_rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    import_rate_entity:
+      required: false
+      selector:
+        entity:
+          integration: enphase_ev
+      example: number.iq_gateway_import_rate_peak
+    export_rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    export_rate_entity:
+      required: false
+      selector:
+        entity:
+          integration: enphase_ev
+      example: number.iq_gateway_export_rate_peak
+    configure_import_tariff:
+      required: false
+      default: false
+      selector:
+        boolean:
+    import_tariff_type:
+      required: false
+      selector:
+        select:
+          options:
+            - label: Flat
+              value: flat
+            - label: Time of use
+              value: tou
+            - label: Tiered
+              value: tiered
+    import_variation:
+      required: false
+      default: single
+      selector:
+        select:
+          options:
+            - label: Same all year
+              value: single
+            - label: Seasonal
+              value: seasonal
+            - label: Weekdays and weekends
+              value: weekends
+            - label: Seasonal weekdays and weekends
+              value: seasonal-and-weekends
+    import_flat_rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    import_periods:
+      required: false
+      selector:
+        object:
+      example:
+        - season_id: default
+          start_month: 1
+          end_month: 12
+          day_group_id: weekday
+          days: [1, 2, 3, 4, 5]
+          period_id: peak
+          period_type: peak
+          start_time: "15:00"
+          end_time: "21:00"
+          rate: 0.42
+        - season_id: default
+          day_group_id: weekend
+          days: [6, 7]
+          period_id: off-peak
+          period_type: off-peak
+          start_time: ""
+          end_time: ""
+          rate: 0.24
+    import_off_peak_rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    import_tiers:
+      required: false
+      selector:
+        object:
+      example:
+        - season_id: default
+          start_month: 1
+          end_month: 12
+          tier_id: tier-1
+          start_value: 0
+          end_value: 10
+          rate: 0.18
+        - season_id: default
+          tier_id: tier-2
+          start_value: 10
+          end_value: -1
+          rate: 0.27
+    configure_export_tariff:
+      required: false
+      default: false
+      selector:
+        boolean:
+    export_tariff_type:
+      required: false
+      selector:
+        select:
+          options:
+            - label: Flat
+              value: flat
+            - label: Time of use
+              value: tou
+            - label: Tiered
+              value: tiered
+    export_variation:
+      required: false
+      default: single
+      selector:
+        select:
+          options:
+            - label: Same all year
+              value: single
+            - label: Seasonal
+              value: seasonal
+            - label: Weekdays and weekends
+              value: weekends
+            - label: Seasonal weekdays and weekends
+              value: seasonal-and-weekends
+    export_plan:
+      required: false
+      default: netFit
+      selector:
+        select:
+          options:
+            - label: Net feed-in
+              value: netFit
+            - label: Gross feed-in
+              value: grossFit
+            - label: NEM
+              value: nem
+    export_flat_rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    export_periods:
+      required: false
+      selector:
+        object:
+      example:
+        - season_id: default
+          day_group_id: week
+          days: [1, 2, 3, 4, 5, 6, 7]
+          period_id: solar-peak
+          period_type: peak
+          start_time: "10:00"
+          end_time: "15:00"
+          rate: 0.11
+    export_off_peak_rate:
+      required: false
+      selector:
+        number:
+          min: 0
+          step: any
+    export_tiers:
+      required: false
+      selector:
+        object:
+      example:
+        - season_id: default
+          tier_id: tier-1
+          start_value: 0
+          end_value: -1
+          rate: 0.08
+    tariff_payload:
+      required: false
+      selector:
+        object:
+      example:
+        purchase:
+          typeKind: single
+          typeId: tou
+          source: manual
+          seasons:
+            - id: default
+              days:
+                - id: week
+                  periods:
+                    - id: peak
+                      type: peak
+                      rate: "0.31"
+                      startTime: 900
+                      endTime: 1260
+    purchase_tariff:
+      required: false
+      selector:
+        object:
+      example:
+        typeKind: single
+        typeId: flat
+        source: manual
+        seasons:
+          - id: default
+            days:
+              - id: week
+                periods:
+                  - id: off-peak
+                    type: off-peak
+                    rate: "0.25"
+                    startTime: ""
+                    endTime: ""
+    buyback_tariff:
+      required: false
+      selector:
+        object:
+      example:
+        typeKind: single
+        typeId: flat
+        source: manual
+        exportPlan: netFit
+        seasons:
+          - id: default
+            days:
+              - id: week
+                periods:
+                  - id: off-peak
+                    type: off-peak
+                    rate: "0.08"
+                    startTime: ""
+                    endTime: ""
+    billing_start_date:
+      required: false
+      selector:
+        date:
+      example: "2026-04-01"
+    billing_frequency:
+      required: false
+      selector:
+        select:
+          options:
+            - MONTH
+            - DAY
+    billing_interval_value:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+    rates:
+      required: false
+      selector:
+        object:
+      example:
+        - entity_id: number.import_rate_peak
+          rate: 0.31
+    advanced:
+      collapsed: true
+      fields:
+        device_id:
+          required: false
+          selector:
+            device:
+              integration: enphase_ev
+              multiple: true
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+        config_entry_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+
+add_schedule:
+  name: Add Battery Schedule
+  description: Create a battery schedule for CFG, DTG, or RBD
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    schedule_type:
+      required: true
+      selector:
+        select:
+          options:
+            - cfg
+            - dtg
+            - rbd
+    start_time:
+      required: true
+      selector:
+        time:
+    end_time:
+      required: true
+      selector:
+        time:
+    limit:
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    days:
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Monday
+              value: "1"
+            - label: Tuesday
+              value: "2"
+            - label: Wednesday
+              value: "3"
+            - label: Thursday
+              value: "4"
+            - label: Friday
+              value: "5"
+            - label: Saturday
+              value: "6"
+            - label: Sunday
+              value: "7"
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+        config_entry_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+
+update_schedule:
+  name: Update Battery Schedule
+  description: Update a battery schedule by schedule ID
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    schedule_id:
+      required: true
+      selector:
+        text:
+          multiline: false
+    schedule_type:
+      required: true
+      selector:
+        select:
+          options:
+            - cfg
+            - dtg
+            - rbd
+    start_time:
+      required: true
+      selector:
+        time:
+    end_time:
+      required: true
+      selector:
+        time:
+    limit:
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    days:
+      required: true
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Monday
+              value: "1"
+            - label: Tuesday
+              value: "2"
+            - label: Wednesday
+              value: "3"
+            - label: Thursday
+              value: "4"
+            - label: Friday
+              value: "5"
+            - label: Saturday
+              value: "6"
+            - label: Sunday
+              value: "7"
+    confirm:
+      required: true
+      selector:
+        boolean:
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+        config_entry_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+
+delete_schedule:
+  name: Delete Battery Schedule
+  description: Delete one or more battery schedules by schedule ID
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    schedule_id:
+      required: false
+      selector:
+        text:
+          multiline: false
+    schedule_ids:
+      required: false
+      example: "sched-1,sched-2"
+      selector:
+        text:
+          multiline: false
+    confirm:
+      required: true
+      selector:
+        boolean:
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+        config_entry_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+
+validate_schedule:
+  name: Validate Battery Schedule
+  description: Validate battery schedule permissions and return the Enphase API response
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    schedule_type:
+      required: true
+      selector:
+        select:
+          options:
+            - cfg
+            - dtg
+            - rbd
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+        config_entry_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+
+request_grid_toggle_otp:
+  name: Request Grid Toggle OTP
+  description: Send a one-time code required for changing site grid mode.
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+
+set_grid_mode:
+  name: Set Grid Mode
+  description: Change site grid mode using a one-time code.
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    mode:
+      required: true
+      selector:
+        select:
+          options:
+            - on_grid
+            - off_grid
+    otp:
+      required: true
+      selector:
+        text:
+          multiline: false
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"
+
+update_cfg_schedule:
+  name: Update CFG Schedule
+  description: >
+    Update the charge-from-grid schedule start time, end time, and/or
+    charge limit in a single atomic operation.  Only one API call is
+    made to the Enphase cloud, avoiding multiple pending-sync cycles.
+    At least one of start_time, end_time, or limit must be provided;
+    omitted values are preserved from the current schedule.
+  target:
+    entity:
+      integration: enphase_ev
+  fields:
+    start_time:
+      name: Start Time
+      description: CFG schedule start time (HH:MM:SS).
+      required: false
+      selector:
+        time:
+    end_time:
+      name: End Time
+      description: CFG schedule end time (HH:MM:SS).
+      required: false
+      selector:
+        time:
+    limit:
+      name: Charge Limit
+      description: Maximum battery state of charge (%).
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    advanced:
+      collapsed: true
+      fields:
+        site_id:
+          name: Site ID
+          description: Enphase site ID (optional, resolved from device target).
+          required: false
+          selector:
+            text:
+              multiline: false
+          example: "1234567"

@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Meld je aan met je Enlighten-inloggegevens.",
+        "data": {
+          "email": "E-mail",
+          "password": "Wachtwoord",
+          "remember_password": "Wachtwoord opslaan voor automatische herauthenticatie"
+        },
+        "data_description": {
+          "email": "Het e-mailadres van je Enlighten-account.",
+          "password": "Het wachtwoord wordt alleen opgeslagen als je het selectievakje inschakelt.",
+          "remember_password": "Stelt de integratie in staat tokens automatisch te vernieuwen wanneer ze verlopen."
+        }
+      },
+      "mfa": {
+        "title": "MFA-code verifiëren",
+        "description": "Voer de eenmalige code in die naar je e-mail is gestuurd. Codes zijn 5 minuten geldig. Je kunt elke 30 seconden een nieuwe code aanvragen.",
+        "data": {
+          "otp": "Eenmalige code",
+          "resend_code": "Code opnieuw verzenden"
+        },
+        "data_description": {
+          "otp": "Gebruik de code van de Enphase-inlogprompt.",
+          "resend_code": "Vraag een nieuwe code aan als de vorige is verlopen."
+        }
+      },
+      "site": {
+        "title": "Selecteer site",
+        "description": "Kies welke Enlighten-site je wilt koppelen.",
+        "data": {
+          "site_id": "Locatie"
+        }
+      },
+      "devices": {
+        "title": "Apparaten selecteren",
+        "description": "Kies welke apparaatsgroepen je wilt toevoegen. Alle selecties delen hetzelfde polling-interval.",
+        "data": {
+          "type_envoy": "Gateway",
+          "type_encharge": "Batterij",
+          "type_iqevse": "Laders",
+          "type_microinverter": "Micro-omvormers",
+          "scan_interval": "Scaninterval (s)",
+          "type_heatpump": "Warmtepomp",
+          "type_ac_battery": "AC-batterij"
+        },
+        "data_description": {
+          "type_envoy": "Bevat gateway-connectiviteit en meterdiagnostiek.",
+          "type_encharge": "Bevat batterijstatus en bedieningsentiteiten wanneer beschikbaar.",
+          "type_iqevse": "Bevat EV-lader-entiteiten en bediening.",
+          "type_microinverter": "Bevat sensoren voor micro-omvormerconnectiviteit, actief aantal en levensduurproductie.",
+          "scan_interval": "Seconden tussen cloudstatuspolls. Standaard 60s.",
+          "type_heatpump": "Bevat sensoren voor warmtepompstatus, diagnostiek en verbruik.",
+          "type_ac_battery": "Bevat AC-batterijsensoren en slaapmodusbediening wanneer beschikbaar."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ongeldige inloggegevens of verlopen sessie.",
+      "cannot_connect": "Kan de Enphase-service niet bereiken.",
+      "service_unavailable": "Enphase tijdelijk niet beschikbaar. Probeer het later opnieuw.",
+      "too_many_active_sessions": "Enphase heeft de aanmelding geweigerd omdat er te veel accountsessies actief zijn. Meld u af bij andere Enphase-app- of browsersessies en probeer het later opnieuw.",
+      "mfa_required": "Account vereist multi-factor authenticatie.",
+      "otp_required": "Voer de eenmalige code in.",
+      "otp_invalid": "Ongeldige of verlopen code. Probeer opnieuw.",
+      "otp_blocked": "Te veel pogingen. Het account is tijdelijk geblokkeerd.",
+      "resend_wait": "Wacht 30 seconden voordat je een nieuwe code aanvraagt.",
+      "site_required": "Selecteer een site om verder te gaan.",
+      "site_invalid": "Site-ID moet numeriek zijn.",
+      "serials_required": "Selecteer of voer ten minste één lader in.",
+      "serials_or_site_only_required": "Voer ten minste één lader in of schakel de alleen-site modus in.",
+      "unknown": "Onverwachte fout"
+    },
+    "abort": {
+      "already_configured": "Al geconfigureerd",
+      "reconfigure_successful": "Herconfiguratie geslaagd",
+      "reauth_successful": "Herautenticatie geslaagd",
+      "manual_mode_removed": "Oude handmatige authenticatievermeldingen worden niet langer ondersteund. Verwijder de integratie en stel deze opnieuw in met Enlighten-login.",
+      "wrong_account": "Deze vermelding is al gekoppeld aan {configured_label}. Verwijder de integratie uit Home Assistant en voeg een nieuwe toe om {requested_label} te koppelen."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Kan het laden niet starten omdat {name} niet is aangesloten op het voertuig."
+    },
+    "auth_required": {
+      "message": "Kan niet beginnen met opladen omdat {name} authenticatie via de Enphase-app of RFID vereist."
+    },
+    "grid_control_unavailable": {
+      "message": "Netbeheer is niet beschikbaar voor deze site."
+    },
+    "grid_control_blocked": {
+      "message": "Netbeheer is momenteel geblokkeerd: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "De rastermodus moet on_grid of off_grid zijn."
+    },
+    "grid_otp_required": {
+      "message": "OTP is vereist."
+    },
+    "grid_otp_invalid_format": {
+      "message": "OTP moet een numerieke code van 4 cijfers zijn."
+    },
+    "grid_otp_invalid": {
+      "message": "Het OTP is ongeldig of verlopen."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Kan het serienummer van de gezant voor deze site niet bepalen."
+    },
+    "grid_site_required": {
+      "message": "Selecteer precies één Enphase-site."
+    },
+    "grid_site_ambiguous": {
+      "message": "Er zijn meerdere sites geselecteerd ({count}). Selecteer precies één site."
+    },
+    "schedule_required": {
+      "message": "Schakel ten minste één schema in voordat je Gepland laden selecteert."
+    },
+    "charge_mode_invalid_option": {
+      "message": "De geselecteerde laadmodus is niet beschikbaar."
+    },
+    "evse_schedule_day_required": {
+      "message": "Selecteer minstens één weekdag voor het schema."
+    },
+    "evse_schedule_times_different": {
+      "message": "De begin- en eindtijd van het schema moeten verschillend zijn."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase heeft de schemawijziging afgewezen."
+    },
+    "battery_schedule_overlap": {
+      "message": "Het schema overlapt met het bestaande {schedule_label}. Pas dat schema eerst aan of schakel het uit."
+    },
+    "ac_battery_unavailable": {
+      "message": "Er zijn momenteel geen AC Battery-apparaten beschikbaar."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Authenticatie-instellingen zijn niet beschikbaar zolang de Enphase-service niet beschikbaar is."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Updates van het batterijprofiel zijn niet toegestaan voor dit account."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Updates van batterij-instellingen zijn niet toegestaan voor dit account."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Er wordt al een andere update van het batterijprofiel uitgevoerd."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Er wordt al een andere update van de batterij-instellingen uitgevoerd."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Updates van het batterijprofiel zijn niet beschikbaar."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Updates van batterij-instellingen zijn niet beschikbaar."
+    },
+    "battery_updates_unavailable": {
+      "message": "Batterij-updates zijn niet beschikbaar."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Batterij-updates zijn niet toegestaan voor dit account."
+    },
+    "battery_profile_update_debounced": {
+      "message": "De update van het batterijprofiel is te snel opnieuw aangevraagd. Wacht even en probeer het opnieuw."
+    },
+    "battery_settings_update_debounced": {
+      "message": "De update van de batterij-instellingen is te snel opnieuw aangevraagd. Wacht even en probeer het opnieuw."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Schrijftoegang voor de batterij kon niet worden bevestigd. Vernieuw en probeer het opnieuw."
+    },
+    "schedule_update_forbidden": {
+      "message": "De schema-update is afgewezen door Enphase (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "De schema-update kon niet worden geauthenticeerd. Verifieer opnieuw en probeer het opnieuw."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Het schema conflicteert met het bestaande ontladen-naar-het-net-schema. Pas dat schema eerst aan of schakel het uit."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Het schema conflicteert met het bestaande beperk-batterijontlading-schema. Pas dat schema eerst aan of schakel het uit."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Het schema conflicteert met het bestaande laden-vanaf-het-net-schema. Pas dat schema eerst aan of schakel het uit."
+    },
+    "schedule_update_conflict": {
+      "message": "Geplande update conflicteert met een bestaand batterijschema."
+    },
+    "battery_profile_unavailable": {
+      "message": "Batterijprofiel is niet beschikbaar."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "De update van het batterijprofiel is afgewezen door Enphase (HTTP 403 Forbidden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "De update van het batterijprofiel kon niet worden geauthenticeerd. Verifieer opnieuw en probeer het opnieuw."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "De payload voor batterij-instellingen is niet beschikbaar."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "De update van de batterij-instellingen is afgewezen door Enphase (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "De update van de batterij-instellingen kon niet worden geauthenticeerd. Verifieer opnieuw en probeer het opnieuw."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "De Full Backup-reserve is vastgesteld op 100%."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Batterijreserve is niet beschikbaar."
+    },
+    "savings_profile_required": {
+      "message": "Spaarprofiel moet actief zijn."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Instellingen voor het spaarprofiel zijn niet beschikbaar."
+    },
+    "battery_profile_unsupported": {
+      "message": "Het geselecteerde batterijprofiel wordt niet ondersteund."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "De instelling Laden vanaf het net is niet beschikbaar."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "De schakelaar Laden vanaf het net is niet toegepast door Enphase."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Het laden-vanaf-het-net-schema is niet beschikbaar."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "De begin- en eindtijd van het laden-vanaf-het-net-schema moeten verschillend zijn."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "De schakelaar van het laden-vanaf-het-net-schema is niet toegepast door Enphase."
+    },
+    "charge_from_grid_required": {
+      "message": "Laden vanaf het net moet eerst worden ingeschakeld."
+    },
+    "schedule_change_pending": {
+      "message": "Een schemawijziging wacht op Envoy-synchronisatie. Even geduld."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "De tijd van het laden-vanaf-het-net-schema is ongeldig."
+    },
+    "schedule_api_unavailable": {
+      "message": "De schema-API is niet beschikbaar in deze clientversie."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Er is geen bestaand laden-vanaf-het-net-schema beschikbaar."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Maak eerst een {schedule_label} in de IQ Battery-planner voordat je die inschakelt."
+    },
+    "schedule_not_exposed": {
+      "message": "{schedule_label} wordt momenteel niet door Enphase voor deze site beschikbaar gesteld. Wacht tot de schemasynchronisatie is voltooid, vernieuw dan en probeer het opnieuw."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "De schakelaar voor {schedule_label} is niet toegepast door Enphase."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "primaire schrijfactie afgewezen"
+    },
+    "schedule_family_times_different": {
+      "message": "De begin- en eindtijd van {schedule_label} moeten verschillend zijn."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "De tijd van het ontladen-naar-het-net-schema is ongeldig."
+    },
+    "schedule_missing": {
+      "message": "Er is geen bestaand {schedule_label_lower}-schema beschikbaar."
+    },
+    "schedule_unavailable": {
+      "message": "Het schema {schedule_label} is niet beschikbaar."
+    },
+    "schedule_time_invalid": {
+      "message": "De tijd van het schema {schedule_label} is ongeldig."
+    },
+    "current_schedule_time_invalid": {
+      "message": "De huidige tijd van het {schedule_label_lower}-schema is ongeldig."
+    },
+    "schedule_limit_range": {
+      "message": "De limiet van het schema {schedule_label} moet tussen {minimum} en {maximum} liggen."
+    },
+    "schedule_limit_minimum": {
+      "message": "De limiet van het schema {schedule_label} moet ten minste {minimum}% zijn."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "De huidige schematijden zijn niet beschikbaar."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "De limiet van het laden-vanaf-het-net-schema moet tussen {minimum} en {maximum} liggen."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "De limiet van het laden-vanaf-het-net-schema moet ten minste {minimum}% zijn."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Het uitschakelniveau van de batterij is niet beschikbaar."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Het uitschakelniveau van de batterij is ongeldig."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Het uitschakelniveau van de batterij moet tussen {minimum} en {maximum} liggen."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Afmelden voor Storm Alert is niet beschikbaar."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Afmelden voor Storm Alert is mislukt voor {count} waarschuwing(en)."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Storm Guard-updates zijn niet toegestaan voor dit account."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Storm Guard-instellingen zijn niet beschikbaar."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "De Storm Guard-update is afgewezen door Enphase (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "De Storm Guard-update kon niet worden geauthenticeerd. Verifieer opnieuw en probeer het opnieuw."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Het geselecteerde systeemprofiel is niet beschikbaar."
+    },
+    "system_profile_update_forbidden": {
+      "message": "De update van het systeemprofiel is afgewezen door Enphase (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "De update van het systeemprofiel kon niet worden geauthenticeerd. Verifieer opnieuw en probeer het opnieuw."
+    },
+    "system_profile_update_failed": {
+      "message": "De update van het systeemprofiel is mislukt."
+    },
+    "system_profile_update_network": {
+      "message": "De update van het systeemprofiel is mislukt door een netwerkfout. Probeer het opnieuw."
+    },
+    "system_profile_update_timeout": {
+      "message": "De update van het systeemprofiel heeft een time-out bereikt. Probeer het opnieuw."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Selectie van de oplaadmodus is niet beschikbaar terwijl de Enphase-plannerservice niet beschikbaar is."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "De geselecteerde doel-laadtoestand voor AC Battery is niet beschikbaar."
+    },
+    "battery_schedule_day_required": {
+      "message": "Selecteer minimaal één dag voor het schema."
+    },
+    "battery_schedule_times_different": {
+      "message": "De begin- en eindtijden van het schema moeten verschillend zijn."
+    },
+    "battery_schedule_limit_range": {
+      "message": "De schemalimiet van {schedule_type} moet tussen {minimum} en {maximum} liggen."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Schema afgewezen door het Enphase-validatie-eindpunt."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Bewerken van het batterijschema is niet beschikbaar."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "API voor batterijschema is niet beschikbaar."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Bevestiging vereist om een ​​planning bij te werken."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Bevestiging vereist om een ​​schema te verwijderen."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Ongeldige schema-ID: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "Schema-ID niet gevonden in huidige gegevens: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Geef ten minste één schema-ID op om te verwijderen."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Ongeldige schema-ID('s): {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Schema-ID('s) niet gevonden in huidige gegevens: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Schema afgewezen door het Enphase-validatie-eindpunt: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Schema-update conflicteert met een bestaand batterijschema: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Het tarief moet een niet-negatief getal zijn."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Het doel van het tarief is niet gevonden in de nieuwste tariefgegevens."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Het doel van het tarief is ongeldig."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "De API voor het schrijven van tarieven is niet beschikbaar."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Selecteer precies één tariefentiteit."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "De entiteit is geen Enphase-tarief: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "Niet-ondersteund OCPP-triggerbericht. Gebruik een van deze: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Schakel geavanceerde bevestiging in om {message} te verzenden."
+    },
+    "tariff_update_required": {
+      "message": "Geef factureringsgegevens of ten minste één tariefupdate op."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Geef de startdatum, frequentie en interval van de facturering op."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "De startdatum voor tarieffacturering moet een geldige ISO-datum zijn."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "De factureringsfrequentie van het tarief moet MONTH of DAY zijn."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Het factureringsinterval van het tarief moet tussen {minimum} en {maximum} liggen."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "De API voor het schrijven van tarieffacturering is niet beschikbaar."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Dubbele tariefdoelen zijn niet toegestaan."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Dubbele tariefentiteit: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Alle tariefupdates moeten op dezelfde Enphase-site zijn gericht."
+    },
+    "tariff_structure_invalid": {
+      "message": "De tariefstructuur is ongeldig."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Enphase Energy-opties",
+        "description": "Kies wat je met deze integratie-invoer wilt doen.",
+        "menu_options": {
+          "settings": "Instellingen",
+          "migrate_envoy": "Envoy-geschiedenis migreren"
+        },
+        "menu_option_descriptions": {
+          "settings": "Pas polling en gedrag aan.",
+          "migrate_envoy": "Neem geselecteerde energie-entiteit-ID's van Enphase Envoy over zodat de Home Assistant Energy-geschiedenis onder deze integratie doorgaat."
+        },
+        "data": {
+          "type_envoy": "Gateway",
+          "type_encharge": "Batterij",
+          "type_iqevse": "Laders",
+          "type_microinverter": "Micro-omvormers",
+          "fast_poll_interval": "Snelle polling-interval (s)",
+          "slow_poll_interval": "Langzame polling-interval (s)",
+          "fast_while_streaming": "Geef voorkeur aan snelle polling terwijl cloudstream actief is",
+          "api_timeout": "API-time-out (s)",
+          "nominal_voltage": "Nominale spanning (V)",
+          "session_history_interval": "Sessieverleden-interval (min)",
+          "schedule_sync_enabled": "Schakel EV Charger Scheduler in",
+          "reauth": "Herautenticatie starten",
+          "forget_password": "Opgeslagen wachtwoord vergeten",
+          "type_heatpump": "Warmtepomp",
+          "type_ac_battery": "AC-batterij",
+          "battery_schedules_enabled": "Schakel Batterijplanner in",
+          "degraded_service_repair_issues": "Reparaties voor verminderde diensten inschakelen"
+        },
+        "data_description": {
+          "type_envoy": "Bevat gateway-connectiviteit en meterdiagnostiek.",
+          "type_encharge": "Bevat batterijstatus en bedieningsentiteiten wanneer beschikbaar.",
+          "type_iqevse": "Bevat EV-lader-entiteiten en bediening.",
+          "type_microinverter": "Bevat sensoren voor micro-omvormerconnectiviteit, actief aantal en levensduurproductie.",
+          "fast_poll_interval": "Interval voor gebruik tijdens laden of streamen.",
+          "slow_poll_interval": "Interval voor gebruik bij inactiviteit.",
+          "fast_while_streaming": "Wanneer ingeschakeld, snelle polling tijdens actieve cloudstreaming.",
+          "api_timeout": "Seconden voordat API-aanvragen een time-out krijgen.",
+          "nominal_voltage": "Fallbackspanning voor het schatten van laadvermogen.",
+          "session_history_interval": "Minuten om te wachten tussen het ophalen van cloudsessiegeschiedenis.",
+          "schedule_sync_enabled": "Beheer IQ EV-opladerschema's",
+          "reauth": "Start de login-flow om inloggegevens te vernieuwen zonder de integratie te verwijderen.",
+          "forget_password": "Verwijdert het opgeslagen wachtwoord. Automatisch vernieuwen wordt niet langer geprobeerd.",
+          "type_heatpump": "Bevat sensoren voor warmtepompstatus, diagnostiek en verbruik.",
+          "type_ac_battery": "Bevat AC-batterijsensoren en slaapmodusbediening wanneer beschikbaar.",
+          "battery_schedules_enabled": "Beheer IQ-batterijschema's",
+          "degraded_service_repair_issues": "Maakt Repairs-problemen aan wanneer optionele Enphase-diensten verminderd werken."
+        }
+      },
+      "settings": {
+        "title": "Enphase Energy-opties",
+        "description": "Stem polling en gedrag af.",
+        "data": {
+          "type_envoy": "Gateway",
+          "type_encharge": "Batterij",
+          "type_iqevse": "Laders",
+          "type_microinverter": "Micro-omvormers",
+          "fast_poll_interval": "Snelle polling-interval (s)",
+          "slow_poll_interval": "Langzame polling-interval (s)",
+          "fast_while_streaming": "Geef voorkeur aan snelle polling terwijl cloudstream actief is",
+          "api_timeout": "API-time-out (s)",
+          "nominal_voltage": "Nominale spanning (V)",
+          "session_history_interval": "Sessieverleden-interval (min)",
+          "schedule_sync_enabled": "Schakel Scheduler-ondersteuning in",
+          "reauth": "Herautenticatie starten",
+          "forget_password": "Opgeslagen wachtwoord vergeten",
+          "type_heatpump": "Warmtepomp",
+          "type_ac_battery": "AC-batterij",
+          "battery_schedules_enabled": "Schakel Batterijplanner in",
+          "degraded_service_repair_issues": "Reparaties voor verminderde diensten inschakelen"
+        },
+        "data_description": {
+          "type_envoy": "Bevat gateway-connectiviteit en meterdiagnostiek.",
+          "type_encharge": "Bevat batterijstatus en bedieningsentiteiten wanneer beschikbaar.",
+          "type_iqevse": "Bevat EV-lader-entiteiten en bediening.",
+          "type_microinverter": "Bevat sensoren voor micro-omvormerconnectiviteit, actief aantal en levensduurproductie.",
+          "fast_poll_interval": "Interval voor gebruik tijdens laden of streamen.",
+          "slow_poll_interval": "Interval voor gebruik bij inactiviteit.",
+          "fast_while_streaming": "Wanneer ingeschakeld, snelle polling tijdens actieve cloudstreaming.",
+          "api_timeout": "Seconden voordat API-aanvragen een time-out krijgen.",
+          "nominal_voltage": "Fallbackspanning voor het schatten van laadvermogen.",
+          "session_history_interval": "Minuten om te wachten tussen het ophalen van cloudsessiegeschiedenis.",
+          "schedule_sync_enabled": "Beheer het planningsbeheer van Enphase",
+          "reauth": "Start de login-flow om inloggegevens te vernieuwen zonder de integratie te verwijderen.",
+          "forget_password": "Verwijdert het opgeslagen wachtwoord. Automatisch vernieuwen wordt niet langer geprobeerd.",
+          "type_heatpump": "Bevat sensoren voor warmtepompstatus, diagnostiek en verbruik.",
+          "type_ac_battery": "Bevat AC-batterijsensoren en slaapmodusbediening wanneer beschikbaar.",
+          "battery_schedules_enabled": "Beheer IQ-batterijschema's",
+          "degraded_service_repair_issues": "Maakt Repairs-problemen aan wanneer optionele Enphase-diensten verminderd werken."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Envoy-bron selecteren",
+        "description": "Kies vanuit welke Enphase Envoy-invoer je wilt migreren.",
+        "data": {
+          "selected_envoy_source": "Envoy-bron"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Envoy-geschiedenis migreren",
+        "description": "Deze assistent wijst geselecteerde energie-entiteit-ID’s van Enphase Envoy opnieuw toe aan overeenkomende Enphase Energy-sensoren.\n\nDe geschiedenis van Home Assistant Energy is gekoppeld aan de entiteit-ID die voor langetermijnstatistieken wordt gebruikt.\n\nMaak een volledige back-up van Home Assistant voordat je doorgaat.\n\nMigreer alleen sensoren die dezelfde cumulatieve energietotaal vertegenwoordigen.\n\nDe geselecteerde Envoy-integratie wordt tijdelijk ontladen terwijl de entiteit-ID’s opnieuw worden toegewezen en daarna na de migratie hersteld.\n\nHiermee wordt het entiteitenregister bijgewerkt en dit kan niet automatisch ongedaan worden gemaakt.\n\nGeselecteerde Envoy-bron: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Ik heb een recente Home Assistant-back-up"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Geschiedenissensoren koppelen",
+        "description": "Controleer de voorgestelde koppelingen zorgvuldig. Alleen compatibele cumulatieve energietotalen worden getoond. Lege velden worden overgeslagen.\n\nAls een suggestie onjuist of onduidelijk is, wis die dan en kies handmatig.",
+        "data": {
+          "solar_production": "Zonneproductie",
+          "consumption": "Verbruik",
+          "grid_import": "Netimport",
+          "grid_export": "Netexport",
+          "battery_charge": "Batterijlading",
+          "battery_discharge": "Batterijontlading"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
+          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Migratie van Envoy-geschiedenis bevestigen",
+        "description": "De geselecteerde bron-entiteiten worden hernoemd naar gearchiveerde oude entiteits-ID's.\n\nDe Enphase Energy-entiteiten worden daarna hernoemd naar de oorspronkelijke bron-entiteits-ID's.\n\nAls een koppeling onjuist is, annuleer dan nu. Herstellen vanaf een back-up is de veiligste manier om terug te draaien.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Ik begrijp dat de geselecteerde bron-entiteits-ID's opnieuw worden toegewezen",
+          "disable_archived_envoy_sensors": "Gearchiveerde bronsensoren uitschakelen na de migratie"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Selecteer of voer ten minste één lader in.",
+      "backup_required": "Het wordt sterk aanbevolen om een volledige back-up te maken voordat je doorgaat.",
+      "confirm_required": "Bevestig dat de geselecteerde bron-entiteits-ID's opnieuw worden toegewezen voordat je doorgaat.",
+      "migration_no_selection": "Selecteer ten minste één compatibele energiesensor om te migreren.",
+      "migration_duplicate_selection": "Dezelfde bron-entiteit kan niet meer dan één keer worden gebruikt.",
+      "envoy_entry_loaded": "De Envoy-integratie kon niet tijdelijk worden ontladen voor de migratie.",
+      "incompatible_energy_total": "De geselecteerde entiteiten zijn geen compatibele cumulatieve energietotalen."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Er zijn geen Enphase Envoy-energiesensoren beschikbaar om te migreren.",
+      "migration_no_targets": "Er zijn geen compatibele Enphase Energy-sensoren beschikbaar om te migreren.",
+      "migration_partial_failure": "De migratie is gestopt na gedeeltelijke voltooiing.\n\nVoltooide koppelingen:\n{completed_mappings}\n\nMislukt tijdens verwerken van `{failed_entity_id}`: {failure_reason}\n\nHerstel vanaf een back-up als het resultaat niet acceptabel is."
+    },
+    "create_entry": {
+      "migration_success": "Migratie voltooid. Enphase Energy bezit nu de geselecteerde bron-entiteits-ID's. Controleer het Energy-dashboard en Developer Tools > Statistics na de volgende vernieuwing.",
+      "migration_success_reload_needed": "De migratie is voltooid, maar een of meer integraties konden niet automatisch opnieuw worden geladen. Laad Enphase Energy en Enphase Envoy indien nodig handmatig opnieuw en controleer daarna het Energy-dashboard en Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Laatste sessie",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Verbruikte energie (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Verbruikte energie (kWh)"
+          },
+          "session_cost": {
+            "name": "Sessiekosten"
+          },
+          "session_charge_level": {
+            "name": "Laadniveau sessie"
+          },
+          "range_added": {
+            "name": "Toegevoegde actieradius"
+          },
+          "plugged_in_at": {
+            "name": "Ingeplugd op"
+          },
+          "plugged_out_at": {
+            "name": "Uitgeplugd op"
+          },
+          "session_duration_min": {
+            "name": "Sessieduur (min)"
+          },
+          "session_id": {
+            "name": "Sessie-ID"
+          },
+          "session_started_at": {
+            "name": "Sessie gestart op"
+          },
+          "session_ended_at": {
+            "name": "Sessie beëindigd op"
+          },
+          "active_charge_time_s": {
+            "name": "Actieve laadtijd (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Gemiddelde kosten per kWh"
+          },
+          "cost_calculated": {
+            "name": "Kosten berekend"
+          },
+          "session_cost_state": {
+            "name": "Sessiekostenstatus"
+          },
+          "manual_override": {
+            "name": "Handmatige override"
+          },
+          "charge_profile_stack_level": {
+            "name": "Niveau laadprofielstack"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Connectorstatus",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Statusreden"
+          },
+          "connector_status_info": {
+            "name": "Connectorstatusinfo"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Connectorreden"
+      },
+      "electrical_phase": {
+        "name": "Elektrische fase",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Fasemodus (ruw)"
+          },
+          "dlb_enabled": {
+            "name": "Dynamische load balancing ingeschakeld"
+          },
+          "dlb_active": {
+            "name": "Dynamische load balancing actief"
+          }
+        }
+      },
+      "power": {
+        "name": "Vermogen",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Laatste levensduur-kWh"
+          },
+          "last_energy_ts": {
+            "name": "Laatste energie-tijdstempel"
+          },
+          "last_sample_ts": {
+            "name": "Laatste sample-tijdstempel"
+          },
+          "last_power_w": {
+            "name": "Laatste vermogen (W)"
+          },
+          "last_window_seconds": {
+            "name": "Laatste venster (s)"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "charging": {
+            "name": "Laden"
+          },
+          "operating_v": {
+            "name": "Bedrijfsspanning (V)"
+          },
+          "max_throughput_w": {
+            "name": "Maximale doorvoer (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Maximale doorvoer (onbegrensd W)"
+          },
+          "max_throughput_source": {
+            "name": "Maximale doorvoerbron"
+          },
+          "max_throughput_amps": {
+            "name": "Maximale doorvoer in ampère"
+          },
+          "max_throughput_voltage": {
+            "name": "Maximale doorvoerspanning (V)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Laadmodus",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Ampèreregeling van toepassing"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Modus die ampères beheert"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Modi waarin ampèreregeling van toepassing is"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Authenticatie van de oplader",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "App-verificatie ingeschakeld"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID-authenticatie ingeschakeld"
+          },
+          "app_auth_supported": {
+            "name": "App-authenticatie ondersteund"
+          },
+          "rfid_auth_supported": {
+            "name": "RFID-authenticatie ondersteund"
+          }
+        },
+        "state": {
+          "enabled": "Ingeschakeld",
+          "disabled": "Gehandicapt"
+        }
+      },
+      "set_amps": {
+        "name": "Ampère instellen",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimale ampère"
+          },
+          "max_amp": {
+            "name": "Maximale ampère"
+          },
+          "max_current": {
+            "name": "Maximale circuit-ampère"
+          },
+          "amp_granularity": {
+            "name": "Ampèregranulariteit"
+          }
+        }
+      },
+      "status": {
+        "name": "Opladerstatus",
+        "state_attributes": {
+          "commissioned": {
+            "name": "In bedrijf gesteld"
+          },
+          "charger_problem": {
+            "name": "Probleem met lader"
+          },
+          "suspended_by_evse": {
+            "name": "Gesuspendeerd door EVSE"
+          },
+          "offline_since": {
+            "name": "Offline sinds"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Laatste geslaagde update",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Laatste fout (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Laatste foutstatus"
+          },
+          "code_description": {
+            "name": "Codebeschrijving"
+          },
+          "last_failure_response": {
+            "name": "Laatste foutrespons"
+          },
+          "last_failure_source": {
+            "name": "Laatste foutbron"
+          },
+          "backoff_ends_utc": {
+            "name": "Backoff eindigt (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Cloudlatentie"
+      },
+      "current_production_power": {
+        "name": "Huidig productievermogen",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "reported_units": {
+            "name": "Gerapporteerde eenheden"
+          },
+          "reported_precision": {
+            "name": "Gerapporteerde precisie"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Cloud-foutcode",
+        "state": {
+          "none": "Geen",
+          "rate_limited": "Verzoekfrequentie beperkt",
+          "auth_blocked": "Authenticatie tijdelijk geblokkeerd",
+          "authentication_error": "Authenticatiefout",
+          "request_error": "Aanvraagfout",
+          "service_unavailable": "Service niet beschikbaar",
+          "invalid_payload": "Ongeldig cloudantwoord",
+          "dns_error": "DNS-fout",
+          "network_error": "Netwerkfout"
+        }
+      },
+      "site_service_status": {
+        "name": "Servicestatus",
+        "state": {
+          "ok": "In orde",
+          "unknown": "Onbekend",
+          "degraded": "Verminderd"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Verminderde services"
+          },
+          "degraded_endpoint_families": {
+            "name": "Verminderde endpointfamilies"
+          },
+          "degraded_service_count": {
+            "name": "Aantal verminderde services"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Aantal verminderde endpointfamilies"
+          },
+          "metrics_available": {
+            "name": "Metrieken beschikbaar"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Cloud-backoff eindigt",
+        "state": {
+          "none": "Geen"
+        }
+      },
+      "last_reported": {
+        "name": "Laatst gerapporteerd op",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Rapporteringsinterval (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Sessiemijlen"
+      },
+      "session_plug_in_at": {
+        "name": "Sessie ingeplugd op"
+      },
+      "session_plug_out_at": {
+        "name": "Sessie uitgeplugd op"
+      },
+      "schedule_type": {
+        "name": "Schematype"
+      },
+      "schedule_start": {
+        "name": "Begin schema"
+      },
+      "schedule_end": {
+        "name": "Einde schema"
+      },
+      "lifetime_energy": {
+        "name": "Levensduurenergie",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Laatste resetwaarde"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Site-zonneproductie",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Siteverbruik",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Site-netimport",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Huidig netvermogen",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Laatste stroom kWh"
+          },
+          "last_energy_ts": {
+            "name": "Laatste energie-tijdstempel"
+          },
+          "last_sample_ts": {
+            "name": "Laatste sample-tijdstempel"
+          },
+          "last_power_w": {
+            "name": "Laatste vermogen (W)"
+          },
+          "last_window_seconds": {
+            "name": "Laatste venster (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "source_flows": {
+            "name": "Bronstromen"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Site-netexport",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Sitebatterij laden",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Sitebatterij ontladen",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Huidig batterijvermogen",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Laatste stroom kWh"
+          },
+          "last_energy_ts": {
+            "name": "Laatste energie-tijdstempel"
+          },
+          "last_sample_ts": {
+            "name": "Laatste sample-tijdstempel"
+          },
+          "last_power_w": {
+            "name": "Laatste vermogen (W)"
+          },
+          "last_window_seconds": {
+            "name": "Laatste venster (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          },
+          "method": {
+            "name": "Methode"
+          },
+          "source_flows": {
+            "name": "Bronstromen"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Stormwacht"
+      },
+      "storm_alert": {
+        "name": "Stormwaarschuwing",
+        "state": {
+          "active": "Actief",
+          "inactive": "Inactief"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Stormwaarschuwing actief"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Systeemprofielstatus",
+        "state": {
+          "pending": "In behandeling"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Effectief profiel"
+          },
+          "effective_profile_label": {
+            "name": "Effectief profiellabel"
+          },
+          "effective_reserve_percentage": {
+            "name": "Effectieve reserve (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Effectieve bedieningsmodus Subtype"
+          },
+          "requested_profile": {
+            "name": "Gevraagd profiel"
+          },
+          "requested_profile_label": {
+            "name": "Gevraagd profiellabel"
+          },
+          "requested_reserve_percentage": {
+            "name": "Gevraagde reserve (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Gewenst subtype werkingsmodus"
+          },
+          "pending": {
+            "name": "In behandeling"
+          },
+          "pending_requested_at": {
+            "name": "In behandeling Aangevraagd om"
+          },
+          "selected_profile": {
+            "name": "Geselecteerd profiel"
+          },
+          "selected_profile_label": {
+            "name": "Geselecteerd profiellabel"
+          },
+          "selected_reserve_percentage": {
+            "name": "Geselecteerde reserve (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Geselecteerd subtype werkingsmodus"
+          },
+          "available_profile_keys": {
+            "name": "Beschikbare profielsleutels"
+          },
+          "available_profile_labels": {
+            "name": "Beschikbare profiellabels"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Batterijmodus",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Ruwe modus"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Laden vanaf net toegestaan"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Ontladen naar net toegestaan"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Batterijniveau"
+      },
+      "battery_overall_charge": {
+        "name": "Totale batterijlading"
+      },
+      "battery_overall_status": {
+        "name": "Algemene status van de batterij",
+        "state": {
+          "normal": "Normaal",
+          "warning": "Waarschuwing",
+          "error": "Fout",
+          "unknown": "Onbekend"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Status van het batterij-CFG-schema",
+        "state": {
+          "none": "Geen",
+          "pending": "In behandeling",
+          "active": "Actief"
+        }
+      },
+      "grid_control_status": {
+        "name": "Status netregeling",
+        "state": {
+          "ready": "Gereed",
+          "blocked": "Geblokkeerd",
+          "pending": "In behandeling"
+        }
+      },
+      "grid_mode": {
+        "name": "Rastermodus",
+        "state": {
+          "on_grid": "Op raster",
+          "off_grid": "Buiten het raster",
+          "unknown": "Onbekend"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Beschikbare batterij-energie"
+      },
+      "battery_available_power": {
+        "name": "Beschikbaar batterijvermogen"
+      },
+      "battery_storage_status": {
+        "name": "Status van {serial}",
+        "state": {
+          "charging": "Opladen",
+          "discharging": "Ontladen",
+          "idle": "Inactief",
+          "unknown": "Onbekend"
+        }
+      },
+      "battery_storage_health": {
+        "name": "Gezondheid van {serial}"
+      },
+      "battery_storage_cycle_count": {
+        "name": "Aantal cycli van {serial}"
+      },
+      "battery_storage_last_reported": {
+        "name": "Laatst gerapporteerd voor {serial}"
+      },
+      "battery_last_reported": {
+        "name": "Laatst gerapporteerd voor Batterij"
+      },
+      "system_controller_inventory": {
+        "name": "Systeemcontroller"
+      },
+      "gateway_production_meter": {
+        "name": "Productiemeter"
+      },
+      "gateway_consumption_meter": {
+        "name": "Verbruiksmeter"
+      },
+      "gateway_connectivity_status": {
+        "name": "Gateway-status"
+      },
+      "gateway_last_reported": {
+        "name": "Gateway Laatst gerapporteerd"
+      },
+      "tariff_billing_cycle": {
+        "name": "Volgende factuurdatum",
+        "state_attributes": {
+          "start_date": {
+            "name": "Startdatum"
+          },
+          "billing_frequency": {
+            "name": "Factureringsfrequentie"
+          },
+          "billing_interval_value": {
+            "name": "Factureringsintervalwaarde"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Factuurcyclus"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Importtarief",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "seasons": {
+            "name": "Seizoenen"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Importtarief {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "Seizoens-ID"
+          },
+          "start_month": {
+            "name": "Startmaand"
+          },
+          "end_month": {
+            "name": "Eindmaand"
+          },
+          "day_group_id": {
+            "name": "Daggroep-ID"
+          },
+          "days": {
+            "name": "Dagen"
+          },
+          "period_id": {
+            "name": "Periode-ID"
+          },
+          "period_type": {
+            "name": "Periodetype"
+          },
+          "start_time": {
+            "name": "Starttijd"
+          },
+          "end_time": {
+            "name": "Eindtijd"
+          },
+          "rate": {
+            "name": "Tarief"
+          },
+          "formatted_rate": {
+            "name": "Opgemaakt tarief"
+          },
+          "tier_id": {
+            "name": "Schijf-ID"
+          },
+          "start_value": {
+            "name": "Startwaarde"
+          },
+          "end_value": {
+            "name": "Eindwaarde"
+          },
+          "unbounded": {
+            "name": "Zonder bovengrens"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariefzoeker"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Exporttarief",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "seasons": {
+            "name": "Seizoenen"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Exporttarief {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "season_id": {
+            "name": "Seizoens-ID"
+          },
+          "start_month": {
+            "name": "Startmaand"
+          },
+          "end_month": {
+            "name": "Eindmaand"
+          },
+          "day_group_id": {
+            "name": "Daggroep-ID"
+          },
+          "days": {
+            "name": "Dagen"
+          },
+          "period_id": {
+            "name": "Periode-ID"
+          },
+          "period_type": {
+            "name": "Periodetype"
+          },
+          "start_time": {
+            "name": "Starttijd"
+          },
+          "end_time": {
+            "name": "Eindtijd"
+          },
+          "rate": {
+            "name": "Tarief"
+          },
+          "formatted_rate": {
+            "name": "Opgemaakt tarief"
+          },
+          "tier_id": {
+            "name": "Schijf-ID"
+          },
+          "start_value": {
+            "name": "Startwaarde"
+          },
+          "end_value": {
+            "name": "Eindwaarde"
+          },
+          "unbounded": {
+            "name": "Zonder bovengrens"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariefzoeker"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Verbindingsstatus micro-omvormers"
+      },
+      "microinverter_reporting_count": {
+        "name": "Actieve micro-omvormers"
+      },
+      "microinverter_last_reported": {
+        "name": "Laatst gemeld door micro-omvormers"
+      },
+      "site_evse_charging": {
+        "name": "EVSE-laden van locatie",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Warmtepompverbruik van locatie",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Boilerverbruik van locatie",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Gemeten om (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Laatste reset op"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ-energierouter_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Warmtepompstatus"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Energiemeter van de warmtepomp"
+      },
+      "heat_pump_last_reported": {
+        "name": "Warmtepomp laatst gerapporteerd"
+      },
+      "heat_pump_power": {
+        "name": "Vermogen van de warmtepomp"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Warmtepompstatus"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "SG-Ready-gateway van de warmtepomp"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Dagelijkse energie van warmtepomp"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Dagelijkse netenergie van warmtepomp"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Dagelijkse zonne-energie van warmtepomp"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Dagelijkse batterij-energie van warmtepomp"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Status van SG-Ready-gateway van warmtepomp"
+      },
+      "shared_labels": {
+        "name": "Gedeelde labels",
+        "state": {
+          "self_consumption": "Zelfverbruik",
+          "cost_savings": "Besparing",
+          "ai_optimisation": "AI-optimalisatie",
+          "backup_only": "Volledige back-up",
+          "importexport": "Import en export",
+          "importonly": "Alleen import",
+          "exportonly": "Alleen export",
+          "manual_charging": "Handmatig",
+          "scheduled_charging": "Gepland",
+          "green_charging": "Groen",
+          "smart_charging": "Slim",
+          "online": "Online",
+          "offline": "Offline",
+          "degraded": "Verlaagd",
+          "not_reporting": "Rapporteert niet",
+          "inactive": "Inactief",
+          "normal": "Normaal",
+          "warning": "Waarschuwing",
+          "error": "Fout",
+          "unknown": "Onbekend",
+          "unpaired": "Niet gekoppeld",
+          "pairing": "Koppelen"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "Algemene status van AC-batterij",
+        "state": {
+          "charging": "Opladen",
+          "discharging": "Ontladen",
+          "idle": "Inactief",
+          "unknown": "Onbekend"
+        }
+      },
+      "ac_battery_power": {
+        "name": "Vermogen van AC-batterij"
+      },
+      "ac_battery_last_reported": {
+        "name": "Laatst gerapporteerd door AC-batterij"
+      },
+      "ac_battery_storage_charge": {
+        "name": "Laadniveau van AC-batterij"
+      },
+      "ac_battery_storage_status": {
+        "name": "Status van {serial}",
+        "state": {
+          "charging": "Opladen",
+          "discharging": "Ontladen",
+          "idle": "Inactief",
+          "unknown": "Onbekend"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "Vermogen van {serial}"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "Bedrijfsmodus van {serial}"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "Cyclusaantal van {serial}"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "Laatst gerapporteerd door {serial}"
+      },
+      "battery_cfg_schedules": {
+        "name": "Batterij CFG-schema's"
+      },
+      "battery_dtg_schedules": {
+        "name": "Batterij DTG-schema's"
+      },
+      "battery_rbd_schedules": {
+        "name": "Batterij RBD-schema's"
+      },
+      "battery_schedule_summary": {
+        "name": "Samenvatting van het batterijschema"
+      },
+      "tariff_current_import_rate": {
+        "name": "Huidig importtarief",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "Seizoens-ID"
+          },
+          "start_month": {
+            "name": "Startmaand"
+          },
+          "end_month": {
+            "name": "Eindmaand"
+          },
+          "day_group_id": {
+            "name": "Daggroep-ID"
+          },
+          "days": {
+            "name": "Dagen"
+          },
+          "period_id": {
+            "name": "Periode-ID"
+          },
+          "period_type": {
+            "name": "Periodetype"
+          },
+          "start_time": {
+            "name": "Starttijd"
+          },
+          "end_time": {
+            "name": "Eindtijd"
+          },
+          "rate": {
+            "name": "Tarief"
+          },
+          "formatted_rate": {
+            "name": "Opgemaakt tarief"
+          },
+          "tier_id": {
+            "name": "Schijf-ID"
+          },
+          "start_value": {
+            "name": "Startwaarde"
+          },
+          "end_value": {
+            "name": "Eindwaarde"
+          },
+          "unbounded": {
+            "name": "Zonder bovengrens"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariefzoeker"
+          },
+          "active_rate_name": {
+            "name": "Naam actief tarief"
+          },
+          "configured_rates": {
+            "name": "Geconfigureerde tarieven"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Huidig exporttarief",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "season_id": {
+            "name": "Seizoens-ID"
+          },
+          "start_month": {
+            "name": "Startmaand"
+          },
+          "end_month": {
+            "name": "Eindmaand"
+          },
+          "day_group_id": {
+            "name": "Daggroep-ID"
+          },
+          "days": {
+            "name": "Dagen"
+          },
+          "period_id": {
+            "name": "Periode-ID"
+          },
+          "period_type": {
+            "name": "Periodetype"
+          },
+          "start_time": {
+            "name": "Starttijd"
+          },
+          "end_time": {
+            "name": "Eindtijd"
+          },
+          "rate": {
+            "name": "Tarief"
+          },
+          "formatted_rate": {
+            "name": "Opgemaakt tarief"
+          },
+          "tier_id": {
+            "name": "Schijf-ID"
+          },
+          "start_value": {
+            "name": "Startwaarde"
+          },
+          "end_value": {
+            "name": "Eindwaarde"
+          },
+          "unbounded": {
+            "name": "Zonder bovengrens"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariefzoeker"
+          },
+          "active_rate_name": {
+            "name": "Naam actief tarief"
+          },
+          "configured_rates": {
+            "name": "Geconfigureerde tarieven"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Laadampère"
+      },
+      "battery_reserve": {
+        "name": "Batterijreserve"
+      },
+      "battery_shutdown_level": {
+        "name": "Uitschakelniveau van batterij"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Laadlimiet van de batterij"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Limiet voor ontladen naar het net"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Limiet voor beperkte batterijontlading"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Batterij Nieuwe schemalimiet"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Limiet batterijschema"
+      },
+      "tariff_import_rate_value": {
+        "name": "Importtarief {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "Seizoens-ID"
+          },
+          "start_month": {
+            "name": "Startmaand"
+          },
+          "end_month": {
+            "name": "Eindmaand"
+          },
+          "day_group_id": {
+            "name": "Daggroep-ID"
+          },
+          "days": {
+            "name": "Dagen"
+          },
+          "period_id": {
+            "name": "Periode-ID"
+          },
+          "period_type": {
+            "name": "Periodetype"
+          },
+          "start_time": {
+            "name": "Starttijd"
+          },
+          "end_time": {
+            "name": "Eindtijd"
+          },
+          "rate": {
+            "name": "Tarief"
+          },
+          "formatted_rate": {
+            "name": "Opgemaakt tarief"
+          },
+          "tier_id": {
+            "name": "Schijf-ID"
+          },
+          "start_value": {
+            "name": "Startwaarde"
+          },
+          "end_value": {
+            "name": "Eindwaarde"
+          },
+          "unbounded": {
+            "name": "Zonder bovengrens"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariefzoeker"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Exporttarief {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariefstructuur"
+          },
+          "variation_type": {
+            "name": "Variatietype"
+          },
+          "source": {
+            "name": "Bron"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "season_id": {
+            "name": "Seizoens-ID"
+          },
+          "start_month": {
+            "name": "Startmaand"
+          },
+          "end_month": {
+            "name": "Eindmaand"
+          },
+          "day_group_id": {
+            "name": "Daggroep-ID"
+          },
+          "days": {
+            "name": "Dagen"
+          },
+          "period_id": {
+            "name": "Periode-ID"
+          },
+          "period_type": {
+            "name": "Periodetype"
+          },
+          "start_time": {
+            "name": "Starttijd"
+          },
+          "end_time": {
+            "name": "Eindtijd"
+          },
+          "rate": {
+            "name": "Tarief"
+          },
+          "formatted_rate": {
+            "name": "Opgemaakt tarief"
+          },
+          "tier_id": {
+            "name": "Schijf-ID"
+          },
+          "start_value": {
+            "name": "Startwaarde"
+          },
+          "end_value": {
+            "name": "Eindwaarde"
+          },
+          "unbounded": {
+            "name": "Zonder bovengrens"
+          },
+          "last_refresh_utc": {
+            "name": "Laatst bijgewerkt (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariefzoeker"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Ingeplugd"
+      },
+      "charging": {
+        "name": "Laden"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "SG-Ready van warmtepomp actief"
+      },
+      "cloud_reachable": {
+        "name": "Cloud bereikbaar"
+      },
+      "connected": {
+        "name": "Connectiviteit",
+        "state_attributes": {
+          "connection": {
+            "name": "Verbinding"
+          },
+          "ip_address": {
+            "name": "IP-adres"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Laden"
+      },
+      "green_battery": {
+        "name": "Gebruik de batterij voor het opladen van elektrische voertuigen"
+      },
+      "app_authentication": {
+        "name": "Autoriseren via app"
+      },
+      "storm_guard": {
+        "name": "Stormwacht"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV-lading"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Gebruik de batterij na piekuren"
+      },
+      "charge_from_grid": {
+        "name": "Batterij laden vanaf net"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Laadschema vanaf net"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Schema voor ontladen naar het net"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Schema voor beperkte batterijontlading"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "Slaapmodus van AC-batterij"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Schema maandag"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Schema dinsdag"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Schema woensdag"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Schema donderdag"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Schema vrijdag"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Schema zaterdag"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Schema zondag"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Nieuw batterijschema maandag"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Nieuw batterijschema dinsdag"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Nieuw batterijschema woensdag"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Nieuw batterijschema donderdag"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Nieuw batterijschema vrijdag"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Nieuw batterijschema zaterdag"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Nieuw batterijschema zondag"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Batterijschema maandag"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Batterijschema dinsdag"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Batterijschema woensdag"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Batterijschema donderdag"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Batterijschema vrijdag"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Batterijschema zaterdag"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Batterijschema zondag"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Laadmodus"
+      },
+      "system_profile": {
+        "name": "Systeemprofiel"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "Doel-laadniveau van AC-batterij"
+      },
+      "evse_schedule_selected": {
+        "name": "Schema"
+      },
+      "battery_new_schedule_type": {
+        "name": "Type batterijschema"
+      },
+      "battery_schedule_selected": {
+        "name": "Batterijschema"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Laden starten"
+      },
+      "stop_charging": {
+        "name": "Laden stoppen"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Annuleer lopende profielwijziging"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Verzoek raster Toggle OTP"
+      },
+      "storm_alert_opt_out": {
+        "name": "Afmelden voor stormwaarschuwing"
+      },
+      "evse_schedule_refresh": {
+        "name": "Schema vernieuwen"
+      },
+      "evse_schedule_save": {
+        "name": "Schema opslaan"
+      },
+      "evse_schedule_delete": {
+        "name": "Schema verwijderen"
+      },
+      "evse_schedule_add": {
+        "name": "Nieuw schema maken"
+      },
+      "battery_schedule_add": {
+        "name": "Batterijschema toevoegen"
+      },
+      "battery_schedule_delete": {
+        "name": "Batterijschema verwijderen"
+      },
+      "battery_schedule_refresh": {
+        "name": "Batterijschema vernieuwen"
+      },
+      "battery_schedule_save": {
+        "name": "Batterijschema opslaan"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Starttijd laden vanaf net"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Eindtijd laden vanaf net"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Starttijd voor ontladen naar het net"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Eindtijd voor ontladen naar het net"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Starttijd voor beperkte batterijontlading"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Eindtijd voor beperkte batterijontlading"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Begintijd schema"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Eindtijd schema"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Batterij Nieuw schema Starttijd"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Batterij Nieuw schema Eindtijd"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Starttijd batterijschema"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Eindtijd batterijschema"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Back-upgeschiedenis"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Gatewayfirmware"
+      },
+      "charger_firmware": {
+        "name": "Firmwareversie"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Enphase-site {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Laden starten",
+      "stop_charging": "Laden stoppen"
+    },
+    "trigger_type": {
+      "charging_started": "Laden gestart",
+      "charging_stopped": "Laden gestopt",
+      "plugged_in": "Ingeplugd",
+      "unplugged": "Uitgeplugd"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy vereist herauthenticatie",
+      "description": "Site {site_id} vereist bijgewerkte sessieheaders. Authenticeer opnieuw."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Enphase lijkt de authenticatie voor site {site_id} tijdelijk te blokkeren. Automatische pogingen zijn gepauzeerd tot {blocked_until}. Een geslaagde handmatige herauthenticatie kan de blokkade eerder opheffen."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energy heeft te veel actieve sessies",
+      "description": "Enphase heeft de authenticatie voor locatie {site_id} geweigerd omdat er te veel accountsessies actief zijn. Automatische pogingen zijn gepauzeerd tot {blocked_until}. Meld u af bij andere Enphase-app- of browsersessies en probeer daarna opnieuw te authenticeren."
+    },
+    "rate_limited": {
+      "title": "Enphase Energy is door een snelheidslimiet beperkt",
+      "description": "De cloud-API gaf een verzoekfrequentielimiet terug. Polling wordt vertraagd tot {backoff_ends}."
+    },
+    "cloud_unreachable": {
+      "title": "Enphase Energy cloud onbereikbaar",
+      "description": "Home Assistant kan de Enphase-cloud voor site {site_id} niet bereiken. Polling vertraagt automatisch; controleer de servicestatus en je netwerk."
+    },
+    "cloud_dns_resolution": {
+      "title": "Enphase Energy DNS-resolutiefout",
+      "description": "Home Assistant kon enlighten.enphaseenergy.com voor site {site_id} niet resolveren. Controleer je DNS-resolver of internetverbinding."
+    },
+    "cloud_service_unavailable": {
+      "title": "Enphase Energy cloudfouten",
+      "description": "De Enphase-cloud voor site {site_id} reageert met fouten. Polling schakelt automatisch terug; controleer de servicestatus of gebruikslimieten."
+    },
+    "scheduler_unavailable": {
+      "title": "Enphase Energy-planner niet beschikbaar",
+      "description": "De Enphase-plannerservice voor site {site_id} is niet beschikbaar. Selectie van de oplaadmodus en geplande synchronisatie zijn tijdelijk uitgeschakeld."
+    },
+    "session_history_unavailable": {
+      "title": "Enphase Energy-sessiegeschiedenis niet beschikbaar",
+      "description": "De Enphase-sessiegeschiedenisservice voor site {site_id} is niet beschikbaar. Sessiegeschiedenissensoren tonen gegevens in de cache totdat de service herstelt."
+    },
+    "site_energy_unavailable": {
+      "title": "Enphase Energy-site-energie niet beschikbaar",
+      "description": "De Enphase levenslange energieservice voor locatie {site_id} is niet beschikbaar. Energiesensoren op de locatie tonen gegevens in de cache totdat de service is hersteld."
+    },
+    "auth_settings_unavailable": {
+      "title": "Enphase Energy-authenticatie-instellingen niet beschikbaar",
+      "description": "De service voor authenticatie-instellingen van de Enphase-lader voor site {site_id} is niet beschikbaar. Controles voor app-verificatie zijn tijdelijk uitgeschakeld."
+    },
+    "battery_profile_pending": {
+      "title": "Update van Enphase Energy-batterijprofiel in behandeling",
+      "description": "Een wijziging van het batterijprofiel voor locatie {site_id} staat al langer dan {pending_timeout_minutes} minuten in behandeling. De cloud verwerkt de aanvraag mogelijk nog."
+    },
+    "hems_auth_degraded": {
+      "title": "Enphase Energy HEMS tijdelijk gepauzeerd",
+      "description": "Heat Pump/HEMS-polling voor site {site_id} is gepauzeerd tot {backoff_until} na {failure_count} auth-achtige fouten ({reason}). Wallbox, batterij, gateway en andere gegevens kunnen doorgaan. Schakel de Heat Pump-apparaatgroep uit of gebruik Clear HEMS Auth Backoff nadat Enphase is hersteld."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "Site-ID",
+      "can_reach_server": "Enphase-cloud bereiken",
+      "last_success": "Laatste geslaagde update",
+      "latency_ms": "Cloudlatentie (ms)",
+      "last_error": "Laatste fout",
+      "scheduler_available": "Planner beschikbaar",
+      "scheduler_last_error": "Laatste fout in planner",
+      "scheduler_failures": "Fouten in de planner",
+      "scheduler_backoff_active": "Uitstel van planner actief",
+      "scheduler_backoff_ends_utc": "Uitstel van planner eindigt (UTC)",
+      "backoff_active": "Backoff actief",
+      "network_errors": "Opeenvolgende netwerkfouten",
+      "http_errors": "Opeenvolgende HTTP-fouten",
+      "site_count": "Aantal locaties",
+      "site_name": "Sitenaam",
+      "site_ids": "Site-ID's",
+      "site_names": "Sitenamen",
+      "last_failure_status": "Laatste foutstatus",
+      "last_failure_description": "Laatste foutbeschrijving",
+      "phase_timings": "Fasetijden",
+      "session_cache_ttl_s": "Sessiecache TTL(s)",
+      "sites": "Locaties",
+      "auth_settings_available": "Verificatie-instellingen beschikbaar",
+      "auth_settings_last_error": "Laatste fout auth-instellingen",
+      "auth_settings_failures": "Mislukte verificatie-instellingen",
+      "auth_settings_backoff_active": "Uitstel van verificatie-instellingen actief",
+      "auth_settings_backoff_ends_utc": "Uitstel van verificatie-instellingen eindigt (UTC)",
+      "session_history_available": "Sessiegeschiedenis beschikbaar",
+      "session_history_last_error": "Laatste fout sessiegeschiedenis",
+      "session_history_failures": "Fouten in de sessiegeschiedenis",
+      "session_history_backoff_active": "Uitstel van sessiegeschiedenis actief",
+      "session_history_backoff_ends_utc": "Uitstel sessiegeschiedenis eindigt (UTC)",
+      "site_energy_available": "Locatie-energie beschikbaar",
+      "site_energy_last_error": "Laatste fout site-energie",
+      "site_energy_failures": "Energiestoringen op locatie",
+      "site_energy_backoff_active": "Energieterugtrekking locatie actief",
+      "site_energy_backoff_ends_utc": "Einde energie-uitstel locatie (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Laden starten",
+      "description": "Start laden op de geselecteerde Enphase Energy-lader.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Laadniveau (A)",
+          "description": "Optioneel stroomsetpoint in ampère (6-40)."
+        },
+        "connector_id": {
+          "name": "Connector-ID",
+          "description": "Optionele connectorindex (meestal 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Laden stoppen",
+      "description": "Stop laden op de geselecteerde Enphase Energy-lader."
+    },
+    "trigger_message": {
+      "name": "OCPP-bericht activeren",
+      "description": "Vraag de lader om een OCPP-bericht te sturen en de cloudrespons terug te geven.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Aangevraagd bericht",
+          "description": "OCPP-berichtnaam (bijv. MeterValues); serviceantwoord toont laderuitvoer."
+        },
+        "confirm_advanced": {
+          "name": "Geavanceerde trigger bevestigen",
+          "description": "Vereist voor geavanceerde OCPP-triggerberichten die laderdiagnostiek, firmware of opstartmeldingen kunnen aanvragen."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Herautorisatieprobleem wissen",
+      "description": "Selecteer een Enphase-siteapparaat om het herauthenticatieprobleem te wissen.",
+      "fields": {
+        "device_id": {
+          "name": "Laders",
+          "description": "Selecteer Enphase-laders waarvan het herauthenticatieprobleem moet worden gewist."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Live stream starten",
+      "description": "Vraag voor korte tijd snellere cloudstatusupdates aan.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Live stream stoppen",
+      "description": "Stop het cloud-live-streamverzoek.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Schema's synchroniseren",
+      "description": "Vernieuw Enphase-schema's vanuit de cloud.",
+      "fields": {
+        "device_id": {
+          "name": "Laders",
+          "description": "Optionele laderselectie voor een gerichte synchronisatie."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Verzoek raster Toggle OTP",
+      "description": "Verzend de eenmalige code die vereist is voordat u de siterastermodus wijzigt.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Stel de rastermodus in",
+      "description": "Wijzig de siterastermodus na het valideren van de eenmalige code.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Rastermodus",
+          "description": "Selecteer on_grid of off_grid."
+        },
+        "otp": {
+          "name": "Eenmalige code",
+          "description": "Voer de 4-cijferige OTP in die naar uw geregistreerde e-mailadres en telefoon is verzonden."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "CFG-schema bijwerken",
+      "description": "Werk de starttijd, eindtijd en/of laadlimiet voor laden vanaf het net bij in één atomaire bewerking.",
+      "fields": {
+        "start_time": {
+          "name": "Starttijd",
+          "description": "Starttijd van het CFG-schema."
+        },
+        "end_time": {
+          "name": "Eindtijd",
+          "description": "Eindtijd van het CFG-schema."
+        },
+        "limit": {
+          "name": "Laadlimiet",
+          "description": "Maximale laadtoestand van de batterij (%)."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Enphase-site-ID (optioneel; afgeleid van het doelapparaat)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Forceer vernieuwen",
+      "description": "Vernieuw de batterijschemagegevens onmiddellijk vanuit de Enphase-cloud.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-identificatie; wordt automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-item-ID",
+          "description": "Optionele identificatie van het configuratie-item voor één Enphase-site-item."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Voeg batterijschema toe",
+      "description": "Maak een batterijschema voor CFG, DTG of RBD.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Schematype",
+          "description": "Familie van het batterijschema: cfg, dtg of rbd."
+        },
+        "start_time": {
+          "name": "Starttijd",
+          "description": "Starttijd van het schema."
+        },
+        "end_time": {
+          "name": "Eindtijd",
+          "description": "Eindtijd van het schema."
+        },
+        "limit": {
+          "name": "Laadlimiet",
+          "description": "Maximale laadtoestand van de batterij (%)."
+        },
+        "days": {
+          "name": "Dagen",
+          "description": "Lijst met actieve weekdagen, waarbij maandag=1 en zondag=7."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-identificatie; wordt automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-item-ID",
+          "description": "Optionele identificatie van het configuratie-item voor één Enphase-site-item."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Update het batterijschema",
+      "description": "Update een batterijschema op basis van schema-ID.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Identificatie van een bestaand Enphase-batterijschema."
+        },
+        "schedule_type": {
+          "name": "Schematype",
+          "description": "Familie van het batterijschema: cfg, dtg of rbd."
+        },
+        "start_time": {
+          "name": "Starttijd",
+          "description": "Starttijd van het schema."
+        },
+        "end_time": {
+          "name": "Eindtijd",
+          "description": "Eindtijd van het schema."
+        },
+        "limit": {
+          "name": "Laadlimiet",
+          "description": "Maximale laadtoestand van de batterij (%)."
+        },
+        "days": {
+          "name": "Dagen",
+          "description": "Lijst met actieve weekdagen, waarbij maandag=1 en zondag=7."
+        },
+        "confirm": {
+          "name": "Bevestigen",
+          "description": "Stel in op true om de schema-update te bevestigen."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-identificatie; wordt automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-item-ID",
+          "description": "Optionele identificatie van het configuratie-item voor één Enphase-site-item."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Batterijschema verwijderen",
+      "description": "Verwijder een of meer batterijschema's op schema-ID.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Identificatie van één Enphase-batterijschema om te verwijderen."
+        },
+        "schedule_ids": {
+          "name": "Schema-ID's",
+          "description": "Optionele kommagescheiden waarde of lijstinvoer voor meerdere schema-identificaties."
+        },
+        "confirm": {
+          "name": "Bevestigen",
+          "description": "Stel in op true om het verwijderen van het schema te bevestigen."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-identificatie; wordt automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-item-ID",
+          "description": "Optionele identificatie van het configuratie-item voor één Enphase-site-item."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Valideer het batterijschema",
+      "description": "Controleer of het bewerken van het batterijschema beschikbaar is voor de geselecteerde schemafamilie.",
+      "sections": {
+        "advanced": {
+          "name": "Geavanceerde opties"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Schematype",
+          "description": "Familie van het batterijschema: cfg, dtg of rbd."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-identificatie; wordt automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-item-ID",
+          "description": "Optionele identificatie van het configuratie-item voor één Enphase-site-item."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Nu herauthenticatie proberen",
+      "description": "Gebruik opgeslagen Enphase-aanmeldgegevens om direct herauthenticatie voor de geselecteerde site te proberen.",
+      "fields": {
+        "device_id": {
+          "name": "Site-apparaten",
+          "description": "Selecteer een Enphase site-apparaat waarvoor herauthenticatie moet worden geprobeerd."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; wordt automatisch gedetecteerd wanneer een site-apparaat is geselecteerd."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Tarief bijwerken",
+      "description": "Werk Enphase-factureringscyclusgegevens en één of meer bestaande import- of exporttarieven bij.",
+      "fields": {
+        "rate": {
+          "name": "Tarief",
+          "description": "Nieuwe niet-negatieve tariefwaarde voor de geselecteerde tariefentiteit."
+        },
+        "rate_entity": {
+          "name": "Tariefentiteit",
+          "description": "Optionele tariefentiteit om bij te werken wanneer het actiedoel niet wordt gebruikt."
+        },
+        "import_rate": {
+          "name": "Importtarief",
+          "description": "Nieuwe niet-negatieve importtariefwaarde."
+        },
+        "import_rate_entity": {
+          "name": "Importtariefentiteit",
+          "description": "Importtariefentiteit om bij te werken."
+        },
+        "export_rate": {
+          "name": "Exporttarief",
+          "description": "Nieuwe niet-negatieve exporttariefwaarde."
+        },
+        "export_rate_entity": {
+          "name": "Exporttariefentiteit",
+          "description": "Exporttariefentiteit om bij te werken."
+        },
+        "billing_start_date": {
+          "name": "Startdatum facturering",
+          "description": "Startdatum van de factureringsperiode in ISO-formaat."
+        },
+        "billing_frequency": {
+          "name": "Factureringsfrequentie",
+          "description": "Eenheid van het factureringsinterval: MONTH of DAY."
+        },
+        "billing_interval_value": {
+          "name": "Factureringsinterval",
+          "description": "Aantal factureringsintervallen. Gebruik 1-24 voor maanden of 1-100 voor dagen."
+        },
+        "rates": {
+          "name": "Tarieven",
+          "description": "Lijst met entiteits-ID’s van tarieven en niet-negatieve tariefwaarden om bij te werken."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-identificatie voor factureringsupdates."
+        },
+        "config_entry_id": {
+          "name": "Configuratie-item-ID",
+          "description": "Optionele configuratie-itemidentificatie voor één Enphase-site."
+        },
+        "tariff_payload": {
+          "name": "Tariefpayload",
+          "description": "Volledige Enphase-tariefpayload om te schrijven. Gebruik dit voor geavanceerde structuurwijzigingen."
+        },
+        "purchase_tariff": {
+          "name": "Importtariefstructuur",
+          "description": "Vervangende tak voor het importtarief met type, seizoenen, perioden, staffels en tarieven."
+        },
+        "buyback_tariff": {
+          "name": "Exporttariefstructuur",
+          "description": "Vervangende tak voor het exporttarief met type, exportplan, seizoenen, perioden, staffels en tarieven."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "HEMS auth backoff wissen",
+      "description": "Wist de tijdelijke HEMS/Heat Pump-authenticatiepauze zonder wachtwoordlogin.",
+      "fields": {
+        "device_id": {
+          "name": "Site-apparaten",
+          "description": "Selecteer een Enphase site-apparaat waarvoor HEMS auth backoff moet worden gewist."
+        },
+        "site_id": {
+          "name": "Site-ID",
+          "description": "Optionele site-id; automatisch gedetecteerd wanneer een apparaat is geselecteerd."
+        }
+      }
+    }
+  }
+}

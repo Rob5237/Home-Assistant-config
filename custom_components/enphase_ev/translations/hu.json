@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Jelentkezzen be Enlighten hitelesítő adataival.",
+        "data": {
+          "email": "E-mail",
+          "password": "Jelszó",
+          "remember_password": "Jelszó mentése automatikus újrahitelesítéshez"
+        },
+        "data_description": {
+          "email": "Az Enlighten fiók e-mail címe.",
+          "password": "A jelszó csak akkor kerül tárolásra, ha bejelöli a jelölőnégyzetet.",
+          "remember_password": "Lehetővé teszi az integrációnak, hogy a tokeneket lejáratkor automatikusan megújítsa."
+        }
+      },
+      "mfa": {
+        "title": "MFA kód ellenőrzése",
+        "description": "Adja meg az e-mailben küldött egyszer használatos kódot. A kódok 5 percig érvényesek. Új kódot 30 másodpercenként kérhet.",
+        "data": {
+          "otp": "Egyszer használatos kód",
+          "resend_code": "Kód újraküldése"
+        },
+        "data_description": {
+          "otp": "Használja az Enphase bejelentkezési ablak kódját.",
+          "resend_code": "Kérjen új kódot, ha az előző lejárt."
+        }
+      },
+      "site": {
+        "title": "Helyszín kiválasztása",
+        "description": "Válassza ki, melyik Enlighten helyszínt kapcsolja.",
+        "data": {
+          "site_id": "Helyszín"
+        }
+      },
+      "devices": {
+        "title": "Eszközök kiválasztása",
+        "description": "Válassza ki, mely eszközcsoportokat adja hozzá. Minden kiválasztás ugyanazt a lekérdezési időközt használja.",
+        "data": {
+          "type_envoy": "Átjáró",
+          "type_encharge": "Akkumulátor",
+          "type_iqevse": "Töltők",
+          "type_microinverter": "Mikroinverterek",
+          "scan_interval": "Lekérdezési intervallum (s)",
+          "type_heatpump": "Hőszivattyú",
+          "type_ac_battery": "AC akkumulátor"
+        },
+        "data_description": {
+          "type_envoy": "Tartalmazza az átjáró-kapcsolat és a mérők diagnosztikáját.",
+          "type_encharge": "Tartalmazza az akkumulátorok állapotát és vezérlő entitásokat, ha elérhetők.",
+          "type_iqevse": "Tartalmazza az EV töltők entitásait és vezérléseit.",
+          "type_microinverter": "Tartalmazza a mikroinverter-kapcsolati, aktív darabszám és élettartam-termelési érzékelőket.",
+          "scan_interval": "Másodpercek a cloud állapotlekérdezések között. Alapértelmezett 60s.",
+          "type_heatpump": "A hőszivattyú állapot-, diagnosztikai és fogyasztási érzékelőit tartalmazza.",
+          "type_ac_battery": "AC akkumulátor érzékelőket és alvó mód vezérlőket tartalmaz, ha elérhetők."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Érvénytelen hitelesítő adatok vagy lejárt munkamenet.",
+      "cannot_connect": "Nem érhető el az Enphase szolgáltatás.",
+      "service_unavailable": "Az Enphase ideiglenesen nem elérhető. Próbálja meg később.",
+      "too_many_active_sessions": "Az Enphase elutasította a bejelentkezést, mert túl sok aktív fiókmunkamenet van. Jelentkezzen ki a többi Enphase alkalmazás- vagy böngészőmunkamenetből, majd próbálja újra később.",
+      "mfa_required": "A fiók többtényezős hitelesítést igényel.",
+      "otp_required": "Adja meg az egyszer használatos kódot.",
+      "otp_invalid": "Érvénytelen vagy lejárt kód. Próbálja újra.",
+      "otp_blocked": "Túl sok próbálkozás. A fiók ideiglenesen blokkolva van.",
+      "resend_wait": "Várjon 30 másodpercet, mielőtt új kódot kér.",
+      "site_required": "Válasszon helyszínt a folytatáshoz.",
+      "site_invalid": "A helyszín ID-nek számnak kell lennie.",
+      "serials_required": "Válasszon vagy adjon meg legalább egy töltőt.",
+      "serials_or_site_only_required": "Adjon meg legalább egy töltőt, vagy engedélyezze a csak helyszín módot.",
+      "unknown": "Váratlan hiba"
+    },
+    "abort": {
+      "already_configured": "Már beállítva",
+      "reconfigure_successful": "Újrakonfigurálás sikeres",
+      "reauth_successful": "Újrahitelesítés sikeres",
+      "manual_mode_removed": "A régi kézi hitelesítési bejegyzések már nem támogatottak. Távolítsa el az integrációt, és állítsa be újra Enlighten bejelentkezéssel.",
+      "wrong_account": "Ez a bejegyzés már {configured_label} címkéhez van kapcsolva. Távolítsa el az integrációt a Home Assistantból, és adjon hozzá újat a(z) {requested_label} kapcsolásához."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Nem indítható a töltés, mert a(z) {name} nincs csatlakoztatva a járműhöz."
+    },
+    "auth_required": {
+      "message": "A töltés nem indítható el, mert a {name} hitelesítést igényel az Enphase alkalmazáson vagy az RFID-n keresztül."
+    },
+    "grid_control_unavailable": {
+      "message": "A rácsvezérlés nem érhető el ezen a webhelyen."
+    },
+    "grid_control_blocked": {
+      "message": "A rácsvezérlés jelenleg le van tiltva: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "A rács módnak on_grid vagy off_grid értékűnek kell lennie."
+    },
+    "grid_otp_required": {
+      "message": "OTP szükséges."
+    },
+    "grid_otp_invalid_format": {
+      "message": "Az OTP-nek 4 számjegyű numerikus kódnak kell lennie."
+    },
+    "grid_otp_invalid": {
+      "message": "Az OTP érvénytelen vagy lejárt."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Nem lehet meghatározni a küldött sorozatszámát ehhez a webhelyhez."
+    },
+    "grid_site_required": {
+      "message": "Válasszon ki pontosan egy Enphase webhelyet."
+    },
+    "grid_site_ambiguous": {
+      "message": "Több webhely lett kiválasztva ({count}). Válasszon ki pontosan egy webhelyet."
+    },
+    "schedule_required": {
+      "message": "Ütemezett töltés kiválasztása előtt engedélyezzen legalább egy ütemezést."
+    },
+    "charge_mode_invalid_option": {
+      "message": "A kiválasztott töltési mód nem érhető el."
+    },
+    "evse_schedule_day_required": {
+      "message": "Válasszon legalább egy napot a hétből az ütemezéshez."
+    },
+    "evse_schedule_times_different": {
+      "message": "Az ütemezés kezdési és befejezési idejének különböznie kell."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Az Enphase elutasította az ütemezés módosítását."
+    },
+    "battery_schedule_overlap": {
+      "message": "Az ütemezés átfedésben van a meglévő {schedule_label} elemmel. Először módosítsa vagy tiltsa le azt az ütemezést."
+    },
+    "ac_battery_unavailable": {
+      "message": "Jelenleg nem érhetők el AC akkumulátoros eszközök."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "A hitelesítési beállítások nem érhetők el, amíg az Enphase szolgáltatás nem működik."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Az akkumulátorprofil frissítése ennél a fióknál nem engedélyezett."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Az akkumulátorbeállítások frissítése ennél a fióknál nem engedélyezett."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Már folyamatban van egy másik akkumulátorprofil-frissítés."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Már folyamatban van egy másik akkumulátorbeállítás-frissítés."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Az akkumulátorprofil frissítése nem érhető el."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Az akkumulátorbeállítások frissítése nem érhető el."
+    },
+    "battery_updates_unavailable": {
+      "message": "Az akkumulátorfrissítések nem érhetők el."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Az akkumulátorfrissítések ennél a fióknál nem engedélyezettek."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Az akkumulátorprofil frissítését túl gyorsan kérték. Kérjük, várjon, majd próbálja újra."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Az akkumulátorbeállítások frissítését túl gyorsan kérték. Kérjük, várjon, majd próbálja újra."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Az akkumulátor írási hozzáférését nem sikerült megerősíteni. Frissítsen, majd próbálja újra."
+    },
+    "schedule_update_forbidden": {
+      "message": "Az Enphase elutasította az ütemezés frissítését (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Az ütemezés frissítését nem sikerült hitelesíteni. Hitelesítse újra magát, majd próbálja újra."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Az ütemezés ütközik a meglévő hálózatba táplálási ütemezéssel. Először módosítsa vagy tiltsa le azt az ütemezést."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Az ütemezés ütközik a meglévő akkumulátorkisütés-korlátozó ütemezéssel. Először módosítsa vagy tiltsa le azt az ütemezést."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Az ütemezés ütközik a meglévő hálózatról töltési ütemezéssel. Először módosítsa vagy tiltsa le azt az ütemezést."
+    },
+    "schedule_update_conflict": {
+      "message": "Az ütemezési frissítés ütközik egy meglévő akkumulátorütemezéssel."
+    },
+    "battery_profile_unavailable": {
+      "message": "Az akkumulátorprofil nem érhető el."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Az Enphase elutasította az akkumulátorprofil frissítését (HTTP 403 Forbidden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Az akkumulátorprofil frissítését nem sikerült hitelesíteni. Hitelesítse újra magát, majd próbálja újra."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Az akkumulátorbeállítások adatterhe nem érhető el."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Az Enphase elutasította az akkumulátorbeállítások frissítését (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Az akkumulátorbeállítások frissítését nem sikerült hitelesíteni. Hitelesítse újra magát, majd próbálja újra."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "A teljes tartalék akkumulátorszint 100%-on rögzített."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Az akkumulátortartalék nem érhető el."
+    },
+    "savings_profile_required": {
+      "message": "A Megtakarítások profilnak aktívnak kell lennie."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "A Megtakarítások profil beállításai nem érhetők el."
+    },
+    "battery_profile_unsupported": {
+      "message": "A kiválasztott akkumulátorprofil nem támogatott."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "A hálózatról töltés beállítás nem érhető el."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Az Enphase nem alkalmazta a hálózatról töltés kapcsolóállapotát."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "A hálózatról töltési ütemezés nem érhető el."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "A hálózatról töltési ütemezés kezdési és befejezési idejének különböznie kell."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Az Enphase nem alkalmazta a hálózatról töltési ütemezés kapcsolóállapotát."
+    },
+    "charge_from_grid_required": {
+      "message": "Először engedélyezni kell a hálózatról töltést."
+    },
+    "schedule_change_pending": {
+      "message": "Egy ütemezésmódosítás Envoy-szinkronizálásra vár. Kérjük, várjon."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "A hálózatról töltési ütemezés ideje érvénytelen."
+    },
+    "schedule_api_unavailable": {
+      "message": "Az ütemezési API ebben a kliensverzióban nem érhető el."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Nem érhető el meglévő hálózatról töltési ütemezés."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Hozzon létre egy {schedule_label} elemet az IQ Battery ütemezőben, mielőtt engedélyezné."
+    },
+    "schedule_not_exposed": {
+      "message": "A(z) {schedule_label} jelenleg nincs kitéve az Enphase által ehhez a helyszínhez. Várja meg, amíg az ütemezésszinkronizálás befejeződik, majd frissítsen és próbálja újra."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "Az Enphase nem alkalmazta a(z) {schedule_label} kapcsolóállapotát."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "elsődleges írás elutasítva"
+    },
+    "schedule_family_times_different": {
+      "message": "A(z) {schedule_label} kezdési és befejezési idejének különböznie kell."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "A hálózatba táplálási ütemezés ideje érvénytelen."
+    },
+    "schedule_missing": {
+      "message": "Nem érhető el meglévő {schedule_label_lower} ütemezés."
+    },
+    "schedule_unavailable": {
+      "message": "A(z) {schedule_label} ütemezés nem érhető el."
+    },
+    "schedule_time_invalid": {
+      "message": "A(z) {schedule_label} ütemezés ideje érvénytelen."
+    },
+    "current_schedule_time_invalid": {
+      "message": "A jelenlegi {schedule_label_lower} ütemezés ideje érvénytelen."
+    },
+    "schedule_limit_range": {
+      "message": "A(z) {schedule_label} ütemezési korlátjának {minimum} és {maximum} között kell lennie."
+    },
+    "schedule_limit_minimum": {
+      "message": "A(z) {schedule_label} ütemezési korlátjának legalább {minimum}%-nak kell lennie."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "A jelenlegi ütemezési idők nem érhetők el."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "A hálózatról töltési ütemezés korlátjának {minimum} és {maximum} között kell lennie."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "A hálózatról töltési ütemezés korlátjának legalább {minimum}%-nak kell lennie."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Az akkumulátor leállítási szintje nem érhető el."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Az akkumulátor leállítási szintje érvénytelen."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Az akkumulátor leállítási szintjének {minimum} és {maximum} között kell lennie."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "A Storm Alert letiltása nem érhető el."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "A Storm Alert letiltása {count} riasztásnál nem sikerült."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "A Storm Guard frissítése ennél a fióknál nem engedélyezett."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "A Storm Guard beállításai nem érhetők el."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Az Enphase elutasította a Storm Guard frissítését (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "A Storm Guard frissítését nem sikerült hitelesíteni. Hitelesítse újra magát, majd próbálja újra."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "A kiválasztott rendszerprofil nem érhető el."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Az Enphase elutasította a rendszerprofil frissítését (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "A rendszerprofil frissítését nem sikerült hitelesíteni. Hitelesítse újra magát, majd próbálja újra."
+    },
+    "system_profile_update_failed": {
+      "message": "A rendszerprofil frissítése nem sikerült."
+    },
+    "system_profile_update_network": {
+      "message": "A rendszerprofil frissítése hálózati hiba miatt nem sikerült. Próbálja újra."
+    },
+    "system_profile_update_timeout": {
+      "message": "A rendszerprofil frissítése időtúllépés miatt megszakadt. Próbálja újra."
+    },
+    "scheduler_service_unavailable": {
+      "message": "A töltési mód kiválasztása nem érhető el, amíg az Enphase ütemező szolgáltatás nem működik."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "A kiválasztott AC akkumulátor cél töltöttségi szintje nem érhető el."
+    },
+    "battery_schedule_day_required": {
+      "message": "Válasszon legalább egy napot az ütemezéshez."
+    },
+    "battery_schedule_times_different": {
+      "message": "Az ütemezés kezdési és befejezési időpontjának eltérőnek kell lennie."
+    },
+    "battery_schedule_limit_range": {
+      "message": "A {schedule_type} ütemezési korlátjának {minimum} és {maximum} között kell lennie."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Az ütemezést az Enphase érvényesítési végpontja elutasította."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Az akkumulátor-ütemezés szerkesztése nem érhető el."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "Az akkumulátor ütemezési API nem érhető el."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Az ütemterv frissítéséhez megerősítés szükséges."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Az ütemezés törléséhez megerősítés szükséges."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Érvénytelen ütemezési azonosító: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "Az ütemezési azonosító nem található a jelenlegi adatok között: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Adjon meg legalább egy ütemezési azonosítót a törléshez."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Érvénytelen ütemezési azonosító(k): {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Az ütemezési azonosító(k) nem találhatók az aktuális adatokban: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Az ütemezést az Enphase érvényesítési végpontja elutasította: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Az ütemezési frissítés ütközik egy meglévő akkumulátorütemezéssel: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "A tarifadíjnak nem negatív számnak kell lennie."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "A tarifadíj célja nem található a legfrissebb tarifaadatokban."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "A tarifadíj célja érvénytelen."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "A tarifaírási API nem érhető el."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Pontosan egy tarifadíj entitást válassz ki."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Az entitás nem Enphase tarifadíj: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "Nem támogatott OCPP indítóüzenet. Használja ezek egyikét: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Engedélyezze a speciális megerősítést a(z) {message} küldéséhez."
+    },
+    "tariff_update_required": {
+      "message": "Adja meg a számlázási adatokat vagy legalább egy tarifaár-frissítést."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Adja meg a számlázás kezdő dátumát, gyakoriságát és intervallumát."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "A tarifa számlázási kezdő dátumának érvényes ISO-dátumnak kell lennie."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "A tarifa számlázási gyakorisága MONTH vagy DAY lehet."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "A tarifa számlázási intervalluma {minimum} és {maximum} között lehet."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "A tarifa számlázási írási API nem érhető el."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Ismétlődő tarifaár-célok nem engedélyezettek."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Ismétlődő tarifaár entitás: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Minden tarifafrissítésnek ugyanarra az Enphase helyre kell mutatnia."
+    },
+    "tariff_structure_invalid": {
+      "message": "A tarifa szerkezete érvénytelen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Enphase Energy beállítások",
+        "description": "Válassza ki, mit szeretne tenni ezzel az integrációs bejegyzéssel.",
+        "menu_options": {
+          "settings": "Beállítások",
+          "migrate_envoy": "Envoy előzmények migrálása"
+        },
+        "menu_option_descriptions": {
+          "settings": "Lekérdezés és működés finomhangolása.",
+          "migrate_envoy": "Vegye át a kiválasztott Enphase Envoy energiaentitás-azonosítókat, hogy a Home Assistant Energy előzményei ennél az integrációnál folytatódjanak."
+        },
+        "data": {
+          "type_envoy": "Átjáró",
+          "type_encharge": "Akkumulátor",
+          "type_iqevse": "Töltők",
+          "type_microinverter": "Mikroinverterek",
+          "fast_poll_interval": "Gyors lekérdezési intervallum (s)",
+          "slow_poll_interval": "Lassú lekérdezési intervallum (s)",
+          "fast_while_streaming": "Gyors lekérdezés előnyben részesítése, ha a cloud stream aktív",
+          "api_timeout": "API-időtúllépés (s)",
+          "nominal_voltage": "Névleges feszültség (V)",
+          "session_history_interval": "Munkamenet előzmény intervallum (min)",
+          "schedule_sync_enabled": "Az EV Charger Scheduler engedélyezése",
+          "reauth": "Újrahitelesítés indítása",
+          "forget_password": "Mentett jelszó elfelejtése",
+          "type_heatpump": "Hőszivattyú",
+          "type_ac_battery": "AC akkumulátor",
+          "battery_schedules_enabled": "Az akkumulátor ütemező engedélyezése",
+          "degraded_service_repair_issues": "Csökkent működésű szolgáltatások javításainak engedélyezése"
+        },
+        "data_description": {
+          "type_envoy": "Tartalmazza az átjáró-kapcsolat és a mérők diagnosztikáját.",
+          "type_encharge": "Tartalmazza az akkumulátorok állapotát és vezérlő entitásokat, ha elérhetők.",
+          "type_iqevse": "Tartalmazza az EV töltők entitásait és vezérléseit.",
+          "type_microinverter": "Tartalmazza a mikroinverter-kapcsolati, aktív darabszám és élettartam-termelési érzékelőket.",
+          "fast_poll_interval": "Intervallum töltés vagy streamelés közben.",
+          "slow_poll_interval": "Intervallum üresjárat esetén.",
+          "fast_while_streaming": "Engedélyezve gyors lekérdezés aktív cloud stream közben.",
+          "api_timeout": "Ennyi másodperc után jár le az API-kérések időkorlátja.",
+          "nominal_voltage": "Tartalék feszültség a töltő teljesítménybecsléséhez.",
+          "session_history_interval": "Várakozási percek a felhő munkamenet-előzmények lekérései között.",
+          "schedule_sync_enabled": "Kezelje az IQ EV töltő ütemezését",
+          "reauth": "Indítsa el a bejelentkezési folyamatot a hitelesítő adatok frissítéséhez az integráció eltávolítása nélkül.",
+          "forget_password": "Eltávolítja a mentett jelszót. Automatikus frissítés többé nem lesz megkísérelve.",
+          "type_heatpump": "A hőszivattyú állapot-, diagnosztikai és fogyasztási érzékelőit tartalmazza.",
+          "type_ac_battery": "AC akkumulátor érzékelőket és alvó mód vezérlőket tartalmaz, ha elérhetők.",
+          "battery_schedules_enabled": "Kezelje az IQ akkumulátor-ütemezéseket",
+          "degraded_service_repair_issues": "Repairs-problémákat hoz létre, amikor az opcionális Enphase-szolgáltatások csökkent működésűek."
+        }
+      },
+      "settings": {
+        "title": "Enphase Energy beállítások",
+        "description": "Lekérdezés és viselkedés hangolása.",
+        "data": {
+          "type_envoy": "Átjáró",
+          "type_encharge": "Akkumulátor",
+          "type_iqevse": "Töltők",
+          "type_microinverter": "Mikroinverterek",
+          "fast_poll_interval": "Gyors lekérdezési intervallum (s)",
+          "slow_poll_interval": "Lassú lekérdezési intervallum (s)",
+          "fast_while_streaming": "Gyors lekérdezés előnyben részesítése, ha a cloud stream aktív",
+          "api_timeout": "API-időtúllépés (s)",
+          "nominal_voltage": "Névleges feszültség (V)",
+          "session_history_interval": "Munkamenet előzmény intervallum (min)",
+          "schedule_sync_enabled": "Ütemező támogatás engedélyezése",
+          "reauth": "Újrahitelesítés indítása",
+          "forget_password": "Mentett jelszó elfelejtése",
+          "type_heatpump": "Hőszivattyú",
+          "type_ac_battery": "AC akkumulátor",
+          "battery_schedules_enabled": "Az akkumulátor ütemező engedélyezése",
+          "degraded_service_repair_issues": "Csökkent működésű szolgáltatások javításainak engedélyezése"
+        },
+        "data_description": {
+          "type_envoy": "Tartalmazza az átjáró-kapcsolat és a mérők diagnosztikáját.",
+          "type_encharge": "Tartalmazza az akkumulátorok állapotát és vezérlő entitásokat, ha elérhetők.",
+          "type_iqevse": "Tartalmazza az EV töltők entitásait és vezérléseit.",
+          "type_microinverter": "Tartalmazza a mikroinverter-kapcsolati, aktív darabszám és élettartam-termelési érzékelőket.",
+          "fast_poll_interval": "Intervallum töltés vagy streamelés közben.",
+          "slow_poll_interval": "Intervallum üresjárat esetén.",
+          "fast_while_streaming": "Engedélyezve gyors lekérdezés aktív cloud stream közben.",
+          "api_timeout": "Ennyi másodperc után jár le az API-kérések időkorlátja.",
+          "nominal_voltage": "Tartalék feszültség a töltő teljesítménybecsléséhez.",
+          "session_history_interval": "Várakozási percek a felhő munkamenet-előzmények lekérései között.",
+          "schedule_sync_enabled": "Az Enphase ütemezésének kezelése",
+          "reauth": "Indítsa el a bejelentkezési folyamatot a hitelesítő adatok frissítéséhez az integráció eltávolítása nélkül.",
+          "forget_password": "Eltávolítja a mentett jelszót. Automatikus frissítés többé nem lesz megkísérelve.",
+          "type_heatpump": "A hőszivattyú állapot-, diagnosztikai és fogyasztási érzékelőit tartalmazza.",
+          "type_ac_battery": "AC akkumulátor érzékelőket és alvó mód vezérlőket tartalmaz, ha elérhetők.",
+          "battery_schedules_enabled": "Kezelje az IQ akkumulátor-ütemezéseket",
+          "degraded_service_repair_issues": "Repairs-problémákat hoz létre, amikor az opcionális Enphase-szolgáltatások csökkent működésűek."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Envoy forrás kiválasztása",
+        "description": "Válassza ki, melyik Enphase Envoy bejegyzésből szeretne migrálni.",
+        "data": {
+          "selected_envoy_source": "Envoy forrás"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Envoy előzmények migrálása",
+        "description": "Ez a segéd a kiválasztott Enphase Envoy energiaentitás-azonosítókat a megfelelő Enphase Energy érzékelőkhöz rendeli át.\n\nA Home Assistant Energy előzményei ahhoz az entitásazonosítóhoz kötődnek, amelyet a hosszú távú statisztikák használnak.\n\nA folytatás előtt készíts teljes Home Assistant biztonsági mentést.\n\nCsak olyan érzékelőket migrálj, amelyek ugyanazt a kumulatív energiaösszeget képviselik.\n\nA kiválasztott Envoy integráció ideiglenesen le lesz állítva, amíg az entitásazonosítók át vannak rendezve, majd a migráció után helyreáll.\n\nEz frissíti az entitásregisztert, és nem vonható vissza automatikusan.\n\nKiválasztott Envoy-forrás: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Van friss Home Assistant biztonsági mentésem"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Előzményérzékelők párosítása",
+        "description": "Gondosan ellenőrizze a javasolt párosításokat. Csak kompatibilis, kumulatív energiaösszegek jelennek meg. Az üres mezők kimaradnak.\n\nHa egy javaslat hibás vagy nem egyértelmű, törölje, és válasszon kézzel.",
+        "data": {
+          "solar_production": "Napelemes termelés",
+          "consumption": "Fogyasztás",
+          "grid_import": "Hálózati import",
+          "grid_export": "Hálózati export",
+          "battery_charge": "Akkumulátor töltés",
+          "battery_discharge": "Akkumulátor kisütés"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
+          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Envoy előzmény-migráció megerősítése",
+        "description": "A kiválasztott forrásentitások archivált örökölt entitásazonosítókra lesznek átnevezve.\n\nEzután az Enphase Energy entitások az eredeti forrásentitás-azonosítókra lesznek átnevezve.\n\nHa bármelyik párosítás hibás, most szakítsa meg. A biztonsági mentésből való visszaállítás a legbiztonságosabb visszaállítási mód.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Megértettem, hogy a kiválasztott forrásentitás-azonosítók újra lesznek rendelve",
+          "disable_archived_envoy_sensors": "Az archivált forrásérzékelők letiltása a migráció után"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Válasszon vagy adjon meg legalább egy töltőt.",
+      "backup_required": "Folytatás előtt erősen ajánlott teljes biztonsági mentést készíteni.",
+      "confirm_required": "Megerősítés szükséges, hogy a kiválasztott forrásentitás-azonosítók újra lesznek rendelve, mielőtt továbblép.",
+      "migration_no_selection": "Válasszon ki legalább egy kompatibilis energiaérzékelőt a migrációhoz.",
+      "migration_duplicate_selection": "Ugyanaz a forrásentitás nem használható fel többször.",
+      "envoy_entry_loaded": "Az Envoy integrációt nem sikerült ideiglenesen leállítani a migrációhoz.",
+      "incompatible_energy_total": "A kiválasztott entitások nem kompatibilis halmozott energiaösszegek."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Nincsenek elérhető Enphase Envoy energiaérzékelők a migrációhoz.",
+      "migration_no_targets": "Nincsenek elérhető kompatibilis Enphase Energy érzékelők a migrációhoz.",
+      "migration_partial_failure": "A migráció részleges befejezés után leállt.\n\nBefejezett hozzárendelések:\n{completed_mappings}\n\nHiba a(z) `{failed_entity_id}` feldolgozásakor: {failure_reason}\n\nHa az eredmény nem elfogadható, állítsa vissza a biztonsági mentést."
+    },
+    "create_entry": {
+      "migration_success": "A migráció befejeződött. Az Enphase Energy most már a kiválasztott forrásentitás-azonosítókat használja. Ellenőrizze a következő frissítés után az Energy irányítópultot és a Developer Tools > Statistics oldalt.",
+      "migration_success_reload_needed": "A migráció befejeződött, de egy vagy több integrációt nem sikerült automatikusan újratölteni. Szükség esetén töltse újra kézzel az Enphase Energy és az Enphase Envoy integrációt, majd ellenőrizze az Energy irányítópultot és a Developer Tools > Statistics oldalt."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Utolsó munkamenet",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Felhasznált energia (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Felhasznált energia (kWh)"
+          },
+          "session_cost": {
+            "name": "Munkamenet költség"
+          },
+          "session_charge_level": {
+            "name": "Munkamenet töltöttségi szint"
+          },
+          "range_added": {
+            "name": "Hozzáadott hatótáv"
+          },
+          "plugged_in_at": {
+            "name": "Csatlakoztatva ekkor"
+          },
+          "plugged_out_at": {
+            "name": "Levált ekkor"
+          },
+          "session_duration_min": {
+            "name": "Munkamenet időtartam (min)"
+          },
+          "session_id": {
+            "name": "Munkamenet azonosító"
+          },
+          "session_started_at": {
+            "name": "Munkamenet indult"
+          },
+          "session_ended_at": {
+            "name": "Munkamenet befejezve"
+          },
+          "active_charge_time_s": {
+            "name": "Aktív töltési idő (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Átlagos költség kWh-nként"
+          },
+          "cost_calculated": {
+            "name": "Kiszámított költség"
+          },
+          "session_cost_state": {
+            "name": "Munkamenet költség állapota"
+          },
+          "manual_override": {
+            "name": "Kézi felülbírálás"
+          },
+          "charge_profile_stack_level": {
+            "name": "Töltési profil veremszint"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Csatlakozó állapota",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Állapot oka"
+          },
+          "connector_status_info": {
+            "name": "Csatlakozó állapotinfo"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Csatlakozó oka"
+      },
+      "electrical_phase": {
+        "name": "Elektromos fázis",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Fázis mód (nyers)"
+          },
+          "dlb_enabled": {
+            "name": "Dinamikus terheléselosztás engedélyezve"
+          },
+          "dlb_active": {
+            "name": "Dinamikus terheléselosztás aktív"
+          }
+        }
+      },
+      "power": {
+        "name": "Teljesítmény",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Utolsó élettartam kWh"
+          },
+          "last_energy_ts": {
+            "name": "Utolsó energia időbélyeg"
+          },
+          "last_sample_ts": {
+            "name": "Utolsó minta időbélyeg"
+          },
+          "last_power_w": {
+            "name": "Utolsó teljesítmény (W)"
+          },
+          "last_window_seconds": {
+            "name": "Utolsó ablak (s)"
+          },
+          "method": {
+            "name": "Módszer"
+          },
+          "charging": {
+            "name": "Töltés"
+          },
+          "operating_v": {
+            "name": "Üzemi feszültség (V)"
+          },
+          "max_throughput_w": {
+            "name": "Maximális átviteli teljesítmény (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Maximális átviteli teljesítmény (korlátlan W)"
+          },
+          "max_throughput_source": {
+            "name": "Maximális átviteli forrás"
+          },
+          "max_throughput_amps": {
+            "name": "Maximális átviteli amper"
+          },
+          "max_throughput_voltage": {
+            "name": "Maximális átviteli feszültség (V)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Töltési mód",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Áramerősség-szabályzás alkalmazható"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Az áramerősséget vezérlő mód"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Módok, amelyekben az áramerősség-szabályzás alkalmazható"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Töltő hitelesítés",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "Alkalmazáshitelesítés engedélyezve"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID Auth engedélyezve"
+          },
+          "app_auth_supported": {
+            "name": "App Auth támogatott"
+          },
+          "rfid_auth_supported": {
+            "name": "RFID hitelesítés támogatott"
+          }
+        },
+        "state": {
+          "enabled": "Engedélyezve",
+          "disabled": "Letiltva"
+        }
+      },
+      "set_amps": {
+        "name": "Amper beállítása",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimális amper"
+          },
+          "max_amp": {
+            "name": "Maximális amper"
+          },
+          "max_current": {
+            "name": "Maximális áramkör amper"
+          },
+          "amp_granularity": {
+            "name": "Amper lépték"
+          }
+        }
+      },
+      "status": {
+        "name": "Töltő állapota",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Üzembe helyezve"
+          },
+          "charger_problem": {
+            "name": "Töltőprobléma"
+          },
+          "suspended_by_evse": {
+            "name": "EVSE által felfüggesztve"
+          },
+          "offline_since": {
+            "name": "Offline óta"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Utolsó sikeres frissítés",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Utolsó hiba (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Utolsó hibastátusz"
+          },
+          "code_description": {
+            "name": "Kódleírás"
+          },
+          "last_failure_response": {
+            "name": "Utolsó hibaválasz"
+          },
+          "last_failure_source": {
+            "name": "Utolsó hibaforrás"
+          },
+          "backoff_ends_utc": {
+            "name": "Backoff vége (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Cloud késleltetés"
+      },
+      "current_production_power": {
+        "name": "Aktuális termelési teljesítmény",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "source": {
+            "name": "Forrás"
+          },
+          "reported_units": {
+            "name": "Jelentett mértékegységek"
+          },
+          "reported_precision": {
+            "name": "Jelentett pontosság"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Cloud hibakód",
+        "state": {
+          "none": "Nincs",
+          "rate_limited": "Kérésszám korlátozva",
+          "auth_blocked": "A hitelesítés ideiglenesen blokkolva",
+          "authentication_error": "Hitelesítési hiba",
+          "request_error": "Kérési hiba",
+          "service_unavailable": "A szolgáltatás nem érhető el",
+          "invalid_payload": "Érvénytelen felhőválasz",
+          "dns_error": "DNS-hiba",
+          "network_error": "Hálózati hiba"
+        }
+      },
+      "site_service_status": {
+        "name": "Szolgáltatás állapota",
+        "state": {
+          "ok": "Rendben",
+          "unknown": "Ismeretlen",
+          "degraded": "Korlátozott"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Korlátozott szolgáltatások"
+          },
+          "degraded_endpoint_families": {
+            "name": "Korlátozott végpontcsaládok"
+          },
+          "degraded_service_count": {
+            "name": "Korlátozott szolgáltatások száma"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Korlátozott végpontcsaládok száma"
+          },
+          "metrics_available": {
+            "name": "Mérőszámok elérhetők"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Cloud backoff vége",
+        "state": {
+          "none": "Nincs"
+        }
+      },
+      "last_reported": {
+        "name": "Utoljára jelentve",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Jelentési intervallum (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Munkamenet mérföld"
+      },
+      "session_plug_in_at": {
+        "name": "Munkamenet csatlakoztatva"
+      },
+      "session_plug_out_at": {
+        "name": "Munkamenet leválasztva"
+      },
+      "schedule_type": {
+        "name": "Ütemezés típusa"
+      },
+      "schedule_start": {
+        "name": "Ütemezés kezdete"
+      },
+      "schedule_end": {
+        "name": "Ütemezés vége"
+      },
+      "lifetime_energy": {
+        "name": "Élettartam energia",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Utolsó visszaállítási érték"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Helyszín napenergia-termelés",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Helyszín fogyasztás",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Helyszín hálózati import",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Aktuális hálózati teljesítmény",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Utolsó áramlás kWh"
+          },
+          "last_energy_ts": {
+            "name": "Utolsó energia időbélyeg"
+          },
+          "last_sample_ts": {
+            "name": "Utolsó minta időbélyeg"
+          },
+          "last_power_w": {
+            "name": "Utolsó teljesítmény (W)"
+          },
+          "last_window_seconds": {
+            "name": "Utolsó ablak (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          },
+          "method": {
+            "name": "Módszer"
+          },
+          "source_flows": {
+            "name": "Forrásáramlások"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Helyszín hálózati export",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Helyszín akkumulátor töltés",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Helyszín akkumulátor kisütés",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Aktuális akkumulátor teljesítménye",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Utolsó áramlás kWh"
+          },
+          "last_energy_ts": {
+            "name": "Utolsó energia időbélyeg"
+          },
+          "last_sample_ts": {
+            "name": "Utolsó minta időbélyeg"
+          },
+          "last_power_w": {
+            "name": "Utolsó teljesítmény (W)"
+          },
+          "last_window_seconds": {
+            "name": "Utolsó ablak (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          },
+          "method": {
+            "name": "Módszer"
+          },
+          "source_flows": {
+            "name": "Forrásáramlások"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Viharőr"
+      },
+      "storm_alert": {
+        "name": "Viharriadó",
+        "state": {
+          "active": "Aktív",
+          "inactive": "Inaktív"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Viharriasztás aktív"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Rendszerprofil állapota",
+        "state": {
+          "pending": "Függőben levő"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Hatékony profil"
+          },
+          "effective_profile_label": {
+            "name": "Hatékony profilcímke"
+          },
+          "effective_reserve_percentage": {
+            "name": "effektív tartalék (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "A hatékony működési mód altípusa"
+          },
+          "requested_profile": {
+            "name": "Kért profil"
+          },
+          "requested_profile_label": {
+            "name": "Kért profilcímke"
+          },
+          "requested_reserve_percentage": {
+            "name": "Kért készlet (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "A kért működési mód altípusa"
+          },
+          "pending": {
+            "name": "Függőben levő"
+          },
+          "pending_requested_at": {
+            "name": "Függőben kérve"
+          },
+          "selected_profile": {
+            "name": "Kiválasztott profil"
+          },
+          "selected_profile_label": {
+            "name": "Kiválasztott profilcímke"
+          },
+          "selected_reserve_percentage": {
+            "name": "Kiválasztott tartalék (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Kiválasztott működési mód altípus"
+          },
+          "available_profile_keys": {
+            "name": "Rendelkezésre álló profilkulcsok"
+          },
+          "available_profile_labels": {
+            "name": "Elérhető profilcímkék"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Akkumulátor mód",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Nyers mód"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Hálózatról töltés engedélyezve"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Hálózatba kisütés engedélyezve"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Akkumulátor töltöttségi szintje"
+      },
+      "battery_overall_charge": {
+        "name": "Az akkumulátor teljes töltése"
+      },
+      "battery_overall_status": {
+        "name": "Az akkumulátor általános állapota",
+        "state": {
+          "normal": "Normál",
+          "warning": "Figyelmeztetés",
+          "error": "Hiba",
+          "unknown": "Ismeretlen"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Az akkumulátor CFG ütemezésének állapota",
+        "state": {
+          "none": "Nincs",
+          "pending": "Függőben",
+          "active": "Aktív"
+        }
+      },
+      "grid_control_status": {
+        "name": "Hálózatvezérlés állapota",
+        "state": {
+          "ready": "Kész",
+          "blocked": "Blokkolva",
+          "pending": "Függőben"
+        }
+      },
+      "grid_mode": {
+        "name": "Rács mód",
+        "state": {
+          "on_grid": "Hálózaton",
+          "off_grid": "Hálózatról leválasztva",
+          "unknown": "Ismeretlen"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Elérhető akkumulátor-energia"
+      },
+      "battery_available_power": {
+        "name": "Elérhető akkumulátor-teljesítmény"
+      },
+      "battery_storage_status": {
+        "name": "{serial} állapot",
+        "state": {
+          "charging": "Töltés",
+          "discharging": "Kisütés",
+          "idle": "Tétlen",
+          "unknown": "Ismeretlen"
+        }
+      },
+      "battery_storage_health": {
+        "name": "{serial} egészség"
+      },
+      "battery_storage_cycle_count": {
+        "name": "{serial} ciklusszám"
+      },
+      "battery_storage_last_reported": {
+        "name": "{serial} utoljára jelentve"
+      },
+      "battery_last_reported": {
+        "name": "Akkumulátor utoljára jelentve"
+      },
+      "system_controller_inventory": {
+        "name": "Rendszervezérlő"
+      },
+      "gateway_production_meter": {
+        "name": "Termelésmérő"
+      },
+      "gateway_consumption_meter": {
+        "name": "Fogyasztásmérő"
+      },
+      "gateway_connectivity_status": {
+        "name": "Átjáró állapota"
+      },
+      "gateway_last_reported": {
+        "name": "A Gateway legutóbbi jelentése"
+      },
+      "tariff_billing_cycle": {
+        "name": "Kovetkezo szamlazasi datum",
+        "state_attributes": {
+          "start_date": {
+            "name": "Kezdo datum"
+          },
+          "billing_frequency": {
+            "name": "Szamlazasi gyakorisag"
+          },
+          "billing_interval_value": {
+            "name": "Szamlazasi intervallum erteke"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Szamlazasi ciklus"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Import tarifa",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "seasons": {
+            "name": "Idoszakok"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Import tarifa {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "season_id": {
+            "name": "Szezon azonosítója"
+          },
+          "start_month": {
+            "name": "Kezdő hónap"
+          },
+          "end_month": {
+            "name": "Záró hónap"
+          },
+          "day_group_id": {
+            "name": "Napcsoport azonosítója"
+          },
+          "days": {
+            "name": "Napok"
+          },
+          "period_id": {
+            "name": "Időszak azonosítója"
+          },
+          "period_type": {
+            "name": "Időszak típusa"
+          },
+          "start_time": {
+            "name": "Kezdési idő"
+          },
+          "end_time": {
+            "name": "Befejezési idő"
+          },
+          "rate": {
+            "name": "Díj"
+          },
+          "formatted_rate": {
+            "name": "Formázott díj"
+          },
+          "tier_id": {
+            "name": "Sáv azonosítója"
+          },
+          "start_value": {
+            "name": "Kezdő érték"
+          },
+          "end_value": {
+            "name": "Záró érték"
+          },
+          "unbounded": {
+            "name": "Felső korlát nélkül"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifa helymeghatározó"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Export tarifa",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "export_plan": {
+            "name": "Exportterv"
+          },
+          "seasons": {
+            "name": "Idoszakok"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Export tarifa {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "export_plan": {
+            "name": "Exportterv"
+          },
+          "season_id": {
+            "name": "Szezon azonosítója"
+          },
+          "start_month": {
+            "name": "Kezdő hónap"
+          },
+          "end_month": {
+            "name": "Záró hónap"
+          },
+          "day_group_id": {
+            "name": "Napcsoport azonosítója"
+          },
+          "days": {
+            "name": "Napok"
+          },
+          "period_id": {
+            "name": "Időszak azonosítója"
+          },
+          "period_type": {
+            "name": "Időszak típusa"
+          },
+          "start_time": {
+            "name": "Kezdési idő"
+          },
+          "end_time": {
+            "name": "Befejezési idő"
+          },
+          "rate": {
+            "name": "Díj"
+          },
+          "formatted_rate": {
+            "name": "Formázott díj"
+          },
+          "tier_id": {
+            "name": "Sáv azonosítója"
+          },
+          "start_value": {
+            "name": "Kezdő érték"
+          },
+          "end_value": {
+            "name": "Záró érték"
+          },
+          "unbounded": {
+            "name": "Felső korlát nélkül"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifa helymeghatározó"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Mikroinverterek kapcsolati állapota"
+      },
+      "microinverter_reporting_count": {
+        "name": "Aktív mikroinverterek"
+      },
+      "microinverter_last_reported": {
+        "name": "Mikroinverterek utolsó jelentése"
+      },
+      "site_evse_charging": {
+        "name": "Helyszíni EVSE-töltés",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Helyszíni hőszivattyú-fogyasztás",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Helyszíni vízmelegítő-fogyasztás",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mintavételezve ekkor (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Utolsó visszaállítás"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ energiarouter_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Hőszivattyú állapota"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Hőszivattyú energiamérő"
+      },
+      "heat_pump_last_reported": {
+        "name": "Hőszivattyú utolsó jelentése"
+      },
+      "heat_pump_power": {
+        "name": "Hőszivattyú teljesítménye"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Hőszivattyú állapota"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "Hőszivattyú SG-Ready átjáró"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Hőszivattyú napi energia"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Hőszivattyú napi hálózati energia"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Hőszivattyú napi napenergia"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Hőszivattyú napi akkumulátor-energia"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Hőszivattyú SG-Ready átjáró állapota"
+      },
+      "shared_labels": {
+        "name": "Megosztott címkék",
+        "state": {
+          "self_consumption": "Önfogyasztás",
+          "cost_savings": "Megtakarítás",
+          "ai_optimisation": "AI optimalizálás",
+          "backup_only": "Teljes tartalék",
+          "importexport": "Import és export",
+          "importonly": "Csak import",
+          "exportonly": "Csak export",
+          "manual_charging": "Kézi",
+          "scheduled_charging": "Ütemezett",
+          "green_charging": "Zöld",
+          "smart_charging": "Intelligens",
+          "online": "Online",
+          "offline": "Offline",
+          "degraded": "Csökkentett",
+          "not_reporting": "Nem jelent",
+          "inactive": "Inaktív",
+          "normal": "Normál",
+          "warning": "Figyelmeztetés",
+          "error": "Hiba",
+          "unknown": "Ismeretlen",
+          "unpaired": "Nincs párosítva",
+          "pairing": "Párosítás"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "AC akkumulátor összesített állapota",
+        "state": {
+          "charging": "Töltés",
+          "discharging": "Kisütés",
+          "idle": "Tétlen",
+          "unknown": "Ismeretlen"
+        }
+      },
+      "ac_battery_power": {
+        "name": "AC akkumulátor teljesítménye"
+      },
+      "ac_battery_last_reported": {
+        "name": "AC akkumulátor utolsó jelentése"
+      },
+      "ac_battery_storage_charge": {
+        "name": "AC akkumulátor töltöttségi szintje"
+      },
+      "ac_battery_storage_status": {
+        "name": "{serial} állapota",
+        "state": {
+          "charging": "Töltés",
+          "discharging": "Kisütés",
+          "idle": "Tétlen",
+          "unknown": "Ismeretlen"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "{serial} teljesítménye"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "{serial} működési módja"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "{serial} ciklusszáma"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "{serial} utolsó jelentése"
+      },
+      "battery_cfg_schedules": {
+        "name": "Akkumulátor CFG ütemezések"
+      },
+      "battery_dtg_schedules": {
+        "name": "Akkumulátor DTG ütemezések"
+      },
+      "battery_rbd_schedules": {
+        "name": "Akkumulátor RBD ütemezések"
+      },
+      "battery_schedule_summary": {
+        "name": "Akkumulátor-ütemezési összefoglaló"
+      },
+      "tariff_current_import_rate": {
+        "name": "Aktuális import díjszabás",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "season_id": {
+            "name": "Szezon azonosítója"
+          },
+          "start_month": {
+            "name": "Kezdő hónap"
+          },
+          "end_month": {
+            "name": "Záró hónap"
+          },
+          "day_group_id": {
+            "name": "Napcsoport azonosítója"
+          },
+          "days": {
+            "name": "Napok"
+          },
+          "period_id": {
+            "name": "Időszak azonosítója"
+          },
+          "period_type": {
+            "name": "Időszak típusa"
+          },
+          "start_time": {
+            "name": "Kezdési idő"
+          },
+          "end_time": {
+            "name": "Befejezési idő"
+          },
+          "rate": {
+            "name": "Díj"
+          },
+          "formatted_rate": {
+            "name": "Formázott díj"
+          },
+          "tier_id": {
+            "name": "Sáv azonosítója"
+          },
+          "start_value": {
+            "name": "Kezdő érték"
+          },
+          "end_value": {
+            "name": "Záró érték"
+          },
+          "unbounded": {
+            "name": "Felső korlát nélkül"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifa helymeghatározó"
+          },
+          "active_rate_name": {
+            "name": "Aktív díjszabás neve"
+          },
+          "configured_rates": {
+            "name": "Beállított díjszabások"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Aktuális export díjszabás",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "export_plan": {
+            "name": "Exportterv"
+          },
+          "season_id": {
+            "name": "Szezon azonosítója"
+          },
+          "start_month": {
+            "name": "Kezdő hónap"
+          },
+          "end_month": {
+            "name": "Záró hónap"
+          },
+          "day_group_id": {
+            "name": "Napcsoport azonosítója"
+          },
+          "days": {
+            "name": "Napok"
+          },
+          "period_id": {
+            "name": "Időszak azonosítója"
+          },
+          "period_type": {
+            "name": "Időszak típusa"
+          },
+          "start_time": {
+            "name": "Kezdési idő"
+          },
+          "end_time": {
+            "name": "Befejezési idő"
+          },
+          "rate": {
+            "name": "Díj"
+          },
+          "formatted_rate": {
+            "name": "Formázott díj"
+          },
+          "tier_id": {
+            "name": "Sáv azonosítója"
+          },
+          "start_value": {
+            "name": "Kezdő érték"
+          },
+          "end_value": {
+            "name": "Záró érték"
+          },
+          "unbounded": {
+            "name": "Felső korlát nélkül"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifa helymeghatározó"
+          },
+          "active_rate_name": {
+            "name": "Aktív díjszabás neve"
+          },
+          "configured_rates": {
+            "name": "Beállított díjszabások"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Töltési amper"
+      },
+      "battery_reserve": {
+        "name": "Akkumulátor tartalék"
+      },
+      "battery_shutdown_level": {
+        "name": "Akkumulátor leállítási szint"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Akkumulátor töltési korlát"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Hálózatba kisütési korlát"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Akkumulátorkisütés-korlátozási határ"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Új akkumulátor-ütemezés korlátja"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Akkumulátor ütemezési korlát"
+      },
+      "tariff_import_rate_value": {
+        "name": "Import tarifa {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "season_id": {
+            "name": "Szezon azonosítója"
+          },
+          "start_month": {
+            "name": "Kezdő hónap"
+          },
+          "end_month": {
+            "name": "Záró hónap"
+          },
+          "day_group_id": {
+            "name": "Napcsoport azonosítója"
+          },
+          "days": {
+            "name": "Napok"
+          },
+          "period_id": {
+            "name": "Időszak azonosítója"
+          },
+          "period_type": {
+            "name": "Időszak típusa"
+          },
+          "start_time": {
+            "name": "Kezdési idő"
+          },
+          "end_time": {
+            "name": "Befejezési idő"
+          },
+          "rate": {
+            "name": "Díj"
+          },
+          "formatted_rate": {
+            "name": "Formázott díj"
+          },
+          "tier_id": {
+            "name": "Sáv azonosítója"
+          },
+          "start_value": {
+            "name": "Kezdő érték"
+          },
+          "end_value": {
+            "name": "Záró érték"
+          },
+          "unbounded": {
+            "name": "Felső korlát nélkül"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifa helymeghatározó"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Export tarifa {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifaszerkezet"
+          },
+          "variation_type": {
+            "name": "Valtozattipus"
+          },
+          "source": {
+            "name": "Forras"
+          },
+          "currency": {
+            "name": "Penznem"
+          },
+          "export_plan": {
+            "name": "Exportterv"
+          },
+          "season_id": {
+            "name": "Szezon azonosítója"
+          },
+          "start_month": {
+            "name": "Kezdő hónap"
+          },
+          "end_month": {
+            "name": "Záró hónap"
+          },
+          "day_group_id": {
+            "name": "Napcsoport azonosítója"
+          },
+          "days": {
+            "name": "Napok"
+          },
+          "period_id": {
+            "name": "Időszak azonosítója"
+          },
+          "period_type": {
+            "name": "Időszak típusa"
+          },
+          "start_time": {
+            "name": "Kezdési idő"
+          },
+          "end_time": {
+            "name": "Befejezési idő"
+          },
+          "rate": {
+            "name": "Díj"
+          },
+          "formatted_rate": {
+            "name": "Formázott díj"
+          },
+          "tier_id": {
+            "name": "Sáv azonosítója"
+          },
+          "start_value": {
+            "name": "Kezdő érték"
+          },
+          "end_value": {
+            "name": "Záró érték"
+          },
+          "unbounded": {
+            "name": "Felső korlát nélkül"
+          },
+          "last_refresh_utc": {
+            "name": "Utolso frissites (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifa helymeghatározó"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Csatlakoztatva"
+      },
+      "charging": {
+        "name": "Töltés"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "A hőszivattyú SG-Ready aktív"
+      },
+      "cloud_reachable": {
+        "name": "Cloud elérhető"
+      },
+      "connected": {
+        "name": "Kapcsolat",
+        "state_attributes": {
+          "connection": {
+            "name": "Kapcsolat"
+          },
+          "ip_address": {
+            "name": "IP-cím"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Töltés"
+      },
+      "green_battery": {
+        "name": "Használjon akkumulátort az elektromos járművek töltéséhez"
+      },
+      "app_authentication": {
+        "name": "Hitelesítés az alkalmazáson keresztül"
+      },
+      "storm_guard": {
+        "name": "Viharőr"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV-töltés"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Használja az akkumulátort csúcsidő után"
+      },
+      "charge_from_grid": {
+        "name": "Akkumulátor töltése hálózatról"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Hálózatról töltés ütemezése"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Hálózatba kisütési ütemezés"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Akkumulátorkisütés-korlátozási ütemezés"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "AC akkumulátor alvó módja"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Hétfői ütemezés"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Keddi ütemezés"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Szerdai ütemezés"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Csütörtöki ütemezés"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Pénteki ütemezés"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Szombati ütemezés"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Vasárnapi ütemezés"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Új akkumulátor-ütemezés hétfő"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Új akkumulátor-ütemezés kedd"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Új akkumulátor-ütemezés szerda"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Új akkumulátor-ütemezés csütörtök"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Új akkumulátor-ütemezés péntek"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Új akkumulátor-ütemezés szombat"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Új akkumulátor-ütemezés vasárnap"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Akkumulátor-ütemezés hétfő"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Akkumulátor-ütemezés kedd"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Akkumulátor-ütemezés szerda"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Akkumulátor-ütemezés csütörtök"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Akkumulátor-ütemezés péntek"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Akkumulátor-ütemezés szombat"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Akkumulátor-ütemezés vasárnap"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Töltési mód"
+      },
+      "system_profile": {
+        "name": "Rendszerprofil"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "AC akkumulátor cél töltöttségi szintje"
+      },
+      "evse_schedule_selected": {
+        "name": "Ütemezés"
+      },
+      "battery_new_schedule_type": {
+        "name": "Akkumulátor ütemezési típusa"
+      },
+      "battery_schedule_selected": {
+        "name": "Akkumulátor ütemezése"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Töltés indítása"
+      },
+      "stop_charging": {
+        "name": "Töltés leállítása"
+      },
+      "cancel_pending_profile_change": {
+        "name": "A függőben lévő profilmódosítás visszavonása"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Rács váltás OTP kérése"
+      },
+      "storm_alert_opt_out": {
+        "name": "Viharriasztás letiltása"
+      },
+      "evse_schedule_refresh": {
+        "name": "Ütemezés frissítése"
+      },
+      "evse_schedule_save": {
+        "name": "Ütemezés mentése"
+      },
+      "evse_schedule_delete": {
+        "name": "Ütemezés törlése"
+      },
+      "evse_schedule_add": {
+        "name": "Új ütemezés létrehozása"
+      },
+      "battery_schedule_add": {
+        "name": "Akkumulátor-ütemezés hozzáadása"
+      },
+      "battery_schedule_delete": {
+        "name": "Akkumulátor ütemezésének törlése"
+      },
+      "battery_schedule_refresh": {
+        "name": "Akkumulátor ütemezésének frissítése"
+      },
+      "battery_schedule_save": {
+        "name": "Akkumulátor-ütemezési mentés"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Hálózatról töltés kezdési ideje"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Hálózatról töltés befejezési ideje"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Hálózatba kisütés kezdési ideje"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Hálózatba kisütés befejezési ideje"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Akkumulátorkisütés-korlátozás kezdési ideje"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Akkumulátorkisütés-korlátozás befejezési ideje"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Ütemezés kezdési ideje"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Ütemezés befejezési ideje"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Új akkumulátor-ütemezés kezdési ideje"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Új akkumulátor-ütemezés befejezési ideje"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Az akkumulátor ütemezésének kezdési ideje"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Az akkumulátor ütemezésének befejezési ideje"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Tartalékellátás előzményei"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Átjáró firmware"
+      },
+      "charger_firmware": {
+        "name": "Firmware-verzió"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Enphase helyszín {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Töltés indítása",
+      "stop_charging": "Töltés leállítása"
+    },
+    "trigger_type": {
+      "charging_started": "Töltés indult",
+      "charging_stopped": "Töltés leállt",
+      "plugged_in": "Csatlakoztatva",
+      "unplugged": "Lehúzva"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy újrahitelesítést igényel",
+      "description": "A(z) {site_id} helyszín frissített munkamenet-fejléceket igényel. Kérjük, hitelesítsen újra."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Úgy tűnik, az Enphase ideiglenesen blokkolja a(z) {site_id} hely hitelesítését. Az automatikus próbálkozások {blocked_until} időpontig szünetelnek. A sikeres kézi újrahitelesítés korábban is feloldhatja a blokkolást."
+    },
+    "too_many_active_sessions": {
+      "title": "Az Enphase Energy túl sok aktív munkamenettel rendelkezik",
+      "description": "Az Enphase elutasította a(z) {site_id} hely hitelesítését, mert túl sok aktív fiókmunkamenet van. Az automatikus újrapróbálkozások {blocked_until} időpontig szünetelnek. Jelentkezzen ki a többi Enphase alkalmazás- vagy böngészőmunkamenetből, majd próbálja meg újra a hitelesítést."
+    },
+    "rate_limited": {
+      "title": "Az Enphase Energy kérésszáma korlátozva van",
+      "description": "A felhő API kérésszám-korlátozást jelzett. A lekérdezés {backoff_ends} időpontig lassul."
+    },
+    "cloud_unreachable": {
+      "title": "Enphase Energy cloud nem érhető el",
+      "description": "A Home Assistant nem éri el az Enphase felhőt a(z) {site_id} helyszínhez. A lekérdezés automatikusan lassul; ellenőrizze a szolgáltatás állapotát és a hálózatot."
+    },
+    "cloud_dns_resolution": {
+      "title": "Enphase Energy DNS-feloldási hiba",
+      "description": "A Home Assistant nem tudta feloldani az enlighten.enphaseenergy.com címet a(z) {site_id} helyszínhez. Ellenőrizze a DNS-kiszolgálót vagy az internetkapcsolatot."
+    },
+    "cloud_service_unavailable": {
+      "title": "Enphase Energy cloud hibák",
+      "description": "Az Enphase cloud a(z) {site_id} helyszínhez hibákkal válaszol. A lekérdezés automatikusan visszavesz; ellenőrizze a szolgáltatás állapotát vagy a használati limiteket."
+    },
+    "scheduler_unavailable": {
+      "title": "Az Enphase Energy ütemező nem érhető el",
+      "description": "A {site_id} webhely Enphase ütemező szolgáltatása nem érhető el. A töltési mód kiválasztása és az ütemezés szinkronizálása átmenetileg le van tiltva."
+    },
+    "session_history_unavailable": {
+      "title": "Az Enphase Energy munkamenet előzményei nem érhetők el",
+      "description": "Az Enphase munkamenet-előzmények szolgáltatása a {site_id} webhelyhez nem érhető el. A munkamenet-előzmények érzékelői a szolgáltatás helyreállításáig a gyorsítótárazott adatokat mutatják."
+    },
+    "site_energy_unavailable": {
+      "title": "Az Enphase Energy helyszíni energiája nem érhető el",
+      "description": "A {site_id} webhely Enphase élettartamára vonatkozó energiaszolgáltatása nem érhető el. A webhely energiaérzékelői a gyorsítótárazott adatokat mutatják, amíg a szolgáltatás helyreáll."
+    },
+    "auth_settings_unavailable": {
+      "title": "Az Enphase Energy hitelesítési beállítások nem érhetők el",
+      "description": "Az Enphase töltő hitelesítési beállítási szolgáltatása a {site_id} webhelyhez nem érhető el. Az alkalmazáshitelesítési vezérlők ideiglenesen le vannak tiltva."
+    },
+    "battery_profile_pending": {
+      "title": "Az Enphase Energy akkumulátorprofil frissítése függőben",
+      "description": "A(z) {site_id} hely akkumulátorprofil-módosítása több mint {pending_timeout_minutes} perce függőben van. Előfordulhat, hogy a felhő még feldolgozza a kérést."
+    },
+    "hems_auth_degraded": {
+      "title": "Az Enphase Energy HEMS ideiglenesen szünetel",
+      "description": "A Heat Pump/HEMS lekérdezés a(z) {site_id} helyen {backoff_until} időpontig szünetel {failure_count} hitelesítés jellegű hiba után ({reason}). A wallbox, akkumulátor, gateway és más adatok tovább működhetnek. Kapcsold ki a Heat Pump eszközcsoportot, vagy használd a Clear HEMS Auth Backoff műveletet az Enphase helyreállása után."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "Helyszín ID",
+      "can_reach_server": "Enphase felhő elérése",
+      "last_success": "Utolsó sikeres frissítés",
+      "latency_ms": "Cloud késleltetés (ms)",
+      "last_error": "Utolsó hiba",
+      "scheduler_available": "Ütemező elérhető",
+      "scheduler_last_error": "Az ütemező utolsó hibája",
+      "scheduler_failures": "Ütemező hibák",
+      "scheduler_backoff_active": "Ütemező visszalépés aktív",
+      "scheduler_backoff_ends_utc": "Az ütemező visszalépése véget ér (UTC)",
+      "backoff_active": "Backoff aktív",
+      "network_errors": "Egymást követő hálózati hibák",
+      "http_errors": "Egymást követő HTTP-hibák",
+      "site_count": "A webhelyek száma",
+      "site_name": "Webhely neve",
+      "site_ids": "Webhelyazonosítók",
+      "site_names": "A webhelyek nevei",
+      "last_failure_status": "Utolsó hiba állapota",
+      "last_failure_description": "Utolsó hiba leírása",
+      "phase_timings": "Fázisidőzítések",
+      "session_cache_ttl_s": "Munkamenet gyorsítótár TTL (s)",
+      "sites": "Webhelyek",
+      "auth_settings_available": "Elérhető hitelesítési beállítások",
+      "auth_settings_last_error": "Hitelesítési beállítások utolsó hibája",
+      "auth_settings_failures": "Hibás hitelesítési beállítások",
+      "auth_settings_backoff_active": "A hitelesítési beállítások visszavonása aktív",
+      "auth_settings_backoff_ends_utc": "A hitelesítési beállítások visszavonása véget ér (UTC)",
+      "session_history_available": "A munkamenet előzményei elérhetők",
+      "session_history_last_error": "A munkamenet-előzmények utolsó hibája",
+      "session_history_failures": "A munkamenet-előzmények kudarcai",
+      "session_history_backoff_active": "A munkamenet-előzmények visszalépése aktív",
+      "session_history_backoff_ends_utc": "A munkamenet-előzmények visszalépése véget ér (UTC)",
+      "site_energy_available": "A helyszínen rendelkezésre álló energia",
+      "site_energy_last_error": "A webhely energia utolsó hibája",
+      "site_energy_failures": "Telephelyi energiahiba",
+      "site_energy_backoff_active": "A webhely energiavisszatartása aktív",
+      "site_energy_backoff_ends_utc": "A webhely energiahátrálásának vége (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Töltés indítása",
+      "description": "Töltés indítása a kiválasztott Enphase Energy töltőn.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Töltési szint (A)",
+          "description": "Opcionális árambeállítás amperben (6-40)."
+        },
+        "connector_id": {
+          "name": "Csatlakozó ID",
+          "description": "Opcionális csatlakozó index (általában 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Töltés leállítása",
+      "description": "Töltés leállítása a kiválasztott Enphase Energy töltőn."
+    },
+    "trigger_message": {
+      "name": "OCPP üzenet indítása",
+      "description": "Kérje a töltőt, hogy küldjön OCPP üzenetet, és adja vissza a cloud választ.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Kért üzenet",
+          "description": "OCPP üzenetnév (pl. MeterValues); a szolgáltatás válasza megjeleníti a töltő kimenetét."
+        },
+        "confirm_advanced": {
+          "name": "Speciális indítás megerősítése",
+          "description": "Speciális OCPP indítóüzenetekhez szükséges, amelyek töltődiagnosztikát, firmware-t vagy indítási értesítéseket kérhetnek."
+        },
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Opcionális helyszín azonosító; automatikusan észlelve, ha helyszín eszköz van kiválasztva."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Újrahitelesítési probléma törlése",
+      "description": "Válasszon Enphase helyszín eszközt az újrahitelesítési probléma törléséhez.",
+      "fields": {
+        "device_id": {
+          "name": "Töltők",
+          "description": "Válassza ki az Enphase töltőket, amelyeknél az újrahitelesítési probléma törlendő."
+        },
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Opcionális helyszín azonosító; automatikusan észlelve, ha helyszín eszköz van kiválasztva."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Élő stream indítása",
+      "description": "Kérjen gyorsabb cloud állapotfrissítéseket rövid időre.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Opcionális helyszín azonosító; automatikusan észlelve, ha helyszín eszköz van kiválasztva."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Élő stream leállítása",
+      "description": "Cloud élő stream kérés leállítása.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Opcionális helyszín azonosító; automatikusan észlelve, ha helyszín eszköz van kiválasztva."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Ütemezések szinkronizálása",
+      "description": "Enphase ütemezések frissítése a felhőből.",
+      "fields": {
+        "device_id": {
+          "name": "Töltők",
+          "description": "Opcionális töltőválasztás célzott szinkronizáláshoz."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Rács váltás OTP kérése",
+      "description": "A webhelyrács mód megváltoztatása előtt küldje el a szükséges egyszeri kódot.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Opcionális helyszín azonosító; automatikusan észlelve, ha helyszín eszköz van kiválasztva."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Állítsa be a rács módot",
+      "description": "Az egyszeri kód érvényesítése után módosítsa a webhelyrács módot.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Rács mód",
+          "description": "Válassza a on_grid vagy a off_grid lehetőséget."
+        },
+        "otp": {
+          "name": "Egyszeri kód",
+          "description": "Adja meg a regisztrált e-mail címére és telefonjára küldött 4 számjegyű OTP-t."
+        },
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Opcionális helyszín azonosító; automatikusan észlelve, ha helyszín eszköz van kiválasztva."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "CFG ütemezés frissítése",
+      "description": "Frissíti a hálózatról töltés kezdési idejét, befejezési idejét és/vagy töltési korlátját egyetlen atomi művelettel.",
+      "fields": {
+        "start_time": {
+          "name": "Kezdési idő",
+          "description": "A CFG ütemezés kezdési ideje."
+        },
+        "end_time": {
+          "name": "Befejezési idő",
+          "description": "A CFG ütemezés befejezési ideje."
+        },
+        "limit": {
+          "name": "Töltési korlát",
+          "description": "Az akkumulátor maximális töltöttségi szintje (%)."
+        },
+        "site_id": {
+          "name": "Helyszín ID",
+          "description": "Enphase helyszínazonosító (opcionális; a célkészülékből oldható fel)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Frissítés kényszerítése",
+      "description": "Azonnal frissítse az akkumulátor-ütemezési adatokat az Enphase felhőből.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Helyszínazonosító",
+          "description": "Nem kötelező helyszínazonosító; a rendszer automatikusan felismeri, ha helyszíneszköz van kiválasztva."
+        },
+        "config_entry_id": {
+          "name": "Konfigurációs bejegyzés azonosítója",
+          "description": "Nem kötelező konfigurációsbejegyzés-azonosító egyetlen Enphase-helyszínbejegyzéshez."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Akkumulátor-ütemezés hozzáadása",
+      "description": "Akkumulátor-ütemezés létrehozása CFG, DTG vagy RBD típushoz.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Ütemezés típusa",
+          "description": "Az akkumulátor-ütemezés családja: cfg, dtg vagy rbd."
+        },
+        "start_time": {
+          "name": "Kezdési idő",
+          "description": "Az ütemezés kezdési ideje."
+        },
+        "end_time": {
+          "name": "Befejezési idő",
+          "description": "Az ütemezés befejezési ideje."
+        },
+        "limit": {
+          "name": "Töltési korlát",
+          "description": "Az akkumulátor maximális töltöttségi szintje (%)."
+        },
+        "days": {
+          "name": "Napok",
+          "description": "Az aktív hétköznapok listája, ahol hétfő=1 és vasárnap=7."
+        },
+        "site_id": {
+          "name": "Helyszínazonosító",
+          "description": "Nem kötelező helyszínazonosító; a rendszer automatikusan felismeri, ha helyszíneszköz van kiválasztva."
+        },
+        "config_entry_id": {
+          "name": "Konfigurációs bejegyzés azonosítója",
+          "description": "Nem kötelező konfigurációsbejegyzés-azonosító egyetlen Enphase-helyszínbejegyzéshez."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Akkumulátor-ütemezés frissítése",
+      "description": "Akkumulátor-ütemezés frissítése ütemezésazonosító alapján.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Ütemezésazonosító",
+          "description": "Meglévő Enphase akkumulátor-ütemezés azonosítója."
+        },
+        "schedule_type": {
+          "name": "Ütemezés típusa",
+          "description": "Az akkumulátor-ütemezés családja: cfg, dtg vagy rbd."
+        },
+        "start_time": {
+          "name": "Kezdési idő",
+          "description": "Az ütemezés kezdési ideje."
+        },
+        "end_time": {
+          "name": "Befejezési idő",
+          "description": "Az ütemezés befejezési ideje."
+        },
+        "limit": {
+          "name": "Töltési korlát",
+          "description": "Az akkumulátor maximális töltöttségi szintje (%)."
+        },
+        "days": {
+          "name": "Napok",
+          "description": "Az aktív hétköznapok listája, ahol hétfő=1 és vasárnap=7."
+        },
+        "confirm": {
+          "name": "Megerősítés",
+          "description": "Állítsa true értékre az ütemezés frissítésének megerősítéséhez."
+        },
+        "site_id": {
+          "name": "Helyszínazonosító",
+          "description": "Nem kötelező helyszínazonosító; a rendszer automatikusan felismeri, ha helyszíneszköz van kiválasztva."
+        },
+        "config_entry_id": {
+          "name": "Konfigurációs bejegyzés azonosítója",
+          "description": "Nem kötelező konfigurációsbejegyzés-azonosító egyetlen Enphase-helyszínbejegyzéshez."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Akkumulátor-ütemezés törlése",
+      "description": "Egy vagy több akkumulátor-ütemezés törlése ütemezésazonosító alapján.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Ütemezésazonosító",
+          "description": "Törlendő egyetlen Enphase akkumulátor-ütemezés azonosítója."
+        },
+        "schedule_ids": {
+          "name": "Ütemezésazonosítók",
+          "description": "Nem kötelező, vesszővel elválasztott vagy listás bemenet több ütemezésazonosítóhoz."
+        },
+        "confirm": {
+          "name": "Megerősítés",
+          "description": "Állítsa true értékre az ütemezés törlésének megerősítéséhez."
+        },
+        "site_id": {
+          "name": "Helyszínazonosító",
+          "description": "Nem kötelező helyszínazonosító; a rendszer automatikusan felismeri, ha helyszíneszköz van kiválasztva."
+        },
+        "config_entry_id": {
+          "name": "Konfigurációs bejegyzés azonosítója",
+          "description": "Nem kötelező konfigurációsbejegyzés-azonosító egyetlen Enphase-helyszínbejegyzéshez."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Akkumulátor-ütemezés ellenőrzése",
+      "description": "Ellenőrizze, hogy a kiválasztott ütemezéscsaládhoz elérhető-e az akkumulátor-ütemezés szerkesztése.",
+      "sections": {
+        "advanced": {
+          "name": "Speciális beállítások"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Ütemezés típusa",
+          "description": "Az akkumulátor-ütemezés családja: cfg, dtg vagy rbd."
+        },
+        "site_id": {
+          "name": "Helyszínazonosító",
+          "description": "Nem kötelező helyszínazonosító; a rendszer automatikusan felismeri, ha helyszíneszköz van kiválasztva."
+        },
+        "config_entry_id": {
+          "name": "Konfigurációs bejegyzés azonosítója",
+          "description": "Nem kötelező konfigurációsbejegyzés-azonosító egyetlen Enphase-helyszínbejegyzéshez."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Újrahitelesítés próbája most",
+      "description": "A mentett Enphase hitelesítő adatokkal azonnali újrahitelesítési kísérletet indít a kiválasztott helyhez.",
+      "fields": {
+        "device_id": {
+          "name": "Hely eszközei",
+          "description": "Válasszon egy Enphase helyeszközt, amelyhez újrahitelesítést szeretne próbálni."
+        },
+        "site_id": {
+          "name": "Hely azonosítója",
+          "description": "Opcionális helyazonosító; automatikusan felismerhető, ha helyeszköz van kiválasztva."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Tarifa frissítése",
+      "description": "Frissíti az Enphase számlázási ciklus adatait és egy vagy több meglévő import- vagy exporttarifa értékét.",
+      "fields": {
+        "rate": {
+          "name": "Díj",
+          "description": "Új nem negatív tarifaérték a kiválasztott tarifaentitáshoz."
+        },
+        "rate_entity": {
+          "name": "Díjentitás",
+          "description": "Opcionális tarifaentitás frissítéshez, ha nem az akció célját használja."
+        },
+        "import_rate": {
+          "name": "Importdíj",
+          "description": "Új nem negatív importtarifa-érték."
+        },
+        "import_rate_entity": {
+          "name": "Importdíj entitás",
+          "description": "Frissítendő importtarifa-entitás."
+        },
+        "export_rate": {
+          "name": "Exportdíj",
+          "description": "Új nem negatív exporttarifa-érték."
+        },
+        "export_rate_entity": {
+          "name": "Exportdíj entitás",
+          "description": "Frissítendő exporttarifa-entitás."
+        },
+        "billing_start_date": {
+          "name": "Számlázás kezdő dátuma",
+          "description": "A számlázási időszak kezdő dátuma ISO formátumban."
+        },
+        "billing_frequency": {
+          "name": "Számlázási gyakoriság",
+          "description": "A számlázási intervallum egysége: MONTH vagy DAY."
+        },
+        "billing_interval_value": {
+          "name": "Számlázási intervallum",
+          "description": "A számlázási intervallumok száma. Hónapokhoz 1-24, napokhoz 1-100 használható."
+        },
+        "rates": {
+          "name": "Díjak",
+          "description": "Frissítendő tarifaár-entitásazonosítók és nem negatív értékek listája."
+        },
+        "site_id": {
+          "name": "Helyazonosító",
+          "description": "Opcionális helyazonosító számlázási frissítésekhez."
+        },
+        "config_entry_id": {
+          "name": "Konfigurációs bejegyzés azonosítója",
+          "description": "Opcionális konfigurációs bejegyzés azonosító egyetlen Enphase helyhez."
+        },
+        "tariff_payload": {
+          "name": "Tarifa payload",
+          "description": "Teljes írandó Enphase tarifa payload. Haladó szerkezeti módosításokhoz használja."
+        },
+        "purchase_tariff": {
+          "name": "Importtarifa szerkezete",
+          "description": "Csere importtarifa ág típussal, szezonokkal, időszakokkal, sávokkal és díjakkal."
+        },
+        "buyback_tariff": {
+          "name": "Exporttarifa szerkezete",
+          "description": "Csere exporttarifa ág típussal, exporttervvel, szezonokkal, időszakokkal, sávokkal és díjakkal."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "HEMS auth backoff törlése",
+      "description": "Törli az ideiglenes HEMS/Heat Pump hitelesítési szünetet jelszavas bejelentkezés nélkül.",
+      "fields": {
+        "device_id": {
+          "name": "Hely eszközei",
+          "description": "Válassz Enphase helyeszközt, amelynél törölni kell a HEMS auth backoff állapotot."
+        },
+        "site_id": {
+          "name": "Helyazonosító",
+          "description": "Opcionális helyazonosító; eszköz kiválasztásakor automatikusan felismerhető."
+        }
+      }
+    }
+  }
+}

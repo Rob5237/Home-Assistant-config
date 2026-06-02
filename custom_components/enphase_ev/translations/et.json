@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Logige sisse Enlighten mandaadiga.",
+        "data": {
+          "email": "E-post",
+          "password": "Parool",
+          "remember_password": "Salvesta parool automaatseks taasautentimiseks"
+        },
+        "data_description": {
+          "email": "Teie Enlighten konto e-posti aadress.",
+          "password": "Parool salvestatakse ainult siis, kui märgite ruudu.",
+          "remember_password": "Võimaldab integratsioonil tokenid aegumisel automaatselt uuendada."
+        }
+      },
+      "mfa": {
+        "title": "Kinnita MFA kood",
+        "description": "Sisestage e-postiga saadetud ühekordne kood. Koodid kehtivad 5 minutit. Uut koodi saab küsida iga 30 sekundi järel.",
+        "data": {
+          "otp": "Ühekordne kood",
+          "resend_code": "Saada kood uuesti"
+        },
+        "data_description": {
+          "otp": "Kasutage Enphase sisselogimisakna koodi.",
+          "resend_code": "Taotlege uus kood, kui eelmine aegus."
+        }
+      },
+      "site": {
+        "title": "Vali koht",
+        "description": "Valige, milline Enlighten koht linkida.",
+        "data": {
+          "site_id": "Koht"
+        }
+      },
+      "devices": {
+        "title": "Vali seadmed",
+        "description": "Vali, millised seadmerühmad lisada. Kõik valikud kasutavad sama päringuintervalli.",
+        "data": {
+          "type_envoy": "Lüüs",
+          "type_encharge": "Aku",
+          "type_iqevse": "Laadijad",
+          "type_microinverter": "Mikroinverterid",
+          "scan_interval": "Skaneerimisintervall (s)",
+          "type_heatpump": "Soojuspump",
+          "type_ac_battery": "AC-aku"
+        },
+        "data_description": {
+          "type_envoy": "Sisaldab lüüsi ühenduvuse ja arvestite diagnostikat.",
+          "type_encharge": "Sisaldab aku olekut ja juhtimisolemeid, kui need on saadaval.",
+          "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
+          "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid.",
+          "scan_interval": "Sekundid pilveoleku päringute vahel. Vaikimisi 60s.",
+          "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
+          "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Vigased mandaadid või aegunud seanss.",
+      "cannot_connect": "Enphase teenuseni ei saa ühendust.",
+      "service_unavailable": "Enphase on ajutiselt kättesaamatu. Proovige hiljem uuesti.",
+      "too_many_active_sessions": "Enphase lükkas sisselogimise tagasi, sest kontol on liiga palju aktiivseid seansse. Logige teistest Enphase rakenduse või brauseri seanssidest välja ja proovige hiljem uuesti.",
+      "mfa_required": "Konto nõuab mitmetegurilist autentimist.",
+      "otp_required": "Sisestage ühekordne kood.",
+      "otp_invalid": "Vigane või aegunud kood. Proovige uuesti.",
+      "otp_blocked": "Liiga palju katseid. Konto on ajutiselt blokeeritud.",
+      "resend_wait": "Palun oodake 30 sekundit enne uue koodi taotlemist.",
+      "site_required": "Valige koht jätkamiseks.",
+      "site_invalid": "Koha ID peab olema numbriline.",
+      "serials_required": "Valige või sisestage vähemalt üks laadija.",
+      "serials_or_site_only_required": "Sisestage vähemalt üks laadija või lubage ainult koha režiim.",
+      "unknown": "Ootamatu viga"
+    },
+    "abort": {
+      "already_configured": "Juba seadistatud",
+      "reconfigure_successful": "Uuesti konfigureerimine õnnestus",
+      "reauth_successful": "Taasautentimine õnnestus",
+      "manual_mode_removed": "Vanad käsitsi autentimise kirjed pole enam toetatud. Eemaldage integratsioon ja seadistage see uuesti Enlighten sisselogimisega.",
+      "wrong_account": "See kirje on juba seotud {configured_label}. Eemaldage integratsioon Home Assistantist ja lisage uus, et linkida {requested_label}."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Laadimist ei saa alustada, sest {name} ei ole sõidukiga ühendatud."
+    },
+    "auth_required": {
+      "message": "Laadimist ei saa alustada, kuna {name} nõuab autentimist rakenduse Enphase või RFID kaudu."
+    },
+    "grid_control_unavailable": {
+      "message": "Võrgu juhtimine pole sellel saidil saadaval."
+    },
+    "grid_control_blocked": {
+      "message": "Võrgu juhtimine on praegu blokeeritud: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "Ruudustiku režiim peab olema on_grid või off_grid."
+    },
+    "grid_otp_required": {
+      "message": "OTP on nõutav."
+    },
+    "grid_otp_invalid_format": {
+      "message": "OTP peab olema 4-kohaline numbrikood."
+    },
+    "grid_otp_invalid": {
+      "message": "OTP on kehtetu või aegunud."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Selle saidi saadiku seerianumbrit ei saa määrata."
+    },
+    "grid_site_required": {
+      "message": "Valige täpselt üks Enphase'i sait."
+    },
+    "grid_site_ambiguous": {
+      "message": "Valiti mitu saiti ({count}). Valige täpselt üks sait."
+    },
+    "schedule_required": {
+      "message": "Luba vähemalt üks ajakava enne ajastatud laadimise valimist."
+    },
+    "charge_mode_invalid_option": {
+      "message": "Valitud laadimisrežiim pole saadaval."
+    },
+    "evse_schedule_day_required": {
+      "message": "Valige ajakava jaoks vähemalt üks nädalapäev."
+    },
+    "evse_schedule_times_different": {
+      "message": "Ajakava algus- ja lõpuaeg peavad erinema."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase lükkas ajakava muudatuse tagasi."
+    },
+    "battery_schedule_overlap": {
+      "message": "Ajakava kattub olemasoleva {schedule_label}-ga. Kohanda või keela see ajakava enne."
+    },
+    "ac_battery_unavailable": {
+      "message": "Ühtegi AC Battery seadet pole praegu saadaval."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Autentimisseaded pole saadaval, kui Enphase'i teenus on maas."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Aku profiili uuendused pole selle konto jaoks lubatud."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Aku seadete uuendused pole selle konto jaoks lubatud."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Teine aku profiili uuendus on juba käimas."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Teine aku seadete uuendus on juba käimas."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Aku profiili uuendused pole saadaval."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Aku seadete uuendused pole saadaval."
+    },
+    "battery_updates_unavailable": {
+      "message": "Aku uuendused pole saadaval."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Aku uuendused pole selle konto jaoks lubatud."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Aku profiili uuendust taotleti liiga kiiresti. Palun oota ja proovi uuesti."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Aku seadete uuendust taotleti liiga kiiresti. Palun oota ja proovi uuesti."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Aku kirjutusõigust ei saanud kinnitada. Värskenda ja proovi uuesti."
+    },
+    "schedule_update_forbidden": {
+      "message": "Enphase lükkas ajakava uuenduse tagasi (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Ajakava uuendust ei saanud autentida. Autendi uuesti ja proovi uuesti."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Ajakava on vastuolus olemasoleva discharge-to-grid ajakavaga. Kohanda või keela see ajakava enne."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Ajakava on vastuolus olemasoleva restrict-battery-discharge ajakavaga. Kohanda või keela see ajakava enne."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Ajakava on vastuolus olemasoleva charge-from-grid ajakavaga. Kohanda või keela see ajakava enne."
+    },
+    "schedule_update_conflict": {
+      "message": "Ajakava uuendus on vastuolus olemasoleva aku ajakavaga."
+    },
+    "battery_profile_unavailable": {
+      "message": "Aku profiil pole saadaval."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Enphase lükkas aku profiili uuenduse tagasi (HTTP 403 Forbidden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Aku profiili uuendust ei saanud autentida. Autendi uuesti ja proovi uuesti."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Aku seadete koormusandmed pole saadaval."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Enphase lükkas aku seadete uuenduse tagasi (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Aku seadete uuendust ei saanud autentida. Autendi uuesti ja proovi uuesti."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "Full Backupi reserv on fikseeritud 100% peale."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Aku reserv pole saadaval."
+    },
+    "savings_profile_required": {
+      "message": "Savings profiil peab olema aktiivne."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Savings profiili seaded pole saadaval."
+    },
+    "battery_profile_unsupported": {
+      "message": "Valitud aku profiili ei toetata."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "Võrgust laadimise seadistus pole saadaval."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Enphase ei rakendanud võrgust laadimise lülitit."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Võrgust laadimise ajakava pole saadaval."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "Charge-from-grid ajakava algus- ja lõpuaeg peavad olema erinevad."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Enphase ei rakendanud charge-from-grid ajakava lülitit."
+    },
+    "charge_from_grid_required": {
+      "message": "Võrgust laadimine tuleb enne lubada."
+    },
+    "schedule_change_pending": {
+      "message": "Ajakava muudatus ootab Envoy sünkroonimist. Palun oota."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "Charge-from-grid ajakava aeg on vigane."
+    },
+    "schedule_api_unavailable": {
+      "message": "Ajakava API pole selles kliendiversioonis saadaval."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Olemasolevat charge-from-grid ajakava pole saadaval."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Loo IQ Battery ajastajas {schedule_label} enne selle lubamist."
+    },
+    "schedule_not_exposed": {
+      "message": "Enphase ei kuva praegu selle saidi jaoks {schedule_label}. Oota, kuni ajakava sünkroonimine lõpeb, seejärel värskenda ja proovi uuesti."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "Enphase ei rakendanud lülitit {schedule_label}."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "Peamine kirjutamine lükati tagasi."
+    },
+    "schedule_family_times_different": {
+      "message": "{schedule_label} algus- ja lõpuaeg peavad olema erinevad."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "Discharge-to-grid ajakava aeg on vigane."
+    },
+    "schedule_missing": {
+      "message": "Olemasolevat ajakava {schedule_label_lower} pole saadaval."
+    },
+    "schedule_unavailable": {
+      "message": "{schedule_label} ajakava pole saadaval."
+    },
+    "schedule_time_invalid": {
+      "message": "{schedule_label} ajakava aeg on vigane."
+    },
+    "current_schedule_time_invalid": {
+      "message": "Praegune {schedule_label_lower} ajakava aeg on vigane."
+    },
+    "schedule_limit_range": {
+      "message": "{schedule_label} ajakava piirang peab olema vahemikus {minimum} kuni {maximum}."
+    },
+    "schedule_limit_minimum": {
+      "message": "{schedule_label} ajakava piirang peab olema vähemalt {minimum}%."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "Praegused ajakava ajad pole saadaval."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "Charge-from-grid ajakava piirang peab olema vahemikus {minimum} kuni {maximum}."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "Charge-from-grid ajakava piirang peab olema vähemalt {minimum}%."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Aku väljalülitustase pole saadaval."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Aku väljalülitustase on vigane."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Aku väljalülitustase peab olema vahemikus {minimum} kuni {maximum}."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Storm Alertist loobumine pole saadaval."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Storm Alertist loobumine ebaõnnestus {count} hoiatuse puhul."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Storm Guardi uuendused pole selle konto jaoks lubatud."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Storm Guardi seaded pole saadaval."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Enphase lükkas Storm Guardi uuenduse tagasi (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "Storm Guardi uuendust ei saanud autentida. Autendi uuesti ja proovi uuesti."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Valitud süsteemiprofiil pole saadaval."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Enphase lükkas süsteemiprofiili uuenduse tagasi (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "Süsteemiprofiili uuendust ei saanud autentida. Autendi uuesti ja proovi uuesti."
+    },
+    "system_profile_update_failed": {
+      "message": "Süsteemiprofiili uuendus ebaõnnestus."
+    },
+    "system_profile_update_network": {
+      "message": "Süsteemiprofiili uuendus ebaõnnestus võrguvea tõttu. Proovi uuesti."
+    },
+    "system_profile_update_timeout": {
+      "message": "Süsteemiprofiili uuenduse ajalõpp saabus. Proovi uuesti."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Laadimisrežiimi valik pole saadaval, kui Enphase'i ajastusteenus on maas."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "Valitud AC-aku sihtlaetuse tase pole saadaval."
+    },
+    "battery_schedule_day_required": {
+      "message": "Vali ajakava jaoks vähemalt üks päev."
+    },
+    "battery_schedule_times_different": {
+      "message": "Ajakava algus- ja lõpuaeg peavad erinema."
+    },
+    "battery_schedule_limit_range": {
+      "message": "Ajakava {schedule_type} piirang peab olema vahemikus {minimum} kuni {maximum}."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Enphase'i valideerimise lõpp-punkt lükkas ajakava tagasi."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Aku ajakavade muutmine pole saadaval."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "Aku ajakavade API pole saadaval."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Ajakava uuendamiseks on vaja kinnitust."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Ajakava kustutamiseks on vaja kinnitust."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Vigane ajakava ID: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "Ajakava ID-d ei leitud praegustest andmetest: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Kustutamiseks esita vähemalt üks ajakava ID."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Vigased ajakava ID-d: {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Ajakava ID-sid ei leitud praegustest andmetest: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Enphase'i valideerimise lõpp-punkt lükkas ajakava tagasi: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Ajakava uuendus on vastuolus olemasoleva aku ajakavaga: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Tariifimäär peab olema mittenegatiivne arv."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Tariifimäära sihtkohta ei leitud viimastest tariifiandmetest."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Tariifimäära sihtkoht on vigane."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "Tariifide kirjutamise API pole saadaval."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Vali täpselt üks tariifimäära olem."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Olem ei ole Enphase tariifimäär: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "Toetamata OCPP käivitussõnum. Kasutage ühte järgmistest: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Luba täpsem kinnitus, et saata {message}."
+    },
+    "tariff_update_required": {
+      "message": "Sisesta arveldusandmed või vähemalt üks tariifimäära uuendus."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Sisesta arvelduse alguskuupäev, sagedus ja intervall."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "Tariifi arvelduse alguskuupäev peab olema kehtiv ISO-kuupäev."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "Tariifi arveldussagedus peab olema MONTH või DAY."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Tariifi arveldusintervall peab olema vahemikus {minimum} kuni {maximum}."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "Tariifi arvelduse kirjutamise API pole saadaval."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Topelt tariifimäära sihtmärgid pole lubatud."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Topelt tariifimäära olem: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Kõik tariifiuuendused peavad sihtima sama Enphase’i saiti."
+    },
+    "tariff_structure_invalid": {
+      "message": "Tariifi struktuur on vigane."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Enphase Energy valikud",
+        "description": "Vali, mida selle integratsiooni kirjega teha.",
+        "menu_options": {
+          "settings": "Seaded",
+          "migrate_envoy": "Migreeri Envoy ajalugu"
+        },
+        "menu_option_descriptions": {
+          "settings": "Kohanda küsitlemist ja käitumist.",
+          "migrate_envoy": "Võta üle valitud Enphase Envoy energiaüksuste ID-d, et Home Assistant Energy ajalugu jätkuks selle integratsiooni all."
+        },
+        "data": {
+          "type_envoy": "Lüüs",
+          "type_encharge": "Aku",
+          "type_iqevse": "Laadijad",
+          "type_microinverter": "Mikroinverterid",
+          "fast_poll_interval": "Kiire küsitlusintervall (s)",
+          "slow_poll_interval": "Aeglane küsitlusintervall (s)",
+          "fast_while_streaming": "Eelistage kiiret küsitlust, kui pilvevoog on aktiivne",
+          "api_timeout": "API aegumine (s)",
+          "nominal_voltage": "Nimipinge (V)",
+          "session_history_interval": "Seansi ajaloo intervall (min)",
+          "schedule_sync_enabled": "Luba ajakava tugi",
+          "reauth": "Alusta taasautentimist",
+          "forget_password": "Unusta salvestatud parool",
+          "type_heatpump": "Soojuspump",
+          "type_ac_battery": "AC-aku",
+          "battery_schedules_enabled": "Luba aku ajastaja",
+          "degraded_service_repair_issues": "Luba halvenenud teenuste parandused"
+        },
+        "data_description": {
+          "type_envoy": "Sisaldab lüüsi ühenduvuse ja arvestite diagnostikat.",
+          "type_encharge": "Sisaldab aku olekut ja juhtimisolemeid, kui need on saadaval.",
+          "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
+          "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid.",
+          "fast_poll_interval": "Intervall, mida kasutada laadimise või voogedastuse ajal.",
+          "slow_poll_interval": "Intervall, kui seade on jõude.",
+          "fast_while_streaming": "Kui lubatud, kiire küsitlus aktiivse pilvevoo ajal.",
+          "api_timeout": "Sekundid enne API-päringute aegumist.",
+          "nominal_voltage": "Varupinge laadija võimsuse hinnanguks.",
+          "session_history_interval": "Minutid, mida oodata pilve seansiajaloo päringute vahel.",
+          "schedule_sync_enabled": "Enphase'i ajakava haldamine",
+          "reauth": "Käivitage sisselogimisvoog, et uuendada mandaate ilma integratsiooni eemaldamata.",
+          "forget_password": "Eemaldab salvestatud parooli. Automaatset värskendamist enam ei üritata.",
+          "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
+          "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval.",
+          "battery_schedules_enabled": "Halda IQ aku ajakavasid",
+          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud."
+        }
+      },
+      "settings": {
+        "title": "Enphase Energy valikud",
+        "description": "Seadista küsitlust ja käitumist.",
+        "data": {
+          "type_envoy": "Lüüs",
+          "type_encharge": "Aku",
+          "type_iqevse": "Laadijad",
+          "type_microinverter": "Mikroinverterid",
+          "fast_poll_interval": "Kiire küsitlusintervall (s)",
+          "slow_poll_interval": "Aeglane küsitlusintervall (s)",
+          "fast_while_streaming": "Eelistage kiiret küsitlust, kui pilvevoog on aktiivne",
+          "api_timeout": "API aegumine (s)",
+          "nominal_voltage": "Nimipinge (V)",
+          "session_history_interval": "Seansi ajaloo intervall (min)",
+          "schedule_sync_enabled": "Luba ajakava tugi",
+          "reauth": "Alusta taasautentimist",
+          "forget_password": "Unusta salvestatud parool",
+          "type_heatpump": "Soojuspump",
+          "type_ac_battery": "AC-aku",
+          "battery_schedules_enabled": "Luba aku ajastaja",
+          "degraded_service_repair_issues": "Luba halvenenud teenuste parandused"
+        },
+        "data_description": {
+          "type_envoy": "Sisaldab lüüsi ühenduvuse ja arvestite diagnostikat.",
+          "type_encharge": "Sisaldab aku olekut ja juhtimisolemeid, kui need on saadaval.",
+          "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
+          "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid.",
+          "fast_poll_interval": "Intervall, mida kasutada laadimise või voogedastuse ajal.",
+          "slow_poll_interval": "Intervall, kui seade on jõude.",
+          "fast_while_streaming": "Kui lubatud, kiire küsitlus aktiivse pilvevoo ajal.",
+          "api_timeout": "Sekundid enne API-päringute aegumist.",
+          "nominal_voltage": "Varupinge laadija võimsuse hinnanguks.",
+          "session_history_interval": "Minutid, mida oodata pilve seansiajaloo päringute vahel.",
+          "schedule_sync_enabled": "Enphase'i ajakava haldamine",
+          "reauth": "Käivitage sisselogimisvoog, et uuendada mandaate ilma integratsiooni eemaldamata.",
+          "forget_password": "Eemaldab salvestatud parooli. Automaatset värskendamist enam ei üritata.",
+          "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
+          "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval.",
+          "battery_schedules_enabled": "Halda IQ aku ajakavasid",
+          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Vali Envoy allikas",
+        "description": "Vali, millisest Enphase Envoy kirjest migreerida.",
+        "data": {
+          "selected_envoy_source": "Envoy allikas"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Migreeri Envoy ajalugu",
+        "description": "See abiline määrab valitud Enphase Envoy energiaolemite ID-d ümber vastavatele Enphase Energy anduritele.\n\nHome Assistant Energy ajalugu on seotud olemi ID-ga, mida kasutatakse pikaajalise statistika jaoks.\n\nLoo enne jätkamist täielik Home Assistanti varukoopia.\n\nMigreeri ainult andureid, mis tähistavad sama kumulatiivset energia kogusummat.\n\nValitud Envoy integratsioon laaditakse olemi ID-de ümbermääramise ajaks ajutiselt maha ja taastatakse pärast migreerimist.\n\nSee uuendab olemite registrit ja seda ei saa automaatselt tagasi pöörata.\n\nValitud Envoy allikas: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Mul on värske Home Assistanti varukoopia"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Ajalooandurite vastendamine",
+        "description": "Vaata soovitatud vastendamised hoolikalt üle. Kuvatakse ainult ühilduvad kumulatiivsed energiakogusummad. Tühjad väljad jäetakse vahele.\n\nKui soovitus on vale või ebaselge, kustuta see ja vali käsitsi.",
+        "data": {
+          "solar_production": "Päikese tootmine",
+          "consumption": "Tarbimine",
+          "grid_import": "Võrgust import",
+          "grid_export": "Võrku eksport",
+          "battery_charge": "Aku laadimine",
+          "battery_discharge": "Aku tühjenemine"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Määra kumulatiivne aku laadimise kogus andurile Enphase Energy Site Battery Charge. Ära vali päevast energiat ega reaalajas võimsust.",
+          "battery_discharge": "Määra kumulatiivne aku tühjenemise kogus andurile Enphase Energy Site Battery Discharge. Ära vali päevast energiat ega reaalajas võimsust."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Kinnita Envoy ajaloo migratsioon",
+        "description": "Valitud lähteolemid nimetatakse ümber arhiveeritud pärand-olemi ID-deks.\n\nSeejärel nimetatakse Enphase Energy olemid ümber algseteks lähteolemi ID-deks.\n\nKui mõni vastendus on vale, katkesta nüüd. Varukoopiast taastamine on kõige turvalisem tagasipööramise viis.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Mõistan, et valitud lähteolemite ID-d määratakse ümber",
+          "disable_archived_envoy_sensors": "Keela arhiveeritud lähteandurid pärast migratsiooni"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Valige või sisestage vähemalt üks laadija.",
+      "backup_required": "Enne jätkamist on tungivalt soovitatav luua täielik varukoopia.",
+      "confirm_required": "Kinnita enne jätkamist, et valitud lähteolemite ID-d määratakse ümber.",
+      "migration_no_selection": "Vali migreerimiseks vähemalt üks ühilduv energiaandur.",
+      "migration_duplicate_selection": "Sama lähteolemit ei saa kasutada rohkem kui üks kord.",
+      "envoy_entry_loaded": "Envoy integratsiooni ei saanud migreerimiseks ajutiselt maha laadida.",
+      "incompatible_energy_total": "Valitud üksused ei ole ühilduvad kumulatiivsed energiasummad."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Ühtegi Enphase Envoy energiaandurit pole migratsiooniks saadaval.",
+      "migration_no_targets": "Ühtegi ühilduvat Enphase Energy andurit pole migratsiooniks saadaval.",
+      "migration_partial_failure": "Migratsioon peatus pärast osalist lõpetamist.\n\nLõpetatud seosed:\n{completed_mappings}\n\nTõrge elemendi `{failed_entity_id}` töötlemisel: {failure_reason}\n\nKui tulemus ei sobi, taasta varukoopiast."
+    },
+    "create_entry": {
+      "migration_success": "Migratsioon on lõpule viidud. Enphase Energy omab nüüd valitud lähteolemite ID-sid. Kontrolli pärast järgmist värskendust Energy armatuurlauda ja Developer Tools > Statistics.",
+      "migration_success_reload_needed": "Migratsioon viidi lõpule, kuid üht või mitut integratsiooni ei saanud automaatselt uuesti laadida. Laadi vajadusel käsitsi uuesti Enphase Energy ja Enphase Envoy ning kontrolli seejärel Energy armatuurlauda ja Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Viimane seanss",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Tarbitud energia (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Tarbitud energia (kWh)"
+          },
+          "session_cost": {
+            "name": "Seansi maksumus"
+          },
+          "session_charge_level": {
+            "name": "Seansi laetuse tase"
+          },
+          "range_added": {
+            "name": "Lisatud sõiduulatus"
+          },
+          "plugged_in_at": {
+            "name": "Ühendatud"
+          },
+          "plugged_out_at": {
+            "name": "Lahutatud"
+          },
+          "session_duration_min": {
+            "name": "Seansi kestus (min)"
+          },
+          "session_id": {
+            "name": "Seansi ID"
+          },
+          "session_started_at": {
+            "name": "Seanss alustatud"
+          },
+          "session_ended_at": {
+            "name": "Seanss lõppenud"
+          },
+          "active_charge_time_s": {
+            "name": "Aktiivne laadimisaeg (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Keskmine kulu kWh kohta"
+          },
+          "cost_calculated": {
+            "name": "Kulu arvutatud"
+          },
+          "session_cost_state": {
+            "name": "Seansi maksumuse olek"
+          },
+          "manual_override": {
+            "name": "Käsitsi ülekirjutus"
+          },
+          "charge_profile_stack_level": {
+            "name": "Laadimisprofiili pinu tase"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Konnektori olek",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Oleku põhjus"
+          },
+          "connector_status_info": {
+            "name": "Konnektori oleku info"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Konnektori põhjus"
+      },
+      "electrical_phase": {
+        "name": "Elektrifaas",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Faasirežiim (toores)"
+          },
+          "dlb_enabled": {
+            "name": "Dünaamiline koormuse tasakaalustamine lubatud"
+          },
+          "dlb_active": {
+            "name": "Dünaamiline koormuse tasakaalustamine aktiivne"
+          }
+        }
+      },
+      "power": {
+        "name": "Võimsus",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Viimane eluaegne kWh"
+          },
+          "last_energy_ts": {
+            "name": "Viimane energia ajatempli"
+          },
+          "last_sample_ts": {
+            "name": "Viimane proovi ajatempli"
+          },
+          "last_power_w": {
+            "name": "Viimane võimsus (W)"
+          },
+          "last_window_seconds": {
+            "name": "Viimane aken (s)"
+          },
+          "method": {
+            "name": "Meetod"
+          },
+          "charging": {
+            "name": "Laadimine"
+          },
+          "operating_v": {
+            "name": "Tööpinge (V)"
+          },
+          "max_throughput_w": {
+            "name": "Maksimaalne läbilaskevõime (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Maksimaalne läbilaskevõime (piiramatu W)"
+          },
+          "max_throughput_source": {
+            "name": "Maksimaalse läbilaskevõime allikas"
+          },
+          "max_throughput_amps": {
+            "name": "Maksimaalne läbilaskevõime amprites"
+          },
+          "max_throughput_voltage": {
+            "name": "Maksimaalse läbilaskevõime pinge (V)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Laadimisrežiim",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Amprite juhtimine rakendub"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Amprite juhtiv režiim"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Režiimid, kus amprite juhtimine kehtib"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Laadija autentimine",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "Rakenduse autentimine lubatud"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID autentimine lubatud"
+          },
+          "app_auth_supported": {
+            "name": "Toetatud rakenduse autentimine"
+          },
+          "rfid_auth_supported": {
+            "name": "Toetatud RFID autentimine"
+          }
+        },
+        "state": {
+          "enabled": "Lubatud",
+          "disabled": "Keelatud"
+        }
+      },
+      "set_amps": {
+        "name": "Määra amprid",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimaalsed amprid"
+          },
+          "max_amp": {
+            "name": "Maksimaalsed amprid"
+          },
+          "max_current": {
+            "name": "Maksimaalsed ahela amprid"
+          },
+          "amp_granularity": {
+            "name": "Amprite samm"
+          }
+        }
+      },
+      "status": {
+        "name": "Laadija olek",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Kasutusele võetud"
+          },
+          "charger_problem": {
+            "name": "Laadija probleem"
+          },
+          "suspended_by_evse": {
+            "name": "EVSE poolt peatatud"
+          },
+          "offline_since": {
+            "name": "Võrguühenduseta alates"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Viimane edukas värskendus",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Viimane tõrge (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Viimane tõrke olek"
+          },
+          "code_description": {
+            "name": "Koodi kirjeldus"
+          },
+          "last_failure_response": {
+            "name": "Viimane tõrke vastus"
+          },
+          "last_failure_source": {
+            "name": "Viimane tõrke allikas"
+          },
+          "backoff_ends_utc": {
+            "name": "Backoff lõpeb (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Pilve latentsus"
+      },
+      "current_production_power": {
+        "name": "Praegune tootmisvõimsus",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "reported_units": {
+            "name": "Teatatud ühikud"
+          },
+          "reported_precision": {
+            "name": "Teatatud täpsus"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Pilve veakood",
+        "state": {
+          "none": "Puudub",
+          "rate_limited": "Sagedus piiratud",
+          "auth_blocked": "Autentimine on ajutiselt blokeeritud",
+          "authentication_error": "Autentimise viga",
+          "request_error": "Päringu viga",
+          "service_unavailable": "Teenus pole saadaval",
+          "invalid_payload": "Vigane pilvevastus",
+          "dns_error": "DNS-i viga",
+          "network_error": "Võrgu viga"
+        }
+      },
+      "site_service_status": {
+        "name": "Teenuse olek",
+        "state": {
+          "ok": "Korras",
+          "unknown": "Teadmata",
+          "degraded": "Halvenenud"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Halvenenud teenused"
+          },
+          "degraded_endpoint_families": {
+            "name": "Halvenenud lõpp-punktide rühmad"
+          },
+          "degraded_service_count": {
+            "name": "Halvenenud teenuste arv"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Halvenenud lõpp-punktide rühmade arv"
+          },
+          "metrics_available": {
+            "name": "Mõõdikud saadaval"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Pilve backoff lõpeb",
+        "state": {
+          "none": "Puudub"
+        }
+      },
+      "last_reported": {
+        "name": "Viimati raporteeritud",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Aruandlusintervall (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Seansi miilid"
+      },
+      "session_plug_in_at": {
+        "name": "Seanss ühendatud"
+      },
+      "session_plug_out_at": {
+        "name": "Seanss lahutatud"
+      },
+      "schedule_type": {
+        "name": "Ajakava tüüp"
+      },
+      "schedule_start": {
+        "name": "Ajakava algus"
+      },
+      "schedule_end": {
+        "name": "Ajakava lõpp"
+      },
+      "lifetime_energy": {
+        "name": "Kogukulunud energia",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Viimane lähtestuse väärtus"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Koha päikeseenergia tootmine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Koha tarbimine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Koha võrgu import",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Praegune võrguvõimsus",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Viimane voo kWh"
+          },
+          "last_energy_ts": {
+            "name": "Viimane energia ajatempli"
+          },
+          "last_sample_ts": {
+            "name": "Viimane proovi ajatempli"
+          },
+          "last_power_w": {
+            "name": "Viimane võimsus (W)"
+          },
+          "last_window_seconds": {
+            "name": "Viimane aken (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          },
+          "method": {
+            "name": "Meetod"
+          },
+          "source_flows": {
+            "name": "Allikavood"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Koha võrgu eksport",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Koha aku laadimine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Koha aku tühjendamine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Praegune aku võimsus",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Viimane voo kWh"
+          },
+          "last_energy_ts": {
+            "name": "Viimane energia ajatempli"
+          },
+          "last_sample_ts": {
+            "name": "Viimane proovi ajatempli"
+          },
+          "last_power_w": {
+            "name": "Viimane võimsus (W)"
+          },
+          "last_window_seconds": {
+            "name": "Viimane aken (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          },
+          "method": {
+            "name": "Meetod"
+          },
+          "source_flows": {
+            "name": "Allikavood"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Tormivalvur"
+      },
+      "storm_alert": {
+        "name": "Tormihoiatus",
+        "state": {
+          "active": "Aktiivne",
+          "inactive": "Mitteaktiivne"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Tormihoiatus aktiivne"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Süsteemiprofiili olek",
+        "state": {
+          "pending": "Ootel"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Tõhus profiil"
+          },
+          "effective_profile_label": {
+            "name": "Tõhus profiilisilt"
+          },
+          "effective_reserve_percentage": {
+            "name": "Tegelik reserv (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Efektiivse töörežiimi alamtüüp"
+          },
+          "requested_profile": {
+            "name": "Soovitud profiil"
+          },
+          "requested_profile_label": {
+            "name": "Soovitud profiilisilti"
+          },
+          "requested_reserve_percentage": {
+            "name": "Taotletud reserv (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Nõutud töörežiimi alamtüüp"
+          },
+          "pending": {
+            "name": "Ootel"
+          },
+          "pending_requested_at": {
+            "name": "Ootel Taotletud aadressil"
+          },
+          "selected_profile": {
+            "name": "Valitud profiil"
+          },
+          "selected_profile_label": {
+            "name": "Valitud profiilisilt"
+          },
+          "selected_reserve_percentage": {
+            "name": "Valitud reserv (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Valitud töörežiimi alamtüüp"
+          },
+          "available_profile_keys": {
+            "name": "Saadaolevad profiiliklahvid"
+          },
+          "available_profile_labels": {
+            "name": "Saadaolevad profiilisildid"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Aku režiim",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Toorrežiim"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Võrgust laadimine lubatud"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Võrku tühjendamine lubatud"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Aku laetuse tase"
+      },
+      "battery_overall_charge": {
+        "name": "Aku üldine laetus"
+      },
+      "battery_overall_status": {
+        "name": "Aku üldine olek",
+        "state": {
+          "normal": "Tavaline",
+          "warning": "Hoiatus",
+          "error": "Viga",
+          "unknown": "Tundmatu"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Aku CFG ajakava olek",
+        "state": {
+          "none": "Puudub",
+          "pending": "Ootel",
+          "active": "Aktiivne"
+        }
+      },
+      "grid_control_status": {
+        "name": "Võrgu juhtimise olek",
+        "state": {
+          "ready": "Valmis",
+          "blocked": "Blokeeritud",
+          "pending": "Ootel"
+        }
+      },
+      "grid_mode": {
+        "name": "Võrgurežiim",
+        "state": {
+          "on_grid": "Võrgustikus",
+          "off_grid": "Võrgust väljas",
+          "unknown": "Tundmatu"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Aku saadaolev energia"
+      },
+      "battery_available_power": {
+        "name": "Aku saadaolev võimsus"
+      },
+      "battery_storage_status": {
+        "name": "{serial} olek",
+        "state": {
+          "charging": "Laadimine",
+          "discharging": "Tühjenemine",
+          "idle": "Jõudeolek",
+          "unknown": "Tundmatu"
+        }
+      },
+      "battery_storage_health": {
+        "name": "{serial} tervis"
+      },
+      "battery_storage_cycle_count": {
+        "name": "{serial} tsüklite arv"
+      },
+      "battery_storage_last_reported": {
+        "name": "{serial} viimati raporteeritud"
+      },
+      "battery_last_reported": {
+        "name": "Aku viimati raporteeritud"
+      },
+      "system_controller_inventory": {
+        "name": "Süsteemikontroller"
+      },
+      "gateway_production_meter": {
+        "name": "Tootmismõõtur"
+      },
+      "gateway_consumption_meter": {
+        "name": "Tarbimismõõtur"
+      },
+      "gateway_connectivity_status": {
+        "name": "Lüüsi olek"
+      },
+      "gateway_last_reported": {
+        "name": "Gateway viimati teatatud"
+      },
+      "tariff_billing_cycle": {
+        "name": "Jargmine arvelduskuupaev",
+        "state_attributes": {
+          "start_date": {
+            "name": "Alguskuupaev"
+          },
+          "billing_frequency": {
+            "name": "Arvelduse sagedus"
+          },
+          "billing_interval_value": {
+            "name": "Arveldusintervalli vaartus"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Arveldustsukkel"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Imporditariif",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "seasons": {
+            "name": "Hooajad"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Imporditariif {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "season_id": {
+            "name": "Hooaja ID"
+          },
+          "start_month": {
+            "name": "Alguskuu"
+          },
+          "end_month": {
+            "name": "Lõppkuu"
+          },
+          "day_group_id": {
+            "name": "Päevarühma ID"
+          },
+          "days": {
+            "name": "Päevad"
+          },
+          "period_id": {
+            "name": "Perioodi ID"
+          },
+          "period_type": {
+            "name": "Perioodi tüüp"
+          },
+          "start_time": {
+            "name": "Algusaeg"
+          },
+          "end_time": {
+            "name": "Lõppaeg"
+          },
+          "rate": {
+            "name": "Hind"
+          },
+          "formatted_rate": {
+            "name": "Vormindatud hind"
+          },
+          "tier_id": {
+            "name": "Astme ID"
+          },
+          "start_value": {
+            "name": "Algväärtus"
+          },
+          "end_value": {
+            "name": "Lõppväärtus"
+          },
+          "unbounded": {
+            "name": "Ülemise piirita"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariifi lokaator"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Eksporditariif",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "export_plan": {
+            "name": "Ekspordiplaan"
+          },
+          "seasons": {
+            "name": "Hooajad"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Eksporditariif {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "export_plan": {
+            "name": "Ekspordiplaan"
+          },
+          "season_id": {
+            "name": "Hooaja ID"
+          },
+          "start_month": {
+            "name": "Alguskuu"
+          },
+          "end_month": {
+            "name": "Lõppkuu"
+          },
+          "day_group_id": {
+            "name": "Päevarühma ID"
+          },
+          "days": {
+            "name": "Päevad"
+          },
+          "period_id": {
+            "name": "Perioodi ID"
+          },
+          "period_type": {
+            "name": "Perioodi tüüp"
+          },
+          "start_time": {
+            "name": "Algusaeg"
+          },
+          "end_time": {
+            "name": "Lõppaeg"
+          },
+          "rate": {
+            "name": "Hind"
+          },
+          "formatted_rate": {
+            "name": "Vormindatud hind"
+          },
+          "tier_id": {
+            "name": "Astme ID"
+          },
+          "start_value": {
+            "name": "Algväärtus"
+          },
+          "end_value": {
+            "name": "Lõppväärtus"
+          },
+          "unbounded": {
+            "name": "Ülemise piirita"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariifi lokaator"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Mikroinverterite ühenduvuse olek"
+      },
+      "microinverter_reporting_count": {
+        "name": "Aktiivsed mikroinverterid"
+      },
+      "microinverter_last_reported": {
+        "name": "Mikroinverterite viimane raport"
+      },
+      "site_evse_charging": {
+        "name": "Objekti EVSE laadimine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Objekti soojuspumba tarbimine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Objekti veesoojendi tarbimine",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Mõõdetud kell (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimane lähtestus"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ energiaruuter_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Soojuspumba olek"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Soojuspumba energiaarvesti"
+      },
+      "heat_pump_last_reported": {
+        "name": "Soojuspumba viimane raport"
+      },
+      "heat_pump_power": {
+        "name": "Soojuspumba võimsus"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Soojuspumba olek"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "Soojuspumba SG-Ready lüüs"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Soojuspumba päevane energia"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Soojuspumba päevane võrgust saadud energia"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Soojuspumba päevane päikeseenergia"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Soojuspumba päevane akuenergia"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Soojuspumba SG-Ready lüüsi olek"
+      },
+      "shared_labels": {
+        "name": "Ühised sildid",
+        "state": {
+          "self_consumption": "Omakasutus",
+          "cost_savings": "Sääst",
+          "ai_optimisation": "Tehisintellekti optimeerimine",
+          "backup_only": "Täielik varutoide",
+          "importexport": "Import ja eksport",
+          "importonly": "Ainult import",
+          "exportonly": "Ainult eksport",
+          "manual_charging": "Käsitsi",
+          "scheduled_charging": "Ajastatud",
+          "green_charging": "Roheline",
+          "smart_charging": "Nutikas",
+          "online": "Võrgus",
+          "offline": "Võrguühenduseta",
+          "degraded": "Halvenenud",
+          "not_reporting": "Ei teata",
+          "inactive": "Mitteaktiivne",
+          "normal": "Tavaline",
+          "warning": "Hoiatus",
+          "error": "Viga",
+          "unknown": "Tundmatu",
+          "unpaired": "Sidumata",
+          "pairing": "Sidumine"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "AC-aku üldine olek",
+        "state": {
+          "charging": "Laadimine",
+          "discharging": "Tühjenemine",
+          "idle": "Jõudeolek",
+          "unknown": "Tundmatu"
+        }
+      },
+      "ac_battery_power": {
+        "name": "AC-aku võimsus"
+      },
+      "ac_battery_last_reported": {
+        "name": "AC-aku viimane raport"
+      },
+      "ac_battery_storage_charge": {
+        "name": "AC-aku laetuse tase"
+      },
+      "ac_battery_storage_status": {
+        "name": "{serial} olek",
+        "state": {
+          "charging": "Laadimine",
+          "discharging": "Tühjenemine",
+          "idle": "Jõudeolek",
+          "unknown": "Tundmatu"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "{serial} võimsus"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "{serial} töörežiim"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "{serial} tsüklite arv"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "{serial} viimane raport"
+      },
+      "battery_cfg_schedules": {
+        "name": "Aku CFG ajakavad"
+      },
+      "battery_dtg_schedules": {
+        "name": "Aku DTG ajakavad"
+      },
+      "battery_rbd_schedules": {
+        "name": "Aku RBD ajakavad"
+      },
+      "battery_schedule_summary": {
+        "name": "Aku ajakavade kokkuvõte"
+      },
+      "tariff_current_import_rate": {
+        "name": "Praegune imporditariif",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "season_id": {
+            "name": "Hooaja ID"
+          },
+          "start_month": {
+            "name": "Alguskuu"
+          },
+          "end_month": {
+            "name": "Lõppkuu"
+          },
+          "day_group_id": {
+            "name": "Päevarühma ID"
+          },
+          "days": {
+            "name": "Päevad"
+          },
+          "period_id": {
+            "name": "Perioodi ID"
+          },
+          "period_type": {
+            "name": "Perioodi tüüp"
+          },
+          "start_time": {
+            "name": "Algusaeg"
+          },
+          "end_time": {
+            "name": "Lõppaeg"
+          },
+          "rate": {
+            "name": "Hind"
+          },
+          "formatted_rate": {
+            "name": "Vormindatud hind"
+          },
+          "tier_id": {
+            "name": "Astme ID"
+          },
+          "start_value": {
+            "name": "Algväärtus"
+          },
+          "end_value": {
+            "name": "Lõppväärtus"
+          },
+          "unbounded": {
+            "name": "Ülemise piirita"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariifi lokaator"
+          },
+          "active_rate_name": {
+            "name": "Aktiivse tariifi nimi"
+          },
+          "configured_rates": {
+            "name": "Seadistatud tariifid"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Praegune eksporditariif",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "export_plan": {
+            "name": "Ekspordiplaan"
+          },
+          "season_id": {
+            "name": "Hooaja ID"
+          },
+          "start_month": {
+            "name": "Alguskuu"
+          },
+          "end_month": {
+            "name": "Lõppkuu"
+          },
+          "day_group_id": {
+            "name": "Päevarühma ID"
+          },
+          "days": {
+            "name": "Päevad"
+          },
+          "period_id": {
+            "name": "Perioodi ID"
+          },
+          "period_type": {
+            "name": "Perioodi tüüp"
+          },
+          "start_time": {
+            "name": "Algusaeg"
+          },
+          "end_time": {
+            "name": "Lõppaeg"
+          },
+          "rate": {
+            "name": "Hind"
+          },
+          "formatted_rate": {
+            "name": "Vormindatud hind"
+          },
+          "tier_id": {
+            "name": "Astme ID"
+          },
+          "start_value": {
+            "name": "Algväärtus"
+          },
+          "end_value": {
+            "name": "Lõppväärtus"
+          },
+          "unbounded": {
+            "name": "Ülemise piirita"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariifi lokaator"
+          },
+          "active_rate_name": {
+            "name": "Aktiivse tariifi nimi"
+          },
+          "configured_rates": {
+            "name": "Seadistatud tariifid"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Laadimisamprid"
+      },
+      "battery_reserve": {
+        "name": "Aku reserv"
+      },
+      "battery_shutdown_level": {
+        "name": "Aku väljalülitustase"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Aku laadimislimiit"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Võrku tühjendamise piirang"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Aku tühjendamise piirangu määr"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Uue aku ajakava piirang"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Aku ajakava piirang"
+      },
+      "tariff_import_rate_value": {
+        "name": "Imporditariif {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "season_id": {
+            "name": "Hooaja ID"
+          },
+          "start_month": {
+            "name": "Alguskuu"
+          },
+          "end_month": {
+            "name": "Lõppkuu"
+          },
+          "day_group_id": {
+            "name": "Päevarühma ID"
+          },
+          "days": {
+            "name": "Päevad"
+          },
+          "period_id": {
+            "name": "Perioodi ID"
+          },
+          "period_type": {
+            "name": "Perioodi tüüp"
+          },
+          "start_time": {
+            "name": "Algusaeg"
+          },
+          "end_time": {
+            "name": "Lõppaeg"
+          },
+          "rate": {
+            "name": "Hind"
+          },
+          "formatted_rate": {
+            "name": "Vormindatud hind"
+          },
+          "tier_id": {
+            "name": "Astme ID"
+          },
+          "start_value": {
+            "name": "Algväärtus"
+          },
+          "end_value": {
+            "name": "Lõppväärtus"
+          },
+          "unbounded": {
+            "name": "Ülemise piirita"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariifi lokaator"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Eksporditariif {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariifi struktuur"
+          },
+          "variation_type": {
+            "name": "Variatsiooni tuup"
+          },
+          "source": {
+            "name": "Allikas"
+          },
+          "currency": {
+            "name": "Valuuta"
+          },
+          "export_plan": {
+            "name": "Ekspordiplaan"
+          },
+          "season_id": {
+            "name": "Hooaja ID"
+          },
+          "start_month": {
+            "name": "Alguskuu"
+          },
+          "end_month": {
+            "name": "Lõppkuu"
+          },
+          "day_group_id": {
+            "name": "Päevarühma ID"
+          },
+          "days": {
+            "name": "Päevad"
+          },
+          "period_id": {
+            "name": "Perioodi ID"
+          },
+          "period_type": {
+            "name": "Perioodi tüüp"
+          },
+          "start_time": {
+            "name": "Algusaeg"
+          },
+          "end_time": {
+            "name": "Lõppaeg"
+          },
+          "rate": {
+            "name": "Hind"
+          },
+          "formatted_rate": {
+            "name": "Vormindatud hind"
+          },
+          "tier_id": {
+            "name": "Astme ID"
+          },
+          "start_value": {
+            "name": "Algväärtus"
+          },
+          "end_value": {
+            "name": "Lõppväärtus"
+          },
+          "unbounded": {
+            "name": "Ülemise piirita"
+          },
+          "last_refresh_utc": {
+            "name": "Viimane varskendus (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariifi lokaator"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Ühendatud"
+      },
+      "charging": {
+        "name": "Laadimine"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "Soojuspumba SG-Ready aktiivne"
+      },
+      "cloud_reachable": {
+        "name": "Pilv kättesaadav"
+      },
+      "connected": {
+        "name": "Ühenduvus",
+        "state_attributes": {
+          "connection": {
+            "name": "Ühendus"
+          },
+          "ip_address": {
+            "name": "IP-aadress"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Laadimine"
+      },
+      "green_battery": {
+        "name": "Kasutage EV laadimiseks akut"
+      },
+      "app_authentication": {
+        "name": "Auth rakenduse kaudu"
+      },
+      "storm_guard": {
+        "name": "Tormivalvur"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV laadimine"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Kasutage akut pärast tipptundi"
+      },
+      "charge_from_grid": {
+        "name": "Laadi akut võrgust"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Võrgust laadimise ajakava"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Võrku tühjendamise ajakava"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Aku tühjendamise piirangu ajakava"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "AC-aku unerežiim"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Esmaspäeva ajakava"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Teisipäeva ajakava"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Kolmapäeva ajakava"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Neljapäeva ajakava"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Reede ajakava"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Laupäeva ajakava"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Pühapäeva ajakava"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Uus aku ajakava esmaspäev"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Uus aku ajakava teisipäev"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Uus aku ajakava kolmapäev"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Uus aku ajakava neljapäev"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Uus aku ajakava reede"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Uus aku ajakava laupäev"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Uus aku ajakava pühapäev"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Aku ajakava esmaspäev"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Aku ajakava teisipäev"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Aku ajakava kolmapäev"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Aku ajakava neljapäev"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Aku ajakava reede"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Aku ajakava laupäev"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Aku ajakava pühapäev"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Laadimisrežiim"
+      },
+      "system_profile": {
+        "name": "Süsteemi profiil"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "AC-aku sihtlaetuse tase"
+      },
+      "evse_schedule_selected": {
+        "name": "Ajakava"
+      },
+      "battery_new_schedule_type": {
+        "name": "Aku ajakava tüüp"
+      },
+      "battery_schedule_selected": {
+        "name": "Aku ajakava"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Alusta laadimist"
+      },
+      "stop_charging": {
+        "name": "Peata laadimine"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Tühista ootel profiilimuudatus"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Taotle ruudustiku sisselülitamise OTP-d"
+      },
+      "storm_alert_opt_out": {
+        "name": "Loobu tormihoiatusest"
+      },
+      "evse_schedule_refresh": {
+        "name": "Ajakava värskendamine"
+      },
+      "evse_schedule_save": {
+        "name": "Ajakava salvestamine"
+      },
+      "evse_schedule_delete": {
+        "name": "Ajakava kustutamine"
+      },
+      "evse_schedule_add": {
+        "name": "Uue ajakava loomine"
+      },
+      "battery_schedule_add": {
+        "name": "Lisa aku ajakava"
+      },
+      "battery_schedule_delete": {
+        "name": "Kustuta aku ajakava"
+      },
+      "battery_schedule_refresh": {
+        "name": "Värskenda aku ajakava"
+      },
+      "battery_schedule_save": {
+        "name": "Salvesta aku ajakava"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Võrgust laadimise algusaeg"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Võrgust laadimise lõpuaeg"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Võrku tühjendamise algusaeg"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Võrku tühjendamise lõppaeg"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Aku tühjendamise piirangu algusaeg"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Aku tühjendamise piirangu lõppaeg"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Ajakava algusaeg"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Ajakava lõppaeg"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Uue aku ajakava algusaeg"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Uue aku ajakava lõpuaeg"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Aku ajakava algusaeg"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Aku ajakava lõpuaeg"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Varutoite ajalugu"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Lüüsi püsivara"
+      },
+      "charger_firmware": {
+        "name": "Püsivara"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Enphase koht {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Alusta laadimist",
+      "stop_charging": "Peata laadimine"
+    },
+    "trigger_type": {
+      "charging_started": "Laadimine käivitatud",
+      "charging_stopped": "Laadimine peatatud",
+      "plugged_in": "Ühendatud",
+      "unplugged": "Lahutatud"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy vajab taasautentimist",
+      "description": "Koht {site_id} nõuab uuendatud seansi päiseid. Palun taasautentige."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Enphase näib ajutiselt blokeerivat saidi {site_id} autentimist. Automaatsed katsed on peatatud kuni {blocked_until}. Edukas käsitsi taasautentimine võib blokeeringu varem eemaldada."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energy kontol on liiga palju aktiivseid seansse",
+      "description": "Enphase lükkas saidi {site_id} autentimise tagasi, sest kontol on liiga palju aktiivseid seansse. Automaatsed korduskatsed on peatatud kuni {blocked_until}. Logige teistest Enphase rakenduse või brauseri seanssidest välja ja proovige seejärel uuesti autentida."
+    },
+    "rate_limited": {
+      "title": "Enphase Energy on piiratud",
+      "description": "Pilve API tagastas sageduspiirangu. Pollimine aeglustub kuni {backoff_ends}."
+    },
+    "cloud_unreachable": {
+      "title": "Enphase Energy pilv pole kättesaadav",
+      "description": "Home Assistant ei saa Enphase pilveni koha {site_id} jaoks. Küsitlus aeglustub automaatselt; kontrollige teenuse olekut ja võrku."
+    },
+    "cloud_dns_resolution": {
+      "title": "Enphase Energy DNS lahenduse viga",
+      "description": "Home Assistant ei suutnud lahendada enlighten.enphaseenergy.com koha {site_id} jaoks. Kontrollige DNS-lahendajat või internetiühendust."
+    },
+    "cloud_service_unavailable": {
+      "title": "Enphase Energy pilvevead",
+      "description": "Enphase pilv koha {site_id} jaoks vastab vigadega. Küsitlus vähendab automaatselt sagedust; kontrollige teenuse olekut või kasutuspiire."
+    },
+    "scheduler_unavailable": {
+      "title": "Enphase Energy ajakava pole saadaval",
+      "description": "Enphase'i ajakava teenus saidi {site_id} jaoks pole saadaval. Laadimisrežiimi valik ja ajakava sünkroonimine on ajutiselt keelatud."
+    },
+    "session_history_unavailable": {
+      "title": "Enphase Energy seansi ajalugu pole saadaval",
+      "description": "Enphase'i seansi ajaloo teenus saidi {site_id} jaoks pole saadaval. Seansiajaloo andurid näitavad vahemällu salvestatud andmeid, kuni teenus taastub."
+    },
+    "site_energy_unavailable": {
+      "title": "Enphase Energy saidi energia pole saadaval",
+      "description": "Enphase'i eluaegne energiateenus saidi {site_id} jaoks pole saadaval. Saidi energiaandurid näitavad vahemällu salvestatud andmeid, kuni teenus taastub."
+    },
+    "auth_settings_unavailable": {
+      "title": "Enphase Energy autentimise seaded pole saadaval",
+      "description": "Enphase laadija autentimisseadete teenus saidi {site_id} jaoks pole saadaval. Rakenduse autentimise juhtelemendid on ajutiselt keelatud."
+    },
+    "battery_profile_pending": {
+      "title": "Enphase Energy aku profiili uuendus on ootel",
+      "description": "Asukoha {site_id} aku profiili muudatus on olnud ootel üle {pending_timeout_minutes} minuti. Pilveteenus võib päringut endiselt töödelda."
+    },
+    "hems_auth_degraded": {
+      "title": "Enphase Energy HEMS on ajutiselt peatatud",
+      "description": "Heat Pump/HEMS päringud saidile {site_id} on peatatud kuni {backoff_until} pärast {failure_count} autentimislaadset tõrget ({reason}). Wallbox, aku, lüüs ja muud andmed võivad jätkata. Keela Heat Pump seadmerühm või kasuta Clear HEMS Auth Backoff pärast Enphase taastumist."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "Koha ID",
+      "can_reach_server": "Ühendu Enphase pilvega",
+      "last_success": "Viimane edukas värskendus",
+      "latency_ms": "Pilve latentsus (ms)",
+      "last_error": "Viimane viga",
+      "scheduler_available": "Planeerija saadaval",
+      "scheduler_last_error": "Planeerija viimane viga",
+      "scheduler_failures": "Planeerija tõrked",
+      "scheduler_backoff_active": "Planeerija tagastus aktiivne",
+      "scheduler_backoff_ends_utc": "Planeerija taganemine lõpeb (UTC)",
+      "backoff_active": "Backoff aktiivne",
+      "network_errors": "Järjestikused võrguvead",
+      "http_errors": "Järjestikused HTTP vead",
+      "site_count": "Saidide arv",
+      "site_name": "Saidi nimi",
+      "site_ids": "Saidi ID-d",
+      "site_names": "Saidi nimed",
+      "last_failure_status": "Viimase rikke olek",
+      "last_failure_description": "Viimase vea kirjeldus",
+      "phase_timings": "Faaside ajastused",
+      "session_cache_ttl_s": "Seansi vahemälu TTL (id)",
+      "sites": "saidid",
+      "auth_settings_available": "Saadaval on autentimisseaded",
+      "auth_settings_last_error": "Autentimise seadete viimane viga",
+      "auth_settings_failures": "Autentimisseadete tõrked",
+      "auth_settings_backoff_active": "Autentimise seadete tagastus aktiivne",
+      "auth_settings_backoff_ends_utc": "Autentimise seadete taganemine lõpeb (UTC)",
+      "session_history_available": "Seansi ajalugu on saadaval",
+      "session_history_last_error": "Seansi ajaloo viimane viga",
+      "session_history_failures": "Seansi ajaloo tõrked",
+      "session_history_backoff_active": "Seansi ajaloo taganemine on aktiivne",
+      "session_history_backoff_ends_utc": "Seansi ajaloo tagasilükkamine lõpeb (UTC)",
+      "site_energy_available": "Saidil on energia saadaval",
+      "site_energy_last_error": "Saidi energia viimane viga",
+      "site_energy_failures": "Saidi energiatõrked",
+      "site_energy_backoff_active": "Saidi energia tagastus aktiivne",
+      "site_energy_backoff_ends_utc": "Saidi energia tagastus lõpeb (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Alusta laadimist",
+      "description": "Alusta laadimist valitud Enphase Energy laadijal.",
+      "sections": {
+        "advanced": {
+          "name": "Täpsemad valikud"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Laadimistase (A)",
+          "description": "Valikuline voolu seadistus amprites (6-40)."
+        },
+        "connector_id": {
+          "name": "Konnektori ID",
+          "description": "Valikuline konnektori indeks (tavaliselt 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Peata laadimine",
+      "description": "Peata laadimine valitud Enphase Energy laadijal."
+    },
+    "trigger_message": {
+      "name": "Käivita OCPP sõnum",
+      "description": "Taotlege, et laadija saadaks OCPP sõnumi ja tagastaks pilvevastuse.",
+      "sections": {
+        "advanced": {
+          "name": "Täpsemad valikud"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Taotletud sõnum",
+          "description": "OCPP sõnumi nimi (nt MeterValues); teenuse vastus näitab laadija väljundit."
+        },
+        "confirm_advanced": {
+          "name": "Kinnita täpsem käivitus",
+          "description": "Nõutav täpsemate OCPP käivitussõnumite jaoks, mis võivad küsida laadija diagnostikat, püsivara või käivitusteavitusi."
+        },
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Tühjenda taasautentimise probleem",
+      "description": "Valige Enphase koha seade, et puhastada taasautentimise probleem.",
+      "fields": {
+        "device_id": {
+          "name": "Laadijad",
+          "description": "Valige Enphase laadijad, mille taasautentimise probleem tuleb kustutada."
+        },
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Käivita reaalajas voog",
+      "description": "Taotlege kiiremaid pilveoleku värskendusi lühikeseks ajaks.",
+      "sections": {
+        "advanced": {
+          "name": "Täpsemad valikud"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Peata reaalajas voog",
+      "description": "Peata pilve reaalajas voo päring.",
+      "sections": {
+        "advanced": {
+          "name": "Täpsemad valikud"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Sünkroniseeri ajakavad",
+      "description": "Värskenda Enphase ajakavasid pilvest.",
+      "fields": {
+        "device_id": {
+          "name": "Laadijad",
+          "description": "Valikuline laadija valik sihipäraseks sünkroonimiseks."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Taotle ruudustiku sisselülitamise OTP-d",
+      "description": "Enne saidi ruudustiku režiimi muutmist saatke nõutav ühekordne kood.",
+      "sections": {
+        "advanced": {
+          "name": "Täpsemad valikud"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Määrake võrgurežiim",
+      "description": "Muutke saidi ruudustiku režiimi pärast ühekordse koodi kinnitamist.",
+      "sections": {
+        "advanced": {
+          "name": "Täpsemad valikud"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Võrgurežiim",
+          "description": "Valige on_grid või off_grid."
+        },
+        "otp": {
+          "name": "Ühekordne kood",
+          "description": "Sisestage teie registreeritud e-posti aadressile ja telefonile saadetud 4-kohaline OTP."
+        },
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "Uuenda CFG ajakava",
+      "description": "Uuendab võrgust laadimise ajakava algusaega, lõpuaega ja/või laadimislimiiti ühe atomaarse toiminguga.",
+      "fields": {
+        "start_time": {
+          "name": "Algusaeg",
+          "description": "CFG ajakava algusaeg."
+        },
+        "end_time": {
+          "name": "Lõppaeg",
+          "description": "CFG ajakava lõpuaeg."
+        },
+        "limit": {
+          "name": "Laadimislimiit",
+          "description": "Aku maksimaalne laetuse tase (%)."
+        },
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Enphase koha ID (valikuline; leitakse sihtseadmest)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Sunni värskendust",
+      "description": "Värskenda aku ajakavade andmed kohe Enphase'i pilvest.",
+      "sections": {
+        "advanced": {
+          "name": "Lisavalikud"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt, kui valitakse saidi seade."
+        },
+        "config_entry_id": {
+          "name": "Konfiguratsioonikirje ID",
+          "description": "Valikuline konfiguratsioonikirje identifikaator ühe Enphase'i saidikirje jaoks."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Lisa aku ajakava",
+      "description": "Loo aku ajakava CFG, DTG või RBD jaoks.",
+      "sections": {
+        "advanced": {
+          "name": "Lisavalikud"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Ajakava tüüp",
+          "description": "Aku ajakavapere: cfg, dtg või rbd."
+        },
+        "start_time": {
+          "name": "Algusaeg",
+          "description": "Ajakava algusaeg."
+        },
+        "end_time": {
+          "name": "Lõppaeg",
+          "description": "Ajakava lõppaeg."
+        },
+        "limit": {
+          "name": "Laadimispiirang",
+          "description": "Aku maksimaalne laetuse tase (%)."
+        },
+        "days": {
+          "name": "Päevad",
+          "description": "Aktiivsete nädalapäevade loend, kus esmaspäev=1 ja pühapäev=7."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt, kui valitakse saidi seade."
+        },
+        "config_entry_id": {
+          "name": "Konfiguratsioonikirje ID",
+          "description": "Valikuline konfiguratsioonikirje identifikaator ühe Enphase'i saidikirje jaoks."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Uuenda aku ajakava",
+      "description": "Uuenda aku ajakava ajakava ID järgi.",
+      "sections": {
+        "advanced": {
+          "name": "Lisavalikud"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Ajakava ID",
+          "description": "Olemasolev Enphase'i aku ajakava identifikaator."
+        },
+        "schedule_type": {
+          "name": "Ajakava tüüp",
+          "description": "Aku ajakavapere: cfg, dtg või rbd."
+        },
+        "start_time": {
+          "name": "Algusaeg",
+          "description": "Ajakava algusaeg."
+        },
+        "end_time": {
+          "name": "Lõppaeg",
+          "description": "Ajakava lõppaeg."
+        },
+        "limit": {
+          "name": "Laadimispiirang",
+          "description": "Aku maksimaalne laetuse tase (%)."
+        },
+        "days": {
+          "name": "Päevad",
+          "description": "Aktiivsete nädalapäevade loend, kus esmaspäev=1 ja pühapäev=7."
+        },
+        "confirm": {
+          "name": "Kinnita",
+          "description": "Määra väärtuseks true, et kinnitada ajakava uuendamine."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt, kui valitakse saidi seade."
+        },
+        "config_entry_id": {
+          "name": "Konfiguratsioonikirje ID",
+          "description": "Valikuline konfiguratsioonikirje identifikaator ühe Enphase'i saidikirje jaoks."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Kustuta aku ajakava",
+      "description": "Kustuta üks või mitu aku ajakava ajakava ID järgi.",
+      "sections": {
+        "advanced": {
+          "name": "Lisavalikud"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Ajakava ID",
+          "description": "Kustutatava üksiku Enphase'i aku ajakava identifikaator."
+        },
+        "schedule_ids": {
+          "name": "Ajakava ID-d",
+          "description": "Valikuline komadega eraldatud või loendina sisend mitme ajakava identifikaatori jaoks."
+        },
+        "confirm": {
+          "name": "Kinnita",
+          "description": "Määra väärtuseks true, et kinnitada ajakava kustutamine."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt, kui valitakse saidi seade."
+        },
+        "config_entry_id": {
+          "name": "Konfiguratsioonikirje ID",
+          "description": "Valikuline konfiguratsioonikirje identifikaator ühe Enphase'i saidikirje jaoks."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Valideeri aku ajakava",
+      "description": "Kontrolli, kas aku ajakavade muutmine on valitud ajakavapere jaoks saadaval.",
+      "sections": {
+        "advanced": {
+          "name": "Lisavalikud"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Ajakava tüüp",
+          "description": "Aku ajakavapere: cfg, dtg või rbd."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt, kui valitakse saidi seade."
+        },
+        "config_entry_id": {
+          "name": "Konfiguratsioonikirje ID",
+          "description": "Valikuline konfiguratsioonikirje identifikaator ühe Enphase'i saidikirje jaoks."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Proovi taasautentimist nüüd",
+      "description": "Kasuta salvestatud Enphase sisselogimisandmeid, et proovida valitud saiti kohe taasautentida.",
+      "fields": {
+        "device_id": {
+          "name": "Saidi seadmed",
+          "description": "Vali Enphase saidi seade, mille jaoks taasautentimist proovida."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt, kui saidi seade on valitud."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Uuenda tariifi",
+      "description": "Uuendab Enphase’i arveldustsükli andmeid ja üht või mitut olemasolevat impordi- või eksporditariifi määra.",
+      "fields": {
+        "rate": {
+          "name": "Määr",
+          "description": "Uus mittenegatiivne tariifimäär valitud tariifimäära olemile."
+        },
+        "rate_entity": {
+          "name": "Määra olem",
+          "description": "Valikuline tariifimäära olem uuendamiseks, kui toimingu sihtmärki ei kasutata."
+        },
+        "import_rate": {
+          "name": "Impordimäär",
+          "description": "Uus mittenegatiivne imporditariifi määr."
+        },
+        "import_rate_entity": {
+          "name": "Impordimäära olem",
+          "description": "Uuendatav imporditariifi määra olem."
+        },
+        "export_rate": {
+          "name": "Ekspordimäär",
+          "description": "Uus mittenegatiivne eksporditariifi määr."
+        },
+        "export_rate_entity": {
+          "name": "Ekspordimäära olem",
+          "description": "Uuendatav eksporditariifi määra olem."
+        },
+        "billing_start_date": {
+          "name": "Arvelduse alguskuupäev",
+          "description": "Arveldusperioodi alguskuupäev ISO-vormingus."
+        },
+        "billing_frequency": {
+          "name": "Arveldussagedus",
+          "description": "Arveldusintervalli ühik: MONTH või DAY."
+        },
+        "billing_interval_value": {
+          "name": "Arveldusintervall",
+          "description": "Arveldusintervallide arv. Kasuta kuude jaoks 1-24 või päevade jaoks 1-100."
+        },
+        "rates": {
+          "name": "Määrad",
+          "description": "Uuendatavate tariifimäära olemi ID-de ja mittenegatiivsete määrade loend."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator arvelduse uuenduste jaoks."
+        },
+        "config_entry_id": {
+          "name": "Seadistuskirje ID",
+          "description": "Valikuline seadistuskirje identifikaator ühe Enphase’i saidi jaoks."
+        },
+        "tariff_payload": {
+          "name": "Tariifi payload",
+          "description": "Täielik Enphase tariifi payload kirjutamiseks. Kasutage seda täiustatud struktuurimuudatusteks."
+        },
+        "purchase_tariff": {
+          "name": "Imporditariifi struktuur",
+          "description": "Asendav imporditariifi haru tüübi, hooaegade, perioodide, astmete ja hindadega."
+        },
+        "buyback_tariff": {
+          "name": "Eksporditariifi struktuur",
+          "description": "Asendav eksporditariifi haru tüübi, ekspordiplaani, hooaegade, perioodide, astmete ja hindadega."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "Tühjenda HEMS auth backoff",
+      "description": "Tühjendab ajutise HEMS/Heat Pump autentimispausi ilma parooliga sisselogimiseta.",
+      "fields": {
+        "device_id": {
+          "name": "Saidi seadmed",
+          "description": "Vali Enphase saidi seade, mille HEMS auth backoff tühjendada."
+        },
+        "site_id": {
+          "name": "Saidi ID",
+          "description": "Valikuline saidi identifikaator; tuvastatakse automaatselt seadme valimisel."
+        }
+      }
+    }
+  }
+}

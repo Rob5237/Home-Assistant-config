@@ -21,3 +21,6 @@ frontend:
 
 automation: !include automations.yaml
 scene: !include scenes.yaml
+
+shell_command:
+  git_backup: "bash /config/git_push.sh"

@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Logga in med dina Enlighten-inloggningsuppgifter.",
+        "data": {
+          "email": "E-post",
+          "password": "Lösenord",
+          "remember_password": "Spara lösenord för automatisk omautentisering"
+        },
+        "data_description": {
+          "email": "E-postadressen för ditt Enlighten-konto.",
+          "password": "Lösenordet lagras bara om du aktiverar kryssrutan.",
+          "remember_password": "Tillåter integrationen att uppdatera token automatiskt när de går ut."
+        }
+      },
+      "mfa": {
+        "title": "Verifiera MFA-kod",
+        "description": "Ange engångskoden som skickades till din e-post. Koder är giltiga i 5 minuter. Du kan begära en ny kod var 30:e sekund.",
+        "data": {
+          "otp": "Engångskod",
+          "resend_code": "Skicka om kod"
+        },
+        "data_description": {
+          "otp": "Använd koden från Enphase-inloggningsprompten.",
+          "resend_code": "Begär en ny kod om den föregående gick ut."
+        }
+      },
+      "site": {
+        "title": "Välj plats",
+        "description": "Välj vilken Enlighten-plats som ska länkas.",
+        "data": {
+          "site_id": "Plats"
+        }
+      },
+      "devices": {
+        "title": "Välj enheter",
+        "description": "Välj vilka enhetsgrupper som ska läggas till. Alla val delar samma pollingintervall.",
+        "data": {
+          "type_envoy": "Gateway",
+          "type_encharge": "Batteri",
+          "type_iqevse": "Laddare",
+          "type_microinverter": "Mikroväxelriktare",
+          "scan_interval": "Skanningsintervall (s)",
+          "type_heatpump": "Värmepump",
+          "type_ac_battery": "AC-batteri"
+        },
+        "data_description": {
+          "type_envoy": "Inkluderar gateway-anslutning och mätardiagnostik.",
+          "type_encharge": "Inkluderar batteristatus och styrentiteter när de är tillgängliga.",
+          "type_iqevse": "Inkluderar EV-laddarentiteter och styrning.",
+          "type_microinverter": "Inkluderar sensorer för mikroväxelriktaranslutning, aktivt antal och livstidsproduktion.",
+          "scan_interval": "Sekunder mellan molnstatuspollningar. Standard 60s.",
+          "type_heatpump": "Inkluderar sensorer för värmepumpens status, diagnostik och förbrukning.",
+          "type_ac_battery": "Inkluderar AC-batterisensorer och vilolägeskontroller när de är tillgängliga."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ogiltiga inloggningsuppgifter eller utgången session.",
+      "cannot_connect": "Kan inte nå Enphase-tjänsten.",
+      "service_unavailable": "Enphase är tillfälligt otillgängligt. Försök igen senare.",
+      "too_many_active_sessions": "Enphase avvisade inloggningen eftersom kontot har för många aktiva sessioner. Logga ut från andra Enphase-app- eller webbläsarsessioner och försök igen senare.",
+      "mfa_required": "Kontot kräver flerfaktorsautentisering.",
+      "otp_required": "Ange engångskoden.",
+      "otp_invalid": "Ogiltig eller utgången kod. Försök igen.",
+      "otp_blocked": "För många försök. Kontot är tillfälligt blockerat.",
+      "resend_wait": "Vänta 30 sekunder innan du begär en ny kod.",
+      "site_required": "Välj en plats för att fortsätta.",
+      "site_invalid": "Plats-ID måste vara numeriskt.",
+      "serials_required": "Välj eller ange minst en laddare.",
+      "serials_or_site_only_required": "Ange minst en laddare eller aktivera endast plats-läge.",
+      "unknown": "Oväntat fel"
+    },
+    "abort": {
+      "already_configured": "Redan konfigurerad",
+      "reconfigure_successful": "Omkonfiguration lyckades",
+      "reauth_successful": "Omautentisering lyckades",
+      "manual_mode_removed": "Äldre manuella autentiseringsposter stöds inte längre. Ta bort integrationen och konfigurera den igen med Enlighten-inloggning.",
+      "wrong_account": "Den här posten är redan länkad till {configured_label}. Ta bort integrationen från Home Assistant och lägg till en ny för att länka {requested_label}."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Kan inte starta laddning eftersom {name} inte är ansluten till fordonet."
+    },
+    "auth_required": {
+      "message": "Det går inte att börja ladda eftersom {name} kräver autentisering via Enphase-appen eller RFID."
+    },
+    "grid_control_unavailable": {
+      "message": "Nätstyrning är inte tillgänglig för den här anläggningen."
+    },
+    "grid_control_blocked": {
+      "message": "Nätstyrning är för närvarande blockerad: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "Nätläge måste vara on_grid eller off_grid."
+    },
+    "grid_otp_required": {
+      "message": "OTP krävs."
+    },
+    "grid_otp_invalid_format": {
+      "message": "OTP måste vara en fyrsiffrig numerisk kod."
+    },
+    "grid_otp_invalid": {
+      "message": "OTP är ogiltig eller har gått ut."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Det gick inte att fastställa envoy-serienumret för den här anläggningen."
+    },
+    "grid_site_required": {
+      "message": "Välj exakt en Enphase-anläggning."
+    },
+    "grid_site_ambiguous": {
+      "message": "Flera anläggningar valdes ({count}). Välj exakt en anläggning."
+    },
+    "schedule_required": {
+      "message": "Aktivera minst ett schema innan du väljer schemalagd laddning."
+    },
+    "charge_mode_invalid_option": {
+      "message": "Det valda laddningsläget är inte tillgängligt."
+    },
+    "evse_schedule_day_required": {
+      "message": "Välj minst en veckodag för schemat."
+    },
+    "evse_schedule_times_different": {
+      "message": "Schemat måste ha olika start- och sluttid."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase avvisade schemaändringen."
+    },
+    "battery_schedule_overlap": {
+      "message": "Schemat överlappar det befintliga {schedule_label}. Justera eller inaktivera det schemat först."
+    },
+    "ac_battery_unavailable": {
+      "message": "Inga AC-batterienheter är tillgängliga för närvarande."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Autentiseringsinställningar är inte tillgängliga när Enphase-tjänsten är nere."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Batteriprofiluppdateringar är inte tillåtna för det här kontot."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Uppdateringar av batteriinställningar är inte tillåtna för det här kontot."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "En annan uppdatering av batteriprofilen pågår redan."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "En annan uppdatering av batteriinställningar pågår redan."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Batteriprofiluppdateringar är inte tillgängliga."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Uppdateringar av batteriinställningar är inte tillgängliga."
+    },
+    "battery_updates_unavailable": {
+      "message": "Batteriuppdateringar är inte tillgängliga."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Batteriuppdateringar är inte tillåtna för detta konto."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Uppdatering av batteriprofil begärdes för snabbt. Vänta och försök igen."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Uppdatering av batteriinställningar begärdes för snabbt. Vänta och försök igen."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Batteriskrivåtkomst kunde inte bekräftas. Uppdatera och försök igen."
+    },
+    "schedule_update_forbidden": {
+      "message": "Schemauppdatering avvisades av Enphase (HTTP 403 förbjuden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Schemauppdatering kunde inte autentiseras. Autentisera igen och försök igen."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Schema står i konflikt med det befintliga schemat för utsläpp till nät. Justera eller inaktivera det schemat först."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Schema konflikter med det befintliga schemat för begränsning av batteriurladdning. Justera eller inaktivera det schemat först."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Schema konflikter med det befintliga schemat för debitering från nätet. Justera eller inaktivera det schemat först."
+    },
+    "schedule_update_conflict": {
+      "message": "Schemauppdateringen konflikterar med ett befintligt batterischema."
+    },
+    "battery_profile_unavailable": {
+      "message": "Batteriprofilen är inte tillgänglig."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Uppdatering av batteriprofilen avvisades av Enphase (HTTP 403 förbjuden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Uppdatering av batteriprofilen kunde inte autentiseras. Autentisera igen och försök igen."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Batteriinställningarnas nyttolast är inte tillgänglig."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Uppdatering av batteriinställningar avvisades av Enphase (HTTP 403 förbjuden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Uppdatering av batteriinställningar kunde inte autentiseras. Autentisera igen och försök igen."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "Full reserv för säkerhetskopiering är fixerad till 100 %."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Batterireserven är inte tillgänglig."
+    },
+    "savings_profile_required": {
+      "message": "Sparprofilen måste vara aktiv."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Inställningar för sparprofiler är inte tillgängliga."
+    },
+    "battery_profile_unsupported": {
+      "message": "Vald batteriprofil stöds inte."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "Inställningen för laddning från nät är inte tillgänglig."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Charge from grid toggle applicerades inte av Enphase."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Debitering från nätschema är inte tillgänglig."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "Start- och sluttid för debitering från nätet måste vara olika."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Växling mellan schema för laddning från nät tillämpades inte av Enphase."
+    },
+    "charge_from_grid_required": {
+      "message": "Laddning från nätet måste aktiveras först."
+    },
+    "schedule_change_pending": {
+      "message": "En schemaändring väntar på Envoy-synkronisering. Vänta."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "Schemaläggningstiden för debitering från nätet är ogiltig."
+    },
+    "schedule_api_unavailable": {
+      "message": "Schema API är inte tillgängligt på den här klientversionen."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Det finns inget befintligt schema för avgifter från nätet."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Skapa en {schedule_label} i IQ Battery Scheduler innan du aktiverar den."
+    },
+    "schedule_not_exposed": {
+      "message": "{schedule_label} är för närvarande inte exponerad av Enphase för denna webbplats. Vänta tills schemasynkroniseringen är klar, uppdatera sedan och försök igen."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "{schedule_label}-växlingen användes inte av Enphase."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "primär skrivning avvisad"
+    },
+    "schedule_family_times_different": {
+      "message": "{schedule_label} start- och sluttid måste vara olika."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "Tid för urladdning till nätet är ogiltig."
+    },
+    "schedule_missing": {
+      "message": "Inget befintligt {schedule_label_lower}-schema är tillgängligt."
+    },
+    "schedule_unavailable": {
+      "message": "{schedule_label}-schemat är inte tillgängligt."
+    },
+    "schedule_time_invalid": {
+      "message": "{schedule_label} schemaläggningstid är ogiltig."
+    },
+    "current_schedule_time_invalid": {
+      "message": "Den aktuella {schedule_label_lower}-schematiden är ogiltig."
+    },
+    "schedule_limit_range": {
+      "message": "{schedule_label}-schemagränsen måste vara mellan {minimum} och {maximum}."
+    },
+    "schedule_limit_minimum": {
+      "message": "{schedule_label}-schemagränsen måste vara minst {minimum}%."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "Aktuella schematider är inte tillgängliga."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "Schemagränsen för avgifter från nätet måste vara mellan {minimum} och {maximum}."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "Schemagränsen för avgifter från nätet måste vara minst {minimum} %."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Batteriavstängningsnivån är inte tillgänglig."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Batteriavstängningsnivån är ogiltig."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Batteriavstängningsnivån måste vara mellan {minimum} och {maximum}."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Storm Alert-opt-out är inte tillgängligt."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Det gick inte att välja bort Storm Alert för {count}-varningar."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Storm Guard-uppdateringar är inte tillåtna för detta konto."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Storm Guard-inställningarna är inte tillgängliga."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Storm Guard-uppdateringen avvisades av Enphase (HTTP 403 förbjuden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "Storm Guard-uppdateringen kunde inte autentiseras. Autentisera igen och försök igen."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Den valda systemprofilen är inte tillgänglig."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Uppdatering av systemprofilen avvisades av Enphase (HTTP 403 förbjuden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "Systemprofiluppdateringen kunde inte autentiseras. Autentisera igen och försök igen."
+    },
+    "system_profile_update_failed": {
+      "message": "Uppdateringen av systemprofilen misslyckades."
+    },
+    "system_profile_update_network": {
+      "message": "Uppdateringen av systemprofilen misslyckades på grund av ett nätverksfel. Försök igen."
+    },
+    "system_profile_update_timeout": {
+      "message": "Uppdatering av systemprofilen tog timeout. Försök igen."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Val av laddningsläge är inte tillgängligt medan Enphases schematjänst är nere."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "Valt AC-batterimålläge för laddning är inte tillgängligt."
+    },
+    "battery_schedule_day_required": {
+      "message": "Välj minst en dag för schemat."
+    },
+    "battery_schedule_times_different": {
+      "message": "Schemats start- och sluttider måste vara olika."
+    },
+    "battery_schedule_limit_range": {
+      "message": "Gränsen för schemat {schedule_type} måste vara mellan {minimum} och {maximum}."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Schemat avvisades av Enphases valideringsendpoint."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Redigering av batterischeman är inte tillgänglig."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "API:et för batterischeman är inte tillgängligt."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Bekräftelse krävs för att uppdatera ett schema."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Bekräftelse krävs för att ta bort ett schema."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Ogiltigt schema-ID: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "Schema-ID hittades inte i aktuella data: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Ange minst ett schema-ID att ta bort."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Ogiltiga schema-ID:n: {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Schema-ID:n hittades inte i aktuella data: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Schemat avvisades av Enphases valideringsendpoint: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Schemauppdateringen konflikterar med ett befintligt batterischema: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Tariffpriset måste vara ett icke-negativt tal."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Målet för tariffpriset hittades inte i de senaste tariffuppgifterna."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Målet för tariffpriset är ogiltigt."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "API för tariffskrivning är inte tillgängligt."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Välj exakt en tariffprisentitet."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Entiteten är inte ett Enphase-tariffpris: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "OCPP-utlösarmeddelandet stöds inte. Använd ett av följande: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Aktivera avancerad bekräftelse för att skicka {message}."
+    },
+    "tariff_update_required": {
+      "message": "Ange faktureringsuppgifter eller minst en uppdatering av en tariffavgift."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Ange faktureringens startdatum, frekvens och intervall."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "Startdatumet för tariffakturering måste vara ett giltigt ISO-datum."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "Faktureringsfrekvensen för tariffen måste vara MONTH eller DAY."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Faktureringsintervallet för tariffen måste vara mellan {minimum} och {maximum}."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "API för att skriva tariffakturering är inte tillgängligt."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Dubbla mål för tariffavgifter är inte tillåtna."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Dubblett av tariffavgiftsentitet: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Alla tariffuppdateringar måste rikta sig till samma Enphase-anläggning."
+    },
+    "tariff_structure_invalid": {
+      "message": "Tariffstrukturen är ogiltig."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Enphase Energy-alternativ",
+        "description": "Välj vad du vill göra med den här integrationsposten.",
+        "menu_options": {
+          "settings": "Inställningar",
+          "migrate_envoy": "Migrera Envoy-historik"
+        },
+        "menu_option_descriptions": {
+          "settings": "Justera polling och beteende.",
+          "migrate_envoy": "Ta över valda energi-entitets-ID:n från Enphase Envoy så att historiken i Home Assistant Energy fortsätter under denna integration."
+        },
+        "data": {
+          "type_envoy": "Gateway",
+          "type_encharge": "Batteri",
+          "type_iqevse": "Laddare",
+          "type_microinverter": "Mikroväxelriktare",
+          "fast_poll_interval": "Snabbt pollningsintervall (s)",
+          "slow_poll_interval": "Långsamt pollningsintervall (s)",
+          "fast_while_streaming": "Föredra snabb pollning när molnströmmen är aktiv",
+          "api_timeout": "API-timeout (s)",
+          "nominal_voltage": "Nominell spänning (V)",
+          "session_history_interval": "Sessionshistorikintervall (min)",
+          "schedule_sync_enabled": "Aktivera Scheduler Support",
+          "reauth": "Starta omautentisering",
+          "forget_password": "Glöm lagrat lösenord",
+          "type_heatpump": "Värmepump",
+          "type_ac_battery": "AC-batteri",
+          "battery_schedules_enabled": "Aktivera batterischemaläggare",
+          "degraded_service_repair_issues": "Aktivera reparationer för degraderade tjänster"
+        },
+        "data_description": {
+          "type_envoy": "Inkluderar gateway-anslutning och mätardiagnostik.",
+          "type_encharge": "Inkluderar batteristatus och styrentiteter när de är tillgängliga.",
+          "type_iqevse": "Inkluderar EV-laddarentiteter och styrning.",
+          "type_microinverter": "Inkluderar sensorer för mikroväxelriktaranslutning, aktivt antal och livstidsproduktion.",
+          "fast_poll_interval": "Intervall att använda under laddning eller strömning.",
+          "slow_poll_interval": "Intervall att använda när inaktiv.",
+          "fast_while_streaming": "När aktiverad, snabb pollning under aktiv molnströmning.",
+          "api_timeout": "Sekunder innan API-begäranden får timeout.",
+          "nominal_voltage": "Reservspänning för uppskattning av laddarens effekt.",
+          "session_history_interval": "Minuter att vänta mellan hämtningar av moln-sessionshistorik.",
+          "schedule_sync_enabled": "Hantera Enphase schemahantering",
+          "reauth": "Starta inloggningsflödet för att uppdatera inloggningsuppgifter utan att ta bort integrationen.",
+          "forget_password": "Tar bort det lagrade lösenordet. Automatisk uppdatering försöks inte längre.",
+          "type_heatpump": "Inkluderar sensorer för värmepumpens status, diagnostik och förbrukning.",
+          "type_ac_battery": "Inkluderar AC-batterisensorer och vilolägeskontroller när de är tillgängliga.",
+          "battery_schedules_enabled": "Hantera IQ-batterischeman",
+          "degraded_service_repair_issues": "Skapar Repairs-problem när valfria Enphase-tjänster är degraderade."
+        }
+      },
+      "settings": {
+        "title": "Enphase Energy-alternativ",
+        "description": "Justera pollning och beteende.",
+        "data": {
+          "type_envoy": "Gateway",
+          "type_encharge": "Batteri",
+          "type_iqevse": "Laddare",
+          "type_microinverter": "Mikroväxelriktare",
+          "fast_poll_interval": "Snabbt pollningsintervall (s)",
+          "slow_poll_interval": "Långsamt pollningsintervall (s)",
+          "fast_while_streaming": "Föredra snabb pollning när molnströmmen är aktiv",
+          "api_timeout": "API-timeout (s)",
+          "nominal_voltage": "Nominell spänning (V)",
+          "session_history_interval": "Sessionshistorikintervall (min)",
+          "schedule_sync_enabled": "Aktivera Scheduler Support",
+          "reauth": "Starta omautentisering",
+          "forget_password": "Glöm lagrat lösenord",
+          "type_heatpump": "Värmepump",
+          "type_ac_battery": "AC-batteri",
+          "battery_schedules_enabled": "Aktivera batterischemaläggare",
+          "degraded_service_repair_issues": "Aktivera reparationer för degraderade tjänster"
+        },
+        "data_description": {
+          "type_envoy": "Inkluderar gateway-anslutning och mätardiagnostik.",
+          "type_encharge": "Inkluderar batteristatus och styrentiteter när de är tillgängliga.",
+          "type_iqevse": "Inkluderar EV-laddarentiteter och styrning.",
+          "type_microinverter": "Inkluderar sensorer för mikroväxelriktaranslutning, aktivt antal och livstidsproduktion.",
+          "fast_poll_interval": "Intervall att använda under laddning eller strömning.",
+          "slow_poll_interval": "Intervall att använda när inaktiv.",
+          "fast_while_streaming": "När aktiverad, snabb pollning under aktiv molnströmning.",
+          "api_timeout": "Sekunder innan API-begäranden får timeout.",
+          "nominal_voltage": "Reservspänning för uppskattning av laddarens effekt.",
+          "session_history_interval": "Minuter att vänta mellan hämtningar av moln-sessionshistorik.",
+          "schedule_sync_enabled": "Hantera Enphase schemahantering",
+          "reauth": "Starta inloggningsflödet för att uppdatera inloggningsuppgifter utan att ta bort integrationen.",
+          "forget_password": "Tar bort det lagrade lösenordet. Automatisk uppdatering försöks inte längre.",
+          "type_heatpump": "Inkluderar sensorer för värmepumpens status, diagnostik och förbrukning.",
+          "type_ac_battery": "Inkluderar AC-batterisensorer och vilolägeskontroller när de är tillgängliga.",
+          "battery_schedules_enabled": "Hantera IQ-batterischeman",
+          "degraded_service_repair_issues": "Skapar Repairs-problem när valfria Enphase-tjänster är degraderade."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Välj Envoy-källa",
+        "description": "Välj vilken Enphase Envoy-post du vill migrera från.",
+        "data": {
+          "selected_envoy_source": "Envoy-källa"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Migrera Envoy-historik",
+        "description": "Den här guiden flyttar valda energi-entitets-ID:n från Enphase Envoy till motsvarande Enphase Energy-sensorer.\n\nHistoriken i Home Assistant Energy är knuten till det entitets-ID som används för långtidsstatistik.\n\nSkapa en fullständig säkerhetskopia av Home Assistant innan du fortsätter.\n\nMigrera bara sensorer som representerar samma kumulativa energitotal.\n\nDen valda Envoy-integrationen kommer att avlastas tillfälligt medan entitets-ID:n tilldelas om och återställs sedan efter migreringen.\n\nDetta uppdaterar entitetsregistret och kan inte återställas automatiskt.\n\nVald Envoy-källa: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Jag har en aktuell Home Assistant-säkerhetskopia"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Mappa historiksensorer",
+        "description": "Granska de föreslagna mappningarna noggrant. Endast kompatibla kumulativa energitotaler visas. Tomma fält hoppas över.\n\nOm ett förslag är fel eller oklart, rensa det och välj manuellt.",
+        "data": {
+          "solar_production": "Solproduktion",
+          "consumption": "Förbrukning",
+          "grid_import": "Import från nätet",
+          "grid_export": "Export till nätet",
+          "battery_charge": "Batteriladdning",
+          "battery_discharge": "Batteriurladdning"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
+          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Bekräfta migrering av Envoy-historik",
+        "description": "De valda källentiteterna kommer att byta namn till arkiverade äldre entitets-ID:n.\n\nEnphase Energy-entiteterna kommer sedan att byta namn till de ursprungliga källentitets-ID:na.\n\nOm någon mappning är fel, avbryt nu. Återställning från säkerhetskopia är det säkraste sättet att återgå.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Jag förstår att de valda källentitets-ID:na kommer att tilldelas om",
+          "disable_archived_envoy_sensors": "Inaktivera arkiverade källsensorer efter migreringen"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Välj eller ange minst en laddare.",
+      "backup_required": "Det rekommenderas starkt att skapa en fullständig säkerhetskopia innan du fortsätter.",
+      "confirm_required": "Bekräfta att de valda källentitets-ID:na kommer att tilldelas om innan du fortsätter.",
+      "migration_no_selection": "Välj minst en kompatibel energisensor att migrera.",
+      "migration_duplicate_selection": "Samma källentitet kan inte användas mer än en gång.",
+      "envoy_entry_loaded": "Envoy-integrationen kunde inte avlastas tillfälligt för migreringen.",
+      "incompatible_energy_total": "De valda entiteterna är inte kompatibla kumulativa energitotaler."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Inga Enphase Envoy-energisensorer är tillgängliga för migrering.",
+      "migration_no_targets": "Inga kompatibla Enphase Energy-sensorer är tillgängliga för migrering.",
+      "migration_partial_failure": "Migreringen stoppade efter delvis slutförande.\n\nSlutförda mappningar:\n{completed_mappings}\n\nMisslyckades vid bearbetning av `{failed_entity_id}`: {failure_reason}\n\nÅterställ från säkerhetskopia om resultatet inte är acceptabelt."
+    },
+    "create_entry": {
+      "migration_success": "Migreringen är klar. Enphase Energy äger nu de valda källentitets-ID:na. Kontrollera Energy-instrumentpanelen och Developer Tools > Statistics efter nästa uppdatering.",
+      "migration_success_reload_needed": "Migreringen är klar, men en eller flera integrationer kunde inte laddas om automatiskt. Ladda om Enphase Energy och Enphase Envoy manuellt vid behov och kontrollera sedan Energy-instrumentpanelen och Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Senaste session",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Förbrukad energi (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Förbrukad energi (kWh)"
+          },
+          "session_cost": {
+            "name": "Sessionskostnad"
+          },
+          "session_charge_level": {
+            "name": "Sessionsladdnivå"
+          },
+          "range_added": {
+            "name": "Tillagd räckvidd"
+          },
+          "plugged_in_at": {
+            "name": "Ansluten kl."
+          },
+          "plugged_out_at": {
+            "name": "Frånkopplad kl."
+          },
+          "session_duration_min": {
+            "name": "Sessionslängd (min)"
+          },
+          "session_id": {
+            "name": "Sessions-ID"
+          },
+          "session_started_at": {
+            "name": "Session startad"
+          },
+          "session_ended_at": {
+            "name": "Session avslutad"
+          },
+          "active_charge_time_s": {
+            "name": "Aktiv laddtid (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Genomsnittlig kostnad per kWh"
+          },
+          "cost_calculated": {
+            "name": "Beräknad kostnad"
+          },
+          "session_cost_state": {
+            "name": "Sessionskostnadsstatus"
+          },
+          "manual_override": {
+            "name": "Manuell åsidosättning"
+          },
+          "charge_profile_stack_level": {
+            "name": "Stapelnivå för laddprofil"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Kontaktstatus",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Statusorsak"
+          },
+          "connector_status_info": {
+            "name": "Kontaktstatusinfo"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Kontaktorsak"
+      },
+      "electrical_phase": {
+        "name": "Elektrisk fas",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Fasläge (rå)"
+          },
+          "dlb_enabled": {
+            "name": "Dynamisk lastbalansering aktiverad"
+          },
+          "dlb_active": {
+            "name": "Dynamisk lastbalansering aktiv"
+          }
+        }
+      },
+      "power": {
+        "name": "Effekt",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Senaste livstids-kWh"
+          },
+          "last_energy_ts": {
+            "name": "Senaste energitidsstämpel"
+          },
+          "last_sample_ts": {
+            "name": "Senaste provtidsstämpel"
+          },
+          "last_power_w": {
+            "name": "Senaste effekt (W)"
+          },
+          "last_window_seconds": {
+            "name": "Senaste fönster (s)"
+          },
+          "method": {
+            "name": "Metod"
+          },
+          "charging": {
+            "name": "Laddar"
+          },
+          "operating_v": {
+            "name": "Driftspänning (V)"
+          },
+          "max_throughput_w": {
+            "name": "Maximal genomströmning (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Maximal genomströmning (obegränsad W)"
+          },
+          "max_throughput_source": {
+            "name": "Maximal genomströmning källa"
+          },
+          "max_throughput_amps": {
+            "name": "Maximal genomströmning ampere"
+          },
+          "max_throughput_voltage": {
+            "name": "Maximal genomströmning spänning (V)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Laddläge",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Amperestyrning tillämplig"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Läge som styr amperetal"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Lägen där amperestyrning gäller"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Laddare autentisering",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "App Auth aktiverad"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID-autentisering aktiverad"
+          },
+          "app_auth_supported": {
+            "name": "App Auth stöds"
+          },
+          "rfid_auth_supported": {
+            "name": "RFID-autentisering stöds"
+          }
+        },
+        "state": {
+          "enabled": "Aktiverad",
+          "disabled": "Inaktiverad"
+        }
+      },
+      "set_amps": {
+        "name": "Ställ in ampere",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimala ampere"
+          },
+          "max_amp": {
+            "name": "Maximala ampere"
+          },
+          "max_current": {
+            "name": "Maximala kretsampere"
+          },
+          "amp_granularity": {
+            "name": "Amperegranularitet"
+          }
+        }
+      },
+      "status": {
+        "name": "Laddarstatus",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Driftsatt"
+          },
+          "charger_problem": {
+            "name": "Laddarproblem"
+          },
+          "suspended_by_evse": {
+            "name": "Pausad av EVSE"
+          },
+          "offline_since": {
+            "name": "Offline sedan"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Senaste lyckade uppdatering",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Senaste fel (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Senaste felstatus"
+          },
+          "code_description": {
+            "name": "Kodbeskrivning"
+          },
+          "last_failure_response": {
+            "name": "Senaste felrespons"
+          },
+          "last_failure_source": {
+            "name": "Senaste felkälla"
+          },
+          "backoff_ends_utc": {
+            "name": "Backoff slutar (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Molnlatens"
+      },
+      "current_production_power": {
+        "name": "Aktuell produktionskraft",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "source": {
+            "name": "Källa"
+          },
+          "reported_units": {
+            "name": "Rapporterade enheter"
+          },
+          "reported_precision": {
+            "name": "Rapporterad precision"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Molnfelkod",
+        "state": {
+          "none": "Ingen",
+          "rate_limited": "Frekvensbegränsad",
+          "auth_blocked": "Autentisering tillfälligt blockerad",
+          "authentication_error": "Autentiseringsfel",
+          "request_error": "Begäransfel",
+          "service_unavailable": "Tjänsten är otillgänglig",
+          "invalid_payload": "Ogiltigt molnsvar",
+          "dns_error": "DNS-fel",
+          "network_error": "Nätverksfel"
+        }
+      },
+      "site_service_status": {
+        "name": "Tjänstestatus",
+        "state": {
+          "ok": "Fungerar",
+          "unknown": "Okänd",
+          "degraded": "Försämrad"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Försämrade tjänster"
+          },
+          "degraded_endpoint_families": {
+            "name": "Försämrade slutpunktsfamiljer"
+          },
+          "degraded_service_count": {
+            "name": "Antal försämrade tjänster"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Antal försämrade slutpunktsfamiljer"
+          },
+          "metrics_available": {
+            "name": "Mätvärden tillgängliga"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Cloud-backoff slutar",
+        "state": {
+          "none": "Ingen"
+        }
+      },
+      "last_reported": {
+        "name": "Senast rapporterad",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Rapporteringsintervall (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Sessionsmiles"
+      },
+      "session_plug_in_at": {
+        "name": "Session inkopplad"
+      },
+      "session_plug_out_at": {
+        "name": "Session urkopplad"
+      },
+      "schedule_type": {
+        "name": "Schematyp"
+      },
+      "schedule_start": {
+        "name": "Schema start"
+      },
+      "schedule_end": {
+        "name": "Schema slut"
+      },
+      "lifetime_energy": {
+        "name": "Livstidsenergi",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Senaste återställningsvärde"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Plats solproduktion",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Platsförbrukning",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Platsnät-import",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Aktuell näteffekt",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Senaste flöde kWh"
+          },
+          "last_energy_ts": {
+            "name": "Senaste energitidsstämpel"
+          },
+          "last_sample_ts": {
+            "name": "Senaste provtidsstämpel"
+          },
+          "last_power_w": {
+            "name": "Senaste effekt (W)"
+          },
+          "last_window_seconds": {
+            "name": "Senaste fönster (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          },
+          "method": {
+            "name": "Metod"
+          },
+          "source_flows": {
+            "name": "Källflöden"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Platsnät-export",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Platsbatteriladdning",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Platsbatteriurladdning",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Aktuell batterieffekt",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Senaste flöde kWh"
+          },
+          "last_energy_ts": {
+            "name": "Senaste energitidsstämpel"
+          },
+          "last_sample_ts": {
+            "name": "Senaste provtidsstämpel"
+          },
+          "last_power_w": {
+            "name": "Senaste effekt (W)"
+          },
+          "last_window_seconds": {
+            "name": "Senaste fönster (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          },
+          "method": {
+            "name": "Metod"
+          },
+          "source_flows": {
+            "name": "Källflöden"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Stormvakt"
+      },
+      "storm_alert": {
+        "name": "Stormvarning",
+        "state": {
+          "active": "Aktiv",
+          "inactive": "Inaktiv"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Stormvarning aktiv"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Systemprofilstatus",
+        "state": {
+          "pending": "I avvaktan på"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Effektiv profil"
+          },
+          "effective_profile_label": {
+            "name": "Effektiv profiletikett"
+          },
+          "effective_reserve_percentage": {
+            "name": "Effektiv reserv (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Undertyp för effektivt driftläge"
+          },
+          "requested_profile": {
+            "name": "Begärd profil"
+          },
+          "requested_profile_label": {
+            "name": "Begärd profiletikett"
+          },
+          "requested_reserve_percentage": {
+            "name": "Begärd reserv (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Begärd undertyp för driftläge"
+          },
+          "pending": {
+            "name": "I avvaktan på"
+          },
+          "pending_requested_at": {
+            "name": "Väntande Begärd kl"
+          },
+          "selected_profile": {
+            "name": "Vald profil"
+          },
+          "selected_profile_label": {
+            "name": "Vald profiletikett"
+          },
+          "selected_reserve_percentage": {
+            "name": "Vald reserv (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Vald undertyp för driftläge"
+          },
+          "available_profile_keys": {
+            "name": "Tillgängliga profilnycklar"
+          },
+          "available_profile_labels": {
+            "name": "Tillgängliga profiletiketter"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Batteriläge",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Råläge"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Laddning från nät tillåten"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Urladdning till nät tillåten"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Batteriets laddningsnivå"
+      },
+      "battery_overall_charge": {
+        "name": "Batteriets totala laddning"
+      },
+      "battery_overall_status": {
+        "name": "Batteriets totala status",
+        "state": {
+          "normal": "Normal",
+          "warning": "Varning",
+          "error": "Fel",
+          "unknown": "Okänd"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Status för batteriets CFG-schema",
+        "state": {
+          "none": "Ingen",
+          "pending": "Väntar",
+          "active": "Aktiv"
+        }
+      },
+      "grid_control_status": {
+        "name": "Status för nätstyrning",
+        "state": {
+          "ready": "Klar",
+          "blocked": "Blockerad",
+          "pending": "Väntar"
+        }
+      },
+      "grid_mode": {
+        "name": "Nätläge",
+        "state": {
+          "on_grid": "På nätet",
+          "off_grid": "Frånkopplad från nätet",
+          "unknown": "Okänd"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Tillgänglig batterienergi"
+      },
+      "battery_available_power": {
+        "name": "Tillgänglig batterieffekt"
+      },
+      "battery_storage_status": {
+        "name": "Status för {serial}",
+        "state": {
+          "charging": "Laddar",
+          "discharging": "Urladdar",
+          "idle": "Inaktiv",
+          "unknown": "Okänd"
+        }
+      },
+      "battery_storage_health": {
+        "name": "Hälsa för {serial}"
+      },
+      "battery_storage_cycle_count": {
+        "name": "Antal cykler för {serial}"
+      },
+      "battery_storage_last_reported": {
+        "name": "Senast rapporterad för {serial}"
+      },
+      "battery_last_reported": {
+        "name": "Senast rapporterad för Batteri"
+      },
+      "system_controller_inventory": {
+        "name": "Systemkontroller"
+      },
+      "gateway_production_meter": {
+        "name": "Produktionsmätare"
+      },
+      "gateway_consumption_meter": {
+        "name": "Förbrukningsmätare"
+      },
+      "gateway_connectivity_status": {
+        "name": "Gateway-status"
+      },
+      "gateway_last_reported": {
+        "name": "Gateway senast rapporterad"
+      },
+      "tariff_billing_cycle": {
+        "name": "Nasta faktureringsdatum",
+        "state_attributes": {
+          "start_date": {
+            "name": "Startdatum"
+          },
+          "billing_frequency": {
+            "name": "Faktureringsfrekvens"
+          },
+          "billing_interval_value": {
+            "name": "Faktureringsintervallvaerde"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Faktureringscykel"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Importtariff",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "seasons": {
+            "name": "Saesonger"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Importtariff {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "Säsongs-ID"
+          },
+          "start_month": {
+            "name": "Startmånad"
+          },
+          "end_month": {
+            "name": "Slutmånad"
+          },
+          "day_group_id": {
+            "name": "Daggrupps-ID"
+          },
+          "days": {
+            "name": "Dagar"
+          },
+          "period_id": {
+            "name": "Period-ID"
+          },
+          "period_type": {
+            "name": "Periodtyp"
+          },
+          "start_time": {
+            "name": "Starttid"
+          },
+          "end_time": {
+            "name": "Sluttid"
+          },
+          "rate": {
+            "name": "Pris"
+          },
+          "formatted_rate": {
+            "name": "Formaterat pris"
+          },
+          "tier_id": {
+            "name": "Nivå-ID"
+          },
+          "start_value": {
+            "name": "Startvärde"
+          },
+          "end_value": {
+            "name": "Slutvärde"
+          },
+          "unbounded": {
+            "name": "Utan övre gräns"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifflokaliserare"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Exporttariff",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "seasons": {
+            "name": "Saesonger"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Exporttariff {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "season_id": {
+            "name": "Säsongs-ID"
+          },
+          "start_month": {
+            "name": "Startmånad"
+          },
+          "end_month": {
+            "name": "Slutmånad"
+          },
+          "day_group_id": {
+            "name": "Daggrupps-ID"
+          },
+          "days": {
+            "name": "Dagar"
+          },
+          "period_id": {
+            "name": "Period-ID"
+          },
+          "period_type": {
+            "name": "Periodtyp"
+          },
+          "start_time": {
+            "name": "Starttid"
+          },
+          "end_time": {
+            "name": "Sluttid"
+          },
+          "rate": {
+            "name": "Pris"
+          },
+          "formatted_rate": {
+            "name": "Formaterat pris"
+          },
+          "tier_id": {
+            "name": "Nivå-ID"
+          },
+          "start_value": {
+            "name": "Startvärde"
+          },
+          "end_value": {
+            "name": "Slutvärde"
+          },
+          "unbounded": {
+            "name": "Utan övre gräns"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifflokaliserare"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Anslutningsstatus för mikroväxelriktare"
+      },
+      "microinverter_reporting_count": {
+        "name": "Aktiva mikroväxelriktare"
+      },
+      "microinverter_last_reported": {
+        "name": "Senaste rapport från mikroväxelriktare"
+      },
+      "site_evse_charging": {
+        "name": "Anläggningens EVSE-laddning",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Anläggningens värmepumpsförbrukning",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Anläggningens varmvattenberedarförbrukning",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Samplad kl. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Senaste återställning"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ-energirouter_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Värmepumpstatus"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Värmepumpens energimätare"
+      },
+      "heat_pump_last_reported": {
+        "name": "Värmepump senast rapporterad"
+      },
+      "heat_pump_power": {
+        "name": "Värmepumpseffekt"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Värmepumpstatus"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "Värmepumpens SG-Ready-gateway"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Daglig energi för värmepump"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Daglig nätenergi för värmepump"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Daglig solenergi för värmepump"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Daglig batterienergi för värmepump"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Status för SG-Ready-gateway för värmepump"
+      },
+      "shared_labels": {
+        "name": "Delade etiketter",
+        "state": {
+          "self_consumption": "Självförbrukning",
+          "cost_savings": "Besparing",
+          "ai_optimisation": "AI-optimering",
+          "backup_only": "Full backup",
+          "importexport": "Import och export",
+          "importonly": "Endast import",
+          "exportonly": "Endast export",
+          "manual_charging": "Manuell",
+          "scheduled_charging": "Schemalagd",
+          "green_charging": "Grön",
+          "smart_charging": "Smart",
+          "online": "Online",
+          "offline": "Offline",
+          "degraded": "Nedsatt",
+          "not_reporting": "Rapporterar inte",
+          "inactive": "Inaktiv",
+          "normal": "Normal",
+          "warning": "Varning",
+          "error": "Fel",
+          "unknown": "Okänd",
+          "unpaired": "Inte parkopplad",
+          "pairing": "Parkoppling"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "Övergripande status för AC-batteri",
+        "state": {
+          "charging": "Laddar",
+          "discharging": "Urladdar",
+          "idle": "Inaktiv",
+          "unknown": "Okänd"
+        }
+      },
+      "ac_battery_power": {
+        "name": "Effekt för AC-batteri"
+      },
+      "ac_battery_last_reported": {
+        "name": "Senast rapporterat från AC-batteri"
+      },
+      "ac_battery_storage_charge": {
+        "name": "Laddningsnivå för AC-batteri"
+      },
+      "ac_battery_storage_status": {
+        "name": "Status för {serial}",
+        "state": {
+          "charging": "Laddar",
+          "discharging": "Urladdar",
+          "idle": "Inaktiv",
+          "unknown": "Okänd"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "Effekt för {serial}"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "Driftläge för {serial}"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "Antal cykler för {serial}"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "Senast rapporterat för {serial}"
+      },
+      "battery_cfg_schedules": {
+        "name": "Batteri-CFG-scheman"
+      },
+      "battery_dtg_schedules": {
+        "name": "Batteri-DTG-scheman"
+      },
+      "battery_rbd_schedules": {
+        "name": "Batteri-RBD-scheman"
+      },
+      "battery_schedule_summary": {
+        "name": "Sammanfattning av batterischeman"
+      },
+      "tariff_current_import_rate": {
+        "name": "Aktuell importtariff",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "Säsongs-ID"
+          },
+          "start_month": {
+            "name": "Startmånad"
+          },
+          "end_month": {
+            "name": "Slutmånad"
+          },
+          "day_group_id": {
+            "name": "Daggrupps-ID"
+          },
+          "days": {
+            "name": "Dagar"
+          },
+          "period_id": {
+            "name": "Period-ID"
+          },
+          "period_type": {
+            "name": "Periodtyp"
+          },
+          "start_time": {
+            "name": "Starttid"
+          },
+          "end_time": {
+            "name": "Sluttid"
+          },
+          "rate": {
+            "name": "Pris"
+          },
+          "formatted_rate": {
+            "name": "Formaterat pris"
+          },
+          "tier_id": {
+            "name": "Nivå-ID"
+          },
+          "start_value": {
+            "name": "Startvärde"
+          },
+          "end_value": {
+            "name": "Slutvärde"
+          },
+          "unbounded": {
+            "name": "Utan övre gräns"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifflokaliserare"
+          },
+          "active_rate_name": {
+            "name": "Namn på aktiv tariff"
+          },
+          "configured_rates": {
+            "name": "Konfigurerade tariffer"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Aktuell exporttariff",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "season_id": {
+            "name": "Säsongs-ID"
+          },
+          "start_month": {
+            "name": "Startmånad"
+          },
+          "end_month": {
+            "name": "Slutmånad"
+          },
+          "day_group_id": {
+            "name": "Daggrupps-ID"
+          },
+          "days": {
+            "name": "Dagar"
+          },
+          "period_id": {
+            "name": "Period-ID"
+          },
+          "period_type": {
+            "name": "Periodtyp"
+          },
+          "start_time": {
+            "name": "Starttid"
+          },
+          "end_time": {
+            "name": "Sluttid"
+          },
+          "rate": {
+            "name": "Pris"
+          },
+          "formatted_rate": {
+            "name": "Formaterat pris"
+          },
+          "tier_id": {
+            "name": "Nivå-ID"
+          },
+          "start_value": {
+            "name": "Startvärde"
+          },
+          "end_value": {
+            "name": "Slutvärde"
+          },
+          "unbounded": {
+            "name": "Utan övre gräns"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifflokaliserare"
+          },
+          "active_rate_name": {
+            "name": "Namn på aktiv tariff"
+          },
+          "configured_rates": {
+            "name": "Konfigurerade tariffer"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Laddampere"
+      },
+      "battery_reserve": {
+        "name": "Batterireserv"
+      },
+      "battery_shutdown_level": {
+        "name": "Batteriets avstängningsnivå"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Batteriets laddningsgräns"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Gräns för urladdning till nätet"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Gräns för begränsning av batteriurladdning"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Gräns för nytt batterischema"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Gräns för batterischema"
+      },
+      "tariff_import_rate_value": {
+        "name": "Importtariff {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "Säsongs-ID"
+          },
+          "start_month": {
+            "name": "Startmånad"
+          },
+          "end_month": {
+            "name": "Slutmånad"
+          },
+          "day_group_id": {
+            "name": "Daggrupps-ID"
+          },
+          "days": {
+            "name": "Dagar"
+          },
+          "period_id": {
+            "name": "Period-ID"
+          },
+          "period_type": {
+            "name": "Periodtyp"
+          },
+          "start_time": {
+            "name": "Starttid"
+          },
+          "end_time": {
+            "name": "Sluttid"
+          },
+          "rate": {
+            "name": "Pris"
+          },
+          "formatted_rate": {
+            "name": "Formaterat pris"
+          },
+          "tier_id": {
+            "name": "Nivå-ID"
+          },
+          "start_value": {
+            "name": "Startvärde"
+          },
+          "end_value": {
+            "name": "Slutvärde"
+          },
+          "unbounded": {
+            "name": "Utan övre gräns"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifflokaliserare"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Exporttariff {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffstruktur"
+          },
+          "variation_type": {
+            "name": "Variationstyp"
+          },
+          "source": {
+            "name": "Kaella"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Exportplan"
+          },
+          "season_id": {
+            "name": "Säsongs-ID"
+          },
+          "start_month": {
+            "name": "Startmånad"
+          },
+          "end_month": {
+            "name": "Slutmånad"
+          },
+          "day_group_id": {
+            "name": "Daggrupps-ID"
+          },
+          "days": {
+            "name": "Dagar"
+          },
+          "period_id": {
+            "name": "Period-ID"
+          },
+          "period_type": {
+            "name": "Periodtyp"
+          },
+          "start_time": {
+            "name": "Starttid"
+          },
+          "end_time": {
+            "name": "Sluttid"
+          },
+          "rate": {
+            "name": "Pris"
+          },
+          "formatted_rate": {
+            "name": "Formaterat pris"
+          },
+          "tier_id": {
+            "name": "Nivå-ID"
+          },
+          "start_value": {
+            "name": "Startvärde"
+          },
+          "end_value": {
+            "name": "Slutvärde"
+          },
+          "unbounded": {
+            "name": "Utan övre gräns"
+          },
+          "last_refresh_utc": {
+            "name": "Senaste uppdatering (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifflokaliserare"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Ansluten"
+      },
+      "charging": {
+        "name": "Laddar"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "Värmepumpens SG-Ready aktiv"
+      },
+      "cloud_reachable": {
+        "name": "Moln nåbart"
+      },
+      "connected": {
+        "name": "Anslutning",
+        "state_attributes": {
+          "connection": {
+            "name": "Anslutning"
+          },
+          "ip_address": {
+            "name": "IP-adress"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Laddar"
+      },
+      "green_battery": {
+        "name": "Använd batteri för EV-laddning"
+      },
+      "app_authentication": {
+        "name": "Autentisering via app"
+      },
+      "storm_guard": {
+        "name": "Stormvakt"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV Laddning"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Använd batteriet efter högtrafik"
+      },
+      "charge_from_grid": {
+        "name": "Ladda batteriet från nätet"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Schema för laddning från nätet"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Schema för urladdning till nätet"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Schema för begränsning av batteriurladdning"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "Viloläge för AC-batteri"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Schema måndag"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Schema tisdag"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Schema onsdag"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Schema torsdag"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Schema fredag"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Schema lördag"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Schema söndag"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Nytt batterischema måndag"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Nytt batterischema tisdag"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Nytt batterischema onsdag"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Nytt batterischema torsdag"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Nytt batterischema fredag"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Nytt batterischema lördag"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Nytt batterischema söndag"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Batterischema måndag"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Batterischema tisdag"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Batterischema onsdag"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Batterischema torsdag"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Batterischema fredag"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Batterischema lördag"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Batterischema söndag"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Laddläge"
+      },
+      "system_profile": {
+        "name": "Systemprofil"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "Mål för laddningsnivå för AC-batteri"
+      },
+      "evse_schedule_selected": {
+        "name": "Schema"
+      },
+      "battery_new_schedule_type": {
+        "name": "Typ av batterischema"
+      },
+      "battery_schedule_selected": {
+        "name": "Batterischema"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Starta laddning"
+      },
+      "stop_charging": {
+        "name": "Stoppa laddning"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Avbryt väntande profiländring"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Begär OTP för nätväxling"
+      },
+      "storm_alert_opt_out": {
+        "name": "Välj bort stormvarning"
+      },
+      "evse_schedule_refresh": {
+        "name": "Uppdatera schema"
+      },
+      "evse_schedule_save": {
+        "name": "Spara schema"
+      },
+      "evse_schedule_delete": {
+        "name": "Ta bort schema"
+      },
+      "evse_schedule_add": {
+        "name": "Skapa nytt schema"
+      },
+      "battery_schedule_add": {
+        "name": "Lägg till batterischema"
+      },
+      "battery_schedule_delete": {
+        "name": "Ta bort batterischema"
+      },
+      "battery_schedule_refresh": {
+        "name": "Uppdatera batterischema"
+      },
+      "battery_schedule_save": {
+        "name": "Spara batterischema"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Starttid för laddning från nätet"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Sluttid för laddning från nätet"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Starttid för urladdning till nätet"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Sluttid för urladdning till nätet"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Starttid för begränsning av batteriurladdning"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Sluttid för begränsning av batteriurladdning"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Schemas starttid"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Schemas sluttid"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Starttid för nytt batterischema"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Sluttid för nytt batterischema"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Starttid för batterischema"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Sluttid för batterischema"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Historik för reservkraft"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Gateway-fastvara"
+      },
+      "charger_firmware": {
+        "name": "Inbyggd programvara"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Enphase-plats {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Starta laddning",
+      "stop_charging": "Stoppa laddning"
+    },
+    "trigger_type": {
+      "charging_started": "Laddning startad",
+      "charging_stopped": "Laddning stoppad",
+      "plugged_in": "Ansluten",
+      "unplugged": "Frånkopplad"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy behöver omautentisering",
+      "description": "Plats {site_id} kräver uppdaterade sessionshuvuden. Vänligen omautentisera."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Enphase verkar tillfälligt blockera autentisering för plats {site_id}. Automatiska försök är pausade till {blocked_until}. En lyckad manuell återautentisering kan ta bort blockeringen tidigare."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energy har för många aktiva sessioner",
+      "description": "Enphase avvisade autentisering för platsen {site_id} eftersom kontot har för många aktiva sessioner. Automatiska försök är pausade till {blocked_until}. Logga ut från andra Enphase-app- eller webbläsarsessioner och försök sedan autentisera igen."
+    },
+    "rate_limited": {
+      "title": "Enphase Energy är frekvensbegränsad",
+      "description": "Moln-API:t returnerade frekvensbegränsning. Avfrågningen saktas ned till {backoff_ends}."
+    },
+    "cloud_unreachable": {
+      "title": "Enphase Energy-moln inte nåbart",
+      "description": "Home Assistant kan inte nå Enphase-molnet för plats {site_id}. Pollning saktar ned automatiskt; kontrollera tjänstestatusen och ditt nätverk."
+    },
+    "cloud_dns_resolution": {
+      "title": "Enphase Energy DNS-upplösningsfel",
+      "description": "Home Assistant kunde inte lösa enlighten.enphaseenergy.com för plats {site_id}. Kontrollera din DNS-resolver eller internetanslutning."
+    },
+    "cloud_service_unavailable": {
+      "title": "Enphase Energy-molnfel",
+      "description": "Enphase-molnet för plats {site_id} svarar med fel. Pollningen backar automatiskt; kontrollera tjänstestatus eller användningsgränser."
+    },
+    "scheduler_unavailable": {
+      "title": "Enphase Energy-schemaläggare är inte tillgänglig",
+      "description": "Enphase-schemaläggningstjänsten för webbplats {site_id} är inte tillgänglig. Val av laddningsläge och schemasynkronisering är tillfälligt inaktiverade."
+    },
+    "session_history_unavailable": {
+      "title": "Enphase Energy-sessionshistorik är inte tillgänglig",
+      "description": "Enphase sessionshistoriktjänst för webbplats {site_id} är inte tillgänglig. Sessionshistoriksensorer visar cachad data tills tjänsten återställs."
+    },
+    "site_energy_unavailable": {
+      "title": "Enphase Energy-platsenergi är inte tillgänglig",
+      "description": "Enphase livstidsenergitjänst för webbplats {site_id} är inte tillgänglig. Platsens energisensorer visar cachad data tills tjänsten återställs."
+    },
+    "auth_settings_unavailable": {
+      "title": "Enphase Energy-autentiseringsinställningar är inte tillgängliga",
+      "description": "Enphase-laddningsautentiseringstjänsten för webbplats {site_id} är inte tillgänglig. Appautentiseringskontroller är tillfälligt inaktiverade."
+    },
+    "battery_profile_pending": {
+      "title": "Uppdatering av Enphase Energy-batteriprofil väntar",
+      "description": "En ändring av batteriprofilen för anläggning {site_id} har varit väntande i mer än {pending_timeout_minutes} minuter. Molntjänsten kan fortfarande bearbeta begäran."
+    },
+    "hems_auth_degraded": {
+      "title": "Enphase Energy HEMS är tillfälligt pausat",
+      "description": "Heat Pump/HEMS-pollning för plats {site_id} är pausad till {backoff_until} efter {failure_count} auth-liknande fel ({reason}). Wallbox, batteri, gateway och andra data kan fortsätta. Inaktivera Heat Pump-enhetsgruppen eller använd Clear HEMS Auth Backoff när Enphase har återhämtat sig."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "Plats-ID",
+      "can_reach_server": "Nå Enphase-molnet",
+      "last_success": "Senaste lyckade uppdatering",
+      "latency_ms": "Molnlatens (ms)",
+      "last_error": "Senaste fel",
+      "scheduler_available": "Schemaläggare tillgänglig",
+      "scheduler_last_error": "Schemaläggarens senaste fel",
+      "scheduler_failures": "Schemaläggningsfel",
+      "scheduler_backoff_active": "Schemaläggarens backoff aktiv",
+      "scheduler_backoff_ends_utc": "Schemaläggarens backoff slutar (UTC)",
+      "backoff_active": "Backoff aktiv",
+      "network_errors": "På varandra följande nätverksfel",
+      "http_errors": "På varandra följande HTTP-fel",
+      "site_count": "Antal webbplatser",
+      "site_name": "Webbplatsens namn",
+      "site_ids": "Webbplats-ID:n",
+      "site_names": "Webbplatsnamn",
+      "last_failure_status": "Status för senaste fel",
+      "last_failure_description": "Senaste felbeskrivning",
+      "phase_timings": "Fastider",
+      "session_cache_ttl_s": "Sessionscache TTL (s)",
+      "sites": "Webbplatser",
+      "auth_settings_available": "Auth-inställningar tillgängliga",
+      "auth_settings_last_error": "Auth-inställningar senaste fel",
+      "auth_settings_failures": "Autentiseringsinställningar misslyckades",
+      "auth_settings_backoff_active": "Auth-inställningar backoff aktiv",
+      "auth_settings_backoff_ends_utc": "Backoff för autentiseringsinställningar slutar (UTC)",
+      "session_history_available": "Sessionshistorik tillgänglig",
+      "session_history_last_error": "Sessionshistorik senaste fel",
+      "session_history_failures": "Sessionshistorikfel",
+      "session_history_backoff_active": "Sessionshistorikbackoff aktiv",
+      "session_history_backoff_ends_utc": "Sessionshistorik backoff ends (UTC)",
+      "site_energy_available": "Platsenergi tillgänglig",
+      "site_energy_last_error": "Sista fel på webbplatsens energi",
+      "site_energy_failures": "Webbplatsens energifel",
+      "site_energy_backoff_active": "Webbplatsenergibackoff aktiv",
+      "site_energy_backoff_ends_utc": "Backoff för platsenergi slutar (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Starta laddning",
+      "description": "Starta laddning på den valda Enphase Energy-laddaren.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Laddnivå (A)",
+          "description": "Valfritt strömsetpunkt i ampere (6-40)."
+        },
+        "connector_id": {
+          "name": "Kontakt-ID",
+          "description": "Valfritt kontaktindex (vanligen 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Stoppa laddning",
+      "description": "Stoppa laddning på den valda Enphase Energy-laddaren."
+    },
+    "trigger_message": {
+      "name": "Utlös OCPP-meddelande",
+      "description": "Begär att laddaren skickar ett OCPP-meddelande och returnerar molnsvaret.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Begärt meddelande",
+          "description": "OCPP-meddelandenamn (t.ex. MeterValues); tjänstsvar visar laddarens utdata."
+        },
+        "confirm_advanced": {
+          "name": "Bekräfta avancerad utlösare",
+          "description": "Krävs för avancerade OCPP-utlösarmeddelanden som kan begära laddardiagnostik, firmware eller startaviseringar."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet är vald."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Rensa omautentiseringsproblem",
+      "description": "Välj en Enphase-platsenhet för att rensa dess omautentiseringsproblem.",
+      "fields": {
+        "device_id": {
+          "name": "Laddare",
+          "description": "Välj Enphase-laddare vars omautentiseringsproblem ska rensas."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet är vald."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Starta live-ström",
+      "description": "Begär snabbare molnstatusuppdateringar under en kort period.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet är vald."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Stoppa live-ström",
+      "description": "Stoppa begäran om moln-live-ström.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet är vald."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Synka scheman",
+      "description": "Uppdatera Enphase-scheman från molnet.",
+      "fields": {
+        "device_id": {
+          "name": "Laddare",
+          "description": "Valfritt laddarval för en riktad synk."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Begär OTP för nätväxling",
+      "description": "Skicka engångskoden som krävs innan anläggningens nätläge ändras.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet är vald."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Ställ in nätläge",
+      "description": "Ändra anläggningens nätläge efter att engångskoden har validerats.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Nätläge",
+          "description": "Välj on_grid eller off_grid."
+        },
+        "otp": {
+          "name": "Engångskod",
+          "description": "Ange den fyrsiffriga OTP som skickades till registrerad e-post och telefon."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet är vald."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "Uppdatera CFG-schema",
+      "description": "Uppdaterar starttid, sluttid och/eller laddgräns för laddning från nätet i en enda atomisk åtgärd.",
+      "fields": {
+        "start_time": {
+          "name": "Starttid",
+          "description": "Starttid för CFG-schema."
+        },
+        "end_time": {
+          "name": "Sluttid",
+          "description": "Sluttid för CFG-schema."
+        },
+        "limit": {
+          "name": "Laddgräns",
+          "description": "Batteriets maximala laddningsnivå (%)."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Enphase plats-ID (valfritt; hämtas från målenheten)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Tvinga uppdatering",
+      "description": "Uppdatera data för batterischeman från Enphase-molnet omedelbart.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Webbplats-ID",
+          "description": "Valfri platsidentifierare; detekteras automatiskt när en platsenhet väljs."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-ID",
+          "description": "Valfri konfigurationspostidentifierare för en enda Enphase-platspost."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Lägg till batterischema",
+      "description": "Skapa ett batterischema för CFG, DTG eller RBD.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Schematyp",
+          "description": "Batterischemafamilj: cfg, dtg eller rbd."
+        },
+        "start_time": {
+          "name": "Starttid",
+          "description": "Schemats starttid."
+        },
+        "end_time": {
+          "name": "Sluttid",
+          "description": "Schemats sluttid."
+        },
+        "limit": {
+          "name": "Laddningsgräns",
+          "description": "Batteriets maximala laddningsnivå (%)."
+        },
+        "days": {
+          "name": "Dagar",
+          "description": "Lista över aktiva veckodagar med måndag=1 till söndag=7."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet väljs."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-ID",
+          "description": "Valfri identifierare för konfigurationsposten för en enskild Enphase-plats."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Uppdatera batterischema",
+      "description": "Uppdatera ett batterischema efter schema-ID.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Identifierare för ett befintligt Enphase-batterischema."
+        },
+        "schedule_type": {
+          "name": "Schematyp",
+          "description": "Batterischemafamilj: cfg, dtg eller rbd."
+        },
+        "start_time": {
+          "name": "Starttid",
+          "description": "Schemats starttid."
+        },
+        "end_time": {
+          "name": "Sluttid",
+          "description": "Schemats sluttid."
+        },
+        "limit": {
+          "name": "Laddningsgräns",
+          "description": "Batteriets maximala laddningsnivå (%)."
+        },
+        "days": {
+          "name": "Dagar",
+          "description": "Lista över aktiva veckodagar med måndag=1 till söndag=7."
+        },
+        "confirm": {
+          "name": "Bekräfta",
+          "description": "Ange true för att bekräfta schemauppdateringen."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet väljs."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-ID",
+          "description": "Valfri identifierare för konfigurationsposten för en enskild Enphase-plats."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Ta bort batterischema",
+      "description": "Ta bort ett eller flera batterischeman efter schema-ID.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Schema-ID",
+          "description": "Identifierare för ett enskilt Enphase-batterischema som ska tas bort."
+        },
+        "schedule_ids": {
+          "name": "Schema-ID:n",
+          "description": "Valfri kommaseparerad inmatning eller lista för flera schemaidentifierare."
+        },
+        "confirm": {
+          "name": "Bekräfta",
+          "description": "Ange true för att bekräfta borttagningen av schemat."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet väljs."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-ID",
+          "description": "Valfri identifierare för konfigurationsposten för en enskild Enphase-plats."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Validera batterischema",
+      "description": "Kontrollera om redigering av batterischeman är tillgänglig för den valda schemafamiljen.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerade alternativ"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Schematyp",
+          "description": "Batterischemafamilj: cfg, dtg eller rbd."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; upptäcks automatiskt när en platsenhet väljs."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-ID",
+          "description": "Valfri identifierare för konfigurationsposten för en enskild Enphase-plats."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Försök återautentisera nu",
+      "description": "Använd sparade Enphase-inloggningsuppgifter för att omedelbart försöka återautentisera den valda platsen.",
+      "fields": {
+        "device_id": {
+          "name": "Platsenheter",
+          "description": "Välj en Enphase-platsenhet att försöka återautentisera för."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; identifieras automatiskt när en platsenhet väljs."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Uppdatera tariff",
+      "description": "Uppdatera Enphase-faktureringscykel och en eller flera befintliga import- eller exporttariffavgifter.",
+      "fields": {
+        "rate": {
+          "name": "Avgift",
+          "description": "Nytt icke-negativt tariffvärde för vald tariffentitet."
+        },
+        "rate_entity": {
+          "name": "Avgiftsentitet",
+          "description": "Valfri tariffentitet att uppdatera när åtgärdens mål inte används."
+        },
+        "import_rate": {
+          "name": "Importavgift",
+          "description": "Nytt icke-negativt importtariffvärde."
+        },
+        "import_rate_entity": {
+          "name": "Importavgiftsentitet",
+          "description": "Importtariffentitet att uppdatera."
+        },
+        "export_rate": {
+          "name": "Exportavgift",
+          "description": "Nytt icke-negativt exporttariffvärde."
+        },
+        "export_rate_entity": {
+          "name": "Exportavgiftsentitet",
+          "description": "Exporttariffentitet att uppdatera."
+        },
+        "billing_start_date": {
+          "name": "Startdatum för fakturering",
+          "description": "Startdatum för faktureringsperioden i ISO-format."
+        },
+        "billing_frequency": {
+          "name": "Faktureringsfrekvens",
+          "description": "Enhet för faktureringsintervall: MONTH eller DAY."
+        },
+        "billing_interval_value": {
+          "name": "Faktureringsintervall",
+          "description": "Antal faktureringsintervaller. Använd 1-24 för månader eller 1-100 för dagar."
+        },
+        "rates": {
+          "name": "Avgifter",
+          "description": "Lista över entitets-ID:n för tariffavgifter och icke-negativa värden som ska uppdateras."
+        },
+        "site_id": {
+          "name": "Anläggnings-ID",
+          "description": "Valfritt anläggnings-ID för faktureringsuppdateringar."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-ID",
+          "description": "Valfritt konfigurationspost-ID för en enda Enphase-anläggning."
+        },
+        "tariff_payload": {
+          "name": "Tariff-payload",
+          "description": "Fullständig Enphase-tariffpayload att skriva. Använd för avancerade strukturändringar."
+        },
+        "purchase_tariff": {
+          "name": "Importtariffstruktur",
+          "description": "Ersättningsgren för importtariff med typ, säsonger, perioder, nivåer och priser."
+        },
+        "buyback_tariff": {
+          "name": "Exporttariffstruktur",
+          "description": "Ersättningsgren för exporttariff med typ, exportplan, säsonger, perioder, nivåer och priser."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "Rensa HEMS auth backoff",
+      "description": "Rensar den tillfälliga HEMS/Heat Pump-autentiseringspausen utan lösenordsinloggning.",
+      "fields": {
+        "device_id": {
+          "name": "Platsenheter",
+          "description": "Välj en Enphase-platsenhet vars HEMS auth backoff ska rensas."
+        },
+        "site_id": {
+          "name": "Plats-ID",
+          "description": "Valfri platsidentifierare; identifieras automatiskt när en enhet väljs."
+        }
+      }
+    }
+  }
+}

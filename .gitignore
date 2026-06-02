@@ -10,3 +10,10 @@ deps/
 .storage/
 .cloud/
 tts/
+.cache/
+.claude/
+.ha_run.lock
+home-assistant_v2.db.backup_*
+ocpp_cert.pem
+ocpp_key.pem
+params.txt

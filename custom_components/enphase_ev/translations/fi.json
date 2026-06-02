@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Kirjaudu sisään Enlighten-tunnuksillasi.",
+        "data": {
+          "email": "Sähköposti",
+          "password": "Salasana",
+          "remember_password": "Tallenna salasana automaattista uudelleentodennusta varten"
+        },
+        "data_description": {
+          "email": "Enlighten-tilisi sähköpostiosoite.",
+          "password": "Salasana tallennetaan vain, jos otat valintaruudun käyttöön.",
+          "remember_password": "Sallii integroinnin päivittää tunnisteet automaattisesti niiden vanhentuessa."
+        }
+      },
+      "mfa": {
+        "title": "Tarkista MFA-koodi",
+        "description": "Syötä sähköpostiisi lähetetty kertakoodi. Koodit ovat voimassa 5 minuuttia. Voit pyytää uuden koodin 30 sekunnin välein.",
+        "data": {
+          "otp": "Kertakäyttöinen koodi",
+          "resend_code": "Lähetä koodi uudelleen"
+        },
+        "data_description": {
+          "otp": "Käytä Enphase-kirjautumiskehotteen koodia.",
+          "resend_code": "Pyydä uusi koodi, jos edellinen on vanhentunut."
+        }
+      },
+      "site": {
+        "title": "Valitse Sivusto",
+        "description": "Valitse linkitettävä Enlighten-sivusto.",
+        "data": {
+          "site_id": "Sivusto"
+        }
+      },
+      "devices": {
+        "title": "Valitse laitteet",
+        "description": "Valitse lisättävät laitoryhmät. Kaikilla valinnoilla on sama kyselyväli.",
+        "data": {
+          "type_envoy": "Yhdyskäytävä",
+          "type_encharge": "Akku",
+          "type_iqevse": "Laturit",
+          "type_microinverter": "Mikroinvertterit",
+          "scan_interval": "Skannausväli (s)",
+          "type_heatpump": "Lämpöpumppu",
+          "type_ac_battery": "AC-akku"
+        },
+        "data_description": {
+          "type_envoy": "Sisältää yhdyskäytävän yhteys- ja mittaridiagnostiikan.",
+          "type_encharge": "Sisältää akkujen tilan ja ohjausentiteetit, kun ne ovat saatavilla.",
+          "type_iqevse": "Sisältää EV-laturien entiteetit ja ohjaukset.",
+          "type_microinverter": "Sisältää mikroinvertterien yhteys-, aktiivinen määrä- ja elinkaarituotannon sensorit.",
+          "scan_interval": "Pilvien tilakyselyiden väliset sekunnit. Oletus 60s.",
+          "type_heatpump": "Sisältää lämpöpumpun tila-, diagnostiikka- ja kulutusanturit.",
+          "type_ac_battery": "Sisältää AC-akun anturit ja lepotilan ohjaukset, kun ne ovat saatavilla."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Virheelliset kirjautumistiedot tai vanhentunut istunto.",
+      "cannot_connect": "Enphase-palveluun ei saada yhteyttä.",
+      "service_unavailable": "Enphase tilapäisesti poissa käytöstä. Yritä myöhemmin uudelleen.",
+      "too_many_active_sessions": "Enphase hylkäsi kirjautumisen, koska tilillä on liian monta aktiivista istuntoa. Kirjaudu ulos muista Enphase-sovelluksen tai selaimen istunnoista ja yritä myöhemmin uudelleen.",
+      "mfa_required": "Tili vaatii monivaiheisen todennuksen.",
+      "otp_required": "Syötä kertakoodi.",
+      "otp_invalid": "Virheellinen tai vanhentunut koodi. Yritä uudelleen.",
+      "otp_blocked": "Liikaa yrityksiä. Tili on väliaikaisesti estetty.",
+      "resend_wait": "Odota 30 sekuntia ennen kuin pyydät uutta koodia.",
+      "site_required": "Valitse sivusto jatkaaksesi.",
+      "site_invalid": "Sivuston tunnuksen on oltava numeerinen.",
+      "serials_required": "Valitse tai syötä vähintään yksi laturi.",
+      "serials_or_site_only_required": "Anna vähintään yksi laturi tai ota käyttöön vain sivusto -tila.",
+      "unknown": "Odottamaton virhe"
+    },
+    "abort": {
+      "already_configured": "Jo määritetty",
+      "reconfigure_successful": "Uudelleenmääritys onnistui",
+      "reauth_successful": "Uudelleentodennus onnistui",
+      "manual_mode_removed": "Vanhoja manuaalisia todennusmerkintöjä ei enää tueta. Poista integrointi ja määritä se uudelleen käyttämällä Enlighten-kirjautumista.",
+      "wrong_account": "Tämä merkintä on jo linkitetty kohteeseen {configured_label}. Poista integraatio Home Assistantista ja lisää uusi linkkiin {requested_label}."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Lataus ei onnistu, koska {name} on irrotettu ajoneuvosta."
+    },
+    "auth_required": {
+      "message": "Lataus ei onnistu, koska {name} vaatii todennuksen Enphase-sovelluksen tai RFID:n kautta."
+    },
+    "grid_control_unavailable": {
+      "message": "Verkkoohjaus ei ole käytettävissä tälle sivustolle."
+    },
+    "grid_control_blocked": {
+      "message": "Verkon ohjaus on tällä hetkellä estetty: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "Ruudukkotilan on oltava on_grid tai off_grid."
+    },
+    "grid_otp_required": {
+      "message": "OTP vaaditaan."
+    },
+    "grid_otp_invalid_format": {
+      "message": "OTP:n on oltava 4-numeroinen numeerinen koodi."
+    },
+    "grid_otp_invalid": {
+      "message": "OTP on virheellinen tai vanhentunut."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Tämän sivuston lähettilään sarjanumeroa ei voida määrittää."
+    },
+    "grid_site_required": {
+      "message": "Valitse täsmälleen yksi Enphase-sivusto."
+    },
+    "grid_site_ambiguous": {
+      "message": "Valittiin useita sivustoja ({count}). Valitse täsmälleen yksi sivusto."
+    },
+    "schedule_required": {
+      "message": "Ota käyttöön vähintään yksi aikataulu ennen kuin valitset ajastetun latauksen."
+    },
+    "charge_mode_invalid_option": {
+      "message": "Valittu lataustila ei ole käytettävissä."
+    },
+    "evse_schedule_day_required": {
+      "message": "Valitse aikataululle vähintään yksi viikonpäivä."
+    },
+    "evse_schedule_times_different": {
+      "message": "Aikataulun alku- ja loppuajan on oltava eriävät."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase hylkäsi aikataulumuutoksen."
+    },
+    "battery_schedule_overlap": {
+      "message": "Aikataulu on päällekkäinen olemassa olevan {schedule_label} kanssa. Muokkaa tai poista kyseinen aikataulu ensin käytöstä."
+    },
+    "ac_battery_unavailable": {
+      "message": "AC Battery -laitteita ei ole tällä hetkellä saatavilla."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Todennusasetukset eivät ole käytettävissä, kun Enphase-palvelu on poissa käytöstä."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Akun profiilin päivitykset eivät ole sallittuja tälle tilille."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Akun asetusten päivitykset eivät ole sallittuja tälle tilille."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Toinen akun profiilin päivitys on jo käynnissä."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Toinen akun asetusten päivitys on jo käynnissä."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Akun profiilin päivitykset eivät ole käytettävissä."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Akun asetusten päivitykset eivät ole käytettävissä."
+    },
+    "battery_updates_unavailable": {
+      "message": "Akun päivitykset eivät ole käytettävissä."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Akun päivitykset eivät ole sallittuja tälle tilille."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Akun profiilin päivitystä pyydettiin liian nopeasti. Odota ja yritä uudelleen."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Akun asetusten päivitystä pyydettiin liian nopeasti. Odota ja yritä uudelleen."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Akun kirjoitusoikeutta ei voitu vahvistaa. Päivitä ja yritä uudelleen."
+    },
+    "schedule_update_forbidden": {
+      "message": "Enphase hylkäsi aikataulun päivityksen (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Aikataulun päivitystä ei voitu todentaa. Todennu uudelleen ja yritä uudestaan."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Aikataulu on ristiriidassa olemassa olevan discharge-to-grid-aikataulun kanssa. Muokkaa tai poista kyseinen aikataulu ensin käytöstä."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Aikataulu on ristiriidassa olemassa olevan restrict-battery-discharge-aikataulun kanssa. Muokkaa tai poista kyseinen aikataulu ensin käytöstä."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Aikataulu on ristiriidassa olemassa olevan charge-from-grid-aikataulun kanssa. Muokkaa tai poista kyseinen aikataulu ensin käytöstä."
+    },
+    "schedule_update_conflict": {
+      "message": "Aikataulun päivitys on ristiriidassa olemassa olevan akun aikataulun kanssa."
+    },
+    "battery_profile_unavailable": {
+      "message": "Akun profiili ei ole käytettävissä."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Enphase hylkäsi akun profiilin päivityksen (HTTP 403 Forbidden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Akun profiilin päivitystä ei voitu todentaa. Todennu uudelleen ja yritä uudestaan."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Akun asetusten hyötykuorma ei ole käytettävissä."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Enphase hylkäsi akun asetusten päivityksen (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Akun asetusten päivitystä ei voitu todentaa. Todennu uudelleen ja yritä uudestaan."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "Full Backup -varaus on kiinteästi 100 %."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Akun varausreservi ei ole käytettävissä."
+    },
+    "savings_profile_required": {
+      "message": "Savings-profiilin on oltava aktiivinen."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Savings-profiilin asetukset eivät ole käytettävissä."
+    },
+    "battery_profile_unsupported": {
+      "message": "Valittua akun profiilia ei tueta."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "Verkosta lataamisen asetus ei ole käytettävissä."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Enphase ei ottanut verkosta lataamisen kytkintä käyttöön."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Verkosta lataamisen aikataulu ei ole käytettävissä."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "Charge-from-grid-aikataulun alku- ja loppuaikojen on oltava eri."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Enphase ei ottanut charge-from-grid-aikataulun kytkintä käyttöön."
+    },
+    "charge_from_grid_required": {
+      "message": "Verkosta lataaminen on otettava ensin käyttöön."
+    },
+    "schedule_change_pending": {
+      "message": "Aikataulumuutos odottaa Envoy-synkronointia. Odota."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "Charge-from-grid-aikataulun aika on virheellinen."
+    },
+    "schedule_api_unavailable": {
+      "message": "Aikataulu-API ei ole käytettävissä tässä asiakasversiossa."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Yhtään olemassa olevaa charge-from-grid-aikataulua ei ole käytettävissä."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Luo {schedule_label} IQ Battery -ajastimeen ennen sen käyttöönottoa."
+    },
+    "schedule_not_exposed": {
+      "message": "Enphase ei tällä hetkellä tuo {schedule_label} esiin tälle sivustolle. Odota, että aikataulun synkronointi valmistuu, päivitä ja yritä uudelleen."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "Enphase ei ottanut käyttöön {schedule_label}-kytkintä."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "ensisijainen kirjoitus hylättiin"
+    },
+    "schedule_family_times_different": {
+      "message": "{schedule_label}-aikataulun alku- ja loppuaikojen on oltava eri."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "Discharge-to-grid-aikataulun aika on virheellinen."
+    },
+    "schedule_missing": {
+      "message": "Yhtään olemassa olevaa {schedule_label_lower}-aikataulua ei ole käytettävissä."
+    },
+    "schedule_unavailable": {
+      "message": "{schedule_label}-aikataulu ei ole käytettävissä."
+    },
+    "schedule_time_invalid": {
+      "message": "{schedule_label}-aikataulun aika on virheellinen."
+    },
+    "current_schedule_time_invalid": {
+      "message": "Nykyinen {schedule_label_lower}-aikataulun aika on virheellinen."
+    },
+    "schedule_limit_range": {
+      "message": "{schedule_label}-aikataulun rajan on oltava välillä {minimum} ja {maximum}."
+    },
+    "schedule_limit_minimum": {
+      "message": "{schedule_label}-aikataulun rajan on oltava vähintään {minimum}%."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "Nykyiset aikatauluajat eivät ole käytettävissä."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "Charge-from-grid-aikataulun rajan on oltava välillä {minimum} ja {maximum}."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "Charge-from-grid-aikataulun rajan on oltava vähintään {minimum}%."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Akun sammutustaso ei ole käytettävissä."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Akun sammutustaso on virheellinen."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Akun sammutustason on oltava välillä {minimum} ja {maximum}."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Storm Alert -poistuminen ei ole käytettävissä."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Storm Alert -poistuminen epäonnistui {count} hälytyksen osalta."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Storm Guard -päivitykset eivät ole sallittuja tälle tilille."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Storm Guard -asetukset eivät ole käytettävissä."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Enphase hylkäsi Storm Guard -päivityksen (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "Storm Guard -päivitystä ei voitu todentaa. Todennu uudelleen ja yritä uudestaan."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Valittu järjestelmäprofiili ei ole käytettävissä."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Enphase hylkäsi järjestelmäprofiilin päivityksen (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "Järjestelmäprofiilin päivitystä ei voitu todentaa. Todennu uudelleen ja yritä uudestaan."
+    },
+    "system_profile_update_failed": {
+      "message": "Järjestelmäprofiilin päivitys epäonnistui."
+    },
+    "system_profile_update_network": {
+      "message": "Järjestelmäprofiilin päivitys epäonnistui verkkovirheen vuoksi. Yritä uudelleen."
+    },
+    "system_profile_update_timeout": {
+      "message": "Järjestelmäprofiilin päivitys aikakatkaistiin. Yritä uudelleen."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Lataustilan valinta ei ole käytettävissä, kun Enphase-ajastuspalvelu ei ole käytettävissä."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "Valittu AC-akun tavoitevaraustaso ei ole käytettävissä."
+    },
+    "battery_schedule_day_required": {
+      "message": "Valitse aikataululle vähintään yksi päivä."
+    },
+    "battery_schedule_times_different": {
+      "message": "Aikataulun alkamis- ja päättymisaikojen on oltava eri."
+    },
+    "battery_schedule_limit_range": {
+      "message": "Aikataulun {schedule_type} rajan on oltava välillä {minimum} ja {maximum}."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Enphase-validointipäätepiste hylkäsi aikataulun."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Akun aikataulujen muokkaus ei ole käytettävissä."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "Akun aikataulujen API ei ole käytettävissä."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Aikataulun päivittämiseen vaaditaan vahvistus."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Aikataulun poistamiseen vaaditaan vahvistus."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Virheellinen aikataulutunnus: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "Aikataulutunnusta ei löytynyt nykyisistä tiedoista: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Anna vähintään yksi poistettava aikataulutunnus."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Virheelliset aikataulutunnukset: {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Aikataulutunnuksia ei löytynyt nykyisistä tiedoista: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Enphase-validointipäätepiste hylkäsi aikataulun: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Aikataulun päivitys on ristiriidassa olemassa olevan akun aikataulun kanssa: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Tariffihinnan on oltava ei-negatiivinen luku."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Tariffihinnan kohdetta ei löytynyt uusimmista tariffitiedoista."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Tariffihinnan kohde on virheellinen."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "Tariffien kirjoitusrajapinta ei ole saatavilla."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Valitse täsmälleen yksi tariffihintaentiteetti."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Entiteetti ei ole Enphase-tariffihinta: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "OCPP-käynnistysviestiä ei tueta. Käytä jotakin näistä: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Ota lisävahvistus käyttöön lähettääksesi viestin {message}."
+    },
+    "tariff_update_required": {
+      "message": "Anna laskutustiedot tai vähintään yksi tariffihinnan päivitys."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Anna laskutuksen aloituspäivä, tiheys ja väli."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "Tariffilaskutuksen aloituspäivän on oltava kelvollinen ISO-päivä."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "Tariffilaskutuksen tiheyden on oltava MONTH tai DAY."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Tariffilaskutuksen välin on oltava välillä {minimum} ja {maximum}."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "Tariffilaskutuksen kirjoitus-API ei ole käytettävissä."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Päällekkäisiä tariffihinnan kohteita ei sallita."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Päällekkäinen tariffihintaentiteetti: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Kaikkien tariffipäivitysten on kohdistuttava samaan Enphase-kohteeseen."
+    },
+    "tariff_structure_invalid": {
+      "message": "Tariffirakenne on virheellinen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Enphase Energyn asetukset",
+        "description": "Valitse, mitä haluat tehdä tälle integraatiomerkinnälle.",
+        "menu_options": {
+          "settings": "Asetukset",
+          "migrate_envoy": "Siirrä Envoy-historia"
+        },
+        "menu_option_descriptions": {
+          "settings": "Säädä kyselyä ja toimintaa.",
+          "migrate_envoy": "Ota valitut Enphase Envoyn energiaentiteettien tunnukset käyttöön, jotta Home Assistant Energyn historia jatkuu tämän integraation alla."
+        },
+        "data": {
+          "type_envoy": "Yhdyskäytävä",
+          "type_encharge": "Akku",
+          "type_iqevse": "Laturit",
+          "type_microinverter": "Mikroinvertterit",
+          "fast_poll_interval": "Nopea kyselyväli (s)",
+          "slow_poll_interval": "Hidas kyselyväli (s)",
+          "fast_while_streaming": "Valitse nopea kysely, kun pilvivirta on aktiivinen",
+          "api_timeout": "API-aikakatkaisu (s)",
+          "nominal_voltage": "Nimellisjännite (V)",
+          "session_history_interval": "Istuntohistorian väli (min)",
+          "schedule_sync_enabled": "Ota ajoitustuki käyttöön",
+          "reauth": "Aloita uudelleentodennus",
+          "forget_password": "Unohda tallennettu salasana",
+          "type_heatpump": "Lämpöpumppu",
+          "type_ac_battery": "AC-akku",
+          "battery_schedules_enabled": "Ota akun aikataulutus käyttöön",
+          "degraded_service_repair_issues": "Ota heikentyneiden palvelujen korjaukset käyttöön"
+        },
+        "data_description": {
+          "type_envoy": "Sisältää yhdyskäytävän yhteys- ja mittaridiagnostiikan.",
+          "type_encharge": "Sisältää akkujen tilan ja ohjausentiteetit, kun ne ovat saatavilla.",
+          "type_iqevse": "Sisältää EV-laturien entiteetit ja ohjaukset.",
+          "type_microinverter": "Sisältää mikroinvertterien yhteys-, aktiivinen määrä- ja elinkaarituotannon sensorit.",
+          "fast_poll_interval": "Latauksen tai suoratoiston aikana käytettävä aikaväli.",
+          "slow_poll_interval": "Aikaväli, jota käytetään tyhjäkäynnillä.",
+          "fast_while_streaming": "Kun tämä on käytössä, nopea kysely aktiivisen pilvisuoratoiston aikana.",
+          "api_timeout": "Sekuntia ennen kuin API-pyynnöt aikakatkaistaan.",
+          "nominal_voltage": "Varajännite laturin tehoarvion laskentaan.",
+          "session_history_interval": "Minuuttia odotettavana pilvikäyttöhistorian hakujen välillä.",
+          "schedule_sync_enabled": "Hallitse Enphase-aikataulujen hallintaa",
+          "reauth": "Käynnistä kirjautumiskulku päivittääksesi valtuustiedot poistamatta integraatiota.",
+          "forget_password": "Poistaa tallennetun salasanan. Automaattista päivitystä ei enää yritetä.",
+          "type_heatpump": "Sisältää lämpöpumpun tila-, diagnostiikka- ja kulutusanturit.",
+          "type_ac_battery": "Sisältää AC-akun anturit ja lepotilan ohjaukset, kun ne ovat saatavilla.",
+          "battery_schedules_enabled": "Hallitse IQ-akun aikatauluja",
+          "degraded_service_repair_issues": "Luo Repairs-ongelmia, kun valinnaiset Enphase-palvelut ovat heikentyneet."
+        }
+      },
+      "settings": {
+        "title": "Enphase Energy -asetukset",
+        "description": "Säädä äänestystä ja käyttäytymistä.",
+        "data": {
+          "type_envoy": "Yhdyskäytävä",
+          "type_encharge": "Akku",
+          "type_iqevse": "Laturit",
+          "type_microinverter": "Mikroinvertterit",
+          "fast_poll_interval": "Nopea kyselyväli (s)",
+          "slow_poll_interval": "Hidas kyselyväli (s)",
+          "fast_while_streaming": "Valitse nopea kysely, kun pilvivirta on aktiivinen",
+          "api_timeout": "API-aikakatkaisu (s)",
+          "nominal_voltage": "Nimellisjännite (V)",
+          "session_history_interval": "Istuntohistorian väli (min)",
+          "schedule_sync_enabled": "Ota ajoitustuki käyttöön",
+          "reauth": "Aloita uudelleentodennus",
+          "forget_password": "Unohda tallennettu salasana",
+          "type_heatpump": "Lämpöpumppu",
+          "type_ac_battery": "AC-akku",
+          "battery_schedules_enabled": "Ota akun aikataulutus käyttöön",
+          "degraded_service_repair_issues": "Ota heikentyneiden palvelujen korjaukset käyttöön"
+        },
+        "data_description": {
+          "type_envoy": "Sisältää yhdyskäytävän yhteys- ja mittaridiagnostiikan.",
+          "type_encharge": "Sisältää akkujen tilan ja ohjausentiteetit, kun ne ovat saatavilla.",
+          "type_iqevse": "Sisältää EV-laturien entiteetit ja ohjaukset.",
+          "type_microinverter": "Sisältää mikroinvertterien yhteys-, aktiivinen määrä- ja elinkaarituotannon sensorit.",
+          "fast_poll_interval": "Latauksen tai suoratoiston aikana käytettävä aikaväli.",
+          "slow_poll_interval": "Aikaväli, jota käytetään tyhjäkäynnillä.",
+          "fast_while_streaming": "Kun tämä on käytössä, nopea kysely aktiivisen pilvisuoratoiston aikana.",
+          "api_timeout": "Sekuntia ennen kuin API-pyynnöt aikakatkaistaan.",
+          "nominal_voltage": "Varajännite laturin tehoarvion laskentaan.",
+          "session_history_interval": "Minuuttia odotettavana pilvikäyttöhistorian hakujen välillä.",
+          "schedule_sync_enabled": "Hallitse Enphase-aikataulujen hallintaa",
+          "reauth": "Käynnistä kirjautumiskulku päivittääksesi valtuustiedot poistamatta integraatiota.",
+          "forget_password": "Poistaa tallennetun salasanan. Automaattista päivitystä ei enää yritetä.",
+          "type_heatpump": "Sisältää lämpöpumpun tila-, diagnostiikka- ja kulutusanturit.",
+          "type_ac_battery": "Sisältää AC-akun anturit ja lepotilan ohjaukset, kun ne ovat saatavilla.",
+          "battery_schedules_enabled": "Hallitse IQ-akun aikatauluja",
+          "degraded_service_repair_issues": "Luo Repairs-ongelmia, kun valinnaiset Enphase-palvelut ovat heikentyneet."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Valitse Envoy-lähde",
+        "description": "Valitse, mistä Enphase Envoy -merkinnästä siirretään.",
+        "data": {
+          "selected_envoy_source": "Envoy-lähde"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Siirrä Envoy-historia",
+        "description": "Tämä ohjattu toiminto siirtää valitut Enphase Envoyn energiaentiteettien tunnukset vastaaville Enphase Energyn sensoreille.\n\nHome Assistant Energyn historia on sidottu entiteettitunnukseen, jota käytetään pitkän aikavälin tilastoissa.\n\nLuo täydellinen Home Assistant -varmuuskopio ennen jatkamista.\n\nSiirrä vain antureita, jotka edustavat samaa kumulatiivista energian kokonaissummaa.\n\nValittu Envoy-integraatio poistetaan tilapäisesti käytöstä entiteettitunnusten uudelleenmäärityksen ajaksi ja palautetaan siirron jälkeen.\n\nTämä päivittää entiteettirekisterin, eikä muutosta voi perua automaattisesti.\n\nValittu Envoy-lähde: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Minulla on tuore Home Assistant -varmuuskopio"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Yhdistä historiatunnistimet",
+        "description": "Tarkista ehdotetut yhdistykset huolellisesti. Vain yhteensopivat kumulatiiviset energiasummat näytetään. Tyhjät kentät ohitetaan.\n\nJos ehdotus on väärä tai epäselvä, tyhjennä se ja valitse käsin.",
+        "data": {
+          "solar_production": "Aurinkotuotanto",
+          "consumption": "Kulutus",
+          "grid_import": "Verkko-tuonti",
+          "grid_export": "Verkko-vienti",
+          "battery_charge": "Akun lataus",
+          "battery_discharge": "Akun purku"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Määritä kumulatiivinen akun latauksen kokonaismäärä Enphase Energy Site Battery Charge -anturille. Älä valitse päivittäistä energiaa tai reaaliaikaista tehoa.",
+          "battery_discharge": "Määritä kumulatiivinen akun purkauksen kokonaismäärä Enphase Energy Site Battery Discharge -anturille. Älä valitse päivittäistä energiaa tai reaaliaikaista tehoa."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Vahvista Envoy-historian siirto",
+        "description": "Valitut lähde-entiteetit nimetään uudelleen arkistoiduiksi vanhoiksi entiteettitunnuksiksi.\n\nEnphase Energy -entiteetit nimetään sen jälkeen alkuperäisiksi lähde-entiteettien tunnuksiksi.\n\nJos jokin yhdistys on väärä, peruuta nyt. Varmuuskopiosta palauttaminen on turvallisin tapa peruuttaa muutos.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Ymmärrän, että valitut lähde-entiteettien tunnukset määritetään uudelleen",
+          "disable_archived_envoy_sensors": "Poista arkistoidut lähdetunnistimet käytöstä siirron jälkeen"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Valitse tai syötä vähintään yksi laturi.",
+      "backup_required": "On erittäin suositeltavaa luoda täydellinen varmuuskopio ennen jatkamista.",
+      "confirm_required": "Vahvista ennen jatkamista, että valitut lähde-entiteettien tunnukset määritetään uudelleen.",
+      "migration_no_selection": "Valitse vähintään yksi yhteensopiva energiatunnistin siirrettäväksi.",
+      "migration_duplicate_selection": "Samaa lähde-entiteettiä ei voi käyttää useammin kuin kerran.",
+      "envoy_entry_loaded": "Envoy-integraatiota ei voitu poistaa tilapäisesti käytöstä siirtoa varten.",
+      "incompatible_energy_total": "Valitut entiteetit eivät ole yhteensopivia kumulatiivisia energiasummia."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Yhtään Enphase Envoy -energia-anturia ei ole saatavilla siirtoon.",
+      "migration_no_targets": "Yhtään yhteensopivaa Enphase Energy -anturia ei ole saatavilla siirtoon.",
+      "migration_partial_failure": "Siirto pysähtyi osittaisen valmistumisen jälkeen.\n\nValmiit yhdistelmät:\n{completed_mappings}\n\nVirhe käsiteltäessä `{failed_entity_id}`: {failure_reason}\n\nPalauta varmuuskopiosta, jos tulos ei ole hyväksyttävä."
+    },
+    "create_entry": {
+      "migration_success": "Siirto valmis. Enphase Energy omistaa nyt valitut lähde-entiteettien tunnukset. Tarkista seuraavan päivityksen jälkeen Energy-koontinäyttö ja Developer Tools > Statistics.",
+      "migration_success_reload_needed": "Siirto valmistui, mutta yhtä tai useampaa integraatiota ei voitu ladata automaattisesti uudelleen. Lataa tarvittaessa Enphase Energy ja Enphase Envoy käsin uudelleen ja tarkista sitten Energy-koontinäyttö ja Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Viimeinen istunto",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Kulutettu energia (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Kulutettu energia (kWh)"
+          },
+          "session_cost": {
+            "name": "Istunnon kustannukset"
+          },
+          "session_charge_level": {
+            "name": "Istuntomaksun taso"
+          },
+          "range_added": {
+            "name": "Alue lisätty"
+          },
+          "plugged_in_at": {
+            "name": "Kytketty sisään klo"
+          },
+          "plugged_out_at": {
+            "name": "Kytketty pois klo"
+          },
+          "session_duration_min": {
+            "name": "Istunnon kesto (min)"
+          },
+          "session_id": {
+            "name": "Istuntotunnus"
+          },
+          "session_started_at": {
+            "name": "Istunto alkoi klo"
+          },
+          "session_ended_at": {
+            "name": "Istunto päättyi klo"
+          },
+          "active_charge_time_s": {
+            "name": "Aktiivinen latausaika (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Keskihinta per kWh"
+          },
+          "cost_calculated": {
+            "name": "Kustannukset laskettu"
+          },
+          "session_cost_state": {
+            "name": "Istunnon kustannustila"
+          },
+          "manual_override": {
+            "name": "Manuaalinen ohitus"
+          },
+          "charge_profile_stack_level": {
+            "name": "Lataa profiilin pinon taso"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Liittimen tila",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Tilan syy"
+          },
+          "connector_status_info": {
+            "name": "Liittimen tilatiedot"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Liittimen syy"
+      },
+      "electrical_phase": {
+        "name": "Sähkövaihe",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Vaihetila (raaka)"
+          },
+          "dlb_enabled": {
+            "name": "Dynaaminen kuormituksen tasapainotus käytössä"
+          },
+          "dlb_active": {
+            "name": "Dynaaminen kuormituksen tasapainotus aktiivinen"
+          }
+        }
+      },
+      "power": {
+        "name": "Tehoa",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Viimeinen käyttöikä kWh"
+          },
+          "last_energy_ts": {
+            "name": "Viimeisen energian aikaleima"
+          },
+          "last_sample_ts": {
+            "name": "Viimeinen näyteaikaleima"
+          },
+          "last_power_w": {
+            "name": "Viimeinen teho (W)"
+          },
+          "last_window_seconds": {
+            "name": "Viimeiset ikkunat"
+          },
+          "method": {
+            "name": "Menetelmä"
+          },
+          "charging": {
+            "name": "Lataus"
+          },
+          "operating_v": {
+            "name": "Käyttöjännite (V)"
+          },
+          "max_throughput_w": {
+            "name": "Suurin suorituskyky (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Suurin suorituskyky (rajoittamaton W)"
+          },
+          "max_throughput_source": {
+            "name": "Suurin teholähde"
+          },
+          "max_throughput_amps": {
+            "name": "Suurin suoritusteho ampeeri"
+          },
+          "max_throughput_voltage": {
+            "name": "Suurin läpimenojännite (V)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Lataustila",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Ampeeriohjaus käytettävissä"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Ampeereja ohjaava tila"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Tilat, joissa ampeeriohjaus on käytössä"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Laturin todennus",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "Sovelluksen todennus käytössä"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID-todennus käytössä"
+          },
+          "app_auth_supported": {
+            "name": "Sovelluksen todennus tuettu"
+          },
+          "rfid_auth_supported": {
+            "name": "RFID-todennus tuettu"
+          }
+        },
+        "state": {
+          "enabled": "Käytössä",
+          "disabled": "Ei käytössä"
+        }
+      },
+      "set_amps": {
+        "name": "Aseta vahvistimet",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimi ampeeri"
+          },
+          "max_amp": {
+            "name": "Maksimi ampeeri"
+          },
+          "max_current": {
+            "name": "Piiriampeerien enimmäismäärä"
+          },
+          "amp_granularity": {
+            "name": "Vahvistimen rakeisuus"
+          }
+        }
+      },
+      "status": {
+        "name": "Laturin tila",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Tilattu"
+          },
+          "charger_problem": {
+            "name": "Laturi ongelma"
+          },
+          "suspended_by_evse": {
+            "name": "EVSE:n keskeyttämä"
+          },
+          "offline_since": {
+            "name": "Offline alkaen"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Viimeinen onnistunut päivitys",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Viimeinen epäonnistuminen (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Viimeisen epäonnistumisen tila"
+          },
+          "code_description": {
+            "name": "Koodi Kuvaus"
+          },
+          "last_failure_response": {
+            "name": "Viimeinen epäonnistumisvastaus"
+          },
+          "last_failure_source": {
+            "name": "Viimeisen epäonnistumisen lähde"
+          },
+          "backoff_ends_utc": {
+            "name": "Peruutus päättyy (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Pilviviive"
+      },
+      "current_production_power": {
+        "name": "Nykyinen tuotantoteho",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "source": {
+            "name": "Lähde"
+          },
+          "reported_units": {
+            "name": "Ilmoitetut yksiköt"
+          },
+          "reported_precision": {
+            "name": "Ilmoitettu tarkkuus"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Pilvivirhekoodi",
+        "state": {
+          "none": "Ei mitään",
+          "rate_limited": "Kutsutiheyttä rajoitettu",
+          "auth_blocked": "Todennus on tilapäisesti estetty",
+          "authentication_error": "Todennusvirhe",
+          "request_error": "Pyyntövirhe",
+          "service_unavailable": "Palvelu ei ole käytettävissä",
+          "invalid_payload": "Virheellinen pilvivastaus",
+          "dns_error": "DNS-virhe",
+          "network_error": "Verkkovirhe"
+        }
+      },
+      "site_service_status": {
+        "name": "Palvelun tila",
+        "state": {
+          "ok": "Kunnossa",
+          "unknown": "Tuntematon",
+          "degraded": "Heikentynyt"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Heikentyneet palvelut"
+          },
+          "degraded_endpoint_families": {
+            "name": "Heikentyneet päätepisteryhmät"
+          },
+          "degraded_service_count": {
+            "name": "Heikentyneiden palvelujen määrä"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Heikentyneiden päätepisteryhmien määrä"
+          },
+          "metrics_available": {
+            "name": "Mittarit saatavilla"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Cloud Backoff päättyy",
+        "state": {
+          "none": "Ei mitään"
+        }
+      },
+      "last_reported": {
+        "name": "Viimeksi raportoitu klo",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Raportointiväli(t)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Istuntomailit"
+      },
+      "session_plug_in_at": {
+        "name": "Session Plug-in klo"
+      },
+      "session_plug_out_at": {
+        "name": "Session Plug-out klo"
+      },
+      "schedule_type": {
+        "name": "Aikataulun tyyppi"
+      },
+      "schedule_start": {
+        "name": "Aikataulu aloitus"
+      },
+      "schedule_end": {
+        "name": "Aikataulu päättyy"
+      },
+      "lifetime_energy": {
+        "name": "Elinikäinen energia",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Viimeisin nollausarvo"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Aurinkoenergian tuotantosivusto",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Sivuston kulutus",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Sivustoruudukon tuonti",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Nykyinen verkkoteho",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Viimeisin virtaus kWh"
+          },
+          "last_energy_ts": {
+            "name": "Viimeisen energian aikaleima"
+          },
+          "last_sample_ts": {
+            "name": "Viimeinen näyteaikaleima"
+          },
+          "last_power_w": {
+            "name": "Viimeinen teho (W)"
+          },
+          "last_window_seconds": {
+            "name": "Viimeiset ikkunat"
+          },
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          },
+          "method": {
+            "name": "Menetelmä"
+          },
+          "source_flows": {
+            "name": "Lähdevirtaukset"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Sivustoruudukon vienti",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Sivuston akun lataus",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Sivuston akun purkautuminen",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Nykyinen akun teho",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Viimeisin virtaus kWh"
+          },
+          "last_energy_ts": {
+            "name": "Viimeisen energian aikaleima"
+          },
+          "last_sample_ts": {
+            "name": "Viimeinen näyteaikaleima"
+          },
+          "last_power_w": {
+            "name": "Viimeinen teho (W)"
+          },
+          "last_window_seconds": {
+            "name": "Viimeiset ikkunat"
+          },
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          },
+          "method": {
+            "name": "Menetelmä"
+          },
+          "source_flows": {
+            "name": "Lähdevirtaukset"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Myrskyvartija"
+      },
+      "storm_alert": {
+        "name": "Myrskyhälytys",
+        "state": {
+          "active": "Aktiivinen",
+          "inactive": "Ei-aktiivinen"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Myrskyhälytys aktiivinen"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Järjestelmäprofiilin tila",
+        "state": {
+          "pending": "Odottaa"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Tehokas profiili"
+          },
+          "effective_profile_label": {
+            "name": "Tehokas profiilitarra"
+          },
+          "effective_reserve_percentage": {
+            "name": "Todellinen varaus (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Tehokas toimintatilan alatyyppi"
+          },
+          "requested_profile": {
+            "name": "Pyydetty profiili"
+          },
+          "requested_profile_label": {
+            "name": "Pyydetyt profiilitunnisteet"
+          },
+          "requested_reserve_percentage": {
+            "name": "Pyydetty varaus (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Pyydetyn toimintatilan alatyyppi"
+          },
+          "pending": {
+            "name": "Odottaa"
+          },
+          "pending_requested_at": {
+            "name": "Odottaa Pyydetty klo"
+          },
+          "selected_profile": {
+            "name": "Valittu profiili"
+          },
+          "selected_profile_label": {
+            "name": "Valittu profiilitunniste"
+          },
+          "selected_reserve_percentage": {
+            "name": "Valittu varaus (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Valittu toimintatilan alatyyppi"
+          },
+          "available_profile_keys": {
+            "name": "Käytettävissä olevat profiiliavaimet"
+          },
+          "available_profile_labels": {
+            "name": "Käytettävissä olevat profiilitarrat"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Akkutila",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Raakatila"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Lataus sähköverkosta sallittu"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Purkaus sähköverkkoon sallittu"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Akun lataustaso"
+      },
+      "battery_overall_charge": {
+        "name": "Akun kokonaislataus"
+      },
+      "battery_overall_status": {
+        "name": "Akun yleinen tila",
+        "state": {
+          "normal": "Normaali",
+          "warning": "Varoitus",
+          "error": "Virhe",
+          "unknown": "Tuntematon"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Akun CFG-aikataulun tila",
+        "state": {
+          "none": "Ei mitään",
+          "pending": "Odottaa",
+          "active": "Aktiivinen"
+        }
+      },
+      "grid_control_status": {
+        "name": "Verkon ohjauksen tila",
+        "state": {
+          "ready": "Valmis",
+          "blocked": "Estetty",
+          "pending": "Odottaa"
+        }
+      },
+      "grid_mode": {
+        "name": "Ruudukkotila",
+        "state": {
+          "on_grid": "Gridillä",
+          "off_grid": "Pois ruudukosta",
+          "unknown": "Tuntematon"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Akun käytettävissä oleva energia"
+      },
+      "battery_available_power": {
+        "name": "Akun käytettävissä oleva teho"
+      },
+      "battery_storage_status": {
+        "name": "{serial} tila",
+        "state": {
+          "charging": "Lataa",
+          "discharging": "Purkaa",
+          "idle": "Joutokäynti",
+          "unknown": "Tuntematon"
+        }
+      },
+      "battery_storage_health": {
+        "name": "{serial} kunto"
+      },
+      "battery_storage_cycle_count": {
+        "name": "{serial} syklien määrä"
+      },
+      "battery_storage_last_reported": {
+        "name": "{serial} viimeksi raportoitu"
+      },
+      "battery_last_reported": {
+        "name": "Akku viimeksi raportoitu"
+      },
+      "system_controller_inventory": {
+        "name": "Järjestelmän ohjain"
+      },
+      "gateway_production_meter": {
+        "name": "Tuotantomittari"
+      },
+      "gateway_consumption_meter": {
+        "name": "Kulutusmittari"
+      },
+      "gateway_connectivity_status": {
+        "name": "Yhdyskäytävän tila"
+      },
+      "gateway_last_reported": {
+        "name": "Gateway viimeksi raportoitu"
+      },
+      "tariff_billing_cycle": {
+        "name": "Seuraava laskutuspaiva",
+        "state_attributes": {
+          "start_date": {
+            "name": "Aloituspaiva"
+          },
+          "billing_frequency": {
+            "name": "Laskutustiheys"
+          },
+          "billing_interval_value": {
+            "name": "Laskutusvalin arvo"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Laskutusjakso"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Tuontitariffi",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "seasons": {
+            "name": "Kaudet"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Tuontitariffi {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "season_id": {
+            "name": "Kauden tunnus"
+          },
+          "start_month": {
+            "name": "Aloituskuukausi"
+          },
+          "end_month": {
+            "name": "Päättymiskuukausi"
+          },
+          "day_group_id": {
+            "name": "Päiväryhmän tunnus"
+          },
+          "days": {
+            "name": "Päivät"
+          },
+          "period_id": {
+            "name": "Jakson tunnus"
+          },
+          "period_type": {
+            "name": "Jakson tyyppi"
+          },
+          "start_time": {
+            "name": "Aloitusaika"
+          },
+          "end_time": {
+            "name": "Päättymisaika"
+          },
+          "rate": {
+            "name": "Hinta"
+          },
+          "formatted_rate": {
+            "name": "Muotoiltu hinta"
+          },
+          "tier_id": {
+            "name": "Portaan tunnus"
+          },
+          "start_value": {
+            "name": "Alkuarvo"
+          },
+          "end_value": {
+            "name": "Loppuarvo"
+          },
+          "unbounded": {
+            "name": "Ilman ylärajaa"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariffin paikannin"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Vientitariffi",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "export_plan": {
+            "name": "Vientisuunnitelma"
+          },
+          "seasons": {
+            "name": "Kaudet"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Vientitariffi {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "export_plan": {
+            "name": "Vientisuunnitelma"
+          },
+          "season_id": {
+            "name": "Kauden tunnus"
+          },
+          "start_month": {
+            "name": "Aloituskuukausi"
+          },
+          "end_month": {
+            "name": "Päättymiskuukausi"
+          },
+          "day_group_id": {
+            "name": "Päiväryhmän tunnus"
+          },
+          "days": {
+            "name": "Päivät"
+          },
+          "period_id": {
+            "name": "Jakson tunnus"
+          },
+          "period_type": {
+            "name": "Jakson tyyppi"
+          },
+          "start_time": {
+            "name": "Aloitusaika"
+          },
+          "end_time": {
+            "name": "Päättymisaika"
+          },
+          "rate": {
+            "name": "Hinta"
+          },
+          "formatted_rate": {
+            "name": "Muotoiltu hinta"
+          },
+          "tier_id": {
+            "name": "Portaan tunnus"
+          },
+          "start_value": {
+            "name": "Alkuarvo"
+          },
+          "end_value": {
+            "name": "Loppuarvo"
+          },
+          "unbounded": {
+            "name": "Ilman ylärajaa"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariffin paikannin"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Mikroinvertterien yhteystila"
+      },
+      "microinverter_reporting_count": {
+        "name": "Aktiiviset mikroinvertterit"
+      },
+      "microinverter_last_reported": {
+        "name": "Mikroinvertterien viimeisin raportti"
+      },
+      "site_evse_charging": {
+        "name": "Kohteen EVSE-lataus",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Kohteen lämpöpumpun kulutus",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Kohteen vedenlämmittimen kulutus",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Näyte otettu (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Viimeinen nollaus klo"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ-energi reititin_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Lämpöpumpun tila"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Lämpöpumpun energiamittari"
+      },
+      "heat_pump_last_reported": {
+        "name": "Lämpöpumpun viimeisin raportti"
+      },
+      "heat_pump_power": {
+        "name": "Lämpöpumpun teho"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Lämpöpumpun tila"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "Lämpöpumpun SG-Ready-yhdyskäytävä"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Lämpöpumpun päivittäinen energia"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Lämpöpumpun päivittäinen verkkenergia"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Lämpöpumpun päivittäinen aurinkoenergia"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Lämpöpumpun päivittäinen akkuenergia"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Lämpöpumpun SG-Ready-yhdyskäytävän tila"
+      },
+      "shared_labels": {
+        "name": "Yhteiset tunnisteet",
+        "state": {
+          "self_consumption": "Omakulutus",
+          "cost_savings": "Säästö",
+          "ai_optimisation": "Tekoälyoptimointi",
+          "backup_only": "Täysi varavoima",
+          "importexport": "Tuonti ja vienti",
+          "importonly": "Vain tuonti",
+          "exportonly": "Vain vienti",
+          "manual_charging": "Manuaalinen",
+          "scheduled_charging": "Ajastettu",
+          "green_charging": "Vihreä",
+          "smart_charging": "Älykäs",
+          "online": "Verkossa",
+          "offline": "Offline",
+          "degraded": "Heikentynyt",
+          "not_reporting": "Ei raportoi",
+          "inactive": "Inaktiivinen",
+          "normal": "Normaali",
+          "warning": "Varoitus",
+          "error": "Virhe",
+          "unknown": "Tuntematon",
+          "unpaired": "Ei paritettu",
+          "pairing": "Pariliitos"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "AC-akun kokonaistila",
+        "state": {
+          "charging": "Lataa",
+          "discharging": "Purkaa",
+          "idle": "Joutokäynti",
+          "unknown": "Tuntematon"
+        }
+      },
+      "ac_battery_power": {
+        "name": "AC-akun teho"
+      },
+      "ac_battery_last_reported": {
+        "name": "AC-akun viimeisin raportti"
+      },
+      "ac_battery_storage_charge": {
+        "name": "AC-akun varaustaso"
+      },
+      "ac_battery_storage_status": {
+        "name": "{serial} tila",
+        "state": {
+          "charging": "Lataa",
+          "discharging": "Purkaa",
+          "idle": "Joutokäynti",
+          "unknown": "Tuntematon"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "{serial} teho"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "{serial} toimintatila"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "{serial} syklien määrä"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "{serial} viimeksi raportoitu"
+      },
+      "battery_cfg_schedules": {
+        "name": "Akun CFG-aikataulut"
+      },
+      "battery_dtg_schedules": {
+        "name": "Akun DTG-aikataulut"
+      },
+      "battery_rbd_schedules": {
+        "name": "Akun RBD-aikataulut"
+      },
+      "battery_schedule_summary": {
+        "name": "Akun aikataulujen yhteenveto"
+      },
+      "tariff_current_import_rate": {
+        "name": "Nykyinen tuontihinta",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "season_id": {
+            "name": "Kauden tunnus"
+          },
+          "start_month": {
+            "name": "Aloituskuukausi"
+          },
+          "end_month": {
+            "name": "Päättymiskuukausi"
+          },
+          "day_group_id": {
+            "name": "Päiväryhmän tunnus"
+          },
+          "days": {
+            "name": "Päivät"
+          },
+          "period_id": {
+            "name": "Jakson tunnus"
+          },
+          "period_type": {
+            "name": "Jakson tyyppi"
+          },
+          "start_time": {
+            "name": "Aloitusaika"
+          },
+          "end_time": {
+            "name": "Päättymisaika"
+          },
+          "rate": {
+            "name": "Hinta"
+          },
+          "formatted_rate": {
+            "name": "Muotoiltu hinta"
+          },
+          "tier_id": {
+            "name": "Portaan tunnus"
+          },
+          "start_value": {
+            "name": "Alkuarvo"
+          },
+          "end_value": {
+            "name": "Loppuarvo"
+          },
+          "unbounded": {
+            "name": "Ilman ylärajaa"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariffin paikannin"
+          },
+          "active_rate_name": {
+            "name": "Aktiivisen hinnan nimi"
+          },
+          "configured_rates": {
+            "name": "Määritetyt hinnat"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Nykyinen vientihinta",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "export_plan": {
+            "name": "Vientisuunnitelma"
+          },
+          "season_id": {
+            "name": "Kauden tunnus"
+          },
+          "start_month": {
+            "name": "Aloituskuukausi"
+          },
+          "end_month": {
+            "name": "Päättymiskuukausi"
+          },
+          "day_group_id": {
+            "name": "Päiväryhmän tunnus"
+          },
+          "days": {
+            "name": "Päivät"
+          },
+          "period_id": {
+            "name": "Jakson tunnus"
+          },
+          "period_type": {
+            "name": "Jakson tyyppi"
+          },
+          "start_time": {
+            "name": "Aloitusaika"
+          },
+          "end_time": {
+            "name": "Päättymisaika"
+          },
+          "rate": {
+            "name": "Hinta"
+          },
+          "formatted_rate": {
+            "name": "Muotoiltu hinta"
+          },
+          "tier_id": {
+            "name": "Portaan tunnus"
+          },
+          "start_value": {
+            "name": "Alkuarvo"
+          },
+          "end_value": {
+            "name": "Loppuarvo"
+          },
+          "unbounded": {
+            "name": "Ilman ylärajaa"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariffin paikannin"
+          },
+          "active_rate_name": {
+            "name": "Aktiivisen hinnan nimi"
+          },
+          "configured_rates": {
+            "name": "Määritetyt hinnat"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Latausvahvistimet"
+      },
+      "battery_reserve": {
+        "name": "Akun varaus"
+      },
+      "battery_shutdown_level": {
+        "name": "Akun sammutustaso"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Akun latausraja"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Verkkoon purkamisen raja"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Akun purkauksen rajoitusraja"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Uuden akun aikataulun raja"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Akun aikataulun raja"
+      },
+      "tariff_import_rate_value": {
+        "name": "Tuontitariffi {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "season_id": {
+            "name": "Kauden tunnus"
+          },
+          "start_month": {
+            "name": "Aloituskuukausi"
+          },
+          "end_month": {
+            "name": "Päättymiskuukausi"
+          },
+          "day_group_id": {
+            "name": "Päiväryhmän tunnus"
+          },
+          "days": {
+            "name": "Päivät"
+          },
+          "period_id": {
+            "name": "Jakson tunnus"
+          },
+          "period_type": {
+            "name": "Jakson tyyppi"
+          },
+          "start_time": {
+            "name": "Aloitusaika"
+          },
+          "end_time": {
+            "name": "Päättymisaika"
+          },
+          "rate": {
+            "name": "Hinta"
+          },
+          "formatted_rate": {
+            "name": "Muotoiltu hinta"
+          },
+          "tier_id": {
+            "name": "Portaan tunnus"
+          },
+          "start_value": {
+            "name": "Alkuarvo"
+          },
+          "end_value": {
+            "name": "Loppuarvo"
+          },
+          "unbounded": {
+            "name": "Ilman ylärajaa"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariffin paikannin"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Vientitariffi {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tariffirakenne"
+          },
+          "variation_type": {
+            "name": "Vaihtelutyyppi"
+          },
+          "source": {
+            "name": "Laehde"
+          },
+          "currency": {
+            "name": "Valuutta"
+          },
+          "export_plan": {
+            "name": "Vientisuunnitelma"
+          },
+          "season_id": {
+            "name": "Kauden tunnus"
+          },
+          "start_month": {
+            "name": "Aloituskuukausi"
+          },
+          "end_month": {
+            "name": "Päättymiskuukausi"
+          },
+          "day_group_id": {
+            "name": "Päiväryhmän tunnus"
+          },
+          "days": {
+            "name": "Päivät"
+          },
+          "period_id": {
+            "name": "Jakson tunnus"
+          },
+          "period_type": {
+            "name": "Jakson tyyppi"
+          },
+          "start_time": {
+            "name": "Aloitusaika"
+          },
+          "end_time": {
+            "name": "Päättymisaika"
+          },
+          "rate": {
+            "name": "Hinta"
+          },
+          "formatted_rate": {
+            "name": "Muotoiltu hinta"
+          },
+          "tier_id": {
+            "name": "Portaan tunnus"
+          },
+          "start_value": {
+            "name": "Alkuarvo"
+          },
+          "end_value": {
+            "name": "Loppuarvo"
+          },
+          "unbounded": {
+            "name": "Ilman ylärajaa"
+          },
+          "last_refresh_utc": {
+            "name": "Viimeisin paivitys (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tariffin paikannin"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Kytketty verkkoon"
+      },
+      "charging": {
+        "name": "Lataus"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "Lämpöpumpun SG-Ready aktiivinen"
+      },
+      "cloud_reachable": {
+        "name": "Pilvi tavoitettavissa"
+      },
+      "connected": {
+        "name": "Yhteydet",
+        "state_attributes": {
+          "connection": {
+            "name": "Yhteys"
+          },
+          "ip_address": {
+            "name": "IP-osoite"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Lataus"
+      },
+      "green_battery": {
+        "name": "Käytä akkua sähköauton lataamiseen"
+      },
+      "app_authentication": {
+        "name": "Todennus sovelluksen kautta"
+      },
+      "storm_guard": {
+        "name": "Myrskyvartija"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV-lataus"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Käytä akkua ruuhka-aikojen jälkeen"
+      },
+      "charge_from_grid": {
+        "name": "Lataa akkua sähköverkosta"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Sähköverkkolatauksen aikataulu"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Aikataulu verkkoon purkamiselle"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Akun purkauksen rajoitusaikataulu"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "AC-akun lepotila"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Maanantain aikataulu"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Tiistain aikataulu"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Keskiviikon aikataulu"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Torstain aikataulu"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Perjantain aikataulu"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Lauantain aikataulu"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Sunnuntain aikataulu"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Uusi akun aikataulu maanantai"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Uusi akun aikataulu tiistai"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Uusi akun aikataulu keskiviikko"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Uusi akun aikataulu torstai"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Uusi akun aikataulu perjantai"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Uusi akun aikataulu lauantai"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Uusi akun aikataulu sunnuntai"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Akun aikataulu maanantai"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Akun aikataulu tiistai"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Akun aikataulu keskiviikko"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Akun aikataulu torstai"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Akun aikataulu perjantai"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Akun aikataulu lauantai"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Akun aikataulu sunnuntai"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Lataustila"
+      },
+      "system_profile": {
+        "name": "Järjestelmäprofiili"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "AC-akun tavoitevaraustaso"
+      },
+      "evse_schedule_selected": {
+        "name": "Aikataulu"
+      },
+      "battery_new_schedule_type": {
+        "name": "Akun aikataulun tyyppi"
+      },
+      "battery_schedule_selected": {
+        "name": "Akun aikataulu"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Aloita lataus"
+      },
+      "stop_charging": {
+        "name": "Lopeta lataaminen"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Peruuta odottava profiilimuutos"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Pyydä ruudukon OTP:tä"
+      },
+      "storm_alert_opt_out": {
+        "name": "Poista myrskyhälytys käytöstä"
+      },
+      "evse_schedule_refresh": {
+        "name": "Aikataulun päivitys"
+      },
+      "evse_schedule_save": {
+        "name": "Aikataulun tallennus"
+      },
+      "evse_schedule_delete": {
+        "name": "Aikataulun poisto"
+      },
+      "evse_schedule_add": {
+        "name": "Luo uusi aikataulu"
+      },
+      "battery_schedule_add": {
+        "name": "Lisää akun aikataulu"
+      },
+      "battery_schedule_delete": {
+        "name": "Poista akun aikataulu"
+      },
+      "battery_schedule_refresh": {
+        "name": "Päivitä akun aikataulu"
+      },
+      "battery_schedule_save": {
+        "name": "Tallenna akun aikataulu"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Sähköverkkolatauksen aloitusaika"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Sähköverkkolatauksen lopetusaika"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Verkkoon purkamisen aloitusaika"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Verkkoon purkamisen päättymisaika"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Akun purkauksen rajoituksen aloitusaika"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Akun purkauksen rajoituksen päättymisaika"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Aikataulun alkamisaika"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Aikataulun päättymisaika"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Uuden akun aikataulun aloitusaika"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Uuden akun aikataulun päättymisaika"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Akun aikataulun aloitusaika"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Akun aikataulun päättymisaika"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Varmennushistoria"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Yhdyskäytävän laiteohjelmisto"
+      },
+      "charger_firmware": {
+        "name": "Laiteohjelmisto"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Enphase-kohde {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Aloita lataaminen",
+      "stop_charging": "Lopeta lataaminen"
+    },
+    "trigger_type": {
+      "charging_started": "Lataus alkoi",
+      "charging_stopped": "Lataus pysähtyi",
+      "plugged_in": "kytkettynä",
+      "unplugged": "Irrotettu"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy tarvitsee uudelleentodennuksen",
+      "description": "Sivusto {site_id} vaatii päivitetyt istunnon otsikot. Ole hyvä ja todenna uudelleen."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Enphase näyttää estävän sivuston {site_id} todennuksen tilapäisesti. Automaattiset yritykset on keskeytetty aikaan {blocked_until} asti. Onnistunut manuaalinen uudelleentodennus voi poistaa eston aiemmin."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energyllä on liian monta aktiivista istuntoa",
+      "description": "Enphase hylkäsi sivuston {site_id} todennuksen, koska tilillä on liian monta aktiivista istuntoa. Automaattiset uudelleenyritykset on keskeytetty aikaan {blocked_until} asti. Kirjaudu ulos muista Enphase-sovelluksen tai selaimen istunnoista ja yritä sitten todennusta uudelleen."
+    },
+    "rate_limited": {
+      "title": "Enphase Energyn kutsutiheyttä on rajoitettu",
+      "description": "Pilvi-API palautti kutsutiheyden rajoituksen. Kyselyt hidastuvat aikaan {backoff_ends} asti."
+    },
+    "cloud_unreachable": {
+      "title": "Enphase Energy -pilvi ei ole tavoitettavissa",
+      "description": "Home Assistant ei voi ottaa yhteyttä Enphase-pilveen sivustolle {site_id}. Pollaus hidastuu automaattisesti; tarkista palvelun tila ja verkkosi."
+    },
+    "cloud_dns_resolution": {
+      "title": "Enphase Energy DNS -resoluutiovirhe",
+      "description": "Home Assistant ei voinut ratkaista enlighten.enphaseenergy.com-osoitetta sivustolle {site_id}. Tarkista DNS-ratkaisusi tai Internet-yhteytesi."
+    },
+    "cloud_service_unavailable": {
+      "title": "Enphase Energy -pilvivirheet",
+      "description": "Enphase-pilvi sivustolle {site_id} vastaa virheillä. Pollaus peruuntuu automaattisesti; tarkista palvelun tila tai käyttörajoitukset."
+    },
+    "scheduler_unavailable": {
+      "title": "Enphase Energy -ajastin ei ole käytettävissä",
+      "description": "Enphase-aikataulupalvelu sivustolle {site_id} ei ole käytettävissä. Lataustilan valinta ja aikataulun synkronointi on tilapäisesti poistettu käytöstä."
+    },
+    "session_history_unavailable": {
+      "title": "Enphase Energy -istuntohistoria ei ole käytettävissä",
+      "description": "Enphase-istuntohistoriapalvelu sivustolle {site_id} ei ole käytettävissä. Istuntohistoria-anturit näyttävät välimuistissa olevia tietoja, kunnes palvelu palautuu."
+    },
+    "site_energy_unavailable": {
+      "title": "Enphase Energy -sivuston energiaa ei ole saatavilla",
+      "description": "Enphase elinikäinen energiapalvelu sivustolle {site_id} ei ole käytettävissä. Sivuston energiaanturit näyttävät välimuistissa olevia tietoja, kunnes palvelu palautuu."
+    },
+    "auth_settings_unavailable": {
+      "title": "Enphase Energy -todennusasetukset eivät ole käytettävissä",
+      "description": "Enphase laturin todennusasetuspalvelu sivustolle {site_id} ei ole käytettävissä. Sovellusten todennuksen hallinta on tilapäisesti poistettu käytöstä."
+    },
+    "battery_profile_pending": {
+      "title": "Enphase Energy -akun profiilin päivitys odottaa",
+      "description": "Sivuston {site_id} akun profiilin muutos on ollut odottamassa yli {pending_timeout_minutes} minuuttia. Pilvipalvelu saattaa edelleen käsitellä pyyntöä."
+    },
+    "hems_auth_degraded": {
+      "title": "Enphase Energy HEMS on tilapäisesti keskeytetty",
+      "description": "Heat Pump/HEMS-kysely kohteelle {site_id} on keskeytetty aikaan {backoff_until} asti {failure_count} todennusluonteisen virheen jälkeen ({reason}). Wallbox, akku, yhdyskäytävä ja muut tiedot voivat jatkua. Poista Heat Pump -laiteryhmä käytöstä tai käytä Clear HEMS Auth Backoff, kun Enphase on palautunut."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "Sivuston tunnus",
+      "can_reach_server": "Saavuta Enphase-pilvi",
+      "last_success": "Viimeisin onnistunut päivitys",
+      "latency_ms": "Pilviviive (ms)",
+      "last_error": "Viimeinen virhe",
+      "scheduler_available": "Ajastin saatavilla",
+      "scheduler_last_error": "Aikataulun viimeinen virhe",
+      "scheduler_failures": "Aikataulun viat",
+      "scheduler_backoff_active": "Aikataulun peruutus aktiivinen",
+      "scheduler_backoff_ends_utc": "Aikataulun peruutus päättyy (UTC)",
+      "backoff_active": "Peruutus aktiivinen",
+      "network_errors": "Peräkkäiset verkkovirheet",
+      "http_errors": "Peräkkäiset HTTP-virheet",
+      "site_count": "Sivuston määrä",
+      "site_name": "Sivuston nimi",
+      "site_ids": "Sivuston tunnukset",
+      "site_names": "sivustojen nimet",
+      "last_failure_status": "Viimeinen vikatila",
+      "last_failure_description": "Viimeisimmän vian kuvaus",
+      "phase_timings": "Vaiheen ajoitukset",
+      "session_cache_ttl_s": "Istuntovälimuisti TTL (s)",
+      "sites": "Sivustot",
+      "auth_settings_available": "Todennusasetukset käytettävissä",
+      "auth_settings_last_error": "Todennusasetusten viimeisin virhe",
+      "auth_settings_failures": "Todennusasetusten virhe",
+      "auth_settings_backoff_active": "Todennusasetusten peruutus käytössä",
+      "auth_settings_backoff_ends_utc": "Todennusasetusten peruutus päättyy (UTC)",
+      "session_history_available": "Istuntohistoria saatavilla",
+      "session_history_last_error": "Istuntohistorian viimeinen virhe",
+      "session_history_failures": "Istuntohistorian epäonnistumiset",
+      "session_history_backoff_active": "Istuntohistorian peruutus aktiivinen",
+      "session_history_backoff_ends_utc": "Istuntohistorian peruutus päättyy (UTC)",
+      "site_energy_available": "Sivuston energiaa saatavilla",
+      "site_energy_last_error": "Sivuston energian viimeinen virhe",
+      "site_energy_failures": "Työpaikan energiahäiriöt",
+      "site_energy_backoff_active": "Sivuston energian peruutus aktiivinen",
+      "site_energy_backoff_ends_utc": "Sivuston energian takaisku päättyy (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Aloita lataus",
+      "description": "Aloita lataaminen valitulla Enphase Energy -laturilla.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Lataustaso (A)",
+          "description": "Valinnainen virran asetusarvo ampeereina (6-40)."
+        },
+        "connector_id": {
+          "name": "Liittimen tunnus",
+          "description": "Valinnainen liitinindeksi (yleensä 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Lopeta lataaminen",
+      "description": "Lopeta lataaminen valitulla Enphase Energy -laturilla."
+    },
+    "trigger_message": {
+      "name": "Käynnistä OCPP-viesti",
+      "description": "Pyydä laturia lähettämään OCPP-viesti ja palauttamaan pilvivastaus.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Pyydetty viesti",
+          "description": "OCPP-viestin nimi (esim. MeterValues); huoltovastaus näyttää laturin tehon."
+        },
+        "confirm_advanced": {
+          "name": "Vahvista lisäkäynnistys",
+          "description": "Vaaditaan OCPP-lisäkäynnistysviesteille, jotka voivat pyytää laturin diagnostiikkaa, laiteohjelmistoa tai käynnistysilmoituksia."
+        },
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Valinnainen sivuston tunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Poista Reauth-ongelma",
+      "description": "Valitse Enphase-sivuston laite poistaaksesi sen uudelleentodennuksen korjausongelman.",
+      "fields": {
+        "device_id": {
+          "name": "Laturit",
+          "description": "Valitse Enphase-laturit, joiden uudelleentodennuskorjausongelma on poistettava."
+        },
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Valinnainen sivuston tunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Aloita suoratoisto",
+      "description": "Pyydä nopeampia pilven tilapäivityksiä lyhyeksi ajaksi.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Valinnainen sivuston tunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Pysäytä suoratoisto",
+      "description": "Pysäytä pilvisuoratoistopyyntö.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Valinnainen sivuston tunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Synkronoi aikataulut",
+      "description": "Päivitä Enphase-aikataulut pilvestä.",
+      "fields": {
+        "device_id": {
+          "name": "Laturit",
+          "description": "Valinnainen laturin valinta kohdennettua synkronointia varten."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Pyydä ruudukon OTP:tä",
+      "description": "Lähetä tarvittava kertakoodi ennen sivustoruudukon tilan vaihtamista.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Valinnainen sivuston tunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Aseta ruudukkotila",
+      "description": "Vaihda sivuston ruudukkotilaa kertakoodin vahvistamisen jälkeen.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Ruudukkotila",
+          "description": "Valitse on_grid tai off_grid."
+        },
+        "otp": {
+          "name": "Kertakäyttöinen koodi",
+          "description": "Syötä rekisteröityyn sähköpostiisi ja puhelimeesi lähetetty 4-numeroinen OTP."
+        },
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Valinnainen sivuston tunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "Päivitä CFG-aikataulu",
+      "description": "Päivittää verkosta latauksen aloitusajan, lopetusajan ja/tai latausrajan yhdessä atomisessa toiminnossa.",
+      "fields": {
+        "start_time": {
+          "name": "Aloitusaika",
+          "description": "CFG-aikataulun aloitusaika."
+        },
+        "end_time": {
+          "name": "Lopetusaika",
+          "description": "CFG-aikataulun lopetusaika."
+        },
+        "limit": {
+          "name": "Latausraja",
+          "description": "Akun enimmäisvaraustaso (%)."
+        },
+        "site_id": {
+          "name": "Sivuston tunnus",
+          "description": "Enphase-sivuston tunnus (valinnainen; päätellään kohdelaitteesta)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Pakota päivitys",
+      "description": "Päivitä akun aikataulutiedot heti Enphase-pilvestä.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Kohteen tunnus",
+          "description": "Valinnainen kohteen tunniste; havaitaan automaattisesti, kun kohteen laite on valittu."
+        },
+        "config_entry_id": {
+          "name": "Asetusmerkinnän tunnus",
+          "description": "Valinnainen asetuskirjauksen tunniste yhdelle Enphase-kohdemerkinnälle."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Lisää akun aikataulu",
+      "description": "Luo akun aikataulu CFG:lle, DTG:lle tai RBD:lle.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Aikataulun tyyppi",
+          "description": "Akun aikatauluperhe: cfg, dtg tai rbd."
+        },
+        "start_time": {
+          "name": "Alkamisaika",
+          "description": "Aikataulun alkamisaika."
+        },
+        "end_time": {
+          "name": "Päättymisaika",
+          "description": "Aikataulun päättymisaika."
+        },
+        "limit": {
+          "name": "Latausraja",
+          "description": "Akun enimmäisvaraustaso (%)."
+        },
+        "days": {
+          "name": "Päivät",
+          "description": "Aktiivisten viikonpäivien luettelo käyttäen merkintää maanantai=1 ... sunnuntai=7."
+        },
+        "site_id": {
+          "name": "Kohteen tunnus",
+          "description": "Valinnainen kohteen tunniste; havaitaan automaattisesti, kun kohteen laite on valittu."
+        },
+        "config_entry_id": {
+          "name": "Asetusmerkinnän tunnus",
+          "description": "Valinnainen asetuskirjauksen tunniste yhdelle Enphase-kohdemerkinnälle."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Päivitä akun aikataulu",
+      "description": "Päivitä akun aikataulu aikataulutunnuksen perusteella.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Aikataulun tunnus",
+          "description": "Olemassa olevan Enphase-akun aikataulun tunniste."
+        },
+        "schedule_type": {
+          "name": "Aikataulun tyyppi",
+          "description": "Akun aikatauluperhe: cfg, dtg tai rbd."
+        },
+        "start_time": {
+          "name": "Alkamisaika",
+          "description": "Aikataulun alkamisaika."
+        },
+        "end_time": {
+          "name": "Päättymisaika",
+          "description": "Aikataulun päättymisaika."
+        },
+        "limit": {
+          "name": "Latausraja",
+          "description": "Akun enimmäisvaraustaso (%)."
+        },
+        "days": {
+          "name": "Päivät",
+          "description": "Aktiivisten viikonpäivien luettelo käyttäen merkintää maanantai=1 ... sunnuntai=7."
+        },
+        "confirm": {
+          "name": "Vahvista",
+          "description": "Aseta arvoksi true vahvistaaksesi aikataulun päivityksen."
+        },
+        "site_id": {
+          "name": "Kohteen tunnus",
+          "description": "Valinnainen kohteen tunniste; havaitaan automaattisesti, kun kohteen laite on valittu."
+        },
+        "config_entry_id": {
+          "name": "Asetusmerkinnän tunnus",
+          "description": "Valinnainen asetuskirjauksen tunniste yhdelle Enphase-kohdemerkinnälle."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Poista akun aikataulu",
+      "description": "Poista yksi tai useampi akun aikataulu aikataulutunnuksen perusteella.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Aikataulun tunnus",
+          "description": "Poistettavan yksittäisen Enphase-akun aikataulun tunniste."
+        },
+        "schedule_ids": {
+          "name": "Aikataulujen tunnukset",
+          "description": "Valinnainen pilkuilla eroteltu tai luettelomuotoinen syöte useille aikataulutunnuksille."
+        },
+        "confirm": {
+          "name": "Vahvista",
+          "description": "Aseta arvoksi true vahvistaaksesi aikataulun poiston."
+        },
+        "site_id": {
+          "name": "Kohteen tunnus",
+          "description": "Valinnainen kohteen tunniste; havaitaan automaattisesti, kun kohteen laite on valittu."
+        },
+        "config_entry_id": {
+          "name": "Asetusmerkinnän tunnus",
+          "description": "Valinnainen asetuskirjauksen tunniste yhdelle Enphase-kohdemerkinnälle."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Validoi akun aikataulu",
+      "description": "Tarkista, onko akun aikataulujen muokkaus käytettävissä valitulle aikatauluperheelle.",
+      "sections": {
+        "advanced": {
+          "name": "Lisäasetukset"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Aikataulun tyyppi",
+          "description": "Akun aikatauluperhe: cfg, dtg tai rbd."
+        },
+        "site_id": {
+          "name": "Kohteen tunnus",
+          "description": "Valinnainen kohteen tunniste; havaitaan automaattisesti, kun kohteen laite on valittu."
+        },
+        "config_entry_id": {
+          "name": "Asetusmerkinnän tunnus",
+          "description": "Valinnainen asetuskirjauksen tunniste yhdelle Enphase-kohdemerkinnälle."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Yritä uudelleentodennusta nyt",
+      "description": "Käytä tallennettuja Enphase-tunnuksia valitun sivuston välittömään uudelleentodennusyritykseen.",
+      "fields": {
+        "device_id": {
+          "name": "Sivuston laitteet",
+          "description": "Valitse Enphase-sivustolaite, jolle uudelleentodennusta yritetään."
+        },
+        "site_id": {
+          "name": "Sivuston ID",
+          "description": "Valinnainen sivustotunniste; havaitaan automaattisesti, kun sivuston laite valitaan."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Päivitä tariffi",
+      "description": "Päivitä Enphase-laskutusjakson tiedot ja yksi tai useampi olemassa oleva tuonti- tai vientitariffihinta.",
+      "fields": {
+        "rate": {
+          "name": "Hinta",
+          "description": "Uusi ei-negatiivinen tariffihinta valitulle tariffihintaentiteetille."
+        },
+        "rate_entity": {
+          "name": "Hintaentiteetti",
+          "description": "Valinnainen tariffihintaentiteetti päivitettäväksi, kun toiminnon kohdetta ei käytetä."
+        },
+        "import_rate": {
+          "name": "Tuontihinta",
+          "description": "Uusi ei-negatiivinen tuontitariffihinta."
+        },
+        "import_rate_entity": {
+          "name": "Tuontihintaentiteetti",
+          "description": "Päivitettävä tuontitariffihintaentiteetti."
+        },
+        "export_rate": {
+          "name": "Vientihinta",
+          "description": "Uusi ei-negatiivinen vientitariffihinta."
+        },
+        "export_rate_entity": {
+          "name": "Vientihintaentiteetti",
+          "description": "Päivitettävä vientitariffihintaentiteetti."
+        },
+        "billing_start_date": {
+          "name": "Laskutuksen aloituspäivä",
+          "description": "Laskutuskauden aloituspäivä ISO-muodossa."
+        },
+        "billing_frequency": {
+          "name": "Laskutustiheys",
+          "description": "Laskutusvälin yksikkö: MONTH tai DAY."
+        },
+        "billing_interval_value": {
+          "name": "Laskutusväli",
+          "description": "Laskutusvälien määrä. Käytä kuukausille 1-24 tai päiville 1-100."
+        },
+        "rates": {
+          "name": "Hinnat",
+          "description": "Luettelo päivitettävistä tariffihintaentiteettien ID:istä ja ei-negatiivisista hinnoista."
+        },
+        "site_id": {
+          "name": "Kohteen ID",
+          "description": "Valinnainen kohteen tunniste laskutuspäivityksille."
+        },
+        "config_entry_id": {
+          "name": "Määrityskirjauksen ID",
+          "description": "Valinnainen määrityskirjauksen tunniste yhdelle Enphase-kohteelle."
+        },
+        "tariff_payload": {
+          "name": "Tariffin payload",
+          "description": "Täydellinen kirjoitettava Enphase-tariffin payload. Käytä edistyneisiin rakennepäivityksiin."
+        },
+        "purchase_tariff": {
+          "name": "Tuontitariffin rakenne",
+          "description": "Korvaava tuontitariffin haara, jossa on tyyppi, kaudet, jaksot, portaat ja hinnat."
+        },
+        "buyback_tariff": {
+          "name": "Vientitariffin rakenne",
+          "description": "Korvaava vientitariffin haara, jossa on tyyppi, vientisuunnitelma, kaudet, jaksot, portaat ja hinnat."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "Tyhjennä HEMS auth backoff",
+      "description": "Tyhjentää tilapäisen HEMS/Heat Pump -todennustauon ilman salasankirjautumista.",
+      "fields": {
+        "device_id": {
+          "name": "Kohteen laitteet",
+          "description": "Valitse Enphase-kohteen laite, jonka HEMS auth backoff tyhjennetään."
+        },
+        "site_id": {
+          "name": "Kohteen ID",
+          "description": "Valinnainen kohteen tunniste; tunnistetaan automaattisesti, kun laite valitaan."
+        }
+      }
+    }
+  }
+}
