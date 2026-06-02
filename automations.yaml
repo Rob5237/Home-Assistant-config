@@ -134,7 +134,6 @@
           entity_id: input_datetime.tdi_laatste_start
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
-      - action: shell_command.tdi_legionella_solar
       - target:
           entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
         data:
@@ -223,6 +222,8 @@
   triggers:
   - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 57
+    for:
+      minutes: 2
     trigger: numeric_state
   conditions:
   - condition: template
@@ -230,7 +231,7 @@
       {% set setpoint = state_attr('water_heater.luxtronik_280807_0450_domestic_water',
         'temperature') | float(0) %}
       {% set solar = states('sensor.p1_meter_power') | float(0) %}
-      {{ 50 < setpoint < 65 and solar > -2000 }}
+      {{ 50 < setpoint < 65 and solar > -1500 }}
   actions:
   - target:
       entity_id: water_heater.luxtronik_280807_0450_domestic_water

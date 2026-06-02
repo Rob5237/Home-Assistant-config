@@ -6,6 +6,7 @@
     unique_id: "netto_verbruik_kwh"
     unit_of_measurement: "kWh"
     device_class: energy
+    state_class: total
     state: >
       {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
       {% set teruglevering = states('sensor.p1_meter_energy_export') | float(0) %}
@@ -40,7 +41,7 @@
     state_class: measurement
     state: >
       {% set terug = states('sensor.p1_meter_energy_export') | float(0) %}
-      {% set terugprijs = states('input_number.terugleverprijs_kwh') | float(0.09) %}
+      {% set terugprijs = states('sensor.zonneplan_teruglevering_gemiddelde_prijs_per_kwh_dit_jaar') | float(0.09) %}
       {{ (terug * terugprijs) | round(2) }}
 
   # ⭐ Export laatste 365 dagen (gemigreerd van legacy platform: template)
@@ -71,5 +72,66 @@
       {% set verbruik = states('sensor.p1_meter_energy_import') | float(0) %}
       {% set terug = states('sensor.p1_meter_energy_export') | float(0) %}
       {% set prijs = states('input_number.verbruiksprijs_kwh') | float(0.2554) %}
-      {% set terugprijs = states('input_number.terugleverprijs_kwh') | float(0.09) %}
+      {% set terugprijs = states('sensor.zonneplan_teruglevering_gemiddelde_prijs_per_kwh_dit_jaar') | float(0.09) %}
       {{ ((verbruik * prijs) - (terug * terugprijs)) | round(2) }}
+
+  # ⭐ Periode-kosten — inkoop via Zonneplan werkelijk (fallback: vaste prijs × kWh)
+  - name: "Kosten vandaag €"
+    unique_id: "kosten_vandaag_euro"
+    unit_of_measurement: "€"
+    state_class: measurement
+    icon: mdi:currency-eur
+    state: >
+      {% set zp_inkoop = states('sensor.zonneplan_afname_vandaag') %}
+      {% set teruglevering = states('sensor.zonneplan_teruglevering_vandaag') | float(0) %}
+      {% if zp_inkoop not in ('unknown', 'unavailable') %}
+        {{ (zp_inkoop | float(0) - teruglevering) | round(2) }}
+      {% else %}
+        {% set import = states('sensor.energy_daily') | float(0) %}
+        {% set prijs = states('input_number.verbruiksprijs_kwh') | float(0.2554) %}
+        {{ ((import * prijs) - teruglevering) | round(2) }}
+      {% endif %}
+
+  - name: "Kosten deze maand €"
+    unique_id: "kosten_maand_euro"
+    unit_of_measurement: "€"
+    state_class: measurement
+    icon: mdi:currency-eur
+    state: >
+      {% set zp_inkoop = states('sensor.zonneplan_afname_deze_maand') %}
+      {% set teruglevering = states('sensor.zonneplan_teruglevering_deze_maand') | float(0) %}
+      {% if zp_inkoop not in ('unknown', 'unavailable') %}
+        {{ (zp_inkoop | float(0) - teruglevering) | round(2) }}
+      {% else %}
+        {% set import = states('sensor.energy_monthly') | float(0) %}
+        {% set prijs = states('input_number.verbruiksprijs_kwh') | float(0.2554) %}
+        {{ ((import * prijs) - teruglevering) | round(2) }}
+      {% endif %}
+
+  - name: "Kosten dit jaar €"
+    unique_id: "kosten_jaar_euro"
+    unit_of_measurement: "€"
+    state_class: measurement
+    icon: mdi:currency-eur
+    state: >
+      {% set zp_inkoop = states('sensor.zonneplan_afname_dit_jaar') %}
+      {% set teruglevering = states('sensor.zonneplan_teruglevering_dit_jaar') | float(0) %}
+      {% if zp_inkoop not in ('unknown', 'unavailable') %}
+        {{ (zp_inkoop | float(0) - teruglevering) | round(2) }}
+      {% else %}
+        {% set import = states('sensor.energy_yearly') | float(0) %}
+        {% set prijs = states('input_number.verbruiksprijs_kwh') | float(0.2554) %}
+        {{ ((import * prijs) - teruglevering) | round(2) }}
+      {% endif %}
+
+  # ⭐ Zelfverbruik vandaag (Enphase productie − teruglevering naar net)
+  - name: "Zelfverbruik vandaag kWh"
+    unique_id: "zelfverbruik_vandaag_kwh"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: measurement
+    icon: mdi:solar-power
+    state: >
+      {% set productie = states('sensor.enphase_daily') | float(0) %}
+      {% set export = states('sensor.solar_daily') | float(0) %}
+      {{ [productie - export, 0] | max | round(2) }}

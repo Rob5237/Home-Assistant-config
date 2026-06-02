@@ -38,8 +38,9 @@
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
 
 ## Energie-meters (utility_meter)
-- `solar_daily/monthly/yearly` — bron: P1 export
+- `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
 - `energy_daily/monthly/yearly` — bron: P1 import
+- `enphase_daily/monthly/yearly` — bron: Enphase lifetime_energy_production (bruto zonneopwekking)
 
 ## Warmtepomp-logica
 - **COP-sensoren**: Verwarming, Tapwater, Totaal, Geschat (op basis van aanvoer- en buitentemperatuur)
@@ -55,7 +56,7 @@
 | Warmwater bij Zonne-overschot - Uitschakelen | boilertemp >65°C | Reset setpoint naar 48°C, verwarming uit |
 | Legionella TDI bij laagste tarief overdag | elk heel uur | TDI op goedkoopste uur 09:00-16:00, ≥7 dagen na vorige |
 | Tapwater bijverwarmen bij lage temperatuur | boilertemp <47°C | Opwarmen naar 57°C als tarief laag of noodgeval (<41°C) |
-| Tapwater reset na bijverwarmen | boilertemp >57°C | Setpoint terug naar 48°C (niet tijdens TDI of zonne-overschot) |
+| Tapwater reset na bijverwarmen | boilertemp >57°C (≥2 min) | Setpoint terug naar 48°C (niet tijdens TDI of zonne-overschot; solar-drempel -1500W) |
 | Tapwater verwarmen in goedkoopste nachtuur | elk heel uur 22:00-06:00 | Opwarmen op goedkoopste nachtuur als boiler <54°C |
 | GitHub: nachtelijke config backup | 03:00 dagelijks | `git add -A && commit && push` |
 | Waarschuwing bij herinstallatie | HA start | Notificatie over /share-map risico |

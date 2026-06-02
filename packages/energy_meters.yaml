@@ -4,7 +4,8 @@
 #   import → sensor.p1_meter_energy_import
 
 utility_meter:
-  # SOLAR/EXPORT METERS
+  # EXPORT/TERUGLEVERING METERS (P1 export naar net)
+  # Let op: naam 'solar_*' is historisch — meet teruglevering, niet bruto productie.
   solar_daily:
     source: sensor.p1_meter_energy_export
     cycle: daily
@@ -17,7 +18,7 @@ utility_meter:
     source: sensor.p1_meter_energy_export
     cycle: yearly
 
-  # ENERGY/IMPORT METERS
+  # IMPORT METERS (P1 afname van net)
   energy_daily:
     source: sensor.p1_meter_energy_import
     cycle: daily
@@ -28,4 +29,17 @@ utility_meter:
 
   energy_yearly:
     source: sensor.p1_meter_energy_import
+    cycle: yearly
+
+  # ENPHASE PRODUCTIE METERS (bruto zonneopwekking van Envoy)
+  enphase_daily:
+    source: sensor.envoy_122331077486_lifetime_energy_production
+    cycle: daily
+
+  enphase_monthly:
+    source: sensor.envoy_122331077486_lifetime_energy_production
+    cycle: monthly
+
+  enphase_yearly:
+    source: sensor.envoy_122331077486_lifetime_energy_production
     cycle: yearly
