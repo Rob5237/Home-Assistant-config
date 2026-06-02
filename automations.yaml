@@ -155,8 +155,10 @@
   mode: single
 - id: '1778941860493'
   alias: Warmwater bij Zonne-overschot - Uitschakelen
-  description: Reset naar normale stand zodra TDI klaar is (>=65°C). Zet ook verwarmingsswitch
-    terug uit zodat de controller niet onnodig ruimteverwarming probeert te draaien.
+  description: >
+    Reset naar normale stand zodra DHW boven 65°C komt (TDI-einde of zonne-overshoot).
+    Setpoint terug naar 48°C. Verwarmingsswitch alleen uit als buitentemp ≥ stookdrempel
+    — anders zou ruimteverwarming bij koud weer ten onrechte uitgaan na TDI.
   triggers:
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
@@ -173,9 +175,16 @@
     data:
       temperature: 48
     action: water_heater.set_temperature
-  - target:
-      entity_id: switch.luxtronik_280807_0450_heating
-    action: switch.turn_off
+  - if:
+    - condition: template
+      value_template: >
+        {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(none) %}
+        {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+        {{ t_buiten is not none and t_buiten >= t_drempel }}
+    then:
+    - target:
+        entity_id: switch.luxtronik_280807_0450_heating
+      action: switch.turn_off
   mode: single
 - id: tapwater_bijverwarmen
   alias: Tapwater bijverwarmen bij lage temperatuur
