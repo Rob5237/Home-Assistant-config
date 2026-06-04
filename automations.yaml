@@ -61,8 +61,11 @@
   mode: single
 - id: '1778941827789'
   alias: Warmwater bij Zonne-overschot
-  description: Verwarm boiler met elektrisch element bij teruglevering >= 2000W. Zonne-energie
-    is altijd gratis, dus geen tariefblokkering.
+  description: >
+    Verwarm boiler met WP bij teruglevering >= 2000W EN voldoende zon-forecast
+    voor het komende uur (>= 2.0 kWh, som van alle 3 dakgedeeltes via
+    forecast_solar). Dit voorkomt dat een cyclus halverwege uit het net gaat
+    trekken als de zon onverwacht zakt.
   triggers:
   - entity_id:
     - sensor.p1_meter_power
@@ -76,6 +79,13 @@
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 52
+  - condition: template
+    value_template: >
+      {% set fc =
+        (states('sensor.energy_next_hour') | float(0)) +
+        (states('sensor.energy_next_hour_2') | float(0)) +
+        (states('sensor.energy_next_hour_3') | float(0)) %}
+      {{ fc >= 2.0 }}
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
