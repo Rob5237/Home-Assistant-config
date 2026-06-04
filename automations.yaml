@@ -67,6 +67,7 @@
       value_template: >
         {{ states('number.luxtronik_280807_0450_heating_target_correction') | float(0) != 0 }}
   actions:
+    # Wacht op Luxtronik-entiteiten die na HA-start nog niet altijd direct beschikbaar zijn.
     - delay:
         seconds: 30
     - action: number.set_value
@@ -172,51 +173,49 @@
   triggers:
   - trigger: time_pattern
     minutes: '0'
+  conditions:
+  - condition: state
+    entity_id: sun.sun
+    state: above_horizon
+  - condition: time
+    after: '09:00:00'
+    before: '16:00:00'
+  - condition: template
+    value_template: >
+      {% set last = states('input_datetime.tdi_laatste_start') %}
+      {{ last in ('unknown', 'unavailable') or (now() - as_datetime(last)).days >= 7 }}
+  - condition: state
+    entity_id: binary_sensor.goedkoopste_tdi_uur_nu
+    state: "on"
   actions:
-  - choose:
-    - conditions:
-      - condition: state
-        entity_id: sun.sun
-        state: above_horizon
-      - condition: time
-        after: '09:00:00'
-        before: '16:00:00'
-      - condition: template
-        value_template: >
-          {% set last = states('input_datetime.tdi_laatste_start') %}
-          {{ last in ('unknown', 'unavailable') or (now() - as_datetime(last)).days >= 7 }}
-      - condition: state
-        entity_id: binary_sensor.goedkoopste_tdi_uur_nu
-        state: "on"
-      sequence:
-      - action: input_datetime.set_datetime
-        target:
-          entity_id: input_datetime.tdi_laatste_start
-        data:
-          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
-      - target:
-          entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
-        data:
-          option: '{{ now().strftime(''%A'') }}'
-        action: select.select_option
-      - target:
-          entity_id: select.luxtronik_280807_0450_dhw_mode
-        data:
-          option: Automatic
-        action: select.select_option
-      - target:
-          entity_id: number.luxtronik_280807_0450_dhw_target_temperature
-        data:
-          value: 62
-        action: number.set_value
-      - if:
-        - condition: state
-          entity_id: input_boolean.vakantie_actief
-          state: "off"
-        then:
-        - target:
-            entity_id: switch.luxtronik_280807_0450_heating
-          action: switch.turn_on
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.tdi_laatste_start
+    data:
+      datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+  - target:
+      entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
+    data:
+      option: '{{ now().strftime(''%A'') }}'
+    action: select.select_option
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Automatic
+    action: select.select_option
+  - target:
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    data:
+      value: 62
+    action: number.set_value
+  - if:
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "off"
+    then:
+    - target:
+        entity_id: switch.luxtronik_280807_0450_heating
+      action: switch.turn_on
   mode: single
 - id: tdi_einde_reset
   alias: TDI einde - reset naar normaalstand

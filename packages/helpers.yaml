@@ -27,6 +27,15 @@ input_number:
     unit_of_measurement: "€/kWh"
     icon: mdi:currency-eur
 
+  zon_forecast_drempel_kwh:
+    name: "Zon-forecast drempel voor zonne-overschot opwarmen (kWh/uur)"
+    initial: 2.0
+    min: 0
+    max: 10
+    step: 0.1
+    unit_of_measurement: "kWh"
+    icon: mdi:weather-sunny
+
 input_boolean:
   vakantie_actief:
     name: "Vakantiemodus actief"

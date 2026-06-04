@@ -10,13 +10,15 @@
         (states('sensor.energy_next_hour') | float(0)) +
         (states('sensor.energy_next_hour_2') | float(0)) +
         (states('sensor.energy_next_hour_3') | float(0)) %}
-      {{ fc >= 2.0 }}
+      {% set drempel = states('input_number.zon_forecast_drempel_kwh') | float(2.0) %}
+      {{ fc >= drempel }}
     attributes:
       forecast_kwh: >
         {{ ((states('sensor.energy_next_hour') | float(0)) +
             (states('sensor.energy_next_hour_2') | float(0)) +
             (states('sensor.energy_next_hour_3') | float(0))) | round(2) }}
-      drempel_kwh: 2.0
+      drempel_kwh: >
+        {{ states('input_number.zon_forecast_drempel_kwh') | float(2.0) }}
 
   - name: "Goedkoopste nachtuur nu"
     unique_id: "goedkoopste_nachtuur_nu"
