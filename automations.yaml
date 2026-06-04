@@ -83,10 +83,10 @@
       option: Automatic
     action: select.select_option
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      temperature: 57
-    action: water_heater.set_temperature
+      value: 57
+    action: number.set_value
   mode: single
 - id: tdi_legionella_solar_overschot
   alias: Legionella TDI bij laagste tarief overdag
@@ -145,10 +145,10 @@
           option: Automatic
         action: select.select_option
       - target:
-          entity_id: water_heater.luxtronik_280807_0450_domestic_water
+          entity_id: number.luxtronik_280807_0450_dhw_target_temperature
         data:
-          temperature: 65
-        action: water_heater.set_temperature
+          value: 62
+        action: number.set_value
       - target:
           entity_id: switch.luxtronik_280807_0450_heating
         action: switch.turn_on
@@ -156,13 +156,13 @@
 - id: '1778941860493'
   alias: Warmwater bij Zonne-overschot - Uitschakelen
   description: >
-    Reset naar normale stand zodra DHW boven 65°C komt (TDI-einde of zonne-overshoot).
+    Reset naar normale stand zodra DHW boven 60°C komt (TDI-einde of zonne-overshoot).
     Setpoint terug naar 48°C. Verwarmingsswitch alleen uit als buitentemp ≥ stookdrempel
     — anders zou ruimteverwarming bij koud weer ten onrechte uitgaan na TDI.
   triggers:
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    above: 65
+    above: 60
     trigger: numeric_state
   actions:
   - target:
@@ -171,10 +171,10 @@
       option: Automatic
     action: select.select_option
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      temperature: 48
-    action: water_heater.set_temperature
+      value: 48
+    action: number.set_value
   - if:
     - condition: template
       value_template: >
@@ -215,17 +215,17 @@
       option: Automatic
     action: select.select_option
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      temperature: 57
-    action: water_heater.set_temperature
+      value: 57
+    action: number.set_value
   mode: single
 
 - id: tapwater_reset_na_bijverwarmen
   alias: Tapwater reset naar normaalstand na bijverwarmen
   description: >
     Zet setpoint terug naar 48°C zodra tapwater 57°C bereikt (setpoint bereikt).
-    Niet tijdens TDI (setpoint 65°C) en niet bij actief zonne-overschot (dan
+    Niet tijdens TDI (setpoint 62°C) en niet bij actief zonne-overschot (dan
     blijven doorladen). 48°C als rust-setpoint voorkomt dat de Luxtronik autonoom
     cycli draait onder 39°C (48 - 9K hysterese).
   triggers:
@@ -240,13 +240,13 @@
       {% set setpoint = state_attr('water_heater.luxtronik_280807_0450_domestic_water',
         'temperature') | float(0) %}
       {% set solar = states('sensor.p1_meter_power') | float(0) %}
-      {{ 50 < setpoint < 65 and solar > -1500 }}
+      {{ 50 < setpoint < 60 and solar > -1500 }}
   actions:
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      temperature: 48
-    action: water_heater.set_temperature
+      value: 48
+    action: number.set_value
   mode: single
 
 - id: tapwater_goedkoopste_nachtuur
@@ -294,10 +294,10 @@
       option: Automatic
     action: select.select_option
   - target:
-      entity_id: water_heater.luxtronik_280807_0450_domestic_water
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      temperature: 57
-    action: water_heater.set_temperature
+      value: 57
+    action: number.set_value
   mode: single
 
 - id: github_nachtelijke_backup
