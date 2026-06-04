@@ -14,11 +14,20 @@ notify_failure() {
 }
 
 git add -A
-git diff --cached --quiet && echo "Geen wijzigingen, niets te pushen." && exit 0
 
-if ! git commit -m "Auto-backup $(date '+%Y-%m-%d %H:%M')"; then
-  notify_failure "git commit faalde"
-  exit 1
+if git diff --cached --quiet; then
+  # Geen nieuwe file-wijzigingen — alleen pushen als er ongepushte commits zijn
+  AHEAD=$(git rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
+  if [ "$AHEAD" -eq 0 ]; then
+    echo "Geen wijzigingen en geen ongepushte commits."
+    exit 0
+  fi
+  echo "Geen nieuwe wijzigingen, maar $AHEAD ongepushte commit(s) — push uitvoeren."
+else
+  if ! git commit -m "Auto-backup $(date '+%Y-%m-%d %H:%M')"; then
+    notify_failure "git commit faalde"
+    exit 1
+  fi
 fi
 
 PUSH_OUTPUT=$(git push origin master 2>&1)
