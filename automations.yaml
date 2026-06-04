@@ -3,15 +3,21 @@
   description: >
     Zet heating_target_correction tijdelijk op +0.5°C op het optimale stookuur.
     Het tijdswindow is groter bij koud weer (meer thermische opslag nodig) en
-    kleiner bij mild weer. Formule: clamp(1u…3u, 1 + 2×(14−t)/24).
-    Alleen actief als kamertemperatuur onder het Luxtronik setpoint ligt.
+    kleiner bij mild weer. Formule: clamp(60min…180min, raw×2×30) waarbij
+    raw = 1 + 2×(14−t)/24. Alleen actief als kamertemperatuur onder het
+    Luxtronik setpoint ligt.
+    Trigger op minutes:'1' (i.p.v. elke minuut) geeft de optimaal-startuur
+    sensor tijd om te verversen op het hele uur.
   triggers:
     - platform: time_pattern
-      minutes: "/1"
+      minutes: '1'
   conditions:
     - condition: template
       value_template: >
-        {{ now().strftime('%H:%M') == states('sensor.warmtepomp_optimaal_startuur') }}
+        {% set opt = states('sensor.warmtepomp_optimaal_startuur') %}
+        {{ opt not in ('unknown', 'unavailable', 'onbekend')
+           and opt | length >= 2
+           and now().hour == opt[:2] | int(-1) }}
     - condition: not
       conditions:
         - condition: state
@@ -29,7 +35,7 @@
         window_min: >
           {% set t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
           {% set raw = 1 + 2 * (14 - t) / 24 %}
-          {{ [[1, (raw * 2) | round | int * 30] | max, 180] | min }}
+          {{ [[60, (raw * 2) | round | int * 30] | max, 180] | min }}
     - service: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
@@ -37,6 +43,29 @@
         value: 0.5
     - delay:
         minutes: "{{ window_min }}"
+    - service: number.set_value
+      target:
+        entity_id: number.luxtronik_280807_0450_heating_target_correction
+      data:
+        value: 0
+  mode: single
+
+- id: warmtepomp_correction_reset_op_start
+  alias: "Warmtepomp: reset correction bij HA-start"
+  description: >
+    Bij HA-start: als heating_target_correction nog op een waarde ≠ 0 staat,
+    reset naar 0. Voorkomt dat correctie blijft hangen wanneer HA herstart
+    tijdens de delay-fase van warmtepomp_goedkoop_uur_opwarmen (mode: single).
+  triggers:
+    - platform: homeassistant
+      event: start
+  conditions:
+    - condition: template
+      value_template: >
+        {{ states('number.luxtronik_280807_0450_heating_target_correction') | float(0) != 0 }}
+  actions:
+    - delay:
+        seconds: 30
     - service: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
@@ -213,6 +242,8 @@
     ruimteverwarming bij koud weer ten onrechte uitgaan na TDI.
     Onderscheid van zonne-overschot extra opslag (zelfde setpoint 62°C, maar
     Party-mode) via DHW-mode = Automatic.
+    Setpoint > 60 voorkomt onbedoelde trigger bij gewone bijverwarm-cycli
+    (setpoint 57) waar restwarmte/overshoot DHW boven 60°C kan duwen.
   triggers:
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
@@ -224,7 +255,7 @@
     state: Automatic
   - condition: numeric_state
     entity_id: number.luxtronik_280807_0450_dhw_target_temperature
-    above: 55
+    above: 60
   actions:
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature

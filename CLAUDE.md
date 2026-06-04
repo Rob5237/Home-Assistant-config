@@ -48,18 +48,45 @@
   - Stooklijn: aanvoertemperatuur lineair van `heating_min_flow_out_temperature` tot `heating_curve_end_temperature` over bereik -10°C tot `heating_threshold_temperature`
 - **TDI-kandidaat uur**: goedkoopste uur overdag (09:00-16:00) op de eerste dag waarop TDI ≥7 dagen geleden is
 
-## Automaties
+## Automaties (algemeen)
 | Alias | Trigger | Doel |
 |---|---|---|
 | Warmtepomp: extra opwarmen bij goedkoopste uur | elke minuut | +0.5°C correction op optimaal uur, window afhankelijk van buitentemp |
-| Warmwater bij Zonne-overschot | P1 < -2000W voor 5 min | Boiler naar 57°C als teruglevering ≥2000W en boiler <52°C |
-| Warmwater bij Zonne-overschot - Uitschakelen | boilertemp >65°C | Reset setpoint naar 48°C, verwarming uit |
-| Legionella TDI bij laagste tarief overdag | elk heel uur | TDI op goedkoopste uur 09:00-16:00, ≥7 dagen na vorige |
-| Tapwater bijverwarmen bij lage temperatuur | boilertemp <47°C | Opwarmen naar 57°C als tarief laag of noodgeval (<41°C) |
-| Tapwater reset na bijverwarmen | boilertemp >57°C (≥2 min) | Setpoint terug naar 48°C (niet tijdens TDI of zonne-overschot; solar-drempel -1500W) |
-| Tapwater verwarmen in goedkoopste nachtuur | elk heel uur 22:00-06:00 | Opwarmen op goedkoopste nachtuur als boiler <54°C |
 | GitHub: nachtelijke config backup | 03:00 dagelijks | `git add -A && commit && push` |
 | Waarschuwing bij herinstallatie | HA start | Notificatie over /share-map risico |
+
+## Tapwater opwarm-events
+| Trigger | Conditie | Doel-setpoint | DHW-mode | Automatie |
+|---|---|---|---|---|
+| DHW < 47°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 41°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
+| Heel uur 22:00-06:00 | goedkoopste nachtuur **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
+| P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh | 57°C | Automatic | `1778941827789` (warmwater_zonne_overschot) |
+| P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C | Party | `tapwater_extra_opslag_groot_overschot` |
+| Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden | 62°C | Automatic | `tdi_legionella_solar_overschot` |
+| Autonome WP-cyclus | DHW ≤ setpoint − 8K (hysterese) | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
+
+## Tapwater stop-events
+| Trigger | Conditie | Nieuwe setpoint | Nieuwe mode | Automatie |
+|---|---|---|---|---|
+| DHW > 57°C voor 2 min | 50 < setpoint < 60 **EN** P1 > -1500W | 48°C | (ongewijzigd) | `tapwater_reset_na_bijverwarmen` |
+| DHW > 58°C | mode = Party **EN** setpoint > 55 | 48°C | Automatic | `zonne_overschot_extra_opslag_reset` |
+| DHW > 60°C | mode = Automatic **EN** setpoint > 55 | 48°C | (ongewijzigd) | `1778941860493` (tdi_einde_reset) — verwarming-switch uit bij warm weer |
+| Autonome WP-stop | DHW ≥ setpoint | (ongewijzigd) | (ongewijzigd) | Luxtronik intern |
+
+## Tapwater drempel-temperaturen
+| Temp | Betekenis |
+|---|---|
+| **41°C** | Noodgrens — bijverwarmen ongeacht tarief |
+| **47°C** | Bijverwarm-trigger (mits tarief OK) |
+| **48°C** | Rust-setpoint → autonome WP-start bij **40°C** (48-8K) |
+| **52°C** | Bovengrens zonne-overschot start |
+| **54°C** | Bovengrens nachtuur start |
+| **57°C** | Target voor bijverwarmen/nacht/overschot + reset-trigger bijverwarmen |
+| **58°C** | Reset-trigger zonne-overschot extra opslag |
+| **60°C** | Reset-trigger TDI |
+| **62°C** | Target voor TDI + extra opslag |
+
+Luxtronik DHW-hysterese: 8K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`).
 
 ## Belangrijke entiteiten (veelgebruikt)
 - Boilertemperatuur: `sensor.luxtronik_280807_0450_dhw_temperature`
