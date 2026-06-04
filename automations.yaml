@@ -420,11 +420,34 @@
 
 - id: github_nachtelijke_backup
   alias: "GitHub: nachtelijke config backup"
-  description: Pusht gewijzigde configuratiebestanden elke nacht om 03:00 naar GitHub.
+  description: >
+    Pusht gewijzigde configuratiebestanden naar GitHub. Triggert om 03:00
+    EN bij HA-start om gemiste runs op te vangen (HA offline op 03:00,
+    crash tijdens push, etc.). Conditie: marker input_datetime.last_github_backup
+    is van een eerdere dag of leeg → één poging per kalenderdag.
+    Marker wordt gezet na elke poging (niet alleen na een commit) — anders
+    zou een dag zonder wijzigingen tot herhaalde retries leiden.
   triggers:
     - platform: time
       at: "03:00:00"
-  conditions: []
+    - platform: homeassistant
+      event: start
+  conditions:
+    - condition: template
+      value_template: >
+        {% set last = states('input_datetime.last_github_backup') %}
+        {% if last in ('unknown', 'unavailable') %}
+          true
+        {% else %}
+          {{ (as_datetime(last) | as_local).date() < now().date() }}
+        {% endif %}
   actions:
+    - delay:
+        seconds: 30
     - action: shell_command.git_backup
+    - service: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.last_github_backup
+      data:
+        datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
   mode: single

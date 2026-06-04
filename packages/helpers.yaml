@@ -34,3 +34,9 @@ input_datetime:
     has_time: true
     icon: mdi:water-boiler
 
+  last_github_backup:
+    name: "Laatste GitHub backup poging"
+    has_date: true
+    has_time: true
+    icon: mdi:cloud-upload
+
