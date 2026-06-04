@@ -36,6 +36,7 @@
 - `input_number.verbruiksprijs_kwh` — verbruiksprijs (default 0.2554 €/kWh)
 - `input_number.terugleverprijs_kwh` — terugleverprijs (default 0.09 €/kWh)
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
+- `input_boolean.vakantie_actief` — single source of truth voor vakantiemodus. Sync bidirectioneel met Luxtronik dhw_mode/heating_mode "Holidays" via `vakantie_sync_aan`/`vakantie_sync_uit`.
 
 ## Energie-meters (utility_meter)
 - `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
@@ -87,6 +88,26 @@
 | **62°C** | Target voor TDI + extra opslag |
 
 Luxtronik DHW-hysterese: 8K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`).
+
+## Vakantiemodus
+Single source of truth: `input_boolean.vakantie_actief`. Sync via `vakantie_sync_aan` (trigger: dhw_mode of heating_mode → Holidays, óf boolean → on) en `vakantie_sync_uit` (trigger: boolean → off, óf heating_mode van Holidays → iets anders). Dhw_mode is géén sync-uit trigger omdat zonne-overschot die kortstondig naar Automatic wijzigt.
+
+Sync_aan respecteert `Off` — modes die al uit staan worden niet overschreven naar Holidays (anders zou bv. zomerse "heating Off" omslaan naar vorstbescherming, en sync_uit later naar Automatic resetten i.p.v. Off). Sync_uit reset alleen modes die nog op Holidays staan, dus Off blijft Off door de hele cyclus.
+
+Gedrag tijdens vakantie:
+
+| Automatie | In vakantie |
+|---|---|
+| `warmtepomp_goedkoop_uur_opwarmen` | geblokkeerd |
+| `tapwater_bijverwarmen` (tarief-tak) | geblokkeerd; noodtak DHW<41°C blijft actief |
+| `tapwater_goedkoopste_nachtuur` | geblokkeerd |
+| `1778941827789` warmwater zonne-overschot | actief (overschot opslaan blijft) |
+| `tapwater_extra_opslag_groot_overschot` | actief |
+| `tdi_legionella_solar_overschot` | actief, maar `switch.heating` aan-actie geskipt |
+
+Reset-automaties (`tapwater_reset_na_bijverwarmen`, `zonne_overschot_extra_opslag_reset`, `1778941860493` tdi_einde_reset) zetten dhw_mode terug naar Holidays als `vakantie_actief = on`. Heating-switch-uit in tdi_einde_reset is geskipt tijdens vakantie (respecteert user-keuze om heating aan te laten voor bv. vorstbescherming).
+
+Bij `vakantie_sync_uit`: persistent notification met DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
 
 ## Belangrijke entiteiten (veelgebruikt)
 - Boilertemperatuur: `sensor.luxtronik_280807_0450_dhw_temperature`

@@ -27,6 +27,11 @@ input_number:
     unit_of_measurement: "€/kWh"
     icon: mdi:currency-eur
 
+input_boolean:
+  vakantie_actief:
+    name: "Vakantiemodus actief"
+    icon: mdi:airplane
+
 input_datetime:
   tdi_laatste_start:
     name: "TDI laatste start"

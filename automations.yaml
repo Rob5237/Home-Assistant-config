@@ -23,6 +23,9 @@
         - condition: state
           entity_id: select.luxtronik_280807_0450_heating_mode
           state: "Off"
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "off"
     - condition: template
       value_template: >
         {% set t_kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(none) %}
@@ -230,9 +233,14 @@
         data:
           value: 62
         action: number.set_value
-      - target:
-          entity_id: switch.luxtronik_280807_0450_heating
-        action: switch.turn_on
+      - if:
+        - condition: state
+          entity_id: input_boolean.vakantie_actief
+          state: "off"
+        then:
+        - target:
+            entity_id: switch.luxtronik_280807_0450_heating
+          action: switch.turn_on
   mode: single
 - id: '1778941860493'
   alias: TDI einde - reset naar normaalstand
@@ -263,6 +271,19 @@
       value: 48
     action: number.set_value
   - if:
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "on"
+    then:
+    - target:
+        entity_id: select.luxtronik_280807_0450_dhw_mode
+      data:
+        option: Holidays
+      action: select.select_option
+  - if:
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "off"
     - condition: template
       value_template: >
         {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(none) %}
@@ -296,7 +317,8 @@
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
     data:
-      option: Automatic
+      option: >-
+        {% if is_state('input_boolean.vakantie_actief', 'on') %}Holidays{% else %}Automatic{% endif %}
     action: select.select_option
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
@@ -321,11 +343,16 @@
     - condition: numeric_state
       entity_id: sensor.luxtronik_280807_0450_dhw_temperature
       below: 41
-    - condition: template
-      value_template: >
-        {% set tarief = states('sensor.zonneplan_current_electricity_tariff') | float(0.30) %}
-        {% set drempel = states('input_number.tapwater_tarief_drempel') | float(0.25) %}
-        {{ tarief <= drempel }}
+    - condition: and
+      conditions:
+      - condition: state
+        entity_id: input_boolean.vakantie_actief
+        state: "off"
+      - condition: template
+        value_template: >
+          {% set tarief = states('sensor.zonneplan_current_electricity_tariff') | float(0.30) %}
+          {% set drempel = states('input_number.tapwater_tarief_drempel') | float(0.25) %}
+          {{ tarief <= drempel }}
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -365,6 +392,16 @@
     data:
       value: 48
     action: number.set_value
+  - if:
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "on"
+    then:
+    - target:
+        entity_id: select.luxtronik_280807_0450_dhw_mode
+      data:
+        option: Holidays
+      action: select.select_option
   mode: single
 
 - id: tapwater_goedkoopste_nachtuur
@@ -381,6 +418,9 @@
     value_template: >
       {% set hr = now().hour %}
       {{ hr >= 22 or hr < 6 }}
+  - condition: state
+    entity_id: input_boolean.vakantie_actief
+    state: "off"
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 54
@@ -416,6 +456,110 @@
     data:
       value: 57
     action: number.set_value
+  mode: single
+
+- id: vakantie_sync_aan
+  alias: "Vakantie: synchroniseer aan"
+  description: >
+    Activeert input_boolean.vakantie_actief zodra dhw_mode of heating_mode op
+    Holidays wordt gezet (Luxtronik-display), of zorgt dat beide Luxtronik-
+    modes op Holidays staan zodra de boolean handmatig in HA wordt aangezet.
+    Respecteert "Off" — modes die al op Off staan worden niet overschreven
+    (anders zou vorstbescherming ongewenst worden geactiveerd, en sync_uit
+    zou later naar Automatic resetten i.p.v. terug naar Off).
+    Single source of truth voor "ben ik met vakantie". Idempotent.
+  triggers:
+    - platform: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      to: Holidays
+    - platform: state
+      entity_id: select.luxtronik_280807_0450_heating_mode
+      to: Holidays
+    - platform: state
+      entity_id: input_boolean.vakantie_actief
+      to: "on"
+  actions:
+    - if:
+      - condition: not
+        conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+          state: "Off"
+      then:
+      - service: select.select_option
+        target:
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+        data:
+          option: Holidays
+    - if:
+      - condition: not
+        conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_heating_mode
+          state: "Off"
+      then:
+      - service: select.select_option
+        target:
+          entity_id: select.luxtronik_280807_0450_heating_mode
+        data:
+          option: Holidays
+    - service: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.vakantie_actief
+  mode: single
+
+- id: vakantie_sync_uit
+  alias: "Vakantie: synchroniseer uit"
+  description: >
+    Deactiveert vakantie zodra input_boolean wordt uitgezet (HA UI) of zodra
+    heating_mode van Holidays naar iets anders gaat (Luxtronik-display).
+    NB: dhw_mode-overgangen worden NIET als trigger gebruikt — die wijzigt
+    kortstondig naar Automatic tijdens zonne-overschot cycli en zou anders
+    foutief vakantie uitschakelen. Heating_mode wordt door geen automatie
+    aangeraakt en is daarom een betrouwbaar signaal.
+    Resets alleen modes die nog op Holidays staan — respecteert handmatige
+    keuze (bv. heating_mode → Off i.p.v. Automatic). Notificatie toont
+    DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
+  triggers:
+    - platform: state
+      entity_id: input_boolean.vakantie_actief
+      to: "off"
+    - platform: state
+      entity_id: select.luxtronik_280807_0450_heating_mode
+      from: Holidays
+  actions:
+    - service: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.vakantie_actief
+    - if:
+      - condition: state
+        entity_id: select.luxtronik_280807_0450_dhw_mode
+        state: Holidays
+      then:
+      - service: select.select_option
+        target:
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+        data:
+          option: Automatic
+    - if:
+      - condition: state
+        entity_id: select.luxtronik_280807_0450_heating_mode
+        state: Holidays
+      then:
+      - service: select.select_option
+        target:
+          entity_id: select.luxtronik_280807_0450_heating_mode
+        data:
+          option: Automatic
+    - service: persistent_notification.create
+      data:
+        title: "Vakantie uitgeschakeld"
+        message: >-
+          DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
+          Kamer {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}°C |
+          Buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C |
+          Laatste TDI {{ states('input_datetime.tdi_laatste_start') }} |
+          Heating-switch {{ states('switch.luxtronik_280807_0450_heating') }}
   mode: single
 
 - id: github_nachtelijke_backup
