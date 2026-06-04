@@ -98,6 +98,48 @@
       value: 57
     action: number.set_value
   mode: single
+- id: tapwater_extra_opslag_groot_overschot
+  alias: Tapwater extra opslag bij groot zonne-overschot
+  description: >
+    Bij groot teruglevering (P1 < -4000W voor 10 min) en boiler al in
+    zonne-overschot boost-modus (setpoint 55-60°C), verhoog setpoint naar
+    62°C voor extra opslag. DHW-mode tijdelijk op "Party" om de hysterese
+    (8K) te overrulen — anders zou de WP niet opnieuw starten bij DHW>54.
+    Reset volgt automatisch via "Warmwater bij Zonne-overschot - Uitschakelen"
+    bij DHW > 60°C (zet setpoint→48 en mode→Automatic).
+  triggers:
+  - entity_id: sensor.p1_meter_power
+    below: -4000
+    for:
+      minutes: 10
+    trigger: numeric_state
+  conditions:
+  - condition: numeric_state
+    entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    above: 55
+    below: 60
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 61
+  - condition: template
+    value_template: >
+      {% set fc =
+        (states('sensor.energy_next_hour') | float(0)) +
+        (states('sensor.energy_next_hour_2') | float(0)) +
+        (states('sensor.energy_next_hour_3') | float(0)) %}
+      {{ fc >= 2.0 }}
+  actions:
+  - target:
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    data:
+      value: 62
+    action: number.set_value
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Party
+    action: select.select_option
+  mode: single
 - id: tdi_legionella_solar_overschot
   alias: Legionella TDI bij laagste tarief overdag
   description: 'Elk heel uur overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
