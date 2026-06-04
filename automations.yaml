@@ -9,7 +9,7 @@
     Trigger op minutes:'1' (i.p.v. elke minuut) geeft de optimaal-startuur
     sensor tijd om te verversen op het hele uur.
   triggers:
-    - platform: time_pattern
+    - trigger: time_pattern
       minutes: '1'
   conditions:
     - condition: template
@@ -31,7 +31,7 @@
         {% set t_kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(none) %}
         {% set t_setpoint = states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') | float(none) %}
         {{ t_kamer is not none and t_setpoint is not none and t_kamer < t_setpoint }}
-  action:
+  actions:
     - variables:
         t_buiten: >
           {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) }}
@@ -39,14 +39,14 @@
           {% set t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
           {% set raw = 1 + 2 * (14 - t) / 24 %}
           {{ [[60, (raw * 2) | round | int * 30] | max, 180] | min }}
-    - service: number.set_value
+    - action: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
       data:
         value: 0.5
     - delay:
         minutes: "{{ window_min }}"
-    - service: number.set_value
+    - action: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
       data:
@@ -60,7 +60,7 @@
     reset naar 0. Voorkomt dat correctie blijft hangen wanneer HA herstart
     tijdens de delay-fase van warmtepomp_goedkoop_uur_opwarmen (mode: single).
   triggers:
-    - platform: homeassistant
+    - trigger: homeassistant
       event: start
   conditions:
     - condition: template
@@ -69,20 +69,20 @@
   actions:
     - delay:
         seconds: 30
-    - service: number.set_value
+    - action: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
       data:
         value: 0
   mode: single
 
-- id: 07ea0d9b5b9145db88c0ebdaec3cd174
+- id: waarschuwing_bij_herinstallatie
   alias: Waarschuwing bij herinstallatie
   triggers:
-  - platform: event
+  - trigger: event
     event_type: home_assistant_start
   actions:
-  - service: persistent_notification.create
+  - action: persistent_notification.create
     data:
       title: Let op!
       message: 'Je staat op het punt Home Assistant te herstarten of te herinstalleren.
@@ -91,7 +91,7 @@
 
         '
   mode: single
-- id: '1778941827789'
+- id: tapwater_zonne_overschot_klein
   alias: Warmwater bij Zonne-overschot
   description: >
     Verwarm boiler met WP bij teruglevering >= 2000W EN voldoende zon-forecast
@@ -111,13 +111,9 @@
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 52
-  - condition: template
-    value_template: >
-      {% set fc =
-        (states('sensor.energy_next_hour') | float(0)) +
-        (states('sensor.energy_next_hour_2') | float(0)) +
-        (states('sensor.energy_next_hour_3') | float(0)) %}
-      {{ fc >= 2.0 }}
+  - condition: state
+    entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
+    state: "on"
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -137,8 +133,8 @@
     zonne-overschot boost-modus (setpoint 55-60°C), verhoog setpoint naar
     62°C voor extra opslag. DHW-mode tijdelijk op "Party" om de hysterese
     (8K) te overrulen — anders zou de WP niet opnieuw starten bij DHW>54.
-    Reset volgt automatisch via "Warmwater bij Zonne-overschot - Uitschakelen"
-    bij DHW > 60°C (zet setpoint→48 en mode→Automatic).
+    Reset volgt via zonne_overschot_extra_opslag_reset bij DHW > 58°C
+    (zet setpoint→48 en mode→Automatic, of →Holidays tijdens vakantie).
   triggers:
   - entity_id: sensor.p1_meter_power
     below: -4000
@@ -153,13 +149,9 @@
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 61
-  - condition: template
-    value_template: >
-      {% set fc =
-        (states('sensor.energy_next_hour') | float(0)) +
-        (states('sensor.energy_next_hour_2') | float(0)) +
-        (states('sensor.energy_next_hour_3') | float(0)) %}
-      {{ fc >= 2.0 }}
+  - condition: state
+    entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
+    state: "on"
   actions:
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
@@ -193,25 +185,9 @@
         value_template: >
           {% set last = states('input_datetime.tdi_laatste_start') %}
           {{ last in ('unknown', 'unavailable') or (now() - as_datetime(last)).days >= 7 }}
-      - condition: template
-        value_template: >
-          {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff',
-            'forecast') %}
-          {% if forecast %}
-            {% set ns = namespace(min_price=none, min_hour=none) %}
-            {% for h in forecast %}
-              {% set dt = as_datetime(h.datetime) | as_local %}
-              {% if dt.date() == now().date() and now().hour <= dt.hour < 16 %}
-                {% if ns.min_price is none or h.electricity_price < ns.min_price %}
-                  {% set ns.min_price = h.electricity_price %}
-                  {% set ns.min_hour = dt.hour %}
-                {% endif %}
-              {% endif %}
-            {% endfor %}
-            {{ ns.min_hour is not none and now().hour == ns.min_hour }}
-          {% else %}
-            false
-          {% endif %}
+      - condition: state
+        entity_id: binary_sensor.goedkoopste_tdi_uur_nu
+        state: "on"
       sequence:
       - action: input_datetime.set_datetime
         target:
@@ -242,7 +218,7 @@
             entity_id: switch.luxtronik_280807_0450_heating
           action: switch.turn_on
   mode: single
-- id: '1778941860493'
+- id: tdi_einde_reset
   alias: TDI einde - reset naar normaalstand
   description: >
     Reset na TDI-cyclus: setpoint terug naar 48°C zodra DHW > 60°C bereikt.
@@ -414,37 +390,15 @@
   - trigger: time_pattern
     minutes: '0'
   conditions:
-  - condition: template
-    value_template: >
-      {% set hr = now().hour %}
-      {{ hr >= 22 or hr < 6 }}
   - condition: state
     entity_id: input_boolean.vakantie_actief
     state: "off"
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 54
-  - condition: template
-    value_template: >
-      {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff',
-        'forecast') %}
-      {% if forecast %}
-        {% set ns = namespace(min_price=none, min_dt=none) %}
-        {% for h in forecast %}
-          {% set dt = as_datetime(h.datetime) | as_local %}
-          {% set hr = dt.hour %}
-          {% if (hr >= 22 or hr < 6) and dt >= now() %}
-            {% if ns.min_price is none or h.electricity_price < ns.min_price %}
-              {% set ns.min_price = h.electricity_price %}
-              {% set ns.min_dt = dt %}
-            {% endif %}
-          {% endif %}
-        {% endfor %}
-        {{ ns.min_dt is not none and now().hour == ns.min_dt.hour
-           and now().date() == ns.min_dt.date() }}
-      {% else %}
-        false
-      {% endif %}
+  - condition: state
+    entity_id: binary_sensor.goedkoopste_nachtuur_nu
+    state: "on"
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -469,13 +423,13 @@
     zou later naar Automatic resetten i.p.v. terug naar Off).
     Single source of truth voor "ben ik met vakantie". Idempotent.
   triggers:
-    - platform: state
+    - trigger: state
       entity_id: select.luxtronik_280807_0450_dhw_mode
       to: Holidays
-    - platform: state
+    - trigger: state
       entity_id: select.luxtronik_280807_0450_heating_mode
       to: Holidays
-    - platform: state
+    - trigger: state
       entity_id: input_boolean.vakantie_actief
       to: "on"
   actions:
@@ -486,7 +440,7 @@
           entity_id: select.luxtronik_280807_0450_dhw_mode
           state: "Off"
       then:
-      - service: select.select_option
+      - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_dhw_mode
         data:
@@ -498,12 +452,12 @@
           entity_id: select.luxtronik_280807_0450_heating_mode
           state: "Off"
       then:
-      - service: select.select_option
+      - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_heating_mode
         data:
           option: Holidays
-    - service: input_boolean.turn_on
+    - action: input_boolean.turn_on
       target:
         entity_id: input_boolean.vakantie_actief
   mode: single
@@ -521,14 +475,14 @@
     keuze (bv. heating_mode → Off i.p.v. Automatic). Notificatie toont
     DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
   triggers:
-    - platform: state
+    - trigger: state
       entity_id: input_boolean.vakantie_actief
       to: "off"
-    - platform: state
+    - trigger: state
       entity_id: select.luxtronik_280807_0450_heating_mode
       from: Holidays
   actions:
-    - service: input_boolean.turn_off
+    - action: input_boolean.turn_off
       target:
         entity_id: input_boolean.vakantie_actief
     - if:
@@ -536,7 +490,7 @@
         entity_id: select.luxtronik_280807_0450_dhw_mode
         state: Holidays
       then:
-      - service: select.select_option
+      - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_dhw_mode
         data:
@@ -546,12 +500,12 @@
         entity_id: select.luxtronik_280807_0450_heating_mode
         state: Holidays
       then:
-      - service: select.select_option
+      - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_heating_mode
         data:
           option: Automatic
-    - service: persistent_notification.create
+    - action: persistent_notification.create
       data:
         title: "Vakantie uitgeschakeld"
         message: >-
@@ -572,9 +526,9 @@
     Marker wordt gezet na elke poging (niet alleen na een commit) — anders
     zou een dag zonder wijzigingen tot herhaalde retries leiden.
   triggers:
-    - platform: time
+    - trigger: time
       at: "03:00:00"
-    - platform: homeassistant
+    - trigger: homeassistant
       event: start
   conditions:
     - condition: template
@@ -589,7 +543,7 @@
     - delay:
         seconds: 30
     - action: shell_command.git_backup
-    - service: input_datetime.set_datetime
+    - action: input_datetime.set_datetime
       target:
         entity_id: input_datetime.last_github_backup
       data:

@@ -1,0 +1,64 @@
+# templates/tapwater_decisions.yaml
+# Beslissings-helpers voor tapwater-automaties (extractie uit automations.yaml).
+- binary_sensor:
+
+  - name: "Zon-forecast volgend uur voldoende"
+    unique_id: "zon_forecast_uur_voldoende"
+    icon: mdi:weather-sunny
+    state: >
+      {% set fc =
+        (states('sensor.energy_next_hour') | float(0)) +
+        (states('sensor.energy_next_hour_2') | float(0)) +
+        (states('sensor.energy_next_hour_3') | float(0)) %}
+      {{ fc >= 2.0 }}
+    attributes:
+      forecast_kwh: >
+        {{ ((states('sensor.energy_next_hour') | float(0)) +
+            (states('sensor.energy_next_hour_2') | float(0)) +
+            (states('sensor.energy_next_hour_3') | float(0))) | round(2) }}
+      drempel_kwh: 2.0
+
+  - name: "Goedkoopste nachtuur nu"
+    unique_id: "goedkoopste_nachtuur_nu"
+    icon: mdi:weather-night
+    state: >
+      {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+      {% if forecast %}
+        {% set ns = namespace(min_price=none, min_dt=none) %}
+        {% for h in forecast %}
+          {% set dt = as_datetime(h.datetime) | as_local %}
+          {% set hr = dt.hour %}
+          {% if (hr >= 22 or hr < 6) and dt >= now() %}
+            {% if ns.min_price is none or h.electricity_price < ns.min_price %}
+              {% set ns.min_price = h.electricity_price %}
+              {% set ns.min_dt = dt %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.min_dt is not none
+           and now().hour == ns.min_dt.hour
+           and now().date() == ns.min_dt.date() }}
+      {% else %}
+        false
+      {% endif %}
+
+  - name: "Goedkoopste TDI uur nu"
+    unique_id: "goedkoopste_tdi_uur_nu"
+    icon: mdi:bacteria-outline
+    state: >
+      {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+      {% if forecast %}
+        {% set ns = namespace(min_price=none, min_hour=none) %}
+        {% for h in forecast %}
+          {% set dt = as_datetime(h.datetime) | as_local %}
+          {% if dt.date() == now().date() and now().hour <= dt.hour < 16 %}
+            {% if ns.min_price is none or h.electricity_price < ns.min_price %}
+              {% set ns.min_price = h.electricity_price %}
+              {% set ns.min_hour = dt.hour %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.min_hour is not none and now().hour == ns.min_hour }}
+      {% else %}
+        false
+      {% endif %}

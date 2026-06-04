@@ -61,7 +61,7 @@
 |---|---|---|---|---|
 | DHW < 47°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 41°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
 | Heel uur 22:00-06:00 | goedkoopste nachtuur **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
-| P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh | 57°C | Automatic | `1778941827789` (warmwater_zonne_overschot) |
+| P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C | Party | `tapwater_extra_opslag_groot_overschot` |
 | Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden | 62°C | Automatic | `tdi_legionella_solar_overschot` |
 | Autonome WP-cyclus | DHW ≤ setpoint − 8K (hysterese) | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
@@ -71,7 +71,7 @@
 |---|---|---|---|---|
 | DHW > 57°C voor 2 min | 50 < setpoint < 60 **EN** P1 > -1500W | 48°C | (ongewijzigd) | `tapwater_reset_na_bijverwarmen` |
 | DHW > 58°C | mode = Party **EN** setpoint > 55 | 48°C | Automatic | `zonne_overschot_extra_opslag_reset` |
-| DHW > 60°C | mode = Automatic **EN** setpoint > 55 | 48°C | (ongewijzigd) | `1778941860493` (tdi_einde_reset) — verwarming-switch uit bij warm weer |
+| DHW > 60°C | mode = Automatic **EN** setpoint > 55 | 48°C | (ongewijzigd) | `tdi_einde_reset` — verwarming-switch uit bij warm weer |
 | Autonome WP-stop | DHW ≥ setpoint | (ongewijzigd) | (ongewijzigd) | Luxtronik intern |
 
 ## Tapwater drempel-temperaturen
@@ -101,11 +101,11 @@ Gedrag tijdens vakantie:
 | `warmtepomp_goedkoop_uur_opwarmen` | geblokkeerd |
 | `tapwater_bijverwarmen` (tarief-tak) | geblokkeerd; noodtak DHW<41°C blijft actief |
 | `tapwater_goedkoopste_nachtuur` | geblokkeerd |
-| `1778941827789` warmwater zonne-overschot | actief (overschot opslaan blijft) |
+| `tapwater_zonne_overschot_klein` | actief (overschot opslaan blijft) |
 | `tapwater_extra_opslag_groot_overschot` | actief |
 | `tdi_legionella_solar_overschot` | actief, maar `switch.heating` aan-actie geskipt |
 
-Reset-automaties (`tapwater_reset_na_bijverwarmen`, `zonne_overschot_extra_opslag_reset`, `1778941860493` tdi_einde_reset) zetten dhw_mode terug naar Holidays als `vakantie_actief = on`. Heating-switch-uit in tdi_einde_reset is geskipt tijdens vakantie (respecteert user-keuze om heating aan te laten voor bv. vorstbescherming).
+Reset-automaties (`tapwater_reset_na_bijverwarmen`, `zonne_overschot_extra_opslag_reset`, `tdi_einde_reset`) zetten dhw_mode terug naar Holidays als `vakantie_actief = on`. Heating-switch-uit in tdi_einde_reset is geskipt tijdens vakantie (respecteert user-keuze om heating aan te laten voor bv. vorstbescherming).
 
 Bij `vakantie_sync_uit`: persistent notification met DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
 
