@@ -74,12 +74,12 @@ views:
                 name: Energie Import Jaar
               - entity: sensor.solar_yearly
                 name: Energie Export Jaar
-              - entity: sensor.export_365dagen
+              - entity: sensor.export_laatste_365_dagen
                 name: Export Laatste 365 dagen
 
           - type: gauge
             title: Energie Export Laatste 365 dagen
-            entity: sensor.export_365dagen
+            entity: sensor.export_laatste_365_dagen
             min: 0
             max: 10000
             severity:

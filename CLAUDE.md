@@ -18,9 +18,9 @@
 │   ├── energy_meters.yaml      # utility_meter (dagelijks/maandelijks/jaarlijks)
 │   └── helpers.yaml            # input_number, input_datetime
 └── templates/
-    ├── warmtepomp.yaml         # COP-sensoren + forecast-logica
-    ├── elektriciteit_verbruik.yaml  # Netto verbruik, kosten, vermogen
-    └── Smartphones.yaml        # Aanwezigheidsdetectie
+    ├── warmtepomp.yaml         # COP-sensoren + optimaal_startuur (Zonneplan × COP × stooklijn)
+    ├── tapwater_decisions.yaml # beslissings-binary_sensors voor tapwater-automaties
+    └── elektriciteit_verbruik.yaml  # alleen nog export_365dagen (rest opgeruimd als dead code)
 ```
 
 ## Integraties
