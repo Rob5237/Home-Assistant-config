@@ -34,9 +34,11 @@
 ## Helpers
 - `input_number.tapwater_tarief_drempel` — max tarief voor bijverwarmen (default 0.25 €/kWh)
 - `input_number.verbruiksprijs_kwh` — verbruiksprijs (default 0.2554 €/kWh)
-- `input_number.terugleverprijs_kwh` — terugleverprijs (default 0.09 €/kWh)
+- `input_number.zon_forecast_drempel_kwh` — drempel voor `binary_sensor.zon_forecast_volgend_uur_voldoende` (default 2.0 kWh/uur)
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
+- `input_datetime.last_github_backup` — marker voor dagelijkse backup-poging
 - `input_boolean.vakantie_actief` — single source of truth voor vakantiemodus. Sync bidirectioneel met Luxtronik dhw_mode/heating_mode "Holidays" via `vakantie_sync_aan`/`vakantie_sync_uit`.
+- `input_boolean.tapwater_overschot_lock` — actief tijdens een opwarm-cyclus. Gezet door alle 5 start-automaties, gecheckt door 3 reset-automaties voor de "vakantie → Holidays" terugzet-actie, uitgezet door `tapwater_overschot_user_intervention` bij handmatige dhw_mode-wijziging.
 
 ## Beslissings-binary_sensors (templates/tapwater_decisions.yaml)
 - `binary_sensor.zon_forecast_volgend_uur_voldoende` — `on` als som van 3 dakgedeeltes (`sensor.energy_next_hour[_2][_3]`) ≥ 2.0 kWh. Gebruikt door zonne-overschot automaties (klein + groot) als forecast-conditie. Attributen: `forecast_kwh`, `drempel_kwh`.
@@ -58,8 +60,11 @@
 | Alias | Trigger | Doel |
 |---|---|---|
 | Warmtepomp: extra opwarmen bij goedkoopste uur | elke minuut | +0.5°C correction op optimaal uur, window afhankelijk van buitentemp |
+| Warmtepomp: reset correction bij HA-start | HA start | Reset heating_target_correction als die nog ≠0 na HA-restart tijdens delay-fase |
 | GitHub: nachtelijke config backup | 03:00 dagelijks | `git add -A && commit && push` |
 | Waarschuwing bij herinstallatie | HA start | Notificatie over /share-map risico |
+| Vorstbescherming: waarschuwing bij heating Off in koud weer | buitentemp ≤5°C voor 10 min | Persistent notification als `heating_mode = Off` (geen vorstbescherming actief) |
+| Tapwater: lock uitzetten bij handmatige dhw_mode wijziging | dhw_mode state change | Detecteert UI/RBE-overname via context.user_id/parent_id; clearet `tapwater_overschot_lock` zodat reset NIET dhw_mode terugzet naar Holidays |
 
 ## Tapwater opwarm-events
 | Trigger | Conditie | Doel-setpoint | DHW-mode | Automatie |
@@ -110,7 +115,9 @@ Gedrag tijdens vakantie:
 | `tapwater_extra_opslag_groot_overschot` | actief |
 | `tdi_legionella_solar_overschot` | actief, maar `switch.heating` aan-actie geskipt |
 
-Reset-automaties (`tapwater_reset_na_bijverwarmen`, `zonne_overschot_extra_opslag_reset`, `tdi_einde_reset`) zetten dhw_mode terug naar Holidays als `vakantie_actief = on`. Heating-switch-uit in tdi_einde_reset is geskipt tijdens vakantie (respecteert user-keuze om heating aan te laten voor bv. vorstbescherming).
+Reset-automaties (`tapwater_reset_na_bijverwarmen`, `zonne_overschot_extra_opslag_reset`, `tdi_einde_reset`) zetten dhw_mode terug naar Holidays als `vakantie_actief = on` **EN** `tapwater_overschot_lock = on`. Heating-switch-uit in tdi_einde_reset is geskipt tijdens vakantie (respecteert user-keuze om heating aan te laten voor bv. vorstbescherming).
+
+**User-intervention lock**: alle 5 start-automaties (`tapwater_bijverwarmen`, `tapwater_goedkoopste_nachtuur`, `tapwater_zonne_overschot_klein`, `tapwater_extra_opslag_groot_overschot`, `tdi_legionella_solar_overschot`) zetten `tapwater_overschot_lock = on` als laatste actie. De automation `tapwater_overschot_user_intervention` luistert op alle dhw_mode-wijzigingen en zet de lock uit zodra een wijziging niet van een eigen automation-context komt (context.user_id gevuld → UI; context.parent_id None → Luxtronik RBE/integration). De 3 reset-automaties checken de lock voor de Holidays-terugzet en clearen de lock altijd aan het eind.
 
 Bij `vakantie_sync_uit`: persistent notification met DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
 

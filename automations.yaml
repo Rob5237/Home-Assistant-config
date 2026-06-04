@@ -126,6 +126,9 @@
     data:
       value: 57
     action: number.set_value
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: tapwater_extra_opslag_groot_overschot
   alias: Tapwater extra opslag bij groot zonne-overschot
@@ -164,6 +167,9 @@
     data:
       option: Party
     action: select.select_option
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: tdi_legionella_solar_overschot
   alias: Legionella TDI bij laagste tarief overdag
@@ -216,6 +222,9 @@
     - target:
         entity_id: switch.luxtronik_280807_0450_heating
       action: switch.turn_on
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: tdi_einde_reset
   alias: TDI einde - reset naar normaalstand
@@ -249,6 +258,9 @@
     - condition: state
       entity_id: input_boolean.vakantie_actief
       state: "on"
+    - condition: state
+      entity_id: input_boolean.tapwater_overschot_lock
+      state: "on"
     then:
     - target:
         entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -268,6 +280,9 @@
     - target:
         entity_id: switch.luxtronik_280807_0450_heating
       action: switch.turn_off
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: zonne_overschot_extra_opslag_reset
   alias: Zonne-overschot extra opslag - reset
@@ -293,13 +308,17 @@
       entity_id: select.luxtronik_280807_0450_dhw_mode
     data:
       option: >-
-        {% if is_state('input_boolean.vakantie_actief', 'on') %}Holidays{% else %}Automatic{% endif %}
+        {% if is_state('input_boolean.vakantie_actief', 'on')
+              and is_state('input_boolean.tapwater_overschot_lock', 'on') %}Holidays{% else %}Automatic{% endif %}
     action: select.select_option
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
       value: 48
     action: number.set_value
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: tapwater_bijverwarmen
   alias: Tapwater bijverwarmen bij lage temperatuur
@@ -339,6 +358,9 @@
     data:
       value: 57
     action: number.set_value
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 
 - id: tapwater_reset_na_bijverwarmen
@@ -371,12 +393,18 @@
     - condition: state
       entity_id: input_boolean.vakantie_actief
       state: "on"
+    - condition: state
+      entity_id: input_boolean.tapwater_overschot_lock
+      state: "on"
     then:
     - target:
         entity_id: select.luxtronik_280807_0450_dhw_mode
       data:
         option: Holidays
       action: select.select_option
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 
 - id: tapwater_goedkoopste_nachtuur
@@ -409,6 +437,48 @@
     data:
       value: 57
     action: number.set_value
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
+  mode: single
+
+- id: tapwater_overschot_user_intervention
+  alias: "Tapwater: lock uitzetten bij handmatige dhw_mode wijziging"
+  description: >
+    Detecteert handmatige dhw_mode-wijzigingen tijdens een actieve
+    opwarm-cyclus (HA UI of Luxtronik-display/RBE). Wanneer de user
+    overneemt, wordt de lock uitgezet zodat de bijbehorende reset-
+    automation dhw_mode NIET terugzet naar Holidays — de user-intent
+    wint.
+
+    Context-detectie:
+    • UI-actie → context.user_id is gevuld
+    • Luxtronik RBE/integration push → context.parent_id is None
+    • Onze eigen automation-actie → context.parent_id is gevuld én
+      user_id is None → condition matched niet → lock blijft staan
+  triggers:
+    - trigger: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+  conditions:
+    - condition: state
+      entity_id: input_boolean.tapwater_overschot_lock
+      state: "on"
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.context.user_id is not none
+           or trigger.to_state.context.parent_id is none }}
+  actions:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.tapwater_overschot_lock
+    - action: persistent_notification.create
+      data:
+        title: "Tapwater: user-overname gedetecteerd"
+        notification_id: tapwater_user_intervention
+        message: >-
+          dhw_mode handmatig gewijzigd naar
+          **{{ trigger.to_state.state }}** tijdens actieve opwarm-cyclus.
+          Reset-automation zal dhw_mode NIET terugzetten naar Holidays.
   mode: single
 
 - id: vakantie_sync_aan
@@ -513,6 +583,39 @@
           Buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C |
           Laatste TDI {{ states('input_datetime.tdi_laatste_start') }} |
           Heating-switch {{ states('switch.luxtronik_280807_0450_heating') }}
+  mode: single
+
+- id: vorstbescherming_waarschuwing
+  alias: "Vorstbescherming: waarschuwing bij heating Off in koud weer"
+  description: >
+    Notificatie wanneer buitentemperatuur ≤ 5°C voor ten minste 10 minuten
+    EN heating_mode = Off (geen vorstbescherming actief in Luxtronik). Voorkomt
+    dat een zomerse Off-stand vergeten wordt vóór de winter, met bevriezings-
+    risico in vakanties of bij langdurige afwezigheid. Eénmalige notificatie
+    per dalingscyclus (trigger fired alleen bij overgang); mode: single.
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
+      below: 5
+      for:
+        minutes: 10
+  conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_heating_mode
+      state: "Off"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "⚠ Vorstbescherming inactief"
+        notification_id: vorstbescherming_warning
+        message: >-
+          Buitentemperatuur {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C
+          en heating_mode staat op **Off** — Luxtronik geeft geen
+          vorstbescherming. Overweeg om heating_mode naar Automatic of
+          Holidays te zetten (vooral bij vakantie of langdurige afwezigheid).
+          DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
+          Kamer {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}°C |
+          Vakantie {{ states('input_boolean.vakantie_actief') }}.
   mode: single
 
 - id: github_nachtelijke_backup

@@ -18,15 +18,6 @@ input_number:
     unit_of_measurement: "€/kWh"
     icon: mdi:currency-eur
 
-  terugleverprijs_kwh:
-    name: "Terugleverprijs elektriciteit (€/kWh)"
-    initial: 0.09
-    min: 0
-    max: 2
-    step: 0.0001
-    unit_of_measurement: "€/kWh"
-    icon: mdi:currency-eur
-
   zon_forecast_drempel_kwh:
     name: "Zon-forecast drempel voor zonne-overschot opwarmen (kWh/uur)"
     initial: 2.0
@@ -40,6 +31,10 @@ input_boolean:
   vakantie_actief:
     name: "Vakantiemodus actief"
     icon: mdi:airplane
+
+  tapwater_overschot_lock:
+    name: "Tapwater opwarm-cyclus actief (reset-lock)"
+    icon: mdi:lock-clock
 
 input_datetime:
   tdi_laatste_start:
