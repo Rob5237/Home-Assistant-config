@@ -38,6 +38,11 @@
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
 - `input_boolean.vakantie_actief` — single source of truth voor vakantiemodus. Sync bidirectioneel met Luxtronik dhw_mode/heating_mode "Holidays" via `vakantie_sync_aan`/`vakantie_sync_uit`.
 
+## Beslissings-binary_sensors (templates/tapwater_decisions.yaml)
+- `binary_sensor.zon_forecast_volgend_uur_voldoende` — `on` als som van 3 dakgedeeltes (`sensor.energy_next_hour[_2][_3]`) ≥ 2.0 kWh. Gebruikt door zonne-overschot automaties (klein + groot) als forecast-conditie. Attributen: `forecast_kwh`, `drempel_kwh`.
+- `binary_sensor.goedkoopste_nachtuur_nu` — `on` als huidig uur het goedkoopste resterende uur is binnen het 22:00-06:00 venster (Zonneplan forecast). Gebruikt door `tapwater_goedkoopste_nachtuur`.
+- `binary_sensor.goedkoopste_tdi_uur_nu` — `on` als huidig uur het goedkoopste resterende uur is binnen 09:00-16:00 vandaag. Gebruikt door `tdi_legionella_solar_overschot`.
+
 ## Energie-meters (utility_meter)
 - `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
 - `energy_daily/monthly/yearly` — bron: P1 import
