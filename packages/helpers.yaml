@@ -27,6 +27,15 @@ input_number:
     unit_of_measurement: "kWh"
     icon: mdi:weather-sunny
 
+  vakantie_parallel_shift_backup:
+    name: "Backup parallel_shift voor vakantie (0 = geen backup)"
+    initial: 0
+    min: 0
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:content-save-cog
+
 input_boolean:
   vakantie_actief:
     name: "Vakantiemodus actief"

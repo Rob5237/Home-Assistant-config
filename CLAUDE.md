@@ -59,7 +59,7 @@
 ## Automaties (algemeen)
 | Alias | Trigger | Doel |
 |---|---|---|
-| Warmtepomp: extra opwarmen bij goedkoopste uur | elke minuut | +0.5°C correction op optimaal uur, window afhankelijk van buitentemp |
+| Warmtepomp: extra opwarmen bij goedkoopste uur | xx:01 (1×/uur) | +0.5°C correction op optimaal uur, window afhankelijk van buitentemp |
 | Warmtepomp: reset correction bij HA-start | HA start | Reset heating_target_correction als die nog ≠0 na HA-restart tijdens delay-fase |
 | GitHub: nachtelijke config backup | 03:00 dagelijks | `git add -A && commit && push` |
 | Waarschuwing bij herinstallatie | HA start | Notificatie over /share-map risico |

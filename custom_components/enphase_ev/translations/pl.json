@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Zaloguj się przy użyciu danych Enlighten.",
+        "data": {
+          "email": "E-mail",
+          "password": "Hasło",
+          "remember_password": "Zapisz hasło do automatycznego ponownego uwierzytelnienia"
+        },
+        "data_description": {
+          "email": "Adres e-mail Twojego konta Enlighten.",
+          "password": "Hasło jest zapisywane tylko, jeśli zaznaczysz pole.",
+          "remember_password": "Umożliwia integracji automatyczne odświeżanie tokenów po ich wygaśnięciu."
+        }
+      },
+      "mfa": {
+        "title": "Zweryfikuj kod MFA",
+        "description": "Wprowadź jednorazowy kod wysłany na e-mail. Kody są ważne przez 5 minut. Możesz poprosić o nowy kod co 30 sekund.",
+        "data": {
+          "otp": "Jednorazowy kod",
+          "resend_code": "Wyślij kod ponownie"
+        },
+        "data_description": {
+          "otp": "Użyj kodu z okna logowania Enphase.",
+          "resend_code": "Poproś o nowy kod, jeśli poprzedni wygasł."
+        }
+      },
+      "site": {
+        "title": "Wybierz lokalizację",
+        "description": "Wybierz, którą lokalizację Enlighten połączyć.",
+        "data": {
+          "site_id": "Lokalizacja"
+        }
+      },
+      "devices": {
+        "title": "Wybierz urządzenia",
+        "description": "Wybierz, które grupy urządzeń dodać. Wszystkie wybory współdzielą ten sam interwał odpytywania.",
+        "data": {
+          "type_envoy": "Brama",
+          "type_encharge": "Bateria",
+          "type_iqevse": "Ładowarki",
+          "type_microinverter": "Mikrofalowniki",
+          "scan_interval": "Interwał skanowania (s)",
+          "type_heatpump": "Pompa ciepła",
+          "type_ac_battery": "Bateria AC"
+        },
+        "data_description": {
+          "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
+          "type_encharge": "Zawiera stan baterii i encje sterujące, gdy są dostępne.",
+          "type_iqevse": "Zawiera encje i sterowanie ładowarkami EV.",
+          "type_microinverter": "Zawiera czujniki łączności mikroinwerterów, liczby aktywnych i produkcji całkowitej.",
+          "scan_interval": "Sekundy między odpytywaniem stanu chmury. Domyślnie 60s.",
+          "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
+          "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Nieprawidłowe dane uwierzytelniające lub wygasła sesja.",
+      "cannot_connect": "Nie można połączyć się z usługą Enphase.",
+      "service_unavailable": "Enphase chwilowo niedostępny. Spróbuj ponownie później.",
+      "too_many_active_sessions": "Enphase odrzuciło logowanie, ponieważ konto ma zbyt wiele aktywnych sesji. Wyloguj się z innych sesji aplikacji lub przeglądarki Enphase i spróbuj ponownie później.",
+      "mfa_required": "Konto wymaga uwierzytelniania wieloskładnikowego.",
+      "otp_required": "Wprowadź jednorazowy kod.",
+      "otp_invalid": "Nieprawidłowy lub wygasły kod. Spróbuj ponownie.",
+      "otp_blocked": "Zbyt wiele prób. Konto jest tymczasowo zablokowane.",
+      "resend_wait": "Poczekaj 30 sekund przed poproszeniem o nowy kod.",
+      "site_required": "Wybierz lokalizację, aby kontynuować.",
+      "site_invalid": "ID lokalizacji musi być numeryczne.",
+      "serials_required": "Wybierz lub wprowadź co najmniej jedną ładowarkę.",
+      "serials_or_site_only_required": "Wprowadź co najmniej jedną ładowarkę lub włącz tryb tylko lokalizacji.",
+      "unknown": "Nieoczekiwany błąd"
+    },
+    "abort": {
+      "already_configured": "Już skonfigurowano",
+      "reconfigure_successful": "Rekonfiguracja zakończona",
+      "reauth_successful": "Ponowne uwierzytelnienie zakończone",
+      "manual_mode_removed": "Starsze ręczne wpisy uwierzytelniania nie są już obsługiwane. Usuń integrację i skonfiguruj ją ponownie z logowaniem Enlighten.",
+      "wrong_account": "Ten wpis jest już powiązany z {configured_label}. Usuń integrację z Home Assistant i dodaj nową, aby powiązać {requested_label}."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Nie można rozpocząć ładowania, ponieważ {name} nie jest podłączony do pojazdu."
+    },
+    "auth_required": {
+      "message": "Nie można rozpocząć ładowania, ponieważ {name} wymaga uwierzytelnienia za pomocą aplikacji Enphase lub RFID."
+    },
+    "grid_control_unavailable": {
+      "message": "Sterowanie siecią jest niedostępne dla tej witryny."
+    },
+    "grid_control_blocked": {
+      "message": "Sterowanie siecią jest obecnie zablokowane: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "Tryb sieci musi być on_grid lub off_grid."
+    },
+    "grid_otp_required": {
+      "message": "Wymagane jest hasło jednorazowe."
+    },
+    "grid_otp_invalid_format": {
+      "message": "OTP musi być 4-cyfrowym kodem numerycznym."
+    },
+    "grid_otp_invalid": {
+      "message": "Hasło jednorazowe jest nieprawidłowe lub wygasło."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Nie można określić numeru seryjnego wysłannika dla tej witryny."
+    },
+    "grid_site_required": {
+      "message": "Wybierz dokładnie jedną witrynę Enphase."
+    },
+    "grid_site_ambiguous": {
+      "message": "Wybrano wiele witryn ({count}). Wybierz dokładnie jedną witrynę."
+    },
+    "schedule_required": {
+      "message": "Włącz co najmniej jeden harmonogram przed wybraniem ładowania zaplanowanego."
+    },
+    "charge_mode_invalid_option": {
+      "message": "Wybrany tryb ładowania jest niedostępny."
+    },
+    "evse_schedule_day_required": {
+      "message": "Wybierz co najmniej jeden dzień tygodnia dla harmonogramu."
+    },
+    "evse_schedule_times_different": {
+      "message": "Godzina rozpoczęcia i zakończenia harmonogramu muszą się różnić."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase odrzucił zmianę harmonogramu."
+    },
+    "battery_schedule_overlap": {
+      "message": "Harmonogram nakłada się z istniejącym {schedule_label}. Najpierw dostosuj lub wyłącz ten harmonogram."
+    },
+    "ac_battery_unavailable": {
+      "message": "Obecnie nie są dostępne żadne urządzenia AC Battery."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Ustawienia uwierzytelniania są niedostępne, gdy usługa Enphase jest niedostępna."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Aktualizacje profilu baterii nie są dozwolone dla tego konta."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Aktualizacje ustawień baterii nie są dozwolone dla tego konta."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Trwa już inna aktualizacja profilu baterii."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Trwa już inna aktualizacja ustawień baterii."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Aktualizacje profilu baterii są niedostępne."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Aktualizacje ustawień baterii są niedostępne."
+    },
+    "battery_updates_unavailable": {
+      "message": "Aktualizacje baterii są niedostępne."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Aktualizacje baterii nie są dozwolone dla tego konta."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Aktualizacja profilu baterii została zażądana zbyt szybko. Poczekaj i spróbuj ponownie."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Aktualizacja ustawień baterii została zażądana zbyt szybko. Poczekaj i spróbuj ponownie."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Nie udało się potwierdzić dostępu do zapisu baterii. Odśwież i spróbuj ponownie."
+    },
+    "schedule_update_forbidden": {
+      "message": "Aktualizacja harmonogramu została odrzucona przez Enphase (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Nie udało się uwierzytelnić aktualizacji harmonogramu. Uwierzytelnij się ponownie i spróbuj jeszcze raz."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Harmonogram koliduje z istniejącym harmonogramem oddawania do sieci. Najpierw dostosuj lub wyłącz ten harmonogram."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Harmonogram koliduje z istniejącym harmonogramem ograniczenia rozładowania baterii. Najpierw dostosuj lub wyłącz ten harmonogram."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Harmonogram koliduje z istniejącym harmonogramem ładowania z sieci. Najpierw dostosuj lub wyłącz ten harmonogram."
+    },
+    "schedule_update_conflict": {
+      "message": "Harmonogram aktualizacji koliduje z istniejącym harmonogramem baterii."
+    },
+    "battery_profile_unavailable": {
+      "message": "Profil baterii jest niedostępny."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Aktualizacja profilu baterii została odrzucona przez Enphase (HTTP 403 Forbidden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Nie udało się uwierzytelnić aktualizacji profilu baterii. Uwierzytelnij się ponownie i spróbuj jeszcze raz."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Ładunek ustawień baterii jest niedostępny."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Aktualizacja ustawień baterii została odrzucona przez Enphase (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Nie udało się uwierzytelnić aktualizacji ustawień baterii. Uwierzytelnij się ponownie i spróbuj jeszcze raz."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "Rezerwa Full Backup jest ustawiona na stałe na 100%."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Rezerwa baterii jest niedostępna."
+    },
+    "savings_profile_required": {
+      "message": "Profil oszczędzania musi być aktywny."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Ustawienia profilu oszczędzania są niedostępne."
+    },
+    "battery_profile_unsupported": {
+      "message": "Wybrany profil baterii nie jest obsługiwany."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "Ustawienie ładowania z sieci jest niedostępne."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Przełącznik ładowania z sieci nie został zastosowany przez Enphase."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Harmonogram ładowania z sieci jest niedostępny."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "Godziny rozpoczęcia i zakończenia harmonogramu ładowania z sieci muszą być różne."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Przełącznik harmonogramu ładowania z sieci nie został zastosowany przez Enphase."
+    },
+    "charge_from_grid_required": {
+      "message": "Najpierw należy włączyć ładowanie z sieci."
+    },
+    "schedule_change_pending": {
+      "message": "Zmiana harmonogramu oczekuje na synchronizację z Envoy. Poczekaj."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "Godzina harmonogramu ładowania z sieci jest nieprawidłowa."
+    },
+    "schedule_api_unavailable": {
+      "message": "Interfejs API harmonogramów nie jest dostępny w tej wersji klienta."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Nie jest dostępny żaden istniejący harmonogram ładowania z sieci."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Przed włączeniem utwórz {schedule_label} w harmonogramie IQ Battery."
+    },
+    "schedule_not_exposed": {
+      "message": "{schedule_label} nie jest obecnie udostępniany przez Enphase dla tej witryny. Poczekaj na zakończenie synchronizacji harmonogramu, a następnie odśwież i spróbuj ponownie."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "Przełącznik {schedule_label} nie został zastosowany przez Enphase."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "odrzucono zapis podstawowy"
+    },
+    "schedule_family_times_different": {
+      "message": "Godziny rozpoczęcia i zakończenia dla {schedule_label} muszą być różne."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "Godzina harmonogramu oddawania do sieci jest nieprawidłowa."
+    },
+    "schedule_missing": {
+      "message": "Nie jest dostępny żaden istniejący harmonogram {schedule_label_lower}."
+    },
+    "schedule_unavailable": {
+      "message": "Harmonogram {schedule_label} jest niedostępny."
+    },
+    "schedule_time_invalid": {
+      "message": "Godzina harmonogramu {schedule_label} jest nieprawidłowa."
+    },
+    "current_schedule_time_invalid": {
+      "message": "Bieżąca godzina harmonogramu {schedule_label_lower} jest nieprawidłowa."
+    },
+    "schedule_limit_range": {
+      "message": "Limit harmonogramu {schedule_label} musi mieścić się w przedziale od {minimum} do {maximum}."
+    },
+    "schedule_limit_minimum": {
+      "message": "Limit harmonogramu {schedule_label} musi wynosić co najmniej {minimum}%."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "Bieżące godziny harmonogramu nie są dostępne."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "Limit harmonogramu ładowania z sieci musi mieścić się w przedziale od {minimum} do {maximum}."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "Limit harmonogramu ładowania z sieci musi wynosić co najmniej {minimum}%."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Poziom wyłączenia baterii jest niedostępny."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Poziom wyłączenia baterii jest nieprawidłowy."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Poziom wyłączenia baterii musi mieścić się w przedziale od {minimum} do {maximum}."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Rezygnacja ze Storm Alert jest niedostępna."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Rezygnacja ze Storm Alert nie powiodła się dla {count} alertów."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Aktualizacje Storm Guard nie są dozwolone dla tego konta."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Ustawienia Storm Guard są niedostępne."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Aktualizacja Storm Guard została odrzucona przez Enphase (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "Nie udało się uwierzytelnić aktualizacji Storm Guard. Uwierzytelnij się ponownie i spróbuj jeszcze raz."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Wybrany profil systemu jest niedostępny."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Aktualizacja profilu systemu została odrzucona przez Enphase (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "Nie udało się uwierzytelnić aktualizacji profilu systemu. Uwierzytelnij się ponownie i spróbuj jeszcze raz."
+    },
+    "system_profile_update_failed": {
+      "message": "Aktualizacja profilu systemu nie powiodła się."
+    },
+    "system_profile_update_network": {
+      "message": "Aktualizacja profilu systemu nie powiodła się z powodu błędu sieci. Spróbuj ponownie."
+    },
+    "system_profile_update_timeout": {
+      "message": "Upłynął limit czasu aktualizacji profilu systemu. Spróbuj ponownie."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Wybór trybu ładowania jest niedostępny, gdy usługa harmonogramu Enphase jest wyłączona."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "Wybrany docelowy poziom naładowania AC Battery jest niedostępny."
+    },
+    "battery_schedule_day_required": {
+      "message": "Wybierz co najmniej jeden dzień dla harmonogramu."
+    },
+    "battery_schedule_times_different": {
+      "message": "Godziny rozpoczęcia i zakończenia harmonogramu muszą być różne."
+    },
+    "battery_schedule_limit_range": {
+      "message": "Limit harmonogramu {schedule_type} musi mieścić się w przedziale od {minimum} do {maximum}."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Harmonogram odrzucony przez punkt końcowy walidacji Enphase."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Edycja harmonogramu baterii jest niedostępna."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "Interfejs API harmonogramu baterii jest niedostępny."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Aby zaktualizować harmonogram, wymagane jest potwierdzenie."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Aby usunąć harmonogram, wymagane jest potwierdzenie."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Nieprawidłowy identyfikator harmonogramu: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "W bieżących danych nie znaleziono identyfikatora harmonogramu: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Podaj co najmniej jeden identyfikator harmonogramu do usunięcia."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Nieprawidłowe identyfikatory harmonogramu: {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Nie znaleziono identyfikatorów harmonogramu w bieżących danych: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Harmonogram odrzucony przez punkt końcowy walidacji Enphase: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Aktualizacja harmonogramu koliduje z istniejącym harmonogramem baterii: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Stawka taryfy musi być liczbą nieujemną."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Cel stawki taryfy nie został znaleziony w najnowszych danych taryfy."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Cel stawki taryfy jest nieprawidłowy."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "API zapisu taryf jest niedostępne."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Wybierz dokładnie jedną encję stawki taryfy."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Encja nie jest stawką taryfy Enphase: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "Nieobsługiwany komunikat wyzwalający OCPP. Użyj jednej z tych wartości: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Włącz zaawansowane potwierdzenie, aby wysłać {message}."
+    },
+    "tariff_update_required": {
+      "message": "Podaj dane rozliczeniowe lub co najmniej jedną aktualizację stawki taryfy."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Podaj datę rozpoczęcia, częstotliwość i interwał rozliczeń."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "Data rozpoczęcia rozliczeń taryfy musi być prawidłową datą ISO."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "Częstotliwość rozliczeń taryfy musi mieć wartość MONTH lub DAY."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Interwał rozliczeń taryfy musi być między {minimum} a {maximum}."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "API zapisu rozliczeń taryfy jest niedostępne."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Zduplikowane cele stawek taryfy nie są dozwolone."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Zduplikowana encja stawki taryfy: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Wszystkie aktualizacje taryfy muszą dotyczyć tej samej instalacji Enphase."
+    },
+    "tariff_structure_invalid": {
+      "message": "Struktura taryfy jest nieprawidłowa."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje Enphase Energy",
+        "description": "Wybierz, co chcesz zrobić z tym wpisem integracji.",
+        "menu_options": {
+          "settings": "Ustawienia",
+          "migrate_envoy": "Migruj historię Envoy"
+        },
+        "menu_option_descriptions": {
+          "settings": "Dostosuj odpytywanie i działanie.",
+          "migrate_envoy": "Przejmij wybrane identyfikatory encji energii Enphase Envoy, aby historia Home Assistant Energy była kontynuowana przez tę integrację."
+        },
+        "data": {
+          "type_envoy": "Brama",
+          "type_encharge": "Bateria",
+          "type_iqevse": "Ładowarki",
+          "type_microinverter": "Mikrofalowniki",
+          "fast_poll_interval": "Szybki interwał odpytywania (s)",
+          "slow_poll_interval": "Wolny interwał odpytywania (s)",
+          "fast_while_streaming": "Preferuj szybkie odpytywanie podczas aktywnego strumienia chmury",
+          "api_timeout": "Limit czasu API (s)",
+          "nominal_voltage": "Napięcie znamionowe (V)",
+          "session_history_interval": "Interwał historii sesji (min)",
+          "schedule_sync_enabled": "Włącz harmonogram ładowania pojazdów elektrycznych",
+          "reauth": "Rozpocznij ponowne uwierzytelnienie",
+          "forget_password": "Usuń zapisane hasło",
+          "type_heatpump": "Pompa ciepła",
+          "type_ac_battery": "Bateria AC",
+          "battery_schedules_enabled": "Włącz harmonogram baterii",
+          "degraded_service_repair_issues": "Włącz naprawy usług zdegradowanych"
+        },
+        "data_description": {
+          "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
+          "type_encharge": "Zawiera stan baterii i encje sterujące, gdy są dostępne.",
+          "type_iqevse": "Zawiera encje i sterowanie ładowarkami EV.",
+          "type_microinverter": "Zawiera czujniki łączności mikroinwerterów, liczby aktywnych i produkcji całkowitej.",
+          "fast_poll_interval": "Interwał używany podczas ładowania lub strumieniowania.",
+          "slow_poll_interval": "Interwał używany w stanie bezczynności.",
+          "fast_while_streaming": "Gdy włączone, szybkie odpytywanie podczas aktywnego strumienia chmury.",
+          "api_timeout": "Liczba sekund przed przekroczeniem limitu czasu żądań API.",
+          "nominal_voltage": "Napięcie zapasowe do szacowania mocy ładowarki.",
+          "session_history_interval": "Minuty oczekiwania między pobieraniem historii sesji z chmury.",
+          "schedule_sync_enabled": "Zarządzaj harmonogramami ładowarek IQ EV",
+          "reauth": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
+          "forget_password": "Usuwa zapisane hasło. Automatyczne odświeżanie nie będzie już wykonywane.",
+          "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
+          "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne.",
+          "battery_schedules_enabled": "Zarządzaj harmonogramami baterii IQ",
+          "degraded_service_repair_issues": "Tworzy problemy w Repairs, gdy opcjonalne usługi Enphase są zdegradowane."
+        }
+      },
+      "settings": {
+        "title": "Opcje Enphase Energy",
+        "description": "Dostosuj odpytywanie i zachowanie.",
+        "data": {
+          "type_envoy": "Brama",
+          "type_encharge": "Bateria",
+          "type_iqevse": "Ładowarki",
+          "type_microinverter": "Mikrofalowniki",
+          "fast_poll_interval": "Szybki interwał odpytywania (s)",
+          "slow_poll_interval": "Wolny interwał odpytywania (s)",
+          "fast_while_streaming": "Preferuj szybkie odpytywanie podczas aktywnego strumienia chmury",
+          "api_timeout": "Limit czasu API (s)",
+          "nominal_voltage": "Napięcie znamionowe (V)",
+          "session_history_interval": "Interwał historii sesji (min)",
+          "schedule_sync_enabled": "Włącz obsługę harmonogramu",
+          "reauth": "Rozpocznij ponowne uwierzytelnienie",
+          "forget_password": "Usuń zapisane hasło",
+          "type_heatpump": "Pompa ciepła",
+          "type_ac_battery": "Bateria AC",
+          "battery_schedules_enabled": "Włącz harmonogram baterii",
+          "degraded_service_repair_issues": "Włącz naprawy usług zdegradowanych"
+        },
+        "data_description": {
+          "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
+          "type_encharge": "Zawiera stan baterii i encje sterujące, gdy są dostępne.",
+          "type_iqevse": "Zawiera encje i sterowanie ładowarkami EV.",
+          "type_microinverter": "Zawiera czujniki łączności mikroinwerterów, liczby aktywnych i produkcji całkowitej.",
+          "fast_poll_interval": "Interwał używany podczas ładowania lub strumieniowania.",
+          "slow_poll_interval": "Interwał używany w stanie bezczynności.",
+          "fast_while_streaming": "Gdy włączone, szybkie odpytywanie podczas aktywnego strumienia chmury.",
+          "api_timeout": "Liczba sekund przed przekroczeniem limitu czasu żądań API.",
+          "nominal_voltage": "Napięcie zapasowe do szacowania mocy ładowarki.",
+          "session_history_interval": "Minuty oczekiwania między pobieraniem historii sesji z chmury.",
+          "schedule_sync_enabled": "Zarządzaj zarządzaniem harmonogramem Enphase",
+          "reauth": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
+          "forget_password": "Usuwa zapisane hasło. Automatyczne odświeżanie nie będzie już wykonywane.",
+          "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
+          "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne.",
+          "battery_schedules_enabled": "Zarządzaj harmonogramami baterii IQ",
+          "degraded_service_repair_issues": "Tworzy problemy w Repairs, gdy opcjonalne usługi Enphase są zdegradowane."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Wybierz źródło Envoy",
+        "description": "Wybierz, z którego wpisu Enphase Envoy chcesz migrować.",
+        "data": {
+          "selected_envoy_source": "Źródło Envoy"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Migruj historię Envoy",
+        "description": "Ten kreator ponownie przypisuje wybrane identyfikatory encji energii Enphase Envoy do pasujących czujników Enphase Energy.\n\nHistoria Home Assistant Energy jest powiązana z identyfikatorem encji używanym do statystyk długoterminowych.\n\nUtwórz pełną kopię zapasową Home Assistanta przed kontynuowaniem.\n\nMigruj tylko czujniki reprezentujące ten sam skumulowany łączny pomiar energii.\n\nWybrana integracja Envoy zostanie tymczasowo wyładowana na czas ponownego przypisywania identyfikatorów encji, a po migracji zostanie przywrócona.\n\nTo aktualizuje rejestr encji i nie może zostać automatycznie cofnięte.\n\nWybrane źródło Envoy: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Mam aktualną kopię zapasową Home Assistant"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Mapowanie czujników historii",
+        "description": "Dokładnie sprawdź sugerowane mapowania. Wyświetlane są tylko zgodne skumulowane sumy energii. Puste pola zostaną pominięte.\n\nJeśli sugestia jest błędna lub niejasna, wyczyść ją i wybierz ręcznie.",
+        "data": {
+          "solar_production": "Produkcja solarna",
+          "consumption": "Zużycie",
+          "grid_import": "Import z sieci",
+          "grid_export": "Eksport do sieci",
+          "battery_charge": "Ładowanie baterii",
+          "battery_discharge": "Rozładowanie baterii"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
+          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Potwierdź migrację historii Envoy",
+        "description": "Wybrane encje źródłowe zostaną przemianowane na zarchiwizowane starsze identyfikatory encji.\n\nNastępnie encje Enphase Energy zostaną przemianowane na oryginalne identyfikatory encji źródłowych.\n\nJeśli którekolwiek mapowanie jest błędne, anuluj teraz. Przywrócenie z kopii zapasowej to najbezpieczniejszy sposób wycofania zmian.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Rozumiem, że wybrane identyfikatory encji źródłowych zostaną ponownie przypisane",
+          "disable_archived_envoy_sensors": "Wyłącz zarchiwizowane czujniki źródłowe po migracji"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Wybierz lub wprowadź co najmniej jedną ładowarkę.",
+      "backup_required": "Zdecydowanie zaleca się utworzenie pełnej kopii zapasowej przed kontynuowaniem.",
+      "confirm_required": "Potwierdź, że wybrane identyfikatory encji źródłowych zostaną ponownie przypisane przed kontynuowaniem.",
+      "migration_no_selection": "Wybierz co najmniej jeden zgodny czujnik energii do migracji.",
+      "migration_duplicate_selection": "Ta sama encja źródłowa nie może zostać użyta więcej niż raz.",
+      "envoy_entry_loaded": "Integracji Envoy nie udało się tymczasowo wyładować na potrzeby migracji.",
+      "incompatible_energy_total": "Wybrane encje nie są zgodnymi skumulowanymi sumami energii."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Brak dostępnych sensorów energii Enphase Envoy do migracji.",
+      "migration_no_targets": "Brak zgodnych sensorów Enphase Energy do migracji.",
+      "migration_partial_failure": "Migracja zatrzymała się po częściowym zakończeniu.\n\nZakończone mapowania:\n{completed_mappings}\n\nBłąd podczas przetwarzania `{failed_entity_id}`: {failure_reason}\n\nPrzywróć kopię zapasową, jeśli wynik jest nieakceptowalny."
+    },
+    "create_entry": {
+      "migration_success": "Migracja zakończona. Enphase Energy przejęło teraz wybrane identyfikatory encji źródłowych. Sprawdź panel Energy i Developer Tools > Statistics po następnym odświeżeniu.",
+      "migration_success_reload_needed": "Migracja została zakończona, ale jednej lub wielu integracji nie udało się automatycznie przeładować. W razie potrzeby przeładuj ręcznie Enphase Energy i Enphase Envoy, a następnie sprawdź panel Energy i Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Ostatnia sesja",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Zużyta energia (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Zużyta energia (kWh)"
+          },
+          "session_cost": {
+            "name": "Koszt sesji"
+          },
+          "session_charge_level": {
+            "name": "Poziom naładowania sesji"
+          },
+          "range_added": {
+            "name": "Dodany zasięg"
+          },
+          "plugged_in_at": {
+            "name": "Podłączono o"
+          },
+          "plugged_out_at": {
+            "name": "Odłączono o"
+          },
+          "session_duration_min": {
+            "name": "Czas trwania sesji (min)"
+          },
+          "session_id": {
+            "name": "Identyfikator sesji"
+          },
+          "session_started_at": {
+            "name": "Sesja rozpoczęta"
+          },
+          "session_ended_at": {
+            "name": "Sesja zakończona"
+          },
+          "active_charge_time_s": {
+            "name": "Aktywny czas ładowania (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Średni koszt za kWh"
+          },
+          "cost_calculated": {
+            "name": "Koszt obliczony"
+          },
+          "session_cost_state": {
+            "name": "Stan kosztu sesji"
+          },
+          "manual_override": {
+            "name": "Ręczne nadpisanie"
+          },
+          "charge_profile_stack_level": {
+            "name": "Poziom stosu profilu ładowania"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Status złącza",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Przyczyna statusu"
+          },
+          "connector_status_info": {
+            "name": "Informacje o statusie złącza"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Przyczyna złącza"
+      },
+      "electrical_phase": {
+        "name": "Faza elektryczna",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Tryb fazy (surowy)"
+          },
+          "dlb_enabled": {
+            "name": "Włączone dynamiczne równoważenie obciążenia"
+          },
+          "dlb_active": {
+            "name": "Aktywne dynamiczne równoważenie obciążenia"
+          }
+        }
+      },
+      "power": {
+        "name": "Moc",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Ostatnie kWh całkowite"
+          },
+          "last_energy_ts": {
+            "name": "Ostatni znacznik czasu energii"
+          },
+          "last_sample_ts": {
+            "name": "Ostatni znacznik czasu próbki"
+          },
+          "last_power_w": {
+            "name": "Ostatnia moc (W)"
+          },
+          "last_window_seconds": {
+            "name": "Ostatnie okno (s)"
+          },
+          "method": {
+            "name": "Metoda"
+          },
+          "charging": {
+            "name": "Ładowanie"
+          },
+          "operating_v": {
+            "name": "Napięcie robocze (V)"
+          },
+          "max_throughput_w": {
+            "name": "Maksymalna przepustowość (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Maksymalna przepustowość (nieograniczone W)"
+          },
+          "max_throughput_source": {
+            "name": "Źródło maksymalnej przepustowości"
+          },
+          "max_throughput_amps": {
+            "name": "Maksymalna przepustowość w amperach"
+          },
+          "max_throughput_voltage": {
+            "name": "Napięcie maksymalnej przepustowości (V)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Tryb ładowania",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Sterowanie amperażem ma zastosowanie"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Tryb zarządzający amperażem"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Tryby, w których sterowanie amperażem ma zastosowanie"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Uwierzytelnianie ładowarki",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "Włączono uwierzytelnianie aplikacji"
+          },
+          "rfid_auth_enabled": {
+            "name": "Włączono uwierzytelnianie RFID"
+          },
+          "app_auth_supported": {
+            "name": "Obsługiwane uwierzytelnianie aplikacji"
+          },
+          "rfid_auth_supported": {
+            "name": "Obsługiwane uwierzytelnianie RFID"
+          }
+        },
+        "state": {
+          "enabled": "Włączony",
+          "disabled": "Wyłączony"
+        }
+      },
+      "set_amps": {
+        "name": "Ustaw ampery",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimalne ampery"
+          },
+          "max_amp": {
+            "name": "Maksymalne ampery"
+          },
+          "max_current": {
+            "name": "Maksymalne ampery obwodu"
+          },
+          "amp_granularity": {
+            "name": "Granularność amperów"
+          }
+        }
+      },
+      "status": {
+        "name": "Stan ładowarki",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Uruchomiony"
+          },
+          "charger_problem": {
+            "name": "Problem z ładowarką"
+          },
+          "suspended_by_evse": {
+            "name": "Wstrzymane przez EVSE"
+          },
+          "offline_since": {
+            "name": "Offline od"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Ostatnia udana aktualizacja",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Ostatnia awaria (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Ostatni status błędu"
+          },
+          "code_description": {
+            "name": "Opis kodu"
+          },
+          "last_failure_response": {
+            "name": "Ostatnia odpowiedź błędu"
+          },
+          "last_failure_source": {
+            "name": "Ostatnie źródło błędu"
+          },
+          "backoff_ends_utc": {
+            "name": "Koniec backoff (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Opóźnienie chmury"
+      },
+      "current_production_power": {
+        "name": "Bieżąca moc produkcji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "source": {
+            "name": "Źródło"
+          },
+          "reported_units": {
+            "name": "Raportowane jednostki"
+          },
+          "reported_precision": {
+            "name": "Raportowana precyzja"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Kod błędu chmury",
+        "state": {
+          "none": "Brak",
+          "rate_limited": "Ograniczenie częstotliwości",
+          "auth_blocked": "Uwierzytelnianie tymczasowo zablokowane",
+          "authentication_error": "Błąd uwierzytelniania",
+          "request_error": "Błąd żądania",
+          "service_unavailable": "Usługa niedostępna",
+          "invalid_payload": "Nieprawidłowa odpowiedź chmury",
+          "dns_error": "Błąd DNS",
+          "network_error": "Błąd sieci"
+        }
+      },
+      "site_service_status": {
+        "name": "Stan usługi",
+        "state": {
+          "ok": "Działa",
+          "unknown": "Nieznany",
+          "degraded": "Zdegradowany"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Zdegradowane usługi"
+          },
+          "degraded_endpoint_families": {
+            "name": "Zdegradowane rodziny punktów końcowych"
+          },
+          "degraded_service_count": {
+            "name": "Liczba zdegradowanych usług"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Liczba zdegradowanych rodzin punktów końcowych"
+          },
+          "metrics_available": {
+            "name": "Metryki dostępne"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Koniec backoff chmury",
+        "state": {
+          "none": "Brak"
+        }
+      },
+      "last_reported": {
+        "name": "Ostatnio zgłoszono",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Interwał raportowania (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Mile sesji"
+      },
+      "session_plug_in_at": {
+        "name": "Sesja podłączona"
+      },
+      "session_plug_out_at": {
+        "name": "Sesja odłączona"
+      },
+      "schedule_type": {
+        "name": "Typ harmonogramu"
+      },
+      "schedule_start": {
+        "name": "Początek harmonogramu"
+      },
+      "schedule_end": {
+        "name": "Koniec harmonogramu"
+      },
+      "lifetime_energy": {
+        "name": "Energia całkowita",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Ostatnia wartość resetu"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Produkcja słoneczna lokalizacji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Zużycie lokalizacji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Import z sieci lokalizacji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Bieżąca moc sieci",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Ostatni przepływ kWh"
+          },
+          "last_energy_ts": {
+            "name": "Ostatni znacznik czasu energii"
+          },
+          "last_sample_ts": {
+            "name": "Ostatni znacznik czasu próbki"
+          },
+          "last_power_w": {
+            "name": "Ostatnia moc (W)"
+          },
+          "last_window_seconds": {
+            "name": "Ostatnie okno (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          },
+          "method": {
+            "name": "Metoda"
+          },
+          "source_flows": {
+            "name": "Przepływy źródłowe"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Eksport do sieci lokalizacji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Ładowanie baterii lokalizacji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Rozładowanie baterii lokalizacji",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Bieżąca moc baterii",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Ostatni przepływ kWh"
+          },
+          "last_energy_ts": {
+            "name": "Ostatni znacznik czasu energii"
+          },
+          "last_sample_ts": {
+            "name": "Ostatni znacznik czasu próbki"
+          },
+          "last_power_w": {
+            "name": "Ostatnia moc (W)"
+          },
+          "last_window_seconds": {
+            "name": "Ostatnie okno (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          },
+          "method": {
+            "name": "Metoda"
+          },
+          "source_flows": {
+            "name": "Przepływy źródłowe"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Strażnik Burzy"
+      },
+      "storm_alert": {
+        "name": "Alarm burzowy",
+        "state": {
+          "active": "Aktywny",
+          "inactive": "Nieaktywny"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Alarm burzowy aktywny"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Stan profilu systemowego",
+        "state": {
+          "pending": "Aż do"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Efektywny profil"
+          },
+          "effective_profile_label": {
+            "name": "Efektywna etykieta profilu"
+          },
+          "effective_reserve_percentage": {
+            "name": "Rezerwa efektywna (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Podtyp efektywnego trybu pracy"
+          },
+          "requested_profile": {
+            "name": "Żądany profil"
+          },
+          "requested_profile_label": {
+            "name": "Żądana etykieta profilu"
+          },
+          "requested_reserve_percentage": {
+            "name": "Żądana rezerwa (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Żądany podtyp trybu pracy"
+          },
+          "pending": {
+            "name": "Aż do"
+          },
+          "pending_requested_at": {
+            "name": "Oczekujące żądanie o godz"
+          },
+          "selected_profile": {
+            "name": "Wybrany profil"
+          },
+          "selected_profile_label": {
+            "name": "Wybrana etykieta profilu"
+          },
+          "selected_reserve_percentage": {
+            "name": "Wybrana rezerwa (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Wybrany podtyp trybu pracy"
+          },
+          "available_profile_keys": {
+            "name": "Dostępne klucze profilu"
+          },
+          "available_profile_labels": {
+            "name": "Dostępne etykiety profili"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Tryb baterii",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Tryb surowy"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Ładowanie z sieci dozwolone"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Rozładowanie do sieci dozwolone"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Poziom naładowania akumulatora"
+      },
+      "battery_overall_charge": {
+        "name": "Całkowity poziom naładowania baterii"
+      },
+      "battery_overall_status": {
+        "name": "Ogólny stan baterii",
+        "state": {
+          "normal": "Normalna",
+          "warning": "Ostrzeżenie",
+          "error": "Błąd",
+          "unknown": "Nieznany"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Stan harmonogramu CFG baterii",
+        "state": {
+          "none": "Brak",
+          "pending": "Oczekujące",
+          "active": "Aktywny"
+        }
+      },
+      "grid_control_status": {
+        "name": "Stan sterowania siecią",
+        "state": {
+          "ready": "Gotowe",
+          "blocked": "Zablokowane",
+          "pending": "Oczekujące"
+        }
+      },
+      "grid_mode": {
+        "name": "Tryb siatki",
+        "state": {
+          "on_grid": "Na siatce",
+          "off_grid": "Poza siecią",
+          "unknown": "Nieznany"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Dostępna energia baterii"
+      },
+      "battery_available_power": {
+        "name": "Dostępna moc baterii"
+      },
+      "battery_storage_status": {
+        "name": "Status {serial}",
+        "state": {
+          "charging": "Ładowanie",
+          "discharging": "Rozładowywanie",
+          "idle": "Bezczynny",
+          "unknown": "Nieznany"
+        }
+      },
+      "battery_storage_health": {
+        "name": "Kondycja {serial}"
+      },
+      "battery_storage_cycle_count": {
+        "name": "Liczba cykli {serial}"
+      },
+      "battery_storage_last_reported": {
+        "name": "Ostatnio zgłoszono {serial}"
+      },
+      "battery_last_reported": {
+        "name": "Ostatnio zgłoszono Bateria"
+      },
+      "system_controller_inventory": {
+        "name": "Kontroler systemu"
+      },
+      "gateway_production_meter": {
+        "name": "Miernik produkcji"
+      },
+      "gateway_consumption_meter": {
+        "name": "Licznik zużycia"
+      },
+      "gateway_connectivity_status": {
+        "name": "Stan bramy"
+      },
+      "gateway_last_reported": {
+        "name": "Ostatni raport dotyczący bramy"
+      },
+      "tariff_billing_cycle": {
+        "name": "Nastepna data rozliczenia",
+        "state_attributes": {
+          "start_date": {
+            "name": "Data poczatku"
+          },
+          "billing_frequency": {
+            "name": "Czestotliwosc rozliczen"
+          },
+          "billing_interval_value": {
+            "name": "Wartosc interwalu rozliczen"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Cykl rozliczeniowy"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Taryfa importu",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "seasons": {
+            "name": "Sezony"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Taryfa importu {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "season_id": {
+            "name": "ID sezonu"
+          },
+          "start_month": {
+            "name": "Miesiąc początkowy"
+          },
+          "end_month": {
+            "name": "Miesiąc końcowy"
+          },
+          "day_group_id": {
+            "name": "ID grupy dni"
+          },
+          "days": {
+            "name": "Dni"
+          },
+          "period_id": {
+            "name": "ID okresu"
+          },
+          "period_type": {
+            "name": "Typ okresu"
+          },
+          "start_time": {
+            "name": "Czas rozpoczęcia"
+          },
+          "end_time": {
+            "name": "Czas zakończenia"
+          },
+          "rate": {
+            "name": "Stawka"
+          },
+          "formatted_rate": {
+            "name": "Sformatowana stawka"
+          },
+          "tier_id": {
+            "name": "ID progu"
+          },
+          "start_value": {
+            "name": "Wartość początkowa"
+          },
+          "end_value": {
+            "name": "Wartość końcowa"
+          },
+          "unbounded": {
+            "name": "Bez górnego limitu"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Lokalizator taryfy"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Taryfa eksportu",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "export_plan": {
+            "name": "Plan eksportu"
+          },
+          "seasons": {
+            "name": "Sezony"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Taryfa eksportu {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "export_plan": {
+            "name": "Plan eksportu"
+          },
+          "season_id": {
+            "name": "ID sezonu"
+          },
+          "start_month": {
+            "name": "Miesiąc początkowy"
+          },
+          "end_month": {
+            "name": "Miesiąc końcowy"
+          },
+          "day_group_id": {
+            "name": "ID grupy dni"
+          },
+          "days": {
+            "name": "Dni"
+          },
+          "period_id": {
+            "name": "ID okresu"
+          },
+          "period_type": {
+            "name": "Typ okresu"
+          },
+          "start_time": {
+            "name": "Czas rozpoczęcia"
+          },
+          "end_time": {
+            "name": "Czas zakończenia"
+          },
+          "rate": {
+            "name": "Stawka"
+          },
+          "formatted_rate": {
+            "name": "Sformatowana stawka"
+          },
+          "tier_id": {
+            "name": "ID progu"
+          },
+          "start_value": {
+            "name": "Wartość początkowa"
+          },
+          "end_value": {
+            "name": "Wartość końcowa"
+          },
+          "unbounded": {
+            "name": "Bez górnego limitu"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Lokalizator taryfy"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Stan łączności mikroinwerterów"
+      },
+      "microinverter_reporting_count": {
+        "name": "Aktywne mikroinwertery"
+      },
+      "microinverter_last_reported": {
+        "name": "Ostatni raport mikroinwerterów"
+      },
+      "site_evse_charging": {
+        "name": "Ładowanie EVSE obiektu",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Zużycie pompy ciepła obiektu",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Zużycie podgrzewacza wody obiektu",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Próbka z godz. (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Ostatni reset"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "Router energii IQ_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Status pompy ciepła"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Licznik energii pompy ciepła"
+      },
+      "heat_pump_last_reported": {
+        "name": "Ostatni raport pompy ciepła"
+      },
+      "heat_pump_power": {
+        "name": "Moc pompy ciepła"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Status pompy ciepła"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "Bramka SG-Ready pompy ciepła"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Dzienna energia pompy ciepła"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Dzienna energia sieciowa pompy ciepła"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Dzienna energia słoneczna pompy ciepła"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Dzienna energia z baterii pompy ciepła"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Stan bramki SG-Ready pompy ciepła"
+      },
+      "shared_labels": {
+        "name": "Wspólne etykiety",
+        "state": {
+          "self_consumption": "Autokonsumpcja",
+          "cost_savings": "Oszczędzanie",
+          "ai_optimisation": "Optymalizacja AI",
+          "backup_only": "Pełne zasilanie awaryjne",
+          "importexport": "Import i eksport",
+          "importonly": "Tylko import",
+          "exportonly": "Tylko eksport",
+          "manual_charging": "Ręczny",
+          "scheduled_charging": "Zaplanowany",
+          "green_charging": "Zielony",
+          "smart_charging": "Inteligentny",
+          "online": "Online",
+          "offline": "Offline",
+          "degraded": "Zdegradowany",
+          "not_reporting": "Brak raportowania",
+          "inactive": "Nieaktywny",
+          "normal": "Normalny",
+          "warning": "Ostrzeżenie",
+          "error": "Błąd",
+          "unknown": "Nieznany",
+          "unpaired": "Nie sparowano",
+          "pairing": "Parowanie"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "Ogólny stan baterii AC",
+        "state": {
+          "charging": "Ładowanie",
+          "discharging": "Rozładowywanie",
+          "idle": "Bezczynny",
+          "unknown": "Nieznany"
+        }
+      },
+      "ac_battery_power": {
+        "name": "Moc baterii AC"
+      },
+      "ac_battery_last_reported": {
+        "name": "Ostatni raport baterii AC"
+      },
+      "ac_battery_storage_charge": {
+        "name": "Poziom naładowania baterii AC"
+      },
+      "ac_battery_storage_status": {
+        "name": "Stan {serial}",
+        "state": {
+          "charging": "Ładowanie",
+          "discharging": "Rozładowywanie",
+          "idle": "Bezczynny",
+          "unknown": "Nieznany"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "Moc {serial}"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "Tryb pracy {serial}"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "Liczba cykli {serial}"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "Ostatni raport {serial}"
+      },
+      "battery_cfg_schedules": {
+        "name": "Harmonogramy CFG baterii"
+      },
+      "battery_dtg_schedules": {
+        "name": "Harmonogramy DTG akumulatorów"
+      },
+      "battery_rbd_schedules": {
+        "name": "Harmonogramy RBD baterii"
+      },
+      "battery_schedule_summary": {
+        "name": "Podsumowanie harmonogramu baterii"
+      },
+      "tariff_current_import_rate": {
+        "name": "Bieżąca stawka importu",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "season_id": {
+            "name": "ID sezonu"
+          },
+          "start_month": {
+            "name": "Miesiąc początkowy"
+          },
+          "end_month": {
+            "name": "Miesiąc końcowy"
+          },
+          "day_group_id": {
+            "name": "ID grupy dni"
+          },
+          "days": {
+            "name": "Dni"
+          },
+          "period_id": {
+            "name": "ID okresu"
+          },
+          "period_type": {
+            "name": "Typ okresu"
+          },
+          "start_time": {
+            "name": "Czas rozpoczęcia"
+          },
+          "end_time": {
+            "name": "Czas zakończenia"
+          },
+          "rate": {
+            "name": "Stawka"
+          },
+          "formatted_rate": {
+            "name": "Sformatowana stawka"
+          },
+          "tier_id": {
+            "name": "ID progu"
+          },
+          "start_value": {
+            "name": "Wartość początkowa"
+          },
+          "end_value": {
+            "name": "Wartość końcowa"
+          },
+          "unbounded": {
+            "name": "Bez górnego limitu"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Lokalizator taryfy"
+          },
+          "active_rate_name": {
+            "name": "Nazwa aktywnej stawki"
+          },
+          "configured_rates": {
+            "name": "Skonfigurowane stawki"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Bieżąca stawka eksportu",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "export_plan": {
+            "name": "Plan eksportu"
+          },
+          "season_id": {
+            "name": "ID sezonu"
+          },
+          "start_month": {
+            "name": "Miesiąc początkowy"
+          },
+          "end_month": {
+            "name": "Miesiąc końcowy"
+          },
+          "day_group_id": {
+            "name": "ID grupy dni"
+          },
+          "days": {
+            "name": "Dni"
+          },
+          "period_id": {
+            "name": "ID okresu"
+          },
+          "period_type": {
+            "name": "Typ okresu"
+          },
+          "start_time": {
+            "name": "Czas rozpoczęcia"
+          },
+          "end_time": {
+            "name": "Czas zakończenia"
+          },
+          "rate": {
+            "name": "Stawka"
+          },
+          "formatted_rate": {
+            "name": "Sformatowana stawka"
+          },
+          "tier_id": {
+            "name": "ID progu"
+          },
+          "start_value": {
+            "name": "Wartość początkowa"
+          },
+          "end_value": {
+            "name": "Wartość końcowa"
+          },
+          "unbounded": {
+            "name": "Bez górnego limitu"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Lokalizator taryfy"
+          },
+          "active_rate_name": {
+            "name": "Nazwa aktywnej stawki"
+          },
+          "configured_rates": {
+            "name": "Skonfigurowane stawki"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Ampery ładowania"
+      },
+      "battery_reserve": {
+        "name": "Rezerwa baterii"
+      },
+      "battery_shutdown_level": {
+        "name": "Poziom wyłączenia baterii"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Limit ładowania baterii"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Limit rozładowania do sieci"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Limit ograniczenia rozładowania baterii"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Nowy limit harmonogramu baterii"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Limit harmonogramu baterii"
+      },
+      "tariff_import_rate_value": {
+        "name": "Taryfa importu {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "season_id": {
+            "name": "ID sezonu"
+          },
+          "start_month": {
+            "name": "Miesiąc początkowy"
+          },
+          "end_month": {
+            "name": "Miesiąc końcowy"
+          },
+          "day_group_id": {
+            "name": "ID grupy dni"
+          },
+          "days": {
+            "name": "Dni"
+          },
+          "period_id": {
+            "name": "ID okresu"
+          },
+          "period_type": {
+            "name": "Typ okresu"
+          },
+          "start_time": {
+            "name": "Czas rozpoczęcia"
+          },
+          "end_time": {
+            "name": "Czas zakończenia"
+          },
+          "rate": {
+            "name": "Stawka"
+          },
+          "formatted_rate": {
+            "name": "Sformatowana stawka"
+          },
+          "tier_id": {
+            "name": "ID progu"
+          },
+          "start_value": {
+            "name": "Wartość początkowa"
+          },
+          "end_value": {
+            "name": "Wartość końcowa"
+          },
+          "unbounded": {
+            "name": "Bez górnego limitu"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Lokalizator taryfy"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Taryfa eksportu {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura taryfy"
+          },
+          "variation_type": {
+            "name": "Typ wariantu"
+          },
+          "source": {
+            "name": "Zrodlo"
+          },
+          "currency": {
+            "name": "Waluta"
+          },
+          "export_plan": {
+            "name": "Plan eksportu"
+          },
+          "season_id": {
+            "name": "ID sezonu"
+          },
+          "start_month": {
+            "name": "Miesiąc początkowy"
+          },
+          "end_month": {
+            "name": "Miesiąc końcowy"
+          },
+          "day_group_id": {
+            "name": "ID grupy dni"
+          },
+          "days": {
+            "name": "Dni"
+          },
+          "period_id": {
+            "name": "ID okresu"
+          },
+          "period_type": {
+            "name": "Typ okresu"
+          },
+          "start_time": {
+            "name": "Czas rozpoczęcia"
+          },
+          "end_time": {
+            "name": "Czas zakończenia"
+          },
+          "rate": {
+            "name": "Stawka"
+          },
+          "formatted_rate": {
+            "name": "Sformatowana stawka"
+          },
+          "tier_id": {
+            "name": "ID progu"
+          },
+          "start_value": {
+            "name": "Wartość początkowa"
+          },
+          "end_value": {
+            "name": "Wartość końcowa"
+          },
+          "unbounded": {
+            "name": "Bez górnego limitu"
+          },
+          "last_refresh_utc": {
+            "name": "Ostatnie odswiezenie (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Lokalizator taryfy"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Podłączono"
+      },
+      "charging": {
+        "name": "Ładowanie"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "SG-Ready pompy ciepła aktywny"
+      },
+      "cloud_reachable": {
+        "name": "Chmura osiągalna"
+      },
+      "connected": {
+        "name": "Łączność",
+        "state_attributes": {
+          "connection": {
+            "name": "Połączenie"
+          },
+          "ip_address": {
+            "name": "Adres IP"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Ładowanie"
+      },
+      "green_battery": {
+        "name": "Użyj akumulatora do ładowania pojazdów elektrycznych"
+      },
+      "app_authentication": {
+        "name": "Autoryzacja poprzez aplikację"
+      },
+      "storm_guard": {
+        "name": "Strażnik Burzy"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Ładunek EV Straży Burzowej"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Używaj baterii po godzinach szczytu"
+      },
+      "charge_from_grid": {
+        "name": "Ładowanie baterii z sieci"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Harmonogram ładowania z sieci"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Harmonogram rozładowania do sieci"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Harmonogram ograniczenia rozładowania baterii"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "Tryb uśpienia baterii AC"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Harmonogram na poniedziałek"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Harmonogram na wtorek"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Harmonogram na środę"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Harmonogram na czwartek"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Harmonogram na piątek"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Harmonogram na sobotę"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Harmonogram na niedzielę"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Nowy harmonogram baterii na poniedziałek"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Nowy harmonogram baterii na wtorek"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Nowy harmonogram baterii na środę"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Nowy harmonogram baterii na czwartek"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Nowy harmonogram baterii na piątek"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Nowy harmonogram baterii na sobotę"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Nowy harmonogram baterii na niedzielę"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Harmonogram baterii na poniedziałek"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Harmonogram baterii na wtorek"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Harmonogram baterii na środę"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Harmonogram baterii na czwartek"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Harmonogram baterii na piątek"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Harmonogram baterii na sobotę"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Harmonogram baterii na niedzielę"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Tryb ładowania"
+      },
+      "system_profile": {
+        "name": "Profil systemu"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "Docelowy stan naładowania baterii AC"
+      },
+      "evse_schedule_selected": {
+        "name": "Harmonogram"
+      },
+      "battery_new_schedule_type": {
+        "name": "Typ harmonogramu baterii"
+      },
+      "battery_schedule_selected": {
+        "name": "Harmonogram baterii"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Rozpocznij ładowanie"
+      },
+      "stop_charging": {
+        "name": "Zatrzymaj ładowanie"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Anuluj oczekującą zmianę profilu"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Żądanie przełączenia siatki OTP"
+      },
+      "storm_alert_opt_out": {
+        "name": "Zrezygnuj z alertu burzowego"
+      },
+      "evse_schedule_refresh": {
+        "name": "Odśwież harmonogram"
+      },
+      "evse_schedule_save": {
+        "name": "Zapisz harmonogram"
+      },
+      "evse_schedule_delete": {
+        "name": "Usuń harmonogram"
+      },
+      "evse_schedule_add": {
+        "name": "Utwórz nowy harmonogram"
+      },
+      "battery_schedule_add": {
+        "name": "Harmonogram baterii Dodaj"
+      },
+      "battery_schedule_delete": {
+        "name": "Harmonogram baterii Usuń"
+      },
+      "battery_schedule_refresh": {
+        "name": "Odświeżanie harmonogramu baterii"
+      },
+      "battery_schedule_save": {
+        "name": "Zapis harmonogramu baterii"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Godzina rozpoczęcia ładowania z sieci"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Godzina zakończenia ładowania z sieci"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Godzina rozpoczęcia rozładowania do sieci"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Godzina zakończenia rozładowania do sieci"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Godzina rozpoczęcia ograniczenia rozładowania baterii"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Godzina zakończenia ograniczenia rozładowania baterii"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Godzina rozpoczęcia harmonogramu"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Godzina zakończenia harmonogramu"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Bateria Czas rozpoczęcia nowego harmonogramu"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Czas zakończenia nowego harmonogramu baterii"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Czas rozpoczęcia harmonogramu baterii"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Czas zakończenia harmonogramu baterii"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Historia zasilania rezerwowego"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Oprogramowanie sprzętowe bramki"
+      },
+      "charger_firmware": {
+        "name": "Oprogramowanie sprzętowe"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Lokalizacja Enphase {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Rozpocznij ładowanie",
+      "stop_charging": "Zatrzymaj ładowanie"
+    },
+    "trigger_type": {
+      "charging_started": "Ładowanie rozpoczęte",
+      "charging_stopped": "Ładowanie zatrzymane",
+      "plugged_in": "Podłączono",
+      "unplugged": "Odłączono"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy wymaga ponownego uwierzytelnienia",
+      "description": "Lokalizacja {site_id} wymaga zaktualizowanych nagłówków sesji. Uwierzytelnij ponownie."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Wygląda na to, że Enphase tymczasowo blokuje uwierzytelnianie dla lokalizacji {site_id}. Automatyczne próby są wstrzymane do {blocked_until}. Udane ręczne ponowne uwierzytelnienie może wcześniej usunąć blokadę."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energy ma zbyt wiele aktywnych sesji",
+      "description": "Enphase odrzuciło uwierzytelnianie dla lokalizacji {site_id}, ponieważ konto ma zbyt wiele aktywnych sesji. Automatyczne ponawianie jest wstrzymane do {blocked_until}. Wyloguj się z innych sesji aplikacji lub przeglądarki Enphase, a następnie ponów uwierzytelnianie."
+    },
+    "rate_limited": {
+      "title": "Enphase Energy ma ograniczenie zapytań",
+      "description": "Interfejs API chmury zwrócił ograniczenie częstotliwości. Odpytywanie zostanie spowolnione do {backoff_ends}."
+    },
+    "cloud_unreachable": {
+      "title": "Chmura Enphase Energy nieosiągalna",
+      "description": "Home Assistant nie może połączyć się z chmurą Enphase dla lokalizacji {site_id}. Odpytywanie spowalnia automatycznie; sprawdź status usługi i sieć."
+    },
+    "cloud_dns_resolution": {
+      "title": "Błąd rozwiązywania DNS Enphase Energy",
+      "description": "Home Assistant nie mógł rozwiązać enlighten.enphaseenergy.com dla lokalizacji {site_id}. Sprawdź resolver DNS lub połączenie internetowe."
+    },
+    "cloud_service_unavailable": {
+      "title": "Błędy chmury Enphase Energy",
+      "description": "Chmura Enphase dla lokalizacji {site_id} odpowiada błędami. Odpytywanie automatycznie się wydłuża; sprawdź status usługi lub limity użycia."
+    },
+    "scheduler_unavailable": {
+      "title": "Harmonogram Enphase Energy jest niedostępny",
+      "description": "Usługa harmonogramu Enphase dla witryny {site_id} jest niedostępna. Wybór trybu ładowania i synchronizacja harmonogramu są tymczasowo wyłączone."
+    },
+    "session_history_unavailable": {
+      "title": "Historia sesji Enphase Energy jest niedostępna",
+      "description": "Usługa historii sesji Enphase dla witryny {site_id} jest niedostępna. Czujniki historii sesji będą wyświetlać dane w pamięci podręcznej do czasu przywrócenia usługi."
+    },
+    "site_energy_unavailable": {
+      "title": "Energia w obiekcie Enphase Energy jest niedostępna",
+      "description": "Dożywotnia usługa energii Enphase dla lokalizacji {site_id} jest niedostępna. Lokalne czujniki energii będą wyświetlać dane z pamięci podręcznej do czasu przywrócenia działania usługi."
+    },
+    "auth_settings_unavailable": {
+      "title": "Ustawienia uwierzytelniania Enphase Energy są niedostępne",
+      "description": "Usługa ustawień uwierzytelniania ładowarki Enphase dla witryny {site_id} jest niedostępna. Opcje uwierzytelniania aplikacji są tymczasowo wyłączone."
+    },
+    "battery_profile_pending": {
+      "title": "Oczekująca aktualizacja profilu baterii Enphase Energy",
+      "description": "Zmiana profilu baterii dla lokalizacji {site_id} oczekuje od ponad {pending_timeout_minutes} minut. Chmura może nadal przetwarzać żądanie."
+    },
+    "hems_auth_degraded": {
+      "title": "HEMS Enphase Energy tymczasowo wstrzymany",
+      "description": "Odpytywanie Heat Pump/HEMS dla lokalizacji {site_id} jest wstrzymane do {backoff_until} po {failure_count} błędach podobnych do uwierzytelniania ({reason}). Wallbox, bateria, brama i inne dane mogą działać dalej. Wyłącz grupę Heat Pump albo użyj Clear HEMS Auth Backoff po przywróceniu Enphase."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "ID lokalizacji",
+      "can_reach_server": "Połącz z chmurą Enphase",
+      "last_success": "Ostatnia udana aktualizacja",
+      "latency_ms": "Opóźnienie chmury (ms)",
+      "last_error": "Ostatni błąd",
+      "scheduler_available": "Dostępny harmonogram",
+      "scheduler_last_error": "Ostatni błąd harmonogramu",
+      "scheduler_failures": "Błędy harmonogramu",
+      "scheduler_backoff_active": "Wycofanie harmonogramu aktywne",
+      "scheduler_backoff_ends_utc": "Kończy się wycofywanie harmonogramu (UTC)",
+      "backoff_active": "Backoff aktywny",
+      "network_errors": "Kolejne błędy sieci",
+      "http_errors": "Kolejne błędy HTTP",
+      "site_count": "Liczba witryn",
+      "site_name": "Nazwa witryny",
+      "site_ids": "Identyfikatory witryn",
+      "site_names": "Nazwy witryn",
+      "last_failure_status": "Ostatni stan awarii",
+      "last_failure_description": "Ostatni opis awarii",
+      "phase_timings": "Czasy faz",
+      "session_cache_ttl_s": "Pamięć podręczna sesji TTL (s)",
+      "sites": "Witryny",
+      "auth_settings_available": "Dostępne ustawienia autoryzacji",
+      "auth_settings_last_error": "Ostatni błąd ustawień autoryzacji",
+      "auth_settings_failures": "Błędy ustawień uwierzytelniania",
+      "auth_settings_backoff_active": "Aktywne wycofywanie ustawień uwierzytelniania",
+      "auth_settings_backoff_ends_utc": "Kończy się wycofywanie ustawień uwierzytelniania (UTC)",
+      "session_history_available": "Dostępna historia sesji",
+      "session_history_last_error": "Ostatni błąd historii sesji",
+      "session_history_failures": "Błędy historii sesji",
+      "session_history_backoff_active": "Aktywne wycofywanie historii sesji",
+      "session_history_backoff_ends_utc": "Koniec wycofywania historii sesji (UTC)",
+      "site_energy_available": "Dostępna energia na miejscu",
+      "site_energy_last_error": "Ostatni błąd dotyczący energii obiektu",
+      "site_energy_failures": "Awarie energetyczne obiektu",
+      "site_energy_backoff_active": "Aktywny zwrot energii w obiekcie",
+      "site_energy_backoff_ends_utc": "Koniec potrąceń energii w obiekcie (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Rozpocznij ładowanie",
+      "description": "Rozpocznij ładowanie na wybranej ładowarce Enphase Energy.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Poziom ładowania (A)",
+          "description": "Opcjonalna wartość prądu w amperach (6-40)."
+        },
+        "connector_id": {
+          "name": "Identyfikator złącza",
+          "description": "Opcjonalny indeks złącza (zwykle 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Zatrzymaj ładowanie",
+      "description": "Zatrzymaj ładowanie na wybranej ładowarce Enphase Energy."
+    },
+    "trigger_message": {
+      "name": "Wyzwól wiadomość OCPP",
+      "description": "Poproś ładowarkę o wysłanie wiadomości OCPP i zwrócenie odpowiedzi z chmury.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Żądana wiadomość",
+          "description": "Nazwa wiadomości OCPP (np. MeterValues); odpowiedź usługi pokazuje dane ładowarki."
+        },
+        "confirm_advanced": {
+          "name": "Potwierdź zaawansowane wyzwolenie",
+          "description": "Wymagane dla zaawansowanych komunikatów wyzwalających OCPP, które mogą zażądać diagnostyki ładowarki, oprogramowania układowego lub powiadomień rozruchowych."
+        },
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Wyczyść problem z ponownym uwierzytelnieniem",
+      "description": "Wybierz urządzenie lokalizacji Enphase, aby wyczyścić problem ponownego uwierzytelnienia.",
+      "fields": {
+        "device_id": {
+          "name": "Ładowarki",
+          "description": "Wybierz ładowarki Enphase, dla których należy wyczyścić problem ponownego uwierzytelnienia."
+        },
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Rozpocznij strumień na żywo",
+      "description": "Poproś o szybsze aktualizacje stanu chmury na krótki czas.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Zatrzymaj strumień na żywo",
+      "description": "Zatrzymaj żądanie strumienia na żywo w chmurze.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Synchronizuj harmonogramy",
+      "description": "Odśwież harmonogramy Enphase z chmury.",
+      "fields": {
+        "device_id": {
+          "name": "Ładowarki",
+          "description": "Opcjonalny wybór ładowarki do ukierunkowanej synchronizacji."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Żądanie przełączenia siatki OTP",
+      "description": "Wyślij wymagany kod jednorazowy przed zmianą trybu siatki witryny.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Ustaw tryb siatki",
+      "description": "Zmień tryb siatki witryny po sprawdzeniu poprawności kodu jednorazowego.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Tryb siatki",
+          "description": "Wybierz on_grid lub off_grid."
+        },
+        "otp": {
+          "name": "Kod jednorazowy",
+          "description": "Wprowadź 4-cyfrowy kod jednorazowy wysłany na zarejestrowany adres e-mail i telefon."
+        },
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "Aktualizuj harmonogram CFG",
+      "description": "Aktualizuje czas rozpoczęcia, czas zakończenia i/lub limit ładowania z sieci w jednej operacji atomowej.",
+      "fields": {
+        "start_time": {
+          "name": "Czas rozpoczęcia",
+          "description": "Czas rozpoczęcia harmonogramu CFG."
+        },
+        "end_time": {
+          "name": "Czas zakończenia",
+          "description": "Czas zakończenia harmonogramu CFG."
+        },
+        "limit": {
+          "name": "Limit ładowania",
+          "description": "Maksymalny poziom naładowania baterii (%)."
+        },
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "ID lokalizacji Enphase (opcjonalne; ustalane z urządzenia docelowego)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Wymuś odświeżenie",
+      "description": "Natychmiast odśwież dane harmonogramu baterii z chmury Enphase.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Identyfikator witryny",
+          "description": "Opcjonalny identyfikator witryny; wykrywany automatycznie po wybraniu urządzenia witryny."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji dla pojedynczego wpisu witryny Enphase."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Dodaj harmonogram baterii",
+      "description": "Utwórz harmonogram baterii dla CFG, DTG lub RBD.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Typ harmonogramu",
+          "description": "Rodzina harmonogramu baterii: cfg, dtg lub rbd."
+        },
+        "start_time": {
+          "name": "Godzina rozpoczęcia",
+          "description": "Godzina rozpoczęcia harmonogramu."
+        },
+        "end_time": {
+          "name": "Godzina zakończenia",
+          "description": "Godzina zakończenia harmonogramu."
+        },
+        "limit": {
+          "name": "Limit ładowania",
+          "description": "Maksymalny poziom naładowania baterii (%)."
+        },
+        "days": {
+          "name": "Dni",
+          "description": "Lista aktywnych dni tygodnia, gdzie poniedziałek=1, a niedziela=7."
+        },
+        "site_id": {
+          "name": "Identyfikator witryny",
+          "description": "Opcjonalny identyfikator witryny; wykrywany automatycznie po wybraniu urządzenia witryny."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji dla pojedynczego wpisu witryny Enphase."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Zaktualizuj harmonogram baterii",
+      "description": "Zaktualizuj harmonogram baterii według identyfikatora harmonogramu.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Identyfikator harmonogramu",
+          "description": "Identyfikator istniejącego harmonogramu baterii Enphase."
+        },
+        "schedule_type": {
+          "name": "Typ harmonogramu",
+          "description": "Rodzina harmonogramu baterii: cfg, dtg lub rbd."
+        },
+        "start_time": {
+          "name": "Godzina rozpoczęcia",
+          "description": "Godzina rozpoczęcia harmonogramu."
+        },
+        "end_time": {
+          "name": "Godzina zakończenia",
+          "description": "Godzina zakończenia harmonogramu."
+        },
+        "limit": {
+          "name": "Limit ładowania",
+          "description": "Maksymalny poziom naładowania baterii (%)."
+        },
+        "days": {
+          "name": "Dni",
+          "description": "Lista aktywnych dni tygodnia, gdzie poniedziałek=1, a niedziela=7."
+        },
+        "confirm": {
+          "name": "Potwierdź",
+          "description": "Ustaw wartość true, aby potwierdzić aktualizację harmonogramu."
+        },
+        "site_id": {
+          "name": "Identyfikator witryny",
+          "description": "Opcjonalny identyfikator witryny; wykrywany automatycznie po wybraniu urządzenia witryny."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji dla pojedynczego wpisu witryny Enphase."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Usuń harmonogram baterii",
+      "description": "Usuń jeden lub więcej harmonogramów baterii według identyfikatora harmonogramu.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Identyfikator harmonogramu",
+          "description": "Identyfikator pojedynczego harmonogramu baterii Enphase do usunięcia."
+        },
+        "schedule_ids": {
+          "name": "Identyfikatory harmonogramów",
+          "description": "Opcjonalna wartość rozdzielona przecinkami lub lista dla wielu identyfikatorów harmonogramów."
+        },
+        "confirm": {
+          "name": "Potwierdź",
+          "description": "Ustaw wartość true, aby potwierdzić usunięcie harmonogramu."
+        },
+        "site_id": {
+          "name": "Identyfikator witryny",
+          "description": "Opcjonalny identyfikator witryny; wykrywany automatycznie po wybraniu urządzenia witryny."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji dla pojedynczego wpisu witryny Enphase."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Sprawdź harmonogram baterii",
+      "description": "Sprawdź, czy dla wybranej rodziny harmonogramów dostępna jest edycja harmonogramu baterii.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Typ harmonogramu",
+          "description": "Rodzina harmonogramu baterii: cfg, dtg lub rbd."
+        },
+        "site_id": {
+          "name": "Identyfikator witryny",
+          "description": "Opcjonalny identyfikator witryny; wykrywany automatycznie po wybraniu urządzenia witryny."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji dla pojedynczego wpisu witryny Enphase."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Spróbuj ponownie uwierzytelnić teraz",
+      "description": "Używa zapisanych danych logowania Enphase, aby natychmiast spróbować ponownie uwierzytelnić wybraną lokalizację.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenia lokalizacji",
+          "description": "Wybierz urządzenie lokalizacji Enphase, dla którego spróbować ponownego uwierzytelnienia."
+        },
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Aktualizuj taryfę",
+      "description": "Aktualizuje szczegóły cyklu rozliczeniowego Enphase oraz jedną lub więcej istniejących stawek taryfy importu albo eksportu.",
+      "fields": {
+        "rate": {
+          "name": "Stawka",
+          "description": "Nowa nieujemna wartość stawki taryfy dla wybranej encji."
+        },
+        "rate_entity": {
+          "name": "Encja stawki",
+          "description": "Opcjonalna encja stawki taryfy do aktualizacji, gdy nie używasz celu akcji."
+        },
+        "import_rate": {
+          "name": "Stawka importu",
+          "description": "Nowa nieujemna wartość stawki taryfy importu."
+        },
+        "import_rate_entity": {
+          "name": "Encja stawki importu",
+          "description": "Encja stawki taryfy importu do aktualizacji."
+        },
+        "export_rate": {
+          "name": "Stawka eksportu",
+          "description": "Nowa nieujemna wartość stawki taryfy eksportu."
+        },
+        "export_rate_entity": {
+          "name": "Encja stawki eksportu",
+          "description": "Encja stawki taryfy eksportu do aktualizacji."
+        },
+        "billing_start_date": {
+          "name": "Data rozpoczęcia rozliczeń",
+          "description": "Data rozpoczęcia okresu rozliczeniowego w formacie ISO."
+        },
+        "billing_frequency": {
+          "name": "Częstotliwość rozliczeń",
+          "description": "Jednostka interwału rozliczeń: MONTH lub DAY."
+        },
+        "billing_interval_value": {
+          "name": "Interwał rozliczeń",
+          "description": "Liczba interwałów rozliczeniowych. Użyj 1-24 dla miesięcy lub 1-100 dla dni."
+        },
+        "rates": {
+          "name": "Stawki",
+          "description": "Lista ID encji stawek taryfy i nieujemnych wartości do zaktualizowania."
+        },
+        "site_id": {
+          "name": "ID instalacji",
+          "description": "Opcjonalny identyfikator instalacji dla aktualizacji rozliczeń."
+        },
+        "config_entry_id": {
+          "name": "ID wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji dla jednej instalacji Enphase."
+        },
+        "tariff_payload": {
+          "name": "Payload taryfy",
+          "description": "Pełny payload taryfy Enphase do zapisania. Użyj do zaawansowanych zmian strukturalnych."
+        },
+        "purchase_tariff": {
+          "name": "Struktura taryfy importu",
+          "description": "Zastępcza gałąź taryfy importu z typem, sezonami, okresami, progami i stawkami."
+        },
+        "buyback_tariff": {
+          "name": "Struktura taryfy eksportu",
+          "description": "Zastępcza gałąź taryfy eksportu z typem, planem eksportu, sezonami, okresami, progami i stawkami."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "Wyczyść HEMS auth backoff",
+      "description": "Czyści tymczasową pauzę uwierzytelniania HEMS/Heat Pump bez logowania hasłem.",
+      "fields": {
+        "device_id": {
+          "name": "Urządzenia lokalizacji",
+          "description": "Wybierz urządzenie lokalizacji Enphase, dla którego wyczyścić HEMS auth backoff."
+        },
+        "site_id": {
+          "name": "ID lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia."
+        }
+      }
+    }
+  }
+}

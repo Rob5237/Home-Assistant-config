@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Prisijunkite naudodami Enlighten prisijungimo duomenis.",
+        "data": {
+          "email": "El. paštas",
+          "password": "Slaptažodis",
+          "remember_password": "Išsaugoti slaptažodį automatiniam perautentifikavimui"
+        },
+        "data_description": {
+          "email": "Jūsų Enlighten paskyros el. paštas.",
+          "password": "Slaptažodis saugomas tik pažymėjus langelį.",
+          "remember_password": "Leidžia integracijai automatiškai atnaujinti žetonus jiems pasibaigus."
+        }
+      },
+      "mfa": {
+        "title": "Patvirtinti MFA kodą",
+        "description": "Įveskite vienkartinį kodą, išsiųstą el. paštu. Kodai galioja 5 minutes. Naują kodą galite prašyti kas 30 sekundžių.",
+        "data": {
+          "otp": "Vienkartinis kodas",
+          "resend_code": "Siųsti kodą dar kartą"
+        },
+        "data_description": {
+          "otp": "Naudokite kodą iš Enphase prisijungimo lango.",
+          "resend_code": "Prašykite naujo kodo, jei ankstesnis baigė galioti."
+        }
+      },
+      "site": {
+        "title": "Pasirinkti vietą",
+        "description": "Pasirinkite, kurią Enlighten vietą susieti.",
+        "data": {
+          "site_id": "Vieta"
+        }
+      },
+      "devices": {
+        "title": "Pasirinkite įrenginius",
+        "description": "Pasirinkite, kurias įrenginių grupes pridėti. Visi pasirinkimai naudoja tą patį apklausos intervalą.",
+        "data": {
+          "type_envoy": "Šliuzas",
+          "type_encharge": "Baterija",
+          "type_iqevse": "Įkrovikliai",
+          "type_microinverter": "Mikroinverteriai",
+          "scan_interval": "Skenavimo intervalas (s)",
+          "type_heatpump": "Šilumos siurblys",
+          "type_ac_battery": "AC baterija"
+        },
+        "data_description": {
+          "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
+          "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
+          "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
+          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
+          "scan_interval": "Sekundės tarp debesies būsenos apklausų. Numatyta 60s.",
+          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
+          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Neteisingi prisijungimo duomenys arba pasibaigusi sesija.",
+      "cannot_connect": "Nepavyksta pasiekti Enphase paslaugos.",
+      "service_unavailable": "Enphase laikinai nepasiekiamas. Bandykite vėliau.",
+      "too_many_active_sessions": "Enphase atmetė prisijungimą, nes paskyroje yra per daug aktyvių seansų. Atsijunkite nuo kitų Enphase programos ar naršyklės seansų ir bandykite dar kartą vėliau.",
+      "mfa_required": "Paskyrai reikalingas kelių veiksnių autentifikavimas.",
+      "otp_required": "Įveskite vienkartinį kodą.",
+      "otp_invalid": "Neteisingas arba pasibaigęs kodas. Bandykite dar kartą.",
+      "otp_blocked": "Per daug bandymų. Paskyra laikinai užblokuota.",
+      "resend_wait": "Palaukite 30 sekundžių prieš prašydami naujo kodo.",
+      "site_required": "Pasirinkite vietą, kad tęstumėte.",
+      "site_invalid": "Vietos ID turi būti skaitinis.",
+      "serials_required": "Pasirinkite arba įveskite bent vieną įkroviklį.",
+      "serials_or_site_only_required": "Įveskite bent vieną įkroviklį arba įjunkite tik vietos režimą.",
+      "unknown": "Netikėta klaida"
+    },
+    "abort": {
+      "already_configured": "Jau sukonfigūruota",
+      "reconfigure_successful": "Perkonfigūravimas sėkmingas",
+      "reauth_successful": "Perautentifikavimas sėkmingas",
+      "manual_mode_removed": "Seni rankiniai autentifikavimo įrašai nebepalaikomi. Pašalinkite integraciją ir nustatykite iš naujo naudodami Enlighten prisijungimą.",
+      "wrong_account": "Šis įrašas jau susietas su {configured_label}. Pašalinkite integraciją iš Home Assistant ir pridėkite naują, kad susietumėte {requested_label}."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Negalima pradėti įkrovimo, nes {name} atjungtas nuo transporto priemonės."
+    },
+    "auth_required": {
+      "message": "Negalima pradėti įkrauti, nes {name} reikalauja autentifikavimo naudojant „Enphase“ programą arba RFID."
+    },
+    "grid_control_unavailable": {
+      "message": "Šioje svetainėje tinklelio valdymas nepasiekiamas."
+    },
+    "grid_control_blocked": {
+      "message": "Šiuo metu tinklelio valdymas užblokuotas: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "Tinklelio režimas turi būti on_grid arba off_grid."
+    },
+    "grid_otp_required": {
+      "message": "Būtinas OTP."
+    },
+    "grid_otp_invalid_format": {
+      "message": "Vienkartinis slaptažodis turi būti 4 skaitmenų skaitmeninis kodas."
+    },
+    "grid_otp_invalid": {
+      "message": "Vienkartinis slaptažodis netinkamas arba pasibaigęs."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Nepavyko nustatyti šios svetainės pasiuntinio serijos numerio."
+    },
+    "grid_site_required": {
+      "message": "Pasirinkite tiksliai vieną „Enphase“ svetainę."
+    },
+    "grid_site_ambiguous": {
+      "message": "Pasirinktos kelios svetainės ({count}). Pasirinkite tiksliai vieną svetainę."
+    },
+    "schedule_required": {
+      "message": "Prieš pasirinkdami planinį įkrovimą įjunkite bent vieną tvarkaraštį."
+    },
+    "charge_mode_invalid_option": {
+      "message": "Pasirinktas įkrovimo režimas nepasiekiamas."
+    },
+    "evse_schedule_day_required": {
+      "message": "Pasirinkite bent vieną savaitės dieną tvarkaraščiui."
+    },
+    "evse_schedule_times_different": {
+      "message": "Tvarkaraščio pradžios ir pabaigos laikas turi skirtis."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase atmetė tvarkaraščio pakeitimą."
+    },
+    "battery_schedule_overlap": {
+      "message": "Tvarkaraštis persidengia su esamu {schedule_label}. Pirmiausia pakoreguokite arba išjunkite tą tvarkaraštį."
+    },
+    "ac_battery_unavailable": {
+      "message": "Šiuo metu nėra pasiekiamų AC baterijos įrenginių."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Autentifikavimo nustatymai nepasiekiami, kol Enphase paslauga neveikia."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Šiai paskyrai akumuliatoriaus profilio atnaujinimai neleidžiami."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Šiai paskyrai akumuliatoriaus nustatymų atnaujinimai neleidžiami."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Jau vykdomas kitas akumuliatoriaus profilio atnaujinimas."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Jau vykdomas kitas akumuliatoriaus nustatymų atnaujinimas."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Akumuliatoriaus profilio atnaujinimai nepasiekiami."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Akumuliatoriaus nustatymų atnaujinimai nepasiekiami."
+    },
+    "battery_updates_unavailable": {
+      "message": "Akumuliatoriaus atnaujinimai nepasiekiami."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Šiai paskyrai akumuliatoriaus atnaujinimai neleidžiami."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Akumuliatoriaus profilio atnaujinimo užklausa pateikta per greitai. Palaukite ir bandykite dar kartą."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Akumuliatoriaus nustatymų atnaujinimo užklausa pateikta per greitai. Palaukite ir bandykite dar kartą."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Nepavyko patvirtinti rašymo prieigos prie akumuliatoriaus. Atnaujinkite ir bandykite dar kartą."
+    },
+    "schedule_update_forbidden": {
+      "message": "Enphase atmetė tvarkaraščio atnaujinimą (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Nepavyko autentifikuoti tvarkaraščio atnaujinimo. Iš naujo autentifikuokitės ir bandykite dar kartą."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Tvarkaraštis konfliktuoja su esamu iškrovimo į tinklą tvarkaraščiu. Pirmiausia pakoreguokite arba išjunkite tą tvarkaraštį."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Tvarkaraštis konfliktuoja su esamu baterijos iškrovimo ribojimo tvarkaraščiu. Pirmiausia pakoreguokite arba išjunkite tą tvarkaraštį."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Tvarkaraštis konfliktuoja su esamu įkrovimo iš tinklo tvarkaraščiu. Pirmiausia pakoreguokite arba išjunkite tą tvarkaraštį."
+    },
+    "schedule_update_conflict": {
+      "message": "Tvarkaraščio atnaujinimas konfliktuoja su esamu baterijos tvarkaraščiu."
+    },
+    "battery_profile_unavailable": {
+      "message": "Akumuliatoriaus profilis nepasiekiamas."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Enphase atmetė akumuliatoriaus profilio atnaujinimą (HTTP 403 Forbidden)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Nepavyko autentifikuoti akumuliatoriaus profilio atnaujinimo. Iš naujo autentifikuokitės ir bandykite dar kartą."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Akumuliatoriaus nustatymų apkrova nepasiekiama."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Enphase atmetė akumuliatoriaus nustatymų atnaujinimą (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Nepavyko autentifikuoti akumuliatoriaus nustatymų atnaujinimo. Iš naujo autentifikuokitės ir bandykite dar kartą."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "Pilnos atsargos rezervas nustatytas ties 100%."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Akumuliatoriaus rezervas nepasiekiamas."
+    },
+    "savings_profile_required": {
+      "message": "Taupymo profilis turi būti aktyvus."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Taupymo profilio nustatymai nepasiekiami."
+    },
+    "battery_profile_unsupported": {
+      "message": "Pasirinktas akumuliatoriaus profilis nepalaikomas."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "Įkrovimo iš tinklo nustatymas nepasiekiamas."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Enphase nepritaikė įkrovimo iš tinklo perjungimo."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Įkrovimo iš tinklo tvarkaraštis nepasiekiamas."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "Įkrovimo iš tinklo tvarkaraščio pradžios ir pabaigos laikai turi skirtis."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Enphase nepritaikė įkrovimo iš tinklo tvarkaraščio perjungimo."
+    },
+    "charge_from_grid_required": {
+      "message": "Pirmiausia turi būti įjungtas įkrovimas iš tinklo."
+    },
+    "schedule_change_pending": {
+      "message": "Laukiama Envoy sinchronizavimo tvarkaraščio pakeitimui. Palaukite."
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "Įkrovimo iš tinklo tvarkaraščio laikas neteisingas."
+    },
+    "schedule_api_unavailable": {
+      "message": "Šioje kliento versijoje tvarkaraščio API nepasiekiama."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Nėra pasiekiamo esamo įkrovimo iš tinklo tvarkaraščio."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Prieš įjungdami sukurkite {schedule_label} IQ Battery planuoklyje."
+    },
+    "schedule_not_exposed": {
+      "message": "{schedule_label} šiuo metu Enphase nepateikia šiai svetainei. Palaukite, kol bus baigta tvarkaraščio sinchronizacija, tada atnaujinkite ir bandykite dar kartą."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "Enphase nepritaikė {schedule_label} perjungimo."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "pagrindinis įrašymas atmestas"
+    },
+    "schedule_family_times_different": {
+      "message": "{schedule_label} pradžios ir pabaigos laikai turi skirtis."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "Iškrovimo į tinklą tvarkaraščio laikas neteisingas."
+    },
+    "schedule_missing": {
+      "message": "Nėra pasiekiamo esamo {schedule_label_lower} tvarkaraščio."
+    },
+    "schedule_unavailable": {
+      "message": "{schedule_label} tvarkaraštis nepasiekiamas."
+    },
+    "schedule_time_invalid": {
+      "message": "{schedule_label} tvarkaraščio laikas neteisingas."
+    },
+    "current_schedule_time_invalid": {
+      "message": "Dabartinis {schedule_label_lower} tvarkaraščio laikas neteisingas."
+    },
+    "schedule_limit_range": {
+      "message": "{schedule_label} tvarkaraščio riba turi būti tarp {minimum} ir {maximum}."
+    },
+    "schedule_limit_minimum": {
+      "message": "{schedule_label} tvarkaraščio riba turi būti bent {minimum}%."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "Dabartiniai tvarkaraščio laikai nepasiekiami."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "Įkrovimo iš tinklo tvarkaraščio riba turi būti tarp {minimum} ir {maximum}."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "Įkrovimo iš tinklo tvarkaraščio riba turi būti bent {minimum}%."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Akumuliatoriaus išjungimo lygis nepasiekiamas."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Akumuliatoriaus išjungimo lygis neteisingas."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Akumuliatoriaus išjungimo lygis turi būti tarp {minimum} ir {maximum}."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Storm Alert atsisakymas nepasiekiamas."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Storm Alert atsisakymas nepavyko {count} įspėjimui(-ams)."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Šiai paskyrai Storm Guard atnaujinimai neleidžiami."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Storm Guard nustatymai nepasiekiami."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Enphase atmetė Storm Guard atnaujinimą (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "Nepavyko autentifikuoti Storm Guard atnaujinimo. Iš naujo autentifikuokitės ir bandykite dar kartą."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Pasirinktas sistemos profilis nepasiekiamas."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Enphase atmetė sistemos profilio atnaujinimą (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "Nepavyko autentifikuoti sistemos profilio atnaujinimo. Iš naujo autentifikuokitės ir bandykite dar kartą."
+    },
+    "system_profile_update_failed": {
+      "message": "Sistemos profilio atnaujinimas nepavyko."
+    },
+    "system_profile_update_network": {
+      "message": "Sistemos profilio atnaujinimas nepavyko dėl tinklo klaidos. Bandykite dar kartą."
+    },
+    "system_profile_update_timeout": {
+      "message": "Baigėsi sistemos profilio atnaujinimo laikas. Bandykite dar kartą."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Įkrovimo režimo pasirinkimas nepasiekiamas, kol Enphase planavimo paslauga neveikia."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "Pasirinktas AC baterijos tikslinis įkrovos lygis nepasiekiamas."
+    },
+    "battery_schedule_day_required": {
+      "message": "Pasirinkite bent vieną tvarkaraščio dieną."
+    },
+    "battery_schedule_times_different": {
+      "message": "Tvarkaraščio pradžios ir pabaigos laikai turi skirtis."
+    },
+    "battery_schedule_limit_range": {
+      "message": "Tvarkaraščio {schedule_type} riba turi būti tarp {minimum} ir {maximum}."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Enphase tikrinimo galinis taškas atmetė tvarkaraštį."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Baterijos tvarkaraščių redagavimas nepasiekiamas."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "Baterijos tvarkaraščių API nepasiekiama."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Norint atnaujinti tvarkaraštį, reikia patvirtinimo."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Norint ištrinti tvarkaraštį, reikia patvirtinimo."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Neteisingas tvarkaraščio ID: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "Tvarkaraščio ID nerastas dabartiniuose duomenyse: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Pateikite bent vieną ištrintiną tvarkaraščio ID."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Neteisingi tvarkaraščių ID: {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Tvarkaraščių ID nerasti dabartiniuose duomenyse: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Enphase tikrinimo galinis taškas atmetė tvarkaraštį: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Tvarkaraščio atnaujinimas konfliktuoja su esamu baterijos tvarkaraščiu: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Tarifo kaina turi būti neneigiamas skaičius."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Tarifo kainos tikslas nerastas naujausiuose tarifo duomenyse."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Tarifo kainos tikslas netinkamas."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "Tarifų rašymo API nepasiekiama."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Pasirinkite tiksliai vieną tarifo kainos objektą."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Objektas nėra Enphase tarifo kaina: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "Nepalaikomas OCPP paleidimo pranešimas. Naudokite vieną iš šių: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Įjunkite išplėstinį patvirtinimą, kad išsiųstumėte {message}."
+    },
+    "tariff_update_required": {
+      "message": "Pateikite atsiskaitymo duomenis arba bent vieną tarifo kainos atnaujinimą."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Pateikite atsiskaitymo pradžios datą, dažnį ir intervalą."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "Tarifo atsiskaitymo pradžios data turi būti galiojanti ISO data."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "Tarifo atsiskaitymo dažnis turi būti MONTH arba DAY."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Tarifo atsiskaitymo intervalas turi būti nuo {minimum} iki {maximum}."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "Tarifo atsiskaitymo rašymo API nepasiekiama."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Pasikartojantys tarifo kainos tikslai neleidžiami."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Pasikartojantis tarifo kainos objektas: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Visi tarifo atnaujinimai turi būti skirti tai pačiai Enphase vietai."
+    },
+    "tariff_structure_invalid": {
+      "message": "Tarifo struktūra netinkama."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Enphase Energy parinktys",
+        "description": "Pasirinkite, ką norite daryti su šiuo integracijos įrašu.",
+        "menu_options": {
+          "settings": "Nustatymai",
+          "migrate_envoy": "Perkelti Envoy istoriją"
+        },
+        "menu_option_descriptions": {
+          "settings": "Reguliuokite apklausą ir veikimą.",
+          "migrate_envoy": "Perimkite pasirinktus Enphase Envoy energijos objektų ID, kad Home Assistant Energy istorija tęstųsi šioje integracijoje."
+        },
+        "data": {
+          "type_envoy": "Šliuzas",
+          "type_encharge": "Baterija",
+          "type_iqevse": "Įkrovikliai",
+          "type_microinverter": "Mikroinverteriai",
+          "fast_poll_interval": "Greitas apklausos intervalas (s)",
+          "slow_poll_interval": "Lėtas apklausos intervalas (s)",
+          "fast_while_streaming": "Pirmenybė greitai apklausai, kai aktyvi debesies srauto funkcija",
+          "api_timeout": "API užklausos laiko limitas (s)",
+          "nominal_voltage": "Nominali įtampa (V)",
+          "session_history_interval": "Sesijos istorijos intervalas (min)",
+          "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
+          "reauth": "Pradėti perautentifikavimą",
+          "forget_password": "Pamiršti išsaugotą slaptažodį",
+          "type_heatpump": "Šilumos siurblys",
+          "type_ac_battery": "AC baterija",
+          "battery_schedules_enabled": "Įjungti baterijos planuoklį",
+          "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus"
+        },
+        "data_description": {
+          "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
+          "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
+          "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
+          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
+          "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama.",
+          "slow_poll_interval": "Intervalas, kai nenaudojama.",
+          "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu.",
+          "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos.",
+          "nominal_voltage": "Atsarginė įtampa įkroviklio galios įverčiui.",
+          "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų.",
+          "schedule_sync_enabled": "Tvarkyti Enphase tvarkaraščio valdymą",
+          "reauth": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
+          "forget_password": "Pašalina išsaugotą slaptažodį. Automatinis atnaujinimas daugiau nebus bandomas.",
+          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
+          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
+          "battery_schedules_enabled": "Tvarkyti IQ baterijos tvarkaraščius",
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai."
+        }
+      },
+      "settings": {
+        "title": "Enphase Energy parinktys",
+        "description": "Reguliuoti apklausą ir elgseną.",
+        "data": {
+          "type_envoy": "Šliuzas",
+          "type_encharge": "Baterija",
+          "type_iqevse": "Įkrovikliai",
+          "type_microinverter": "Mikroinverteriai",
+          "fast_poll_interval": "Greitas apklausos intervalas (s)",
+          "slow_poll_interval": "Lėtas apklausos intervalas (s)",
+          "fast_while_streaming": "Pirmenybė greitai apklausai, kai aktyvi debesies srauto funkcija",
+          "api_timeout": "API užklausos laiko limitas (s)",
+          "nominal_voltage": "Nominali įtampa (V)",
+          "session_history_interval": "Sesijos istorijos intervalas (min)",
+          "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
+          "reauth": "Pradėti perautentifikavimą",
+          "forget_password": "Pamiršti išsaugotą slaptažodį",
+          "type_heatpump": "Šilumos siurblys",
+          "type_ac_battery": "AC baterija",
+          "battery_schedules_enabled": "Įjungti baterijos planuoklį",
+          "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus"
+        },
+        "data_description": {
+          "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
+          "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
+          "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
+          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
+          "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama.",
+          "slow_poll_interval": "Intervalas, kai nenaudojama.",
+          "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu.",
+          "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos.",
+          "nominal_voltage": "Atsarginė įtampa įkroviklio galios įverčiui.",
+          "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų.",
+          "schedule_sync_enabled": "Tvarkyti Enphase tvarkaraščio valdymą",
+          "reauth": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
+          "forget_password": "Pašalina išsaugotą slaptažodį. Automatinis atnaujinimas daugiau nebus bandomas.",
+          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
+          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
+          "battery_schedules_enabled": "Tvarkyti IQ baterijos tvarkaraščius",
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Pasirinkti Envoy šaltinį",
+        "description": "Pasirinkite, iš kurio Enphase Envoy įrašo migruoti.",
+        "data": {
+          "selected_envoy_source": "Envoy šaltinis"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Perkelti Envoy istoriją",
+        "description": "Šis vedlys perkelia pasirinktus Enphase Envoy energijos objektų ID į atitinkamus Enphase Energy jutiklius.\n\nHome Assistant Energy istorija susieta su objekto ID, naudojamu ilgalaikei statistikai.\n\nPrieš tęsdami sukurkite visą Home Assistant atsarginę kopiją.\n\nMigruokite tik jutiklius, kurie žymi tą pačią sukauptą bendrą energiją.\n\nPasirinkta Envoy integracija bus laikinai iškrauta, kol bus perpriskirti objektų ID, o po migracijos bus atkurta.\n\nTai atnaujina objektų registrą ir negali būti automatiškai atšaukta.\n\nPasirinktas Envoy šaltinis: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Turiu naują Home Assistant atsarginę kopiją"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Susieti istorijos jutiklius",
+        "description": "Atidžiai peržiūrėkite siūlomus susiejimus. Rodomos tik suderinamos kaupiamosios energijos sumos. Tušti laukai bus praleisti.\n\nJei pasiūlymas neteisingas arba neaiškus, išvalykite jį ir pasirinkite rankiniu būdu.",
+        "data": {
+          "solar_production": "Saulės gamyba",
+          "consumption": "Suvartojimas",
+          "grid_import": "Importas iš tinklo",
+          "grid_export": "Eksportas į tinklą",
+          "battery_charge": "Baterijos įkrovimas",
+          "battery_discharge": "Baterijos iškrovimas"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
+          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Patvirtinti Envoy istorijos migraciją",
+        "description": "Pasirinkti šaltinio objektai bus pervadinti į archyvuotus senus objektų identifikatorius.\n\nTuomet Enphase Energy objektai bus pervadinti į pradinius šaltinio objektų identifikatorius.\n\nJei kuris nors susiejimas neteisingas, atšaukite dabar. Atkūrimas iš atsarginės kopijos yra saugiausias būdas grįžti atgal.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Suprantu, kad pasirinkti šaltinio objektų identifikatoriai bus priskirti iš naujo",
+          "disable_archived_envoy_sensors": "Išjungti archyvuotus šaltinio jutiklius po migracijos"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Pasirinkite arba įveskite bent vieną įkroviklį.",
+      "backup_required": "Prieš tęsiant labai rekomenduojama sukurti pilną atsarginę kopiją.",
+      "confirm_required": "Prieš tęsdami patvirtinkite, kad pasirinkti šaltinio objektų identifikatoriai bus priskirti iš naujo.",
+      "migration_no_selection": "Pasirinkite bent vieną suderinamą energijos jutiklį migracijai.",
+      "migration_duplicate_selection": "Tas pats šaltinio objektas negali būti naudojamas daugiau nei vieną kartą.",
+      "envoy_entry_loaded": "Envoy integracijos nepavyko laikinai iškrauti migracijai.",
+      "incompatible_energy_total": "Pasirinkti objektai nėra suderinami kaupiamosios energijos kiekiai."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Nėra Enphase Envoy energijos jutiklių, kuriuos būtų galima migruoti.",
+      "migration_no_targets": "Nėra suderinamų Enphase Energy jutiklių, kuriuos būtų galima migruoti.",
+      "migration_partial_failure": "Migracija sustojo po dalinio užbaigimo.\n\nUžbaigti susiejimai:\n{completed_mappings}\n\nNepavyko apdoroti `{failed_entity_id}`: {failure_reason}\n\nJei rezultatas netenkina, atkurkite atsarginę kopiją."
+    },
+    "create_entry": {
+      "migration_success": "Migracija baigta. Enphase Energy dabar naudoja pasirinktus šaltinio objektų identifikatorius. Po kito atnaujinimo patikrinkite Energy skydelį ir Developer Tools > Statistics.",
+      "migration_success_reload_needed": "Migracija baigta, tačiau viena ar daugiau integracijų nebuvo automatiškai įkeltos iš naujo. Jei reikia, rankiniu būdu iš naujo įkelkite Enphase Energy ir Enphase Envoy, tada patikrinkite Energy skydelį ir Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Paskutinė sesija",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Sunaudota energija (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Sunaudota energija (kWh)"
+          },
+          "session_cost": {
+            "name": "Sesijos kaina"
+          },
+          "session_charge_level": {
+            "name": "Sesijos įkrovos lygis"
+          },
+          "range_added": {
+            "name": "Pridėtas nuotolis"
+          },
+          "plugged_in_at": {
+            "name": "Prijungta"
+          },
+          "plugged_out_at": {
+            "name": "Atjungta"
+          },
+          "session_duration_min": {
+            "name": "Sesijos trukmė (min)"
+          },
+          "session_id": {
+            "name": "Sesijos ID"
+          },
+          "session_started_at": {
+            "name": "Sesija pradėta"
+          },
+          "session_ended_at": {
+            "name": "Sesija baigta"
+          },
+          "active_charge_time_s": {
+            "name": "Aktyvus įkrovimo laikas (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Vidutinė kaina už kWh"
+          },
+          "cost_calculated": {
+            "name": "Apskaičiuota kaina"
+          },
+          "session_cost_state": {
+            "name": "Sesijos kainos būsena"
+          },
+          "manual_override": {
+            "name": "Rankinis perrašymas"
+          },
+          "charge_profile_stack_level": {
+            "name": "Įkrovimo profilio krūvos lygis"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Jungties būsena",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Būsenos priežastis"
+          },
+          "connector_status_info": {
+            "name": "Jungties būsenos informacija"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Jungties priežastis"
+      },
+      "electrical_phase": {
+        "name": "Elektros fazė",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Fazės režimas (žalias)"
+          },
+          "dlb_enabled": {
+            "name": "Dinaminis apkrovos balansavimas įjungtas"
+          },
+          "dlb_active": {
+            "name": "Dinaminis apkrovos balansavimas aktyvus"
+          }
+        }
+      },
+      "power": {
+        "name": "Galia",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Paskutinės gyvenimo kWh"
+          },
+          "last_energy_ts": {
+            "name": "Paskutinis energijos laiko žymuo"
+          },
+          "last_sample_ts": {
+            "name": "Paskutinis mėginio laiko žymuo"
+          },
+          "last_power_w": {
+            "name": "Paskutinė galia (W)"
+          },
+          "last_window_seconds": {
+            "name": "Paskutinis langas (s)"
+          },
+          "method": {
+            "name": "Metodas"
+          },
+          "charging": {
+            "name": "Įkrovimas"
+          },
+          "operating_v": {
+            "name": "Darbinė įtampa (V)"
+          },
+          "max_throughput_w": {
+            "name": "Maksimalus pralaidumas (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Maksimalus pralaidumas (neriboti W)"
+          },
+          "max_throughput_source": {
+            "name": "Maksimalaus pralaidumo šaltinis"
+          },
+          "max_throughput_amps": {
+            "name": "Maksimalus pralaidumas amperais"
+          },
+          "max_throughput_voltage": {
+            "name": "Maksimalaus pralaidumo įtampa (V)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Įkrovimo režimas",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Srovės valdymas taikomas"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Režimas, valdantis srovę"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Režimai, kuriuose taikomas srovės valdymas"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Įkroviklio autentifikavimas",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "Programos autentifikavimas įgalintas"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID autentifikavimas įjungtas"
+          },
+          "app_auth_supported": {
+            "name": "Programos autentifikavimas palaikomas"
+          },
+          "rfid_auth_supported": {
+            "name": "Palaikomas RFID autentifikavimas"
+          }
+        },
+        "state": {
+          "enabled": "Įjungta",
+          "disabled": "Išjungta"
+        }
+      },
+      "set_amps": {
+        "name": "Nustatyti amperus",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Minimalūs amperai"
+          },
+          "max_amp": {
+            "name": "Maksimalūs amperai"
+          },
+          "max_current": {
+            "name": "Maksimalūs grandinės amperai"
+          },
+          "amp_granularity": {
+            "name": "Amperų žingsnis"
+          }
+        }
+      },
+      "status": {
+        "name": "Įkroviklio būsena",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Eksploatuojamas"
+          },
+          "charger_problem": {
+            "name": "Įkroviklio problema"
+          },
+          "suspended_by_evse": {
+            "name": "Sustabdyta EVSE"
+          },
+          "offline_since": {
+            "name": "Neprisijungęs nuo"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Paskutinis sėkmingas atnaujinimas",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Paskutinis gedimas (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Paskutinė gedimo būsena"
+          },
+          "code_description": {
+            "name": "Kodo aprašymas"
+          },
+          "last_failure_response": {
+            "name": "Paskutinė gedimo reakcija"
+          },
+          "last_failure_source": {
+            "name": "Paskutinis gedimo šaltinis"
+          },
+          "backoff_ends_utc": {
+            "name": "Backoff pabaiga (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Debesies delsa"
+      },
+      "current_production_power": {
+        "name": "Dabartinė gamybos galia",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "source": {
+            "name": "Šaltinis"
+          },
+          "reported_units": {
+            "name": "Pateikti vienetai"
+          },
+          "reported_precision": {
+            "name": "Pateiktas tikslumas"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Debesies klaidos kodas",
+        "state": {
+          "none": "Nėra",
+          "rate_limited": "Ribojamas užklausų dažnis",
+          "auth_blocked": "Autentifikavimas laikinai užblokuotas",
+          "authentication_error": "Autentifikavimo klaida",
+          "request_error": "Užklausos klaida",
+          "service_unavailable": "Paslauga nepasiekiama",
+          "invalid_payload": "Netinkamas debesijos atsakymas",
+          "dns_error": "DNS klaida",
+          "network_error": "Tinklo klaida"
+        }
+      },
+      "site_service_status": {
+        "name": "Paslaugos būsena",
+        "state": {
+          "ok": "Gerai",
+          "unknown": "Nežinoma",
+          "degraded": "Suprastėjusi"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Suprastėjusios paslaugos"
+          },
+          "degraded_endpoint_families": {
+            "name": "Suprastėjusios galinių taškų grupės"
+          },
+          "degraded_service_count": {
+            "name": "Suprastėjusių paslaugų skaičius"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Suprastėjusių galinių taškų grupių skaičius"
+          },
+          "metrics_available": {
+            "name": "Metrikos pasiekiamos"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Debesies backoff pabaiga",
+        "state": {
+          "none": "Nėra"
+        }
+      },
+      "last_reported": {
+        "name": "Paskutinį kartą pranešta",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Ataskaitų intervalas (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Sesijos mylios"
+      },
+      "session_plug_in_at": {
+        "name": "Sesija prijungta"
+      },
+      "session_plug_out_at": {
+        "name": "Sesija atjungta"
+      },
+      "schedule_type": {
+        "name": "Tvarkaraščio tipas"
+      },
+      "schedule_start": {
+        "name": "Tvarkaraščio pradžia"
+      },
+      "schedule_end": {
+        "name": "Tvarkaraščio pabaiga"
+      },
+      "lifetime_energy": {
+        "name": "Viso energijos",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Paskutinė atstatymo reikšmė"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Vietos saulės gamyba",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Vietos suvartojimas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Vietos tinklo importas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Dabartinė tinklo galia",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Paskutinis srautas kWh"
+          },
+          "last_energy_ts": {
+            "name": "Paskutinis energijos laiko žymuo"
+          },
+          "last_sample_ts": {
+            "name": "Paskutinis mėginio laiko žymuo"
+          },
+          "last_power_w": {
+            "name": "Paskutinė galia (W)"
+          },
+          "last_window_seconds": {
+            "name": "Paskutinis langas (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          },
+          "method": {
+            "name": "Metodas"
+          },
+          "source_flows": {
+            "name": "Šaltinio srautai"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Vietos tinklo eksportas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Vietos baterijos įkrovimas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Vietos baterijos iškrovimas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Dabartinė akumuliatoriaus galia",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Paskutinis srautas kWh"
+          },
+          "last_energy_ts": {
+            "name": "Paskutinis energijos laiko žymuo"
+          },
+          "last_sample_ts": {
+            "name": "Paskutinis mėginio laiko žymuo"
+          },
+          "last_power_w": {
+            "name": "Paskutinė galia (W)"
+          },
+          "last_window_seconds": {
+            "name": "Paskutinis langas (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          },
+          "method": {
+            "name": "Metodas"
+          },
+          "source_flows": {
+            "name": "Šaltinio srautai"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Audros sargyba"
+      },
+      "storm_alert": {
+        "name": "Audros įspėjimas",
+        "state": {
+          "active": "Aktyvus",
+          "inactive": "Neaktyvus"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Audros įspėjimas aktyvus"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Sistemos profilio būsena",
+        "state": {
+          "pending": "Laukiama"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Efektyvus profilis"
+          },
+          "effective_profile_label": {
+            "name": "Veiksminga profilio etiketė"
+          },
+          "effective_reserve_percentage": {
+            "name": "Efektyvus rezervas (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Efektyvaus veikimo režimo porūšis"
+          },
+          "requested_profile": {
+            "name": "Prašomas profilis"
+          },
+          "requested_profile_label": {
+            "name": "Prašoma profilio etiketės"
+          },
+          "requested_reserve_percentage": {
+            "name": "Reikalingas rezervas (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Reikalingas veikimo režimo potipis"
+          },
+          "pending": {
+            "name": "Laukiama"
+          },
+          "pending_requested_at": {
+            "name": "Laukiama Užklausa adresu"
+          },
+          "selected_profile": {
+            "name": "Pasirinktas profilis"
+          },
+          "selected_profile_label": {
+            "name": "Pasirinkta profilio etiketė"
+          },
+          "selected_reserve_percentage": {
+            "name": "Pasirinktas rezervas (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Pasirinktas veikimo režimo antrinis tipas"
+          },
+          "available_profile_keys": {
+            "name": "Galimi profilio raktai"
+          },
+          "available_profile_labels": {
+            "name": "Galimos profilio etiketės"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Baterijos režimas",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Neapdorotas režimas"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Įkrovimas iš tinklo leidžiamas"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Iškrovimas į tinklą leidžiamas"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Akumuliatoriaus įkrovimo lygis"
+      },
+      "battery_overall_charge": {
+        "name": "Bendras akumuliatoriaus įkrovimas"
+      },
+      "battery_overall_status": {
+        "name": "Bendra akumuliatoriaus būsena",
+        "state": {
+          "normal": "Normalus",
+          "warning": "Įspėjimas",
+          "error": "Klaida",
+          "unknown": "Nežinoma"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Akumuliatoriaus CFG tvarkaraščio būsena",
+        "state": {
+          "none": "Nėra",
+          "pending": "Laukiama",
+          "active": "Aktyvus"
+        }
+      },
+      "grid_control_status": {
+        "name": "Tinklo valdymo būsena",
+        "state": {
+          "ready": "Paruošta",
+          "blocked": "Užblokuota",
+          "pending": "Laukiama"
+        }
+      },
+      "grid_mode": {
+        "name": "Tinklelio režimas",
+        "state": {
+          "on_grid": "Ant tinklelio",
+          "off_grid": "Išjungtas tinklelis",
+          "unknown": "Nežinoma"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Galima akumuliatoriaus energija"
+      },
+      "battery_available_power": {
+        "name": "Galima akumuliatoriaus galia"
+      },
+      "battery_storage_status": {
+        "name": "{serial} būsena",
+        "state": {
+          "charging": "Įkrovimas",
+          "discharging": "Iškrovimas",
+          "idle": "Neaktyvus",
+          "unknown": "Nežinoma"
+        }
+      },
+      "battery_storage_health": {
+        "name": "{serial} būklė"
+      },
+      "battery_storage_cycle_count": {
+        "name": "{serial} ciklų skaičius"
+      },
+      "battery_storage_last_reported": {
+        "name": "{serial} paskutinį kartą pranešta"
+      },
+      "battery_last_reported": {
+        "name": "Baterija paskutinį kartą pranešta"
+      },
+      "system_controller_inventory": {
+        "name": "Sistemos valdiklis"
+      },
+      "gateway_production_meter": {
+        "name": "Gamybos matuoklis"
+      },
+      "gateway_consumption_meter": {
+        "name": "Vartojimo matuoklis"
+      },
+      "gateway_connectivity_status": {
+        "name": "Vartų būsena"
+      },
+      "gateway_last_reported": {
+        "name": "Vartai paskutinį kartą pranešta"
+      },
+      "tariff_billing_cycle": {
+        "name": "Kita saskaitos data",
+        "state_attributes": {
+          "start_date": {
+            "name": "Pradzios data"
+          },
+          "billing_frequency": {
+            "name": "Atsiskaitymo daznis"
+          },
+          "billing_interval_value": {
+            "name": "Atsiskaitymo intervalo verte"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Saskaitos ciklas"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Importo tarifas",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "seasons": {
+            "name": "Sezonai"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Importo tarifas {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "season_id": {
+            "name": "Sezono ID"
+          },
+          "start_month": {
+            "name": "Pradžios mėnuo"
+          },
+          "end_month": {
+            "name": "Pabaigos mėnuo"
+          },
+          "day_group_id": {
+            "name": "Dienų grupės ID"
+          },
+          "days": {
+            "name": "Dienos"
+          },
+          "period_id": {
+            "name": "Laikotarpio ID"
+          },
+          "period_type": {
+            "name": "Laikotarpio tipas"
+          },
+          "start_time": {
+            "name": "Pradžios laikas"
+          },
+          "end_time": {
+            "name": "Pabaigos laikas"
+          },
+          "rate": {
+            "name": "Tarifas"
+          },
+          "formatted_rate": {
+            "name": "Suformatuotas tarifas"
+          },
+          "tier_id": {
+            "name": "Pakopos ID"
+          },
+          "start_value": {
+            "name": "Pradinė vertė"
+          },
+          "end_value": {
+            "name": "Galutinė vertė"
+          },
+          "unbounded": {
+            "name": "Be viršutinės ribos"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifo lokatorius"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Eksporto tarifas",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "export_plan": {
+            "name": "Eksporto planas"
+          },
+          "seasons": {
+            "name": "Sezonai"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Eksporto tarifas {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "export_plan": {
+            "name": "Eksporto planas"
+          },
+          "season_id": {
+            "name": "Sezono ID"
+          },
+          "start_month": {
+            "name": "Pradžios mėnuo"
+          },
+          "end_month": {
+            "name": "Pabaigos mėnuo"
+          },
+          "day_group_id": {
+            "name": "Dienų grupės ID"
+          },
+          "days": {
+            "name": "Dienos"
+          },
+          "period_id": {
+            "name": "Laikotarpio ID"
+          },
+          "period_type": {
+            "name": "Laikotarpio tipas"
+          },
+          "start_time": {
+            "name": "Pradžios laikas"
+          },
+          "end_time": {
+            "name": "Pabaigos laikas"
+          },
+          "rate": {
+            "name": "Tarifas"
+          },
+          "formatted_rate": {
+            "name": "Suformatuotas tarifas"
+          },
+          "tier_id": {
+            "name": "Pakopos ID"
+          },
+          "start_value": {
+            "name": "Pradinė vertė"
+          },
+          "end_value": {
+            "name": "Galutinė vertė"
+          },
+          "unbounded": {
+            "name": "Be viršutinės ribos"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifo lokatorius"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Mikroinverterių ryšio būsena"
+      },
+      "microinverter_reporting_count": {
+        "name": "Aktyvūs mikroinverteriai"
+      },
+      "microinverter_last_reported": {
+        "name": "Paskutinis mikroinverterių pranešimas"
+      },
+      "site_evse_charging": {
+        "name": "Objekto EVSE įkrovimas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Objekto šilumos siurblio sunaudojimas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Objekto vandens šildytuvo sunaudojimas",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Matuota (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Paskutinis atstatymas"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ energijos maršrutizatorius_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Šilumos siurblio būsena"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Šilumos siurblio energijos skaitiklis"
+      },
+      "heat_pump_last_reported": {
+        "name": "Paskutinis šilumos siurblio pranešimas"
+      },
+      "heat_pump_power": {
+        "name": "Šilumos siurblio galia"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Šilumos siurblio būsena"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "Šilumos siurblio SG-Ready šliuzas"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Šilumos siurblio dienos energija"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Šilumos siurblio dienos tinklo energija"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Šilumos siurblio dienos saulės energija"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Šilumos siurblio dienos akumuliatoriaus energija"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Šilumos siurblio SG-Ready šliuzo būsena"
+      },
+      "shared_labels": {
+        "name": "Bendros žymos",
+        "state": {
+          "self_consumption": "Savarankiškas vartojimas",
+          "cost_savings": "Taupymas",
+          "ai_optimisation": "DI optimizavimas",
+          "backup_only": "Visiška atsarga",
+          "importexport": "Importas ir eksportas",
+          "importonly": "Tik importas",
+          "exportonly": "Tik eksportas",
+          "manual_charging": "Rankinis",
+          "scheduled_charging": "Suplanuota",
+          "green_charging": "Žalias",
+          "smart_charging": "Išmanus",
+          "online": "Prisijungęs",
+          "offline": "Neprisijungęs",
+          "degraded": "Pablogėjęs",
+          "not_reporting": "Nepraneša",
+          "inactive": "Neaktyvus",
+          "normal": "Normalus",
+          "warning": "Įspėjimas",
+          "error": "Klaida",
+          "unknown": "Nežinoma",
+          "unpaired": "Nesuporuotas",
+          "pairing": "Poravimas"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "Bendra AC baterijos būsena",
+        "state": {
+          "charging": "Įkrovimas",
+          "discharging": "Iškrovimas",
+          "idle": "Neaktyvus",
+          "unknown": "Nežinoma"
+        }
+      },
+      "ac_battery_power": {
+        "name": "AC baterijos galia"
+      },
+      "ac_battery_last_reported": {
+        "name": "Paskutinė AC baterijos ataskaita"
+      },
+      "ac_battery_storage_charge": {
+        "name": "AC baterijos įkrovos lygis"
+      },
+      "ac_battery_storage_status": {
+        "name": "{serial} būsena",
+        "state": {
+          "charging": "Įkrovimas",
+          "discharging": "Iškrovimas",
+          "idle": "Neaktyvus",
+          "unknown": "Nežinoma"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "{serial} galia"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "{serial} veikimo režimas"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "{serial} ciklų skaičius"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "Paskutinė {serial} ataskaita"
+      },
+      "battery_cfg_schedules": {
+        "name": "Baterijos CFG tvarkaraščiai"
+      },
+      "battery_dtg_schedules": {
+        "name": "Baterijos DTG tvarkaraščiai"
+      },
+      "battery_rbd_schedules": {
+        "name": "Baterijos RBD tvarkaraščiai"
+      },
+      "battery_schedule_summary": {
+        "name": "Baterijos tvarkaraščių santrauka"
+      },
+      "tariff_current_import_rate": {
+        "name": "Dabartinis importo tarifas",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "season_id": {
+            "name": "Sezono ID"
+          },
+          "start_month": {
+            "name": "Pradžios mėnuo"
+          },
+          "end_month": {
+            "name": "Pabaigos mėnuo"
+          },
+          "day_group_id": {
+            "name": "Dienų grupės ID"
+          },
+          "days": {
+            "name": "Dienos"
+          },
+          "period_id": {
+            "name": "Laikotarpio ID"
+          },
+          "period_type": {
+            "name": "Laikotarpio tipas"
+          },
+          "start_time": {
+            "name": "Pradžios laikas"
+          },
+          "end_time": {
+            "name": "Pabaigos laikas"
+          },
+          "rate": {
+            "name": "Tarifas"
+          },
+          "formatted_rate": {
+            "name": "Suformatuotas tarifas"
+          },
+          "tier_id": {
+            "name": "Pakopos ID"
+          },
+          "start_value": {
+            "name": "Pradinė vertė"
+          },
+          "end_value": {
+            "name": "Galutinė vertė"
+          },
+          "unbounded": {
+            "name": "Be viršutinės ribos"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifo lokatorius"
+          },
+          "active_rate_name": {
+            "name": "Aktyvaus tarifo pavadinimas"
+          },
+          "configured_rates": {
+            "name": "Sukonfigūruoti tarifai"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Dabartinis eksporto tarifas",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "export_plan": {
+            "name": "Eksporto planas"
+          },
+          "season_id": {
+            "name": "Sezono ID"
+          },
+          "start_month": {
+            "name": "Pradžios mėnuo"
+          },
+          "end_month": {
+            "name": "Pabaigos mėnuo"
+          },
+          "day_group_id": {
+            "name": "Dienų grupės ID"
+          },
+          "days": {
+            "name": "Dienos"
+          },
+          "period_id": {
+            "name": "Laikotarpio ID"
+          },
+          "period_type": {
+            "name": "Laikotarpio tipas"
+          },
+          "start_time": {
+            "name": "Pradžios laikas"
+          },
+          "end_time": {
+            "name": "Pabaigos laikas"
+          },
+          "rate": {
+            "name": "Tarifas"
+          },
+          "formatted_rate": {
+            "name": "Suformatuotas tarifas"
+          },
+          "tier_id": {
+            "name": "Pakopos ID"
+          },
+          "start_value": {
+            "name": "Pradinė vertė"
+          },
+          "end_value": {
+            "name": "Galutinė vertė"
+          },
+          "unbounded": {
+            "name": "Be viršutinės ribos"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifo lokatorius"
+          },
+          "active_rate_name": {
+            "name": "Aktyvaus tarifo pavadinimas"
+          },
+          "configured_rates": {
+            "name": "Sukonfigūruoti tarifai"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Įkrovimo amperai"
+      },
+      "battery_reserve": {
+        "name": "Baterijos rezervas"
+      },
+      "battery_shutdown_level": {
+        "name": "Baterijos išjungimo lygis"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Baterijos įkrovimo riba"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Iškrovimo į tinklą riba"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Baterijos iškrovimo ribojimo riba"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Naujo baterijos tvarkaraščio riba"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "Baterijos tvarkaraščio riba"
+      },
+      "tariff_import_rate_value": {
+        "name": "Importo tarifas {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "season_id": {
+            "name": "Sezono ID"
+          },
+          "start_month": {
+            "name": "Pradžios mėnuo"
+          },
+          "end_month": {
+            "name": "Pabaigos mėnuo"
+          },
+          "day_group_id": {
+            "name": "Dienų grupės ID"
+          },
+          "days": {
+            "name": "Dienos"
+          },
+          "period_id": {
+            "name": "Laikotarpio ID"
+          },
+          "period_type": {
+            "name": "Laikotarpio tipas"
+          },
+          "start_time": {
+            "name": "Pradžios laikas"
+          },
+          "end_time": {
+            "name": "Pabaigos laikas"
+          },
+          "rate": {
+            "name": "Tarifas"
+          },
+          "formatted_rate": {
+            "name": "Suformatuotas tarifas"
+          },
+          "tier_id": {
+            "name": "Pakopos ID"
+          },
+          "start_value": {
+            "name": "Pradinė vertė"
+          },
+          "end_value": {
+            "name": "Galutinė vertė"
+          },
+          "unbounded": {
+            "name": "Be viršutinės ribos"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifo lokatorius"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Eksporto tarifas {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Tarifo struktura"
+          },
+          "variation_type": {
+            "name": "Variacijos tipas"
+          },
+          "source": {
+            "name": "Saltinis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          },
+          "export_plan": {
+            "name": "Eksporto planas"
+          },
+          "season_id": {
+            "name": "Sezono ID"
+          },
+          "start_month": {
+            "name": "Pradžios mėnuo"
+          },
+          "end_month": {
+            "name": "Pabaigos mėnuo"
+          },
+          "day_group_id": {
+            "name": "Dienų grupės ID"
+          },
+          "days": {
+            "name": "Dienos"
+          },
+          "period_id": {
+            "name": "Laikotarpio ID"
+          },
+          "period_type": {
+            "name": "Laikotarpio tipas"
+          },
+          "start_time": {
+            "name": "Pradžios laikas"
+          },
+          "end_time": {
+            "name": "Pabaigos laikas"
+          },
+          "rate": {
+            "name": "Tarifas"
+          },
+          "formatted_rate": {
+            "name": "Suformatuotas tarifas"
+          },
+          "tier_id": {
+            "name": "Pakopos ID"
+          },
+          "start_value": {
+            "name": "Pradinė vertė"
+          },
+          "end_value": {
+            "name": "Galutinė vertė"
+          },
+          "unbounded": {
+            "name": "Be viršutinės ribos"
+          },
+          "last_refresh_utc": {
+            "name": "Paskutinis atnaujinimas (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Tarifo lokatorius"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Prijungta"
+      },
+      "charging": {
+        "name": "Įkrovimas"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "Šilumos siurblio SG-Ready aktyvus"
+      },
+      "cloud_reachable": {
+        "name": "Debesis pasiekiamas"
+      },
+      "connected": {
+        "name": "Ryšys",
+        "state_attributes": {
+          "connection": {
+            "name": "Ryšys"
+          },
+          "ip_address": {
+            "name": "IP adresas"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Įkrovimas"
+      },
+      "green_battery": {
+        "name": "EV įkrovimui naudokite akumuliatorių"
+      },
+      "app_authentication": {
+        "name": "Auth per App"
+      },
+      "storm_guard": {
+        "name": "Audros sargyba"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV įkrovimas"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Naudokite akumuliatorių po piko valandų"
+      },
+      "charge_from_grid": {
+        "name": "Įkrauti bateriją iš tinklo"
+      },
+      "charge_from_grid_schedule": {
+        "name": "Įkrovimo iš tinklo tvarkaraštis"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "Iškrovimo į tinklą tvarkaraštis"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "Baterijos iškrovimo ribojimo tvarkaraštis"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "AC baterijos miego režimas"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "Pirmadienio tvarkaraštis"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "Antradienio tvarkaraštis"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "Trečiadienio tvarkaraštis"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "Ketvirtadienio tvarkaraštis"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "Penktadienio tvarkaraštis"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "Šeštadienio tvarkaraštis"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "Sekmadienio tvarkaraštis"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Naujas baterijos tvarkaraštis pirmadienis"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Naujas baterijos tvarkaraštis antradienis"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Naujas baterijos tvarkaraštis trečiadienis"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Naujas baterijos tvarkaraštis ketvirtadienis"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Naujas baterijos tvarkaraštis penktadienis"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Naujas baterijos tvarkaraštis šeštadienis"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Naujas baterijos tvarkaraštis sekmadienis"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "Baterijos tvarkaraštis pirmadienis"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "Baterijos tvarkaraštis antradienis"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "Baterijos tvarkaraštis trečiadienis"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "Baterijos tvarkaraštis ketvirtadienis"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "Baterijos tvarkaraštis penktadienis"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "Baterijos tvarkaraštis šeštadienis"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "Baterijos tvarkaraštis sekmadienis"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Įkrovimo režimas"
+      },
+      "system_profile": {
+        "name": "Sistemos profilis"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "Tikslinis AC baterijos įkrovos lygis"
+      },
+      "evse_schedule_selected": {
+        "name": "Tvarkaraštis"
+      },
+      "battery_new_schedule_type": {
+        "name": "Baterijos tvarkaraščio tipas"
+      },
+      "battery_schedule_selected": {
+        "name": "Baterijos tvarkaraštis"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Pradėti įkrovimą"
+      },
+      "stop_charging": {
+        "name": "Sustabdyti įkrovimą"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Atšaukti laukiantį profilio pakeitimą"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Prašyti tinklelio perjungimo OTP"
+      },
+      "storm_alert_opt_out": {
+        "name": "Atsisakyti audros įspėjimo"
+      },
+      "evse_schedule_refresh": {
+        "name": "Tvarkaraščio atnaujinimas"
+      },
+      "evse_schedule_save": {
+        "name": "Tvarkaraščio išsaugojimas"
+      },
+      "evse_schedule_delete": {
+        "name": "Tvarkaraščio ištrynimas"
+      },
+      "evse_schedule_add": {
+        "name": "Sukurti naują tvarkaraštį"
+      },
+      "battery_schedule_add": {
+        "name": "Pridėti baterijos tvarkaraštį"
+      },
+      "battery_schedule_delete": {
+        "name": "Ištrinti baterijos tvarkaraštį"
+      },
+      "battery_schedule_refresh": {
+        "name": "Atnaujinti baterijos tvarkaraštį"
+      },
+      "battery_schedule_save": {
+        "name": "Išsaugoti baterijos tvarkaraštį"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Įkrovimo iš tinklo pradžios laikas"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Įkrovimo iš tinklo pabaigos laikas"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Iškrovimo į tinklą pradžios laikas"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Iškrovimo į tinklą pabaigos laikas"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Baterijos iškrovimo ribojimo pradžios laikas"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Baterijos iškrovimo ribojimo pabaigos laikas"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Tvarkaraščio pradžios laikas"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Tvarkaraščio pabaigos laikas"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Naujo baterijos tvarkaraščio pradžios laikas"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Naujo baterijos tvarkaraščio pabaigos laikas"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Baterijos tvarkaraščio pradžios laikas"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Baterijos tvarkaraščio pabaigos laikas"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "Atsarginio maitinimo istorija"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Vartų programinė aparatinė įranga"
+      },
+      "charger_firmware": {
+        "name": "Programinė aparatinė įranga"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Enphase vieta {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Pradėti įkrovimą",
+      "stop_charging": "Sustabdyti įkrovimą"
+    },
+    "trigger_type": {
+      "charging_started": "Įkrovimas pradėtas",
+      "charging_stopped": "Įkrovimas sustabdytas",
+      "plugged_in": "Prijungta",
+      "unplugged": "Atjungta"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy reikia perautentifikavimo",
+      "description": "Vietai {site_id} reikia atnaujintų sesijos antraščių. Prašome perautentifikuoti."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Atrodo, kad Enphase laikinai blokuoja svetainės {site_id} autentifikavimą. Automatiniai bandymai pristabdyti iki {blocked_until}. Sėkmingas rankinis pakartotinis autentifikavimas gali panaikinti bloką anksčiau."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energy turi per daug aktyvių seansų",
+      "description": "Enphase atmetė svetainės {site_id} autentifikavimą, nes paskyroje yra per daug aktyvių seansų. Automatiniai pakartotiniai bandymai pristabdyti iki {blocked_until}. Atsijunkite nuo kitų Enphase programos ar naršyklės seansų ir tada bandykite autentifikuoti iš naujo."
+    },
+    "rate_limited": {
+      "title": "Enphase Energy ribojamas",
+      "description": "Debesijos API grąžino užklausų dažnio ribojimą. Apklausos bus sulėtintos iki {backoff_ends}."
+    },
+    "cloud_unreachable": {
+      "title": "Enphase Energy debesis nepasiekiamas",
+      "description": "Home Assistant negali pasiekti Enphase debesies vietai {site_id}. Apklausos greitis automatiškai sumažėja; patikrinkite paslaugos būseną ir tinklą."
+    },
+    "cloud_dns_resolution": {
+      "title": "Enphase Energy DNS išsprendimo klaida",
+      "description": "Home Assistant nepavyko išspręsti enlighten.enphaseenergy.com vietai {site_id}. Patikrinkite DNS sprendiklį arba interneto ryšį."
+    },
+    "cloud_service_unavailable": {
+      "title": "Enphase Energy debesies klaidos",
+      "description": "Enphase debesis vietai {site_id} atsako klaidomis. Apklausos intervalas automatiškai mažinamas; patikrinkite paslaugos būseną arba naudojimo limitus."
+    },
+    "scheduler_unavailable": {
+      "title": "Enphase Energy planuoklis nepasiekiamas",
+      "description": "Svetainės {site_id} Enphase planavimo paslauga nepasiekiama. Įkrovimo režimo pasirinkimas ir tvarkaraščio sinchronizavimas laikinai išjungti."
+    },
+    "session_history_unavailable": {
+      "title": "„Enphase Energy“ seanso istorija nepasiekiama",
+      "description": "Svetainės {site_id} „Enphase“ seanso istorijos paslauga nepasiekiama. Seanso istorijos jutikliai rodys talpykloje saugomus duomenis, kol paslauga bus atkurta."
+    },
+    "site_energy_unavailable": {
+      "title": "Enphase Energy svetainės energija nepasiekiama",
+      "description": "Svetainės {site_id} „Enphase“ visą gyvenimą trunkančios energijos paslauga nepasiekiama. Svetainės energijos jutikliai rodys talpykloje saugomus duomenis, kol paslauga bus atkurta."
+    },
+    "auth_settings_unavailable": {
+      "title": "Enphase Energy autentifikavimo nustatymai nepasiekiami",
+      "description": "„Enphase“ įkroviklio autentifikavimo nustatymų paslauga svetainėje {site_id} nepasiekiama. Programų autentifikavimo valdikliai laikinai išjungti."
+    },
+    "battery_profile_pending": {
+      "title": "Laukiama „Enphase Energy“ baterijos profilio atnaujinimo",
+      "description": "Baterijos profilio pakeitimas svetainei {site_id} laukia ilgiau nei {pending_timeout_minutes} min. Debesijos paslauga vis dar gali apdoroti užklausą."
+    },
+    "hems_auth_degraded": {
+      "title": "Enphase Energy HEMS laikinai pristabdyta",
+      "description": "Heat Pump/HEMS apklausa svetainei {site_id} pristabdyta iki {backoff_until} po {failure_count} autentifikavimo tipo klaidų ({reason}). Wallbox, baterija, šliuzas ir kiti duomenys gali tęstis. Išjunkite Heat Pump įrenginių grupę arba naudokite Clear HEMS Auth Backoff, kai Enphase atsigaus."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "Vietos ID",
+      "can_reach_server": "Pasiekti Enphase debesį",
+      "last_success": "Paskutinis sėkmingas atnaujinimas",
+      "latency_ms": "Debesies delsa (ms)",
+      "last_error": "Paskutinė klaida",
+      "scheduler_available": "Galimas tvarkaraštis",
+      "scheduler_last_error": "Paskutinė planuotojo klaida",
+      "scheduler_failures": "Planuoklio gedimai",
+      "scheduler_backoff_active": "Planuoklio atsitraukimas aktyvus",
+      "scheduler_backoff_ends_utc": "Planuoklio atsitraukimas baigiasi (UTC)",
+      "backoff_active": "Backoff aktyvus",
+      "network_errors": "Nuoseklios tinklo klaidos",
+      "http_errors": "Nuoseklios HTTP klaidos",
+      "site_count": "Svetainių skaičius",
+      "site_name": "Svetainės pavadinimas",
+      "site_ids": "Svetainių ID",
+      "site_names": "Svetainių pavadinimai",
+      "last_failure_status": "Paskutinės nesėkmės būsena",
+      "last_failure_description": "Paskutinės nesėkmės aprašymas",
+      "phase_timings": "Fazių laikai",
+      "session_cache_ttl_s": "Seanso talpyklos TTL (s)",
+      "sites": "Svetainės",
+      "auth_settings_available": "Galimi autentifikavimo nustatymai",
+      "auth_settings_last_error": "Paskutinė autentifikavimo nustatymų klaida",
+      "auth_settings_failures": "Autentifikavimo nustatymų gedimai",
+      "auth_settings_backoff_active": "Autentinimo nustatymų atšaukimas aktyvus",
+      "auth_settings_backoff_ends_utc": "Autentinimo nustatymų atšaukimas baigiasi (UTC)",
+      "session_history_available": "Galima seansų istorija",
+      "session_history_last_error": "Paskutinė seanso istorijos klaida",
+      "session_history_failures": "Sesijos istorijos nesėkmės",
+      "session_history_backoff_active": "Seanso istorijos atsitraukimas aktyvus",
+      "session_history_backoff_ends_utc": "Seanso istorijos atsitraukimas baigiasi (UTC)",
+      "site_energy_available": "Galima svetainės energija",
+      "site_energy_last_error": "Paskutinė svetainės energijos klaida",
+      "site_energy_failures": "Svetainės energijos gedimai",
+      "site_energy_backoff_active": "Svetainės energijos grąžinimas aktyvus",
+      "site_energy_backoff_ends_utc": "Svetainės energijos grąžinimo pabaiga (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Pradėti įkrovimą",
+      "description": "Pradėti įkrovimą pasirinktame Enphase Energy įkroviklyje.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Įkrovimo lygis (A)",
+          "description": "Pasirinktinis srovės nustatymas amperais (6-40)."
+        },
+        "connector_id": {
+          "name": "Jungties ID",
+          "description": "Pasirinktinis jungties indeksas (paprastai 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Sustabdyti įkrovimą",
+      "description": "Sustabdyti įkrovimą pasirinktame Enphase Energy įkroviklyje."
+    },
+    "trigger_message": {
+      "name": "Suaktyvinti OCPP pranešimą",
+      "description": "Prašykite įkroviklio išsiųsti OCPP pranešimą ir grąžinti debesies atsaką.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Prašomas pranešimas",
+          "description": "OCPP pranešimo pavadinimas (pvz., MeterValues); paslaugos atsakas rodo įkroviklio išvestį."
+        },
+        "confirm_advanced": {
+          "name": "Patvirtinti išplėstinį paleidimą",
+          "description": "Reikalinga išplėstiniams OCPP paleidimo pranešimams, kurie gali prašyti įkroviklio diagnostikos, programinės aparatinės įrangos arba paleidimo pranešimų."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Išvalyti perautentifikavimo problemą",
+      "description": "Pasirinkite Enphase vietos įrenginį, kad išvalytumėte jo perautentifikavimo problemą.",
+      "fields": {
+        "device_id": {
+          "name": "Įkrovikliai",
+          "description": "Pasirinkite Enphase įkroviklius, kuriems reikia išvalyti perautentifikavimo problemą."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Pradėti tiesioginę transliaciją",
+      "description": "Prašykite greitesnių debesies būsenos atnaujinimų trumpam laikui.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Sustabdyti tiesioginę transliaciją",
+      "description": "Sustabdyti debesies tiesioginės transliacijos užklausą.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Sinchronizuoti tvarkaraščius",
+      "description": "Atnaujinti Enphase tvarkaraščius iš debesijos.",
+      "fields": {
+        "device_id": {
+          "name": "Įkrovikliai",
+          "description": "Pasirinktinė įkroviklio parinktis tiksliniam sinchronizavimui."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Prašyti tinklelio perjungimo OTP",
+      "description": "Prieš keisdami svetainės tinklelio režimą, išsiųskite vienkartinį kodą.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Nustatykite tinklelio režimą",
+      "description": "Pakeiskite svetainės tinklelio režimą patvirtinę vienkartinį kodą.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Tinklelio režimas",
+          "description": "Pasirinkite on_grid arba off_grid."
+        },
+        "otp": {
+          "name": "Vienkartinis kodas",
+          "description": "Įveskite 4 skaitmenų vienkartinį kodą, atsiųstą jūsų registruotu el. pašto adresu ir telefonu."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "Atnaujinti CFG tvarkaraštį",
+      "description": "Atnaujina įkrovimo iš tinklo pradžios laiką, pabaigos laiką ir (arba) įkrovimo ribą viena atomine operacija.",
+      "fields": {
+        "start_time": {
+          "name": "Pradžios laikas",
+          "description": "CFG tvarkaraščio pradžios laikas."
+        },
+        "end_time": {
+          "name": "Pabaigos laikas",
+          "description": "CFG tvarkaraščio pabaigos laikas."
+        },
+        "limit": {
+          "name": "Įkrovimo riba",
+          "description": "Didžiausias baterijos įkrovos lygis (%)."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Enphase vietos ID (pasirinktinai; nustatomas iš tikslinio įrenginio)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Priverstinai atnaujinti",
+      "description": "Nedelsdami atnaujinkite baterijos tvarkaraščių duomenis iš Enphase debesies.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai, kai pasirenkamas svetainės įrenginys."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirenkamas konfigūracijos įrašo identifikatorius vienam Enphase svetainės įrašui."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Pridėti baterijos tvarkaraštį",
+      "description": "Sukurkite baterijos tvarkaraštį CFG, DTG arba RBD.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Tvarkaraščio tipas",
+          "description": "Baterijos tvarkaraščio šeima: cfg, dtg arba rbd."
+        },
+        "start_time": {
+          "name": "Pradžios laikas",
+          "description": "Tvarkaraščio pradžios laikas."
+        },
+        "end_time": {
+          "name": "Pabaigos laikas",
+          "description": "Tvarkaraščio pabaigos laikas."
+        },
+        "limit": {
+          "name": "Įkrovimo riba",
+          "description": "Didžiausias baterijos įkrovos lygis (%)."
+        },
+        "days": {
+          "name": "Dienos",
+          "description": "Aktyvių savaitės dienų sąrašas, kur pirmadienis=1, o sekmadienis=7."
+        },
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai, kai pasirenkamas svetainės įrenginys."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirenkamas konfigūracijos įrašo identifikatorius vienam Enphase svetainės įrašui."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Atnaujinti baterijos tvarkaraštį",
+      "description": "Atnaujinkite baterijos tvarkaraštį pagal tvarkaraščio ID.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Tvarkaraščio ID",
+          "description": "Esamos Enphase baterijos tvarkaraščio identifikatorius."
+        },
+        "schedule_type": {
+          "name": "Tvarkaraščio tipas",
+          "description": "Baterijos tvarkaraščio šeima: cfg, dtg arba rbd."
+        },
+        "start_time": {
+          "name": "Pradžios laikas",
+          "description": "Tvarkaraščio pradžios laikas."
+        },
+        "end_time": {
+          "name": "Pabaigos laikas",
+          "description": "Tvarkaraščio pabaigos laikas."
+        },
+        "limit": {
+          "name": "Įkrovimo riba",
+          "description": "Didžiausias baterijos įkrovos lygis (%)."
+        },
+        "days": {
+          "name": "Dienos",
+          "description": "Aktyvių savaitės dienų sąrašas, kur pirmadienis=1, o sekmadienis=7."
+        },
+        "confirm": {
+          "name": "Patvirtinimas",
+          "description": "Nustatykite į true, kad patvirtintumėte tvarkaraščio atnaujinimą."
+        },
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai, kai pasirenkamas svetainės įrenginys."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirenkamas konfigūracijos įrašo identifikatorius vienam Enphase svetainės įrašui."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Ištrinti baterijos tvarkaraštį",
+      "description": "Ištrinkite vieną ar kelis baterijos tvarkaraščius pagal tvarkaraščio ID.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Tvarkaraščio ID",
+          "description": "Vieno Enphase baterijos tvarkaraščio identifikatorius, kurį reikia ištrinti."
+        },
+        "schedule_ids": {
+          "name": "Tvarkaraščių ID",
+          "description": "Pasirenkama kableliais atskirta arba sąrašo įvestis keliems tvarkaraščių identifikatoriams."
+        },
+        "confirm": {
+          "name": "Patvirtinimas",
+          "description": "Nustatykite į true, kad patvirtintumėte tvarkaraščio ištrynimą."
+        },
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai, kai pasirenkamas svetainės įrenginys."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirenkamas konfigūracijos įrašo identifikatorius vienam Enphase svetainės įrašui."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Patvirtinti baterijos tvarkaraštį",
+      "description": "Patikrinkite, ar baterijos tvarkaraščių redagavimas yra prieinamas pasirinktai tvarkaraščių šeimai.",
+      "sections": {
+        "advanced": {
+          "name": "Išplėstinės parinktys"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Tvarkaraščio tipas",
+          "description": "Baterijos tvarkaraščio šeima: cfg, dtg arba rbd."
+        },
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai, kai pasirenkamas svetainės įrenginys."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirenkamas konfigūracijos įrašo identifikatorius vienam Enphase svetainės įrašui."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Bandyti pakartotinai autentifikuoti dabar",
+      "description": "Naudoti išsaugotus Enphase prisijungimo duomenis ir iš karto bandyti pakartotinai autentifikuoti pasirinktą svetainę.",
+      "fields": {
+        "device_id": {
+          "name": "Svetainės įrenginiai",
+          "description": "Pasirinkite Enphase svetainės įrenginį, kuriam bandyti pakartotinį autentifikavimą."
+        },
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai pasirinkus svetainės įrenginį."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Atnaujinti tarifą",
+      "description": "Atnaujina Enphase atsiskaitymo ciklo duomenis ir vieną ar daugiau esamų importo arba eksporto tarifų kainų.",
+      "fields": {
+        "rate": {
+          "name": "Kaina",
+          "description": "Nauja neneigiama tarifo reikšmė pasirinktai tarifo entitetui."
+        },
+        "rate_entity": {
+          "name": "Tarifo entitetas",
+          "description": "Pasirenkamas tarifo entitetas atnaujinimui, kai nenaudojamas veiksmo tikslas."
+        },
+        "import_rate": {
+          "name": "Importo kaina",
+          "description": "Nauja neneigiama importo tarifo reikšmė."
+        },
+        "import_rate_entity": {
+          "name": "Importo tarifo entitetas",
+          "description": "Atnaujinamas importo tarifo entitetas."
+        },
+        "export_rate": {
+          "name": "Eksporto kaina",
+          "description": "Nauja neneigiama eksporto tarifo reikšmė."
+        },
+        "export_rate_entity": {
+          "name": "Eksporto tarifo entitetas",
+          "description": "Atnaujinamas eksporto tarifo entitetas."
+        },
+        "billing_start_date": {
+          "name": "Atsiskaitymo pradžios data",
+          "description": "Atsiskaitymo laikotarpio pradžios data ISO formatu."
+        },
+        "billing_frequency": {
+          "name": "Atsiskaitymo dažnis",
+          "description": "Atsiskaitymo intervalo vienetas: MONTH arba DAY."
+        },
+        "billing_interval_value": {
+          "name": "Atsiskaitymo intervalas",
+          "description": "Atsiskaitymo intervalų skaičius. Mėnesiams naudokite 1-24, dienoms 1-100."
+        },
+        "rates": {
+          "name": "Kainos",
+          "description": "Atnaujinamų tarifo kainos objektų ID ir neigiamų nebūnančių reikšmių sąrašas."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirenkamas vietos identifikatorius atsiskaitymo atnaujinimams."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirenkamas vienos Enphase vietos konfigūracijos įrašo identifikatorius."
+        },
+        "tariff_payload": {
+          "name": "Tarifo payload",
+          "description": "Visas įrašomas Enphase tarifo payload. Naudokite išplėstiniams struktūros keitimams."
+        },
+        "purchase_tariff": {
+          "name": "Importo tarifo struktūra",
+          "description": "Pakaitinė importo tarifo šaka su tipu, sezonais, laikotarpiais, pakopomis ir kainomis."
+        },
+        "buyback_tariff": {
+          "name": "Eksporto tarifo struktūra",
+          "description": "Pakaitinė eksporto tarifo šaka su tipu, eksporto planu, sezonais, laikotarpiais, pakopomis ir kainomis."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "Išvalyti HEMS auth backoff",
+      "description": "Išvalo laikiną HEMS/Heat Pump autentifikavimo pauzę be slaptažodžio prisijungimo.",
+      "fields": {
+        "device_id": {
+          "name": "Svetainės įrenginiai",
+          "description": "Pasirinkite Enphase svetainės įrenginį, kurio HEMS auth backoff reikia išvalyti."
+        },
+        "site_id": {
+          "name": "Svetainės ID",
+          "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai pasirinkus įrenginį."
+        }
+      }
+    }
+  }
+}

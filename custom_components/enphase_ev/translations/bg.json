@@ -1,0 +1,2739 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Enphase Energy",
+        "description": "Влезте с вашите Enlighten данни.",
+        "data": {
+          "email": "Имейл",
+          "password": "Парола",
+          "remember_password": "Запази парола за автоматична повторна автентикация"
+        },
+        "data_description": {
+          "email": "Имейлът на вашия акаунт Enlighten.",
+          "password": "Паролата се съхранява само ако отметнете полето.",
+          "remember_password": "Позволява на интеграцията да обновява токените автоматично при изтичане."
+        }
+      },
+      "mfa": {
+        "title": "Потвърдете MFA кода",
+        "description": "Въведете еднократния код, изпратен на имейла ви. Кодът е валиден 5 минути. Можете да поискате нов код на всеки 30 секунди.",
+        "data": {
+          "otp": "Еднократен код",
+          "resend_code": "Изпрати кода отново"
+        },
+        "data_description": {
+          "otp": "Използвайте кода от прозореца за вход на Enphase.",
+          "resend_code": "Поискайте нов код, ако предишният е изтекъл."
+        }
+      },
+      "site": {
+        "title": "Изберете обект",
+        "description": "Изберете кой Enlighten обект да свържете.",
+        "data": {
+          "site_id": "Обект"
+        }
+      },
+      "devices": {
+        "title": "Избор на устройства",
+        "description": "Изберете кои групи устройства да добавите. Всички избори споделят един и същ интервал на опресняване.",
+        "data": {
+          "type_envoy": "Шлюз",
+          "type_encharge": "Батерия",
+          "type_iqevse": "Зарядни",
+          "type_microinverter": "Микроинвертори",
+          "scan_interval": "Интервал на сканиране (s)",
+          "type_heatpump": "Термопомпа",
+          "type_ac_battery": "AC батерия"
+        },
+        "data_description": {
+          "type_envoy": "Включва диагностика за свързаността на шлюза и електромерите.",
+          "type_encharge": "Включва състояние и управляващи обекти за батериите, когато са налични.",
+          "type_iqevse": "Включва обекти и управления за EV зарядни.",
+          "type_microinverter": "Включва сензори за свързаност на микроинверторите, активен брой и произведена енергия за целия период.",
+          "scan_interval": "Секунди между проверките на статуса в облака. По подразбиране 60s.",
+          "type_heatpump": "Включва сензори за състояние, диагностика и потребление на термопомпата.",
+          "type_ac_battery": "Включва сензори за AC батерията и контроли за режим на заспиване, когато са налични."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Невалидни данни или изтекла сесия.",
+      "cannot_connect": "Не може да се достигне услугата Enphase.",
+      "service_unavailable": "Enphase временно не е наличен. Опитайте по-късно.",
+      "too_many_active_sessions": "Enphase отхвърли влизането, защото има твърде много активни сесии в акаунта. Излезте от други сесии в приложението или браузъра на Enphase и опитайте отново по-късно.",
+      "mfa_required": "Акаунтът изисква многофакторна автентикация.",
+      "otp_required": "Въведете еднократния код.",
+      "otp_invalid": "Невалиден или изтекъл код. Опитайте отново.",
+      "otp_blocked": "Твърде много опити. Акаунтът е временно блокиран.",
+      "resend_wait": "Изчакайте 30 секунди преди да поискате нов код.",
+      "site_required": "Изберете обект, за да продължите.",
+      "site_invalid": "ID на обекта трябва да е числов.",
+      "serials_required": "Изберете или въведете поне едно зарядно.",
+      "serials_or_site_only_required": "Въведете поне едно зарядно или включете режим само обект.",
+      "unknown": "Неочаквана грешка"
+    },
+    "abort": {
+      "already_configured": "Вече конфигурирано",
+      "reconfigure_successful": "Повторна конфигурация успешна",
+      "reauth_successful": "Повторна автентикация успешна",
+      "manual_mode_removed": "Старите ръчни записи за автентикация вече не се поддържат. Премахнете интеграцията и я настройте отново с Enlighten вход.",
+      "wrong_account": "Този запис вече е свързан с {configured_label}. Премахнете интеграцията от Home Assistant и добавете нова, за да свържете {requested_label}."
+    }
+  },
+  "exceptions": {
+    "charger_not_plugged": {
+      "message": "Не може да се стартира зареждане, защото {name} е изключен от автомобила."
+    },
+    "auth_required": {
+      "message": "Зареждането не може да започне, защото {name} изисква удостоверяване чрез приложението Enphase или RFID."
+    },
+    "grid_control_unavailable": {
+      "message": "Контролът на мрежата не е наличен за този сайт."
+    },
+    "grid_control_blocked": {
+      "message": "Контролът на мрежата в момента е блокиран: {reasons}."
+    },
+    "grid_mode_invalid": {
+      "message": "Режимът на мрежата трябва да е on_grid или off_grid."
+    },
+    "grid_otp_required": {
+      "message": "Изисква се OTP."
+    },
+    "grid_otp_invalid_format": {
+      "message": "OTP трябва да бъде 4-цифрен цифров код."
+    },
+    "grid_otp_invalid": {
+      "message": "OTP е невалиден или изтекъл."
+    },
+    "grid_envoy_serial_missing": {
+      "message": "Не може да се определи сериен номер на пратеник за този сайт."
+    },
+    "grid_site_required": {
+      "message": "Изберете точно един сайт на Enphase."
+    },
+    "grid_site_ambiguous": {
+      "message": "Бяха избрани множество сайтове ({count}). Изберете точно един сайт."
+    },
+    "schedule_required": {
+      "message": "Активирайте поне един график, преди да изберете планирано зареждане."
+    },
+    "charge_mode_invalid_option": {
+      "message": "Избраният режим на зареждане не е наличен."
+    },
+    "evse_schedule_day_required": {
+      "message": "Изберете поне един ден от седмицата за графика."
+    },
+    "evse_schedule_times_different": {
+      "message": "Началният и крайният час на графика трябва да са различни."
+    },
+    "evse_schedule_change_rejected": {
+      "message": "Enphase отхвърли промяната на графика."
+    },
+    "battery_schedule_overlap": {
+      "message": "Графикът се припокрива със съществуващия {schedule_label}. Коригирайте го или го деактивирайте първо."
+    },
+    "ac_battery_unavailable": {
+      "message": "Понастоящем няма налични устройства с AC батерия."
+    },
+    "auth_settings_service_unavailable": {
+      "message": "Настройките за удостоверяване не са налични, докато услугата Enphase не работи."
+    },
+    "battery_profile_update_not_permitted": {
+      "message": "Актуализациите на профила на батерията не са разрешени за този акаунт."
+    },
+    "battery_settings_update_not_permitted": {
+      "message": "Актуализациите на настройките на батерията не са разрешени за този акаунт."
+    },
+    "battery_profile_update_in_progress": {
+      "message": "Друга актуализация на профила на батерията вече е в ход."
+    },
+    "battery_settings_update_in_progress": {
+      "message": "Друга актуализация на настройките на батерията вече е в ход."
+    },
+    "battery_profile_updates_unavailable": {
+      "message": "Актуализациите на профила на батерията не са налични."
+    },
+    "battery_settings_updates_unavailable": {
+      "message": "Не са налични актуализации на настройките на батерията."
+    },
+    "battery_updates_unavailable": {
+      "message": "Не са налични актуализации на батерията."
+    },
+    "battery_updates_not_permitted": {
+      "message": "Актуализациите на батерията не са разрешени за този акаунт."
+    },
+    "battery_profile_update_debounced": {
+      "message": "Актуализацията на профила на батерията е заявена твърде бързо. Моля, изчакайте и опитайте отново."
+    },
+    "battery_settings_update_debounced": {
+      "message": "Актуализацията на настройките на батерията е заявена твърде бързо. Моля, изчакайте и опитайте отново."
+    },
+    "battery_write_access_unconfirmed": {
+      "message": "Достъпът за запис на батерията не можа да бъде потвърден. Опреснете и опитайте отново."
+    },
+    "schedule_update_forbidden": {
+      "message": "Актуализацията на графика беше отхвърлена от Enphase (HTTP 403 Forbidden)."
+    },
+    "schedule_update_unauthorized": {
+      "message": "Актуализацията на графика не можа да бъде удостоверена. Повторно удостоверяване и опитайте отново."
+    },
+    "schedule_conflict_dtg": {
+      "message": "Графикът е в конфликт със съществуващия график за заустване към мрежата. Първо коригирайте или деактивирайте този график."
+    },
+    "schedule_conflict_rbd": {
+      "message": "Графикът е в конфликт със съществуващия график за ограничаване на разреждането на батерията. Първо коригирайте или деактивирайте този график."
+    },
+    "schedule_conflict_cfg": {
+      "message": "Графикът е в конфликт със съществуващия график за таксуване от мрежата. Първо коригирайте или деактивирайте този график."
+    },
+    "schedule_update_conflict": {
+      "message": "Актуализацията на графика е в конфликт със съществуващ график на батерията."
+    },
+    "battery_profile_unavailable": {
+      "message": "Профилът на батерията не е наличен."
+    },
+    "battery_profile_update_forbidden": {
+      "message": "Актуализацията на профила на батерията беше отхвърлена от Enphase (HTTP 403 забранен)."
+    },
+    "battery_profile_update_unauthorized": {
+      "message": "Актуализацията на профила на батерията не може да бъде удостоверена. Повторно удостоверяване и опитайте отново."
+    },
+    "battery_settings_payload_unavailable": {
+      "message": "Полезният товар на настройките на батерията не е наличен."
+    },
+    "battery_settings_update_forbidden": {
+      "message": "Актуализацията на настройките на батерията беше отхвърлена от Enphase (HTTP 403 Forbidden)."
+    },
+    "battery_settings_update_unauthorized": {
+      "message": "Актуализацията на настройките на батерията не може да бъде удостоверена. Повторно удостоверяване и опитайте отново."
+    },
+    "full_backup_reserve_fixed": {
+      "message": "Пълният резервен резерв е фиксиран на 100%."
+    },
+    "battery_reserve_unavailable": {
+      "message": "Резервът на батерията не е наличен."
+    },
+    "savings_profile_required": {
+      "message": "Спестовният профил трябва да е активен."
+    },
+    "savings_profile_settings_unavailable": {
+      "message": "Настройките на профила за спестявания не са налични."
+    },
+    "battery_profile_unsupported": {
+      "message": "Избраният профил на батерията не се поддържа."
+    },
+    "charge_from_grid_unavailable": {
+      "message": "Настройката за зареждане от мрежата не е налична."
+    },
+    "charge_from_grid_toggle_not_applied": {
+      "message": "Зареждането от превключване на мрежата не е приложено от Enphase."
+    },
+    "charge_from_grid_schedule_unavailable": {
+      "message": "Таксуването от графика на мрежата не е налично."
+    },
+    "charge_from_grid_schedule_times_different": {
+      "message": "Началният и крайният час на графика за зареждане от мрежата трябва да са различни."
+    },
+    "charge_from_grid_schedule_toggle_not_applied": {
+      "message": "Превключването на графика за таксуване от мрежата не е приложено от Enphase."
+    },
+    "charge_from_grid_required": {
+      "message": "Първо трябва да се активира таксуването от мрежата."
+    },
+    "schedule_change_pending": {
+      "message": "Промяна в графика чака синхронизиране на Envoy. моля изчакайте"
+    },
+    "charge_from_grid_schedule_time_invalid": {
+      "message": "Графикът за зареждане от мрежата е невалиден."
+    },
+    "schedule_api_unavailable": {
+      "message": "API за график не е наличен за тази клиентска версия."
+    },
+    "charge_from_grid_schedule_missing": {
+      "message": "Няма съществуващ график за зареждане от мрежата."
+    },
+    "schedule_toggle_create_before_enable": {
+      "message": "Създайте {schedule_label} в планировчика на IQ Battery, преди да го активирате."
+    },
+    "schedule_not_exposed": {
+      "message": "{schedule_label} в момента не се излага от Enphase за този сайт. Изчакайте синхронизирането на графика да завърши, след това опреснете и опитайте отново."
+    },
+    "schedule_toggle_not_applied": {
+      "message": "Превключването {schedule_label} не е приложено от Enphase."
+    },
+    "schedule_primary_write_rejected": {
+      "message": "първичният запис е отхвърлен"
+    },
+    "schedule_family_times_different": {
+      "message": "Началният и крайният час на {schedule_label} трябва да са различни."
+    },
+    "discharge_to_grid_schedule_time_invalid": {
+      "message": "Графикът за изхвърляне към мрежата е невалиден."
+    },
+    "schedule_missing": {
+      "message": "Няма наличен съществуващ график за {schedule_label_lower}."
+    },
+    "schedule_unavailable": {
+      "message": "Графикът на {schedule_label} не е наличен."
+    },
+    "schedule_time_invalid": {
+      "message": "Графикът на {schedule_label} е невалиден."
+    },
+    "current_schedule_time_invalid": {
+      "message": "Текущият график на {schedule_label_lower} е невалиден."
+    },
+    "schedule_limit_range": {
+      "message": "Графикът на {schedule_label} трябва да бъде между {minimum} и {maximum}."
+    },
+    "schedule_limit_minimum": {
+      "message": "Графикът за {schedule_label} трябва да бъде поне {minimum}%."
+    },
+    "current_schedule_times_unavailable": {
+      "message": "Текущите часове по график не са налични."
+    },
+    "charge_from_grid_schedule_limit_range": {
+      "message": "Графикът за таксуване от мрежата трябва да бъде между {minimum} и {maximum}."
+    },
+    "charge_from_grid_schedule_limit_minimum": {
+      "message": "Графикът за таксуване от мрежата трябва да бъде поне {minimum}%."
+    },
+    "battery_shutdown_level_unavailable": {
+      "message": "Нивото на изключване на батерията не е налично."
+    },
+    "battery_shutdown_level_invalid": {
+      "message": "Нивото на изключване на батерията е невалидно."
+    },
+    "battery_shutdown_level_range": {
+      "message": "Нивото на изключване на батерията трябва да е между {minimum} и {maximum}."
+    },
+    "storm_alert_opt_out_unavailable": {
+      "message": "Отказът за предупреждение за буря не е наличен."
+    },
+    "storm_alert_opt_out_failed": {
+      "message": "Неуспешно отказване за предупреждение за буря за предупреждение(я) за {count}."
+    },
+    "storm_guard_update_not_permitted": {
+      "message": "Актуализациите на Storm Guard не са разрешени за този акаунт."
+    },
+    "storm_guard_settings_unavailable": {
+      "message": "Настройките на Storm Guard не са налични."
+    },
+    "storm_guard_update_forbidden": {
+      "message": "Актуализацията на Storm Guard беше отхвърлена от Enphase (HTTP 403 Forbidden)."
+    },
+    "storm_guard_update_unauthorized": {
+      "message": "Актуализацията на Storm Guard не можа да бъде удостоверена. Повторно удостоверяване и опитайте отново."
+    },
+    "selected_system_profile_unavailable": {
+      "message": "Избраният системен профил не е наличен."
+    },
+    "system_profile_update_forbidden": {
+      "message": "Актуализацията на системния профил беше отхвърлена от Enphase (HTTP 403 Forbidden)."
+    },
+    "system_profile_update_unauthorized": {
+      "message": "Актуализацията на системния профил не можа да бъде удостоверена. Повторно удостоверяване и опитайте отново."
+    },
+    "system_profile_update_failed": {
+      "message": "Неуспешна актуализация на системния профил."
+    },
+    "system_profile_update_network": {
+      "message": "Актуализирането на системния профил не бе успешно поради мрежова грешка. Опитайте отново."
+    },
+    "system_profile_update_timeout": {
+      "message": "Актуализацията на системния профил изтече. Опитайте отново."
+    },
+    "scheduler_service_unavailable": {
+      "message": "Изборът на режим на зареждане не е наличен, докато услугата за планиране на Enphase не работи."
+    },
+    "selected_ac_battery_target_state_of_charge_unavailable": {
+      "message": "Избраното целево състояние на зареждане на променливотокова батерия не е налично."
+    },
+    "battery_schedule_day_required": {
+      "message": "Изберете поне един ден за графика."
+    },
+    "battery_schedule_times_different": {
+      "message": "Началният и крайният час на графика трябва да са различни."
+    },
+    "battery_schedule_limit_range": {
+      "message": "Графикът на {schedule_type} трябва да бъде между {minimum} и {maximum}."
+    },
+    "battery_schedule_validation_rejected": {
+      "message": "Графикът е отхвърлен от крайната точка за валидиране на Enphase."
+    },
+    "battery_schedule_editing_unavailable": {
+      "message": "Редактирането на графика на батерията не е налично."
+    },
+    "battery_schedule_api_unavailable": {
+      "message": "API за график на батерията не е наличен."
+    },
+    "battery_schedule_update_confirm_required": {
+      "message": "Необходимо е потвърждение за актуализиране на график."
+    },
+    "battery_schedule_delete_confirm_required": {
+      "message": "Изисква се потвърждение за изтриване на график."
+    },
+    "battery_schedule_id_invalid": {
+      "message": "Невалиден ID на графика: {schedule_id}"
+    },
+    "battery_schedule_id_not_found": {
+      "message": "ИД на график не е намерен в текущите данни: {schedule_id}"
+    },
+    "battery_schedule_ids_required": {
+      "message": "Предоставете поне един идентификатор на график за изтриване."
+    },
+    "battery_schedule_ids_invalid": {
+      "message": "Невалидни ИД на графика: {schedule_ids}"
+    },
+    "battery_schedule_ids_not_found": {
+      "message": "Идентификационните номера на графика не са намерени в текущите данни: {schedule_ids}"
+    },
+    "battery_schedule_validation_rejected_detail": {
+      "message": "Графикът е отхвърлен от крайната точка за валидиране на Enphase: {message}"
+    },
+    "schedule_update_conflict_detail": {
+      "message": "Актуализацията на графика е в конфликт със съществуващ график на батерията: {message}"
+    },
+    "tariff_rate_invalid": {
+      "message": "Тарифната ставка трябва да бъде неотрицателно число."
+    },
+    "tariff_rate_target_not_found": {
+      "message": "Целевата тарифна ставка не беше намерена в последните тарифни данни."
+    },
+    "tariff_rate_target_invalid": {
+      "message": "Целевата тарифна ставка е невалидна."
+    },
+    "tariff_rate_api_unavailable": {
+      "message": "API за запис на тарифи е недостъпен."
+    },
+    "tariff_rate_entity_required": {
+      "message": "Изберете точно един обект за тарифна ставка."
+    },
+    "tariff_rate_entity_invalid": {
+      "message": "Обектът не е тарифна ставка на Enphase: {entity_id}"
+    },
+    "trigger_message_invalid": {
+      "message": "Неподдържано OCPP съобщение за задействане. Използвайте едно от: {messages}."
+    },
+    "trigger_message_confirmation_required": {
+      "message": "Включете разширеното потвърждение, за да изпратите {message}."
+    },
+    "tariff_update_required": {
+      "message": "Посочете данни за фактуриране или поне една актуализация на тарифна ставка."
+    },
+    "tariff_billing_incomplete": {
+      "message": "Посочете начална дата, честота и интервал за фактуриране."
+    },
+    "tariff_billing_start_date_invalid": {
+      "message": "Началната дата за тарифно фактуриране трябва да е валидна ISO дата."
+    },
+    "tariff_billing_frequency_invalid": {
+      "message": "Честотата на тарифното фактуриране трябва да е MONTH или DAY."
+    },
+    "tariff_billing_interval_invalid": {
+      "message": "Интервалът за тарифно фактуриране трябва да е между {minimum} и {maximum}."
+    },
+    "tariff_billing_api_unavailable": {
+      "message": "API за запис на тарифното фактуриране не е наличен."
+    },
+    "tariff_rate_target_duplicate": {
+      "message": "Дублирани цели за тарифни ставки не са разрешени."
+    },
+    "tariff_rate_entity_duplicate": {
+      "message": "Дублирана същност за тарифна ставка: {entity_id}"
+    },
+    "tariff_site_mismatch": {
+      "message": "Всички актуализации на тарифата трябва да са за един и същ сайт на Enphase."
+    },
+    "tariff_structure_invalid": {
+      "message": "Структурата на тарифата е невалидна."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Опции на Enphase Energy",
+        "description": "Изберете какво да направите с този запис на интеграцията.",
+        "menu_options": {
+          "settings": "Настройки",
+          "migrate_envoy": "Мигриране на историята на Envoy"
+        },
+        "menu_option_descriptions": {
+          "settings": "Настройте опресняването и поведението.",
+          "migrate_envoy": "Поемете избрани идентификатори на енергийни обекти на Enphase Envoy, за да продължи историята в Home Assistant Energy под тази интеграция."
+        },
+        "data": {
+          "type_envoy": "Шлюз",
+          "type_encharge": "Батерия",
+          "type_iqevse": "Зарядни",
+          "type_microinverter": "Микроинвертори",
+          "fast_poll_interval": "Бърз интервал на опресняване (s)",
+          "slow_poll_interval": "Бавен интервал на опресняване (s)",
+          "fast_while_streaming": "Предпочитай бързо опресняване при активен cloud stream",
+          "api_timeout": "Изчакване на API (s)",
+          "nominal_voltage": "Номинално напрежение (V)",
+          "session_history_interval": "Интервал на историята на сесиите (min)",
+          "schedule_sync_enabled": "Активиране на EV Charger Scheduler",
+          "reauth": "Стартиране на повторна автентикация",
+          "forget_password": "Забрави запазената парола",
+          "type_heatpump": "Термопомпа",
+          "type_ac_battery": "AC батерия",
+          "battery_schedules_enabled": "Активирайте програмата за планиране на батерията",
+          "degraded_service_repair_issues": "Активиране на поправки за влошени услуги"
+        },
+        "data_description": {
+          "type_envoy": "Включва диагностика за свързаността на шлюза и електромерите.",
+          "type_encharge": "Включва състояние и управляващи обекти за батериите, когато са налични.",
+          "type_iqevse": "Включва обекти и управления за EV зарядни.",
+          "type_microinverter": "Включва сензори за свързаност на микроинверторите, активен брой и произведена енергия за целия период.",
+          "fast_poll_interval": "Интервал при зареждане или стрийминг.",
+          "slow_poll_interval": "Интервал при неактивност.",
+          "fast_while_streaming": "Когато е включено, бързо опресняване по време на активен cloud стрийм.",
+          "api_timeout": "Секунди преди заявките към API да изтекат.",
+          "nominal_voltage": "Резервно напрежение за оценка на мощността на зарядното.",
+          "session_history_interval": "Минути за изчакване между извличанията на историята на сесиите в облака.",
+          "schedule_sync_enabled": "Управлявайте графици за зарядно за IQ EV",
+          "reauth": "Стартирайте процеса на вход за обновяване на данните без да премахвате интеграцията.",
+          "forget_password": "Премахва запазената парола. Автоматичното обновяване вече няма да се опитва.",
+          "type_heatpump": "Включва сензори за състояние, диагностика и потребление на термопомпата.",
+          "type_ac_battery": "Включва сензори за AC батерията и контроли за режим на заспиване, когато са налични.",
+          "battery_schedules_enabled": "Управлявайте графици за IQ батерия",
+          "degraded_service_repair_issues": "Създава проблеми в Repairs, когато незадължителни услуги на Enphase са влошени."
+        }
+      },
+      "settings": {
+        "title": "Опции Enphase Energy",
+        "description": "Настройка на опресняване и поведение.",
+        "data": {
+          "type_envoy": "Шлюз",
+          "type_encharge": "Батерия",
+          "type_iqevse": "Зарядни",
+          "type_microinverter": "Микроинвертори",
+          "fast_poll_interval": "Бърз интервал на опресняване (s)",
+          "slow_poll_interval": "Бавен интервал на опресняване (s)",
+          "fast_while_streaming": "Предпочитай бързо опресняване при активен cloud stream",
+          "api_timeout": "Изчакване на API (s)",
+          "nominal_voltage": "Номинално напрежение (V)",
+          "session_history_interval": "Интервал на историята на сесиите (min)",
+          "schedule_sync_enabled": "Активирайте поддръжката на Scheduler",
+          "reauth": "Стартиране на повторна автентикация",
+          "forget_password": "Забрави запазената парола",
+          "type_heatpump": "Термопомпа",
+          "type_ac_battery": "AC батерия",
+          "battery_schedules_enabled": "Активирайте програмата за планиране на батерията",
+          "degraded_service_repair_issues": "Активиране на поправки за влошени услуги"
+        },
+        "data_description": {
+          "type_envoy": "Включва диагностика за свързаността на шлюза и електромерите.",
+          "type_encharge": "Включва състояние и управляващи обекти за батериите, когато са налични.",
+          "type_iqevse": "Включва обекти и управления за EV зарядни.",
+          "type_microinverter": "Включва сензори за свързаност на микроинверторите, активен брой и произведена енергия за целия период.",
+          "fast_poll_interval": "Интервал при зареждане или стрийминг.",
+          "slow_poll_interval": "Интервал при неактивност.",
+          "fast_while_streaming": "Когато е включено, бързо опресняване по време на активен cloud стрийм.",
+          "api_timeout": "Секунди преди заявките към API да изтекат.",
+          "nominal_voltage": "Резервно напрежение за оценка на мощността на зарядното.",
+          "session_history_interval": "Минути за изчакване между извличанията на историята на сесиите в облака.",
+          "schedule_sync_enabled": "Управление на управлението на графика на Enphase",
+          "reauth": "Стартирайте процеса на вход за обновяване на данните без да премахвате интеграцията.",
+          "forget_password": "Премахва запазената парола. Автоматичното обновяване вече няма да се опитва.",
+          "type_heatpump": "Включва сензори за състояние, диагностика и потребление на термопомпата.",
+          "type_ac_battery": "Включва сензори за AC батерията и контроли за режим на заспиване, когато са налични.",
+          "battery_schedules_enabled": "Управлявайте графици за IQ батерия",
+          "degraded_service_repair_issues": "Създава проблеми в Repairs, когато незадължителни услуги на Enphase са влошени."
+        }
+      },
+      "migrate_envoy_source": {
+        "title": "Изберете източник Envoy",
+        "description": "Изберете от кой запис на Enphase Envoy да мигрирате.",
+        "data": {
+          "selected_envoy_source": "Източник Envoy"
+        }
+      },
+      "migrate_envoy_intro": {
+        "title": "Мигриране на историята на Envoy",
+        "description": "Този помощник преназначава избрани идентификатори на енергийни обекти на Enphase Envoy към съответстващи сензори на Enphase Energy.\n\nИсторията в Home Assistant Energy е обвързана с идентификатора на обекта, използван за дългосрочната статистика.\n\nСъздайте пълно резервно копие на Home Assistant, преди да продължите.\n\nМигрирайте само сензори, които представят една и съща кумулативна обща енергия.\n\nИзбраната интеграция Envoy ще бъде временно разтоварена, докато идентификаторите на обектите бъдат преназначени, след което ще бъде възстановена след миграцията.\n\nТова актуализира регистъра на обектите и не може да бъде отменено автоматично.\n\nИзбран източник Envoy: **{source_title}**.",
+        "data": {
+          "backup_confirmed": "Имам скорошно резервно копие на Home Assistant"
+        }
+      },
+      "migrate_envoy_mapping": {
+        "title": "Съпоставяне на сензори за история",
+        "description": "Прегледайте внимателно предложените съпоставяния. Показват се само съвместими кумулативни енергийни тотали. Празните полета ще бъдат пропуснати.\n\nАко предложение е грешно или неясно, изчистете го и изберете ръчно.",
+        "data": {
+          "solar_production": "Слънчево производство",
+          "consumption": "Потребление",
+          "grid_import": "Внос от мрежата",
+          "grid_export": "Износ към мрежата",
+          "battery_charge": "Зареждане на батерията",
+          "battery_discharge": "Разреждане на батерията"
+        },
+        "data_description": {
+          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
+          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
+          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
+          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
+          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
+          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+        }
+      },
+      "migrate_envoy_confirm": {
+        "title": "Потвърдете миграцията на историята на Envoy",
+        "description": "Избраните изходни обекти ще бъдат преименувани към архивни наследени идентификатори на обекти.\n\nСлед това обектите Enphase Energy ще бъдат преименувани към оригиналните идентификатори на изходните обекти.\n\nАко някое съпоставяне е грешно, отменете сега. Възстановяването от архив е най-безопасният начин за връщане назад.\n\n{mapping_preview}{warning_preview}",
+        "data": {
+          "confirm_reassign": "Разбирам, че избраните идентификатори на изходните обекти ще бъдат преназначени",
+          "disable_archived_envoy_sensors": "Деактивирай архивираните изходни сензори след миграцията"
+        }
+      }
+    },
+    "error": {
+      "serials_required": "Изберете или въведете поне едно зарядно.",
+      "backup_required": "Силно препоръчително е да създадете пълно резервно копие, преди да продължите.",
+      "confirm_required": "Потвърдете, че избраните идентификатори на изходните обекти ще бъдат преназначени, преди да продължите.",
+      "migration_no_selection": "Изберете поне един съвместим енергиен сензор за мигриране.",
+      "migration_duplicate_selection": "Един и същ изходен обект не може да се използва повече от веднъж.",
+      "envoy_entry_loaded": "Интеграцията Envoy не можа да бъде временно разтоварена за миграцията.",
+      "incompatible_energy_total": "Избраните обекти не са съвместими натрупващи се енергийни стойности."
+    },
+    "abort": {
+      "migration_no_envoy_sources": "Няма налични енергийни сензори на Enphase Envoy за миграция.",
+      "migration_no_targets": "Няма налични съвместими сензори на Enphase Energy за миграция.",
+      "migration_partial_failure": "Миграцията спря след частично завършване.\n\nЗавършени съпоставяния:\n{completed_mappings}\n\nГрешка при обработка на `{failed_entity_id}`: {failure_reason}\n\nВъзстановете от резервно копие, ако резултатът не е приемлив."
+    },
+    "create_entry": {
+      "migration_success": "Миграцията завърши. Enphase Energy вече притежава избраните идентификатори на изходните обекти. Проверете таблото Energy и Developer Tools > Statistics след следващото обновяване.",
+      "migration_success_reload_needed": "Миграцията завърши, но една или повече интеграции не можаха да бъдат презаредени автоматично. Презаредете Enphase Energy и Enphase Envoy ръчно при нужда, след което проверете таблото Energy и Developer Tools > Statistics."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_session": {
+        "name": "Последна сесия",
+        "state_attributes": {
+          "energy_consumed_wh": {
+            "name": "Консумирана енергия (Wh)"
+          },
+          "energy_consumed_kwh": {
+            "name": "Консумирана енергия (kWh)"
+          },
+          "session_cost": {
+            "name": "Цена на сесията"
+          },
+          "session_charge_level": {
+            "name": "Ниво на заряд на сесията"
+          },
+          "range_added": {
+            "name": "Добавен пробег"
+          },
+          "plugged_in_at": {
+            "name": "Свързан в"
+          },
+          "plugged_out_at": {
+            "name": "Изключен в"
+          },
+          "session_duration_min": {
+            "name": "Продължителност на сесията (min)"
+          },
+          "session_id": {
+            "name": "ID на сесията"
+          },
+          "session_started_at": {
+            "name": "Сесията започна"
+          },
+          "session_ended_at": {
+            "name": "Сесията приключи"
+          },
+          "active_charge_time_s": {
+            "name": "Активно време за зареждане (s)"
+          },
+          "avg_cost_per_kwh": {
+            "name": "Средна цена на kWh"
+          },
+          "cost_calculated": {
+            "name": "Изчислена цена"
+          },
+          "session_cost_state": {
+            "name": "Състояние на цената на сесията"
+          },
+          "manual_override": {
+            "name": "Ръчно заместване"
+          },
+          "charge_profile_stack_level": {
+            "name": "Ниво на стека на профила за зареждане"
+          }
+        }
+      },
+      "connector_status": {
+        "name": "Състояние на конектора",
+        "state_attributes": {
+          "status_reason": {
+            "name": "Причина за статуса"
+          },
+          "connector_status_info": {
+            "name": "Информация за състоянието на конектора"
+          }
+        }
+      },
+      "connector_status_reason": {
+        "name": "Причина за конектора"
+      },
+      "electrical_phase": {
+        "name": "Електрическа фаза",
+        "state_attributes": {
+          "phase_mode_raw": {
+            "name": "Режим на фаза (суров)"
+          },
+          "dlb_enabled": {
+            "name": "Динамично балансиране на натоварването включено"
+          },
+          "dlb_active": {
+            "name": "Динамично балансиране на натоварването активно"
+          }
+        }
+      },
+      "power": {
+        "name": "Мощност",
+        "state_attributes": {
+          "last_lifetime_kwh": {
+            "name": "Последни kWh общо"
+          },
+          "last_energy_ts": {
+            "name": "Последен времеви маркер на енергията"
+          },
+          "last_sample_ts": {
+            "name": "Последен времеви маркер на пробата"
+          },
+          "last_power_w": {
+            "name": "Последна мощност (W)"
+          },
+          "last_window_seconds": {
+            "name": "Последен прозорец (s)"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "charging": {
+            "name": "Зареждане"
+          },
+          "operating_v": {
+            "name": "Работно напрежение (V)"
+          },
+          "max_throughput_w": {
+            "name": "Максимален пропуск (W)"
+          },
+          "max_throughput_unbounded_w": {
+            "name": "Максимален пропуск (неограничени W)"
+          },
+          "max_throughput_source": {
+            "name": "Източник на максимален пропуск"
+          },
+          "max_throughput_amps": {
+            "name": "Максимален пропуск в ампери"
+          },
+          "max_throughput_voltage": {
+            "name": "Напрежение на максималния пропуск (V)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "charge_mode": {
+        "name": "Режим на зареждане",
+        "state_attributes": {
+          "amp_control_applicable": {
+            "name": "Приложимост на управлението на ампеража"
+          },
+          "amp_control_managed_by_mode": {
+            "name": "Режим, управляващ ампеража"
+          },
+          "amp_control_applies_in_modes": {
+            "name": "Режими, при които амперажът е приложим"
+          }
+        }
+      },
+      "charger_authentication": {
+        "name": "Удостоверяване на зарядното устройство",
+        "state_attributes": {
+          "app_auth_enabled": {
+            "name": "Удостоверяването на приложението е активирано"
+          },
+          "rfid_auth_enabled": {
+            "name": "RFID удостоверяването е активирано"
+          },
+          "app_auth_supported": {
+            "name": "Поддържа се App Auth"
+          },
+          "rfid_auth_supported": {
+            "name": "Поддържа се RFID удостоверяване"
+          }
+        },
+        "state": {
+          "enabled": "Активирано",
+          "disabled": "Забранено"
+        }
+      },
+      "set_amps": {
+        "name": "Задай ампери",
+        "state_attributes": {
+          "min_amp": {
+            "name": "Минимални ампери"
+          },
+          "max_amp": {
+            "name": "Максимални ампери"
+          },
+          "max_current": {
+            "name": "Максимални ампери на веригата"
+          },
+          "amp_granularity": {
+            "name": "Стъпка на амперите"
+          }
+        }
+      },
+      "status": {
+        "name": "Статус на зарядното устройство",
+        "state_attributes": {
+          "commissioned": {
+            "name": "Въведено в експлоатация"
+          },
+          "charger_problem": {
+            "name": "Проблем с зарядното"
+          },
+          "suspended_by_evse": {
+            "name": "Спряно от EVSE"
+          },
+          "offline_since": {
+            "name": "Офлайн от"
+          }
+        }
+      },
+      "last_successful_update": {
+        "name": "Последно успешно обновяване",
+        "state_attributes": {
+          "last_failure_utc": {
+            "name": "Последен неуспех (UTC)"
+          },
+          "last_failure_status": {
+            "name": "Последен статус на неуспех"
+          },
+          "code_description": {
+            "name": "Описание на кода"
+          },
+          "last_failure_response": {
+            "name": "Последен отговор при неуспех"
+          },
+          "last_failure_source": {
+            "name": "Последен източник на неуспех"
+          },
+          "backoff_ends_utc": {
+            "name": "Backoff приключва (UTC)"
+          }
+        }
+      },
+      "cloud_latency": {
+        "name": "Латентност на облака"
+      },
+      "current_production_power": {
+        "name": "Текуща производствена мощност",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "source": {
+            "name": "Източник"
+          },
+          "reported_units": {
+            "name": "Отчетени единици"
+          },
+          "reported_precision": {
+            "name": "Отчетена точност"
+          }
+        }
+      },
+      "cloud_error_code": {
+        "name": "Код на грешка в облака",
+        "state": {
+          "none": "Няма",
+          "rate_limited": "Ограничена честота",
+          "auth_blocked": "Удостоверяването е временно блокирано",
+          "authentication_error": "Грешка при удостоверяване",
+          "request_error": "Грешка в заявката",
+          "service_unavailable": "Услугата е недостъпна",
+          "invalid_payload": "Невалиден отговор от облака",
+          "dns_error": "DNS грешка",
+          "network_error": "Мрежова грешка"
+        }
+      },
+      "site_service_status": {
+        "name": "Състояние на услугата",
+        "state": {
+          "ok": "В изправност",
+          "unknown": "Неизвестно",
+          "degraded": "Влошено"
+        },
+        "state_attributes": {
+          "degraded_services": {
+            "name": "Влошени услуги"
+          },
+          "degraded_endpoint_families": {
+            "name": "Влошени групи крайни точки"
+          },
+          "degraded_service_count": {
+            "name": "Брой влошени услуги"
+          },
+          "degraded_endpoint_family_count": {
+            "name": "Брой влошени групи крайни точки"
+          },
+          "metrics_available": {
+            "name": "Налични показатели"
+          }
+        }
+      },
+      "cloud_backoff_ends": {
+        "name": "Cloud backoff приключва",
+        "state": {
+          "none": "Няма"
+        }
+      },
+      "last_reported": {
+        "name": "Последно отчетено",
+        "state_attributes": {
+          "reporting_interval": {
+            "name": "Интервал на отчитане (s)"
+          }
+        }
+      },
+      "session_miles": {
+        "name": "Мили на сесията"
+      },
+      "session_plug_in_at": {
+        "name": "Сесията е включена"
+      },
+      "session_plug_out_at": {
+        "name": "Сесията е изключена"
+      },
+      "schedule_type": {
+        "name": "Тип график"
+      },
+      "schedule_start": {
+        "name": "Начало на графика"
+      },
+      "schedule_end": {
+        "name": "Край на графика"
+      },
+      "lifetime_energy": {
+        "name": "Обща енергия",
+        "state_attributes": {
+          "last_reset_value": {
+            "name": "Последна стойност на нулиране"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_solar_production": {
+        "name": "Соларно производство на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_consumption": {
+        "name": "Потребление на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_grid_import": {
+        "name": "Внос от мрежата на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_grid_power": {
+        "name": "Текуща мощност на мрежата",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Последен поток kWh"
+          },
+          "last_energy_ts": {
+            "name": "Последен времеви маркер на енергията"
+          },
+          "last_sample_ts": {
+            "name": "Последен времеви маркер на пробата"
+          },
+          "last_power_w": {
+            "name": "Последна мощност (W)"
+          },
+          "last_window_seconds": {
+            "name": "Последен прозорец (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "source_flows": {
+            "name": "Източници на потока"
+          }
+        }
+      },
+      "site_grid_export": {
+        "name": "Износ към мрежата на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_battery_charge": {
+        "name": "Зареждане на батерията на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_battery_discharge": {
+        "name": "Разреждане на батерията на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_battery_power": {
+        "name": "Текуща мощност на батерията",
+        "state_attributes": {
+          "last_flow_kwh": {
+            "name": "Последен поток kWh"
+          },
+          "last_energy_ts": {
+            "name": "Последен времеви маркер на енергията"
+          },
+          "last_sample_ts": {
+            "name": "Последен времеви маркер на пробата"
+          },
+          "last_power_w": {
+            "name": "Последна мощност (W)"
+          },
+          "last_window_seconds": {
+            "name": "Последен прозорец (s)"
+          },
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          },
+          "method": {
+            "name": "Метод"
+          },
+          "source_flows": {
+            "name": "Източници на потока"
+          }
+        }
+      },
+      "storm_guard_state": {
+        "name": "Страж на бурята"
+      },
+      "storm_alert": {
+        "name": "Предупреждение за буря",
+        "state": {
+          "active": "Активен",
+          "inactive": "Неактивен"
+        },
+        "state_attributes": {
+          "storm_alert_active": {
+            "name": "Предупреждението за буря е активно"
+          }
+        }
+      },
+      "system_profile_status": {
+        "name": "Състояние на системния профил",
+        "state": {
+          "pending": "В очакване"
+        },
+        "state_attributes": {
+          "effective_profile": {
+            "name": "Ефективен профил"
+          },
+          "effective_profile_label": {
+            "name": "Ефективен етикет на профил"
+          },
+          "effective_reserve_percentage": {
+            "name": "Ефективен резерв (%)"
+          },
+          "effective_operation_mode_sub_type": {
+            "name": "Ефективен режим на работа Подтип"
+          },
+          "requested_profile": {
+            "name": "Заявен профил"
+          },
+          "requested_profile_label": {
+            "name": "Заявен етикет на профил"
+          },
+          "requested_reserve_percentage": {
+            "name": "Заявен резерв (%)"
+          },
+          "requested_operation_mode_sub_type": {
+            "name": "Подтип на заявения режим на работа"
+          },
+          "pending": {
+            "name": "В очакване"
+          },
+          "pending_requested_at": {
+            "name": "Изчаква заявка при"
+          },
+          "selected_profile": {
+            "name": "Избран профил"
+          },
+          "selected_profile_label": {
+            "name": "Избран етикет на профил"
+          },
+          "selected_reserve_percentage": {
+            "name": "Избран резерв (%)"
+          },
+          "selected_operation_mode_sub_type": {
+            "name": "Подтип на избран режим на работа"
+          },
+          "available_profile_keys": {
+            "name": "Налични ключове за профили"
+          },
+          "available_profile_labels": {
+            "name": "Налични етикети на профили"
+          }
+        }
+      },
+      "battery_mode": {
+        "name": "Режим на батерията",
+        "state_attributes": {
+          "mode_raw": {
+            "name": "Суров режим"
+          },
+          "charge_from_grid_allowed": {
+            "name": "Разрешено зареждане от мрежата"
+          },
+          "discharge_to_grid_allowed": {
+            "name": "Разрешено разреждане към мрежата"
+          }
+        }
+      },
+      "battery_storage_charge": {
+        "name": "Ниво на заряд на батерията"
+      },
+      "battery_overall_charge": {
+        "name": "Цялостно зареждане на батерията"
+      },
+      "battery_overall_status": {
+        "name": "Общо състояние на батерията",
+        "state": {
+          "normal": "нормално",
+          "warning": "Предупреждение",
+          "error": "Грешка",
+          "unknown": "Неизвестен"
+        }
+      },
+      "battery_cfg_schedule_status": {
+        "name": "Състояние на CFG графика на батерията",
+        "state": {
+          "none": "Няма",
+          "pending": "В изчакване",
+          "active": "Активен"
+        }
+      },
+      "grid_control_status": {
+        "name": "Състояние на управлението на мрежата",
+        "state": {
+          "ready": "Готово",
+          "blocked": "Блокирано",
+          "pending": "В изчакване"
+        }
+      },
+      "grid_mode": {
+        "name": "Режим на решетка",
+        "state": {
+          "on_grid": "В решетка",
+          "off_grid": "Извън мрежата",
+          "unknown": "Неизвестен"
+        }
+      },
+      "battery_available_energy": {
+        "name": "Налична енергия на батерията"
+      },
+      "battery_available_power": {
+        "name": "Налична мощност на батерията"
+      },
+      "battery_storage_status": {
+        "name": "Статус на {serial}",
+        "state": {
+          "charging": "Зареждане",
+          "discharging": "Разреждане",
+          "idle": "Неактивен",
+          "unknown": "Неизвестен"
+        }
+      },
+      "battery_storage_health": {
+        "name": "Здраве на {serial}"
+      },
+      "battery_storage_cycle_count": {
+        "name": "Брой цикли на {serial}"
+      },
+      "battery_storage_last_reported": {
+        "name": "Последно отчетено за {serial}"
+      },
+      "battery_last_reported": {
+        "name": "Последно отчетено за Батерия"
+      },
+      "system_controller_inventory": {
+        "name": "Системен контролер"
+      },
+      "gateway_production_meter": {
+        "name": "Производствен метър"
+      },
+      "gateway_consumption_meter": {
+        "name": "Разходомер"
+      },
+      "gateway_connectivity_status": {
+        "name": "Състояние на шлюза"
+      },
+      "gateway_last_reported": {
+        "name": "Последно докладван шлюз"
+      },
+      "tariff_billing_cycle": {
+        "name": "Sledvashta data na fakturirane",
+        "state_attributes": {
+          "start_date": {
+            "name": "Nachalna data"
+          },
+          "billing_frequency": {
+            "name": "Chestota na fakturirane"
+          },
+          "billing_interval_value": {
+            "name": "Stoynost na intervala za fakturirane"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "billing_cycle": {
+            "name": "Cikul na fakturirane"
+          }
+        }
+      },
+      "tariff_import_rate": {
+        "name": "Tarifa za vnos",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "seasons": {
+            "name": "Sezoni"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          }
+        }
+      },
+      "tariff_import_rate_value": {
+        "name": "Tarifa za vnos {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "ID на сезон"
+          },
+          "start_month": {
+            "name": "Начален месец"
+          },
+          "end_month": {
+            "name": "Краен месец"
+          },
+          "day_group_id": {
+            "name": "ID на група дни"
+          },
+          "days": {
+            "name": "Дни"
+          },
+          "period_id": {
+            "name": "ID на период"
+          },
+          "period_type": {
+            "name": "Тип период"
+          },
+          "start_time": {
+            "name": "Начален час"
+          },
+          "end_time": {
+            "name": "Краен час"
+          },
+          "rate": {
+            "name": "Тарифа"
+          },
+          "formatted_rate": {
+            "name": "Форматирана тарифа"
+          },
+          "tier_id": {
+            "name": "ID на стъпало"
+          },
+          "start_value": {
+            "name": "Начална стойност"
+          },
+          "end_value": {
+            "name": "Крайна стойност"
+          },
+          "unbounded": {
+            "name": "Без горна граница"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Локатор на тарифата"
+          }
+        }
+      },
+      "tariff_export_rate": {
+        "name": "Tarifa za iznos",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Plan za iznos"
+          },
+          "seasons": {
+            "name": "Sezoni"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Tarifa za iznos {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Plan za iznos"
+          },
+          "season_id": {
+            "name": "ID на сезон"
+          },
+          "start_month": {
+            "name": "Начален месец"
+          },
+          "end_month": {
+            "name": "Краен месец"
+          },
+          "day_group_id": {
+            "name": "ID на група дни"
+          },
+          "days": {
+            "name": "Дни"
+          },
+          "period_id": {
+            "name": "ID на период"
+          },
+          "period_type": {
+            "name": "Тип период"
+          },
+          "start_time": {
+            "name": "Начален час"
+          },
+          "end_time": {
+            "name": "Краен час"
+          },
+          "rate": {
+            "name": "Тарифа"
+          },
+          "formatted_rate": {
+            "name": "Форматирана тарифа"
+          },
+          "tier_id": {
+            "name": "ID на стъпало"
+          },
+          "start_value": {
+            "name": "Начална стойност"
+          },
+          "end_value": {
+            "name": "Крайна стойност"
+          },
+          "unbounded": {
+            "name": "Без горна граница"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Локатор на тарифата"
+          }
+        }
+      },
+      "microinverter_connectivity_status": {
+        "name": "Състояние на свързаността на микроинверторите"
+      },
+      "microinverter_reporting_count": {
+        "name": "Активни микроинвертори"
+      },
+      "microinverter_last_reported": {
+        "name": "Последно отчитане на микроинвертори"
+      },
+      "site_evse_charging": {
+        "name": "Зареждане EVSE на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_heat_pump_consumption": {
+        "name": "Потребление на термопомпа на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "site_water_heater_consumption": {
+        "name": "Потребление на бойлер на обекта",
+        "state_attributes": {
+          "sampled_at_utc": {
+            "name": "Измерено в (UTC)"
+          },
+          "last_reset_at": {
+            "name": "Последно нулиране"
+          }
+        }
+      },
+      "gateway_iq_energy_router": {
+        "name": "IQ енергиен рутер_{index}"
+      },
+      "heat_pump_status": {
+        "name": "Статус на термопомпата"
+      },
+      "heat_pump_energy_meter": {
+        "name": "Енергиен измервател на термопомпата"
+      },
+      "heat_pump_last_reported": {
+        "name": "Последно отчитане на термопомпата"
+      },
+      "heat_pump_power": {
+        "name": "Мощност на термопомпата"
+      },
+      "heat_pump_connectivity_status": {
+        "name": "Статус на термопомпата"
+      },
+      "heat_pump_sg_ready_mode": {
+        "name": "SG-Ready Gateway на термопомпата"
+      },
+      "heat_pump_daily_energy": {
+        "name": "Дневна енергия на термопомпата"
+      },
+      "heat_pump_daily_grid_energy": {
+        "name": "Дневна енергия от мрежата на термопомпата"
+      },
+      "heat_pump_daily_solar_energy": {
+        "name": "Дневна слънчева енергия на термопомпата"
+      },
+      "heat_pump_daily_battery_energy": {
+        "name": "Дневна енергия от батерията на термопомпата"
+      },
+      "heat_pump_sg_ready_gateway": {
+        "name": "Състояние на SG-Ready шлюза на термопомпата"
+      },
+      "shared_labels": {
+        "name": "Споделени етикети",
+        "state": {
+          "self_consumption": "Самопотребление",
+          "cost_savings": "Спестяване",
+          "ai_optimisation": "ИИ оптимизация",
+          "backup_only": "Пълен резерв",
+          "importexport": "Импорт и експорт",
+          "importonly": "Само импорт",
+          "exportonly": "Само експорт",
+          "manual_charging": "Ръчно",
+          "scheduled_charging": "По график",
+          "green_charging": "Зелено",
+          "smart_charging": "Умно",
+          "online": "Онлайн",
+          "offline": "Офлайн",
+          "degraded": "Влошен",
+          "not_reporting": "Не отчита",
+          "inactive": "Неактивен",
+          "normal": "Нормален",
+          "warning": "Предупреждение",
+          "error": "Грешка",
+          "unknown": "Неизвестен",
+          "unpaired": "Несдвоен",
+          "pairing": "Сдвояване"
+        }
+      },
+      "ac_battery_overall_status": {
+        "name": "Общо състояние на AC батерията",
+        "state": {
+          "charging": "Зареждане",
+          "discharging": "Разреждане",
+          "idle": "Неактивен",
+          "unknown": "Неизвестен"
+        }
+      },
+      "ac_battery_power": {
+        "name": "Мощност на AC батерията"
+      },
+      "ac_battery_last_reported": {
+        "name": "Последен отчет на AC батерията"
+      },
+      "ac_battery_storage_charge": {
+        "name": "Ниво на заряд на AC батерията"
+      },
+      "ac_battery_storage_status": {
+        "name": "Състояние на {serial}",
+        "state": {
+          "charging": "Зареждане",
+          "discharging": "Разреждане",
+          "idle": "Неактивен",
+          "unknown": "Неизвестен"
+        }
+      },
+      "ac_battery_storage_power": {
+        "name": "Мощност на {serial}"
+      },
+      "ac_battery_storage_operating_mode": {
+        "name": "Режим на работа на {serial}"
+      },
+      "ac_battery_storage_cycle_count": {
+        "name": "Брой цикли на {serial}"
+      },
+      "ac_battery_storage_last_reported": {
+        "name": "Последен отчет на {serial}"
+      },
+      "battery_cfg_schedules": {
+        "name": "Графици за CFG на батерията"
+      },
+      "battery_dtg_schedules": {
+        "name": "Графици за DTG на батерията"
+      },
+      "battery_rbd_schedules": {
+        "name": "Графици за RBD на батерията"
+      },
+      "battery_schedule_summary": {
+        "name": "Резюме на графика на батерията"
+      },
+      "tariff_current_import_rate": {
+        "name": "Текуща тарифа за внос",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "ID на сезон"
+          },
+          "start_month": {
+            "name": "Начален месец"
+          },
+          "end_month": {
+            "name": "Краен месец"
+          },
+          "day_group_id": {
+            "name": "ID на група дни"
+          },
+          "days": {
+            "name": "Дни"
+          },
+          "period_id": {
+            "name": "ID на период"
+          },
+          "period_type": {
+            "name": "Тип период"
+          },
+          "start_time": {
+            "name": "Начален час"
+          },
+          "end_time": {
+            "name": "Краен час"
+          },
+          "rate": {
+            "name": "Тарифа"
+          },
+          "formatted_rate": {
+            "name": "Форматирана тарифа"
+          },
+          "tier_id": {
+            "name": "ID на стъпало"
+          },
+          "start_value": {
+            "name": "Начална стойност"
+          },
+          "end_value": {
+            "name": "Крайна стойност"
+          },
+          "unbounded": {
+            "name": "Без горна граница"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Локатор на тарифата"
+          },
+          "active_rate_name": {
+            "name": "Име на активната тарифа"
+          },
+          "configured_rates": {
+            "name": "Конфигурирани тарифи"
+          }
+        }
+      },
+      "tariff_current_export_rate": {
+        "name": "Текуща тарифа за износ",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Plan za iznos"
+          },
+          "season_id": {
+            "name": "ID на сезон"
+          },
+          "start_month": {
+            "name": "Начален месец"
+          },
+          "end_month": {
+            "name": "Краен месец"
+          },
+          "day_group_id": {
+            "name": "ID на група дни"
+          },
+          "days": {
+            "name": "Дни"
+          },
+          "period_id": {
+            "name": "ID на период"
+          },
+          "period_type": {
+            "name": "Тип период"
+          },
+          "start_time": {
+            "name": "Начален час"
+          },
+          "end_time": {
+            "name": "Краен час"
+          },
+          "rate": {
+            "name": "Тарифа"
+          },
+          "formatted_rate": {
+            "name": "Форматирана тарифа"
+          },
+          "tier_id": {
+            "name": "ID на стъпало"
+          },
+          "start_value": {
+            "name": "Начална стойност"
+          },
+          "end_value": {
+            "name": "Крайна стойност"
+          },
+          "unbounded": {
+            "name": "Без горна граница"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Локатор на тарифата"
+          },
+          "active_rate_name": {
+            "name": "Име на активната тарифа"
+          },
+          "configured_rates": {
+            "name": "Конфигурирани тарифи"
+          }
+        }
+      }
+    },
+    "number": {
+      "charging_amps": {
+        "name": "Ампери за зареждане"
+      },
+      "battery_reserve": {
+        "name": "Резервна батерия"
+      },
+      "battery_shutdown_level": {
+        "name": "Ниво на изключване на батерията"
+      },
+      "battery_cfg_schedule_limit": {
+        "name": "Лимит за зареждане на батерията"
+      },
+      "battery_dtg_schedule_limit": {
+        "name": "Лимит за разреждане към мрежата"
+      },
+      "battery_rbd_schedule_limit": {
+        "name": "Лимит за ограничаване на разреждането на батерията"
+      },
+      "battery_new_schedule_limit": {
+        "name": "Нов график на батерията"
+      },
+      "battery_schedule_edit_limit": {
+        "name": "График на батерията"
+      },
+      "tariff_import_rate_value": {
+        "name": "Tarifa za vnos {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "season_id": {
+            "name": "ID на сезон"
+          },
+          "start_month": {
+            "name": "Начален месец"
+          },
+          "end_month": {
+            "name": "Краен месец"
+          },
+          "day_group_id": {
+            "name": "ID на група дни"
+          },
+          "days": {
+            "name": "Дни"
+          },
+          "period_id": {
+            "name": "ID на период"
+          },
+          "period_type": {
+            "name": "Тип период"
+          },
+          "start_time": {
+            "name": "Начален час"
+          },
+          "end_time": {
+            "name": "Краен час"
+          },
+          "rate": {
+            "name": "Тарифа"
+          },
+          "formatted_rate": {
+            "name": "Форматирана тарифа"
+          },
+          "tier_id": {
+            "name": "ID на стъпало"
+          },
+          "start_value": {
+            "name": "Начална стойност"
+          },
+          "end_value": {
+            "name": "Крайна стойност"
+          },
+          "unbounded": {
+            "name": "Без горна граница"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Локатор на тарифата"
+          }
+        }
+      },
+      "tariff_export_rate_value": {
+        "name": "Tarifa za iznos {detail}",
+        "state_attributes": {
+          "rate_structure": {
+            "name": "Struktura na tarifata"
+          },
+          "variation_type": {
+            "name": "Tip variacia"
+          },
+          "source": {
+            "name": "Iztochnik"
+          },
+          "currency": {
+            "name": "Valuta"
+          },
+          "export_plan": {
+            "name": "Plan za iznos"
+          },
+          "season_id": {
+            "name": "ID на сезон"
+          },
+          "start_month": {
+            "name": "Начален месец"
+          },
+          "end_month": {
+            "name": "Краен месец"
+          },
+          "day_group_id": {
+            "name": "ID на група дни"
+          },
+          "days": {
+            "name": "Дни"
+          },
+          "period_id": {
+            "name": "ID на период"
+          },
+          "period_type": {
+            "name": "Тип период"
+          },
+          "start_time": {
+            "name": "Начален час"
+          },
+          "end_time": {
+            "name": "Краен час"
+          },
+          "rate": {
+            "name": "Тарифа"
+          },
+          "formatted_rate": {
+            "name": "Форматирана тарифа"
+          },
+          "tier_id": {
+            "name": "ID на стъпало"
+          },
+          "start_value": {
+            "name": "Начална стойност"
+          },
+          "end_value": {
+            "name": "Крайна стойност"
+          },
+          "unbounded": {
+            "name": "Без горна граница"
+          },
+          "last_refresh_utc": {
+            "name": "Posledno opresnyavane (UTC)"
+          },
+          "tariff_locator": {
+            "name": "Локатор на тарифата"
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "plugged_in": {
+        "name": "Свързан"
+      },
+      "charging": {
+        "name": "Зареждане"
+      },
+      "heat_pump_sg_ready_active": {
+        "name": "SG-Ready на термопомпата е активен"
+      },
+      "cloud_reachable": {
+        "name": "Облакът е достъпен"
+      },
+      "connected": {
+        "name": "Свързаност",
+        "state_attributes": {
+          "connection": {
+            "name": "Връзка"
+          },
+          "ip_address": {
+            "name": "IP адрес"
+          }
+        }
+      }
+    },
+    "switch": {
+      "charging": {
+        "name": "Зареждане"
+      },
+      "green_battery": {
+        "name": "Използвайте батерията за EV зареждане"
+      },
+      "app_authentication": {
+        "name": "Удостоверяване чрез приложение"
+      },
+      "storm_guard": {
+        "name": "Страж на бурята"
+      },
+      "storm_guard_evse_charge": {
+        "name": "Storm Guard EV зареждане"
+      },
+      "savings_use_battery_after_peak": {
+        "name": "Използвайте батерия след пиковите часове"
+      },
+      "charge_from_grid": {
+        "name": "Зареждане на батерията от мрежата"
+      },
+      "charge_from_grid_schedule": {
+        "name": "График за зареждане от мрежата"
+      },
+      "discharge_to_grid_schedule": {
+        "name": "График за разреждане към мрежата"
+      },
+      "restrict_battery_discharge_schedule": {
+        "name": "График за ограничаване на разреждането на батерията"
+      },
+      "ac_battery_sleep_mode": {
+        "name": "Режим на заспиване на AC батерията"
+      },
+      "evse_schedule_edit_mon": {
+        "name": "График за понеделник"
+      },
+      "evse_schedule_edit_tue": {
+        "name": "График за вторник"
+      },
+      "evse_schedule_edit_wed": {
+        "name": "График за сряда"
+      },
+      "evse_schedule_edit_thu": {
+        "name": "График за четвъртък"
+      },
+      "evse_schedule_edit_fri": {
+        "name": "График за петък"
+      },
+      "evse_schedule_edit_sat": {
+        "name": "График за събота"
+      },
+      "evse_schedule_edit_sun": {
+        "name": "График за неделя"
+      },
+      "battery_new_schedule_mon": {
+        "name": "Нов график на батерията в понеделник"
+      },
+      "battery_new_schedule_tue": {
+        "name": "Нов график на батерията във вторник"
+      },
+      "battery_new_schedule_wed": {
+        "name": "Нов график на батерията в сряда"
+      },
+      "battery_new_schedule_thu": {
+        "name": "Нов график на батерията в четвъртък"
+      },
+      "battery_new_schedule_fri": {
+        "name": "Нов график на батерията в петък"
+      },
+      "battery_new_schedule_sat": {
+        "name": "Нов график на батерията в събота"
+      },
+      "battery_new_schedule_sun": {
+        "name": "Нов график на батерията в неделя"
+      },
+      "battery_schedule_edit_mon": {
+        "name": "График на батерията в понеделник"
+      },
+      "battery_schedule_edit_tue": {
+        "name": "График на батерията във вторник"
+      },
+      "battery_schedule_edit_wed": {
+        "name": "График на батерията в сряда"
+      },
+      "battery_schedule_edit_thu": {
+        "name": "График на батерията в четвъртък"
+      },
+      "battery_schedule_edit_fri": {
+        "name": "График за батерията в петък"
+      },
+      "battery_schedule_edit_sat": {
+        "name": "График на батериите в събота"
+      },
+      "battery_schedule_edit_sun": {
+        "name": "График на батериите в неделя"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Режим на зареждане"
+      },
+      "system_profile": {
+        "name": "Системен профил"
+      },
+      "ac_battery_target_state_of_charge": {
+        "name": "Целево ниво на заряд на AC батерията"
+      },
+      "evse_schedule_selected": {
+        "name": "График"
+      },
+      "battery_new_schedule_type": {
+        "name": "Тип график на батерията"
+      },
+      "battery_schedule_selected": {
+        "name": "График на батерията"
+      }
+    },
+    "button": {
+      "start_charging": {
+        "name": "Стартиране на зареждане"
+      },
+      "stop_charging": {
+        "name": "Спиране на зареждане"
+      },
+      "cancel_pending_profile_change": {
+        "name": "Отказ Предстояща промяна на профил"
+      },
+      "request_grid_toggle_otp": {
+        "name": "Заявка за превключване на решетка OTP"
+      },
+      "storm_alert_opt_out": {
+        "name": "Отказ от предупреждение за буря"
+      },
+      "evse_schedule_refresh": {
+        "name": "Обновяване на графика"
+      },
+      "evse_schedule_save": {
+        "name": "Запазване на графика"
+      },
+      "evse_schedule_delete": {
+        "name": "Изтриване на графика"
+      },
+      "evse_schedule_add": {
+        "name": "Създаване на нов график"
+      },
+      "battery_schedule_add": {
+        "name": "Добавяне на график на батерията"
+      },
+      "battery_schedule_delete": {
+        "name": "Изтриване на графика на батерията"
+      },
+      "battery_schedule_refresh": {
+        "name": "Обновяване на графика на батерията"
+      },
+      "battery_schedule_save": {
+        "name": "Запазване на графика на батерията"
+      }
+    },
+    "time": {
+      "charge_from_grid_start_time": {
+        "name": "Начален час за зареждане от мрежата"
+      },
+      "charge_from_grid_end_time": {
+        "name": "Краен час за зареждане от мрежата"
+      },
+      "discharge_to_grid_start_time": {
+        "name": "Начален час за разреждане към мрежата"
+      },
+      "discharge_to_grid_end_time": {
+        "name": "Краен час за разреждане към мрежата"
+      },
+      "restrict_battery_discharge_start_time": {
+        "name": "Начален час за ограничаване на разреждането на батерията"
+      },
+      "restrict_battery_discharge_end_time": {
+        "name": "Краен час за ограничаване на разреждането на батерията"
+      },
+      "evse_schedule_edit_start_time": {
+        "name": "Начален час на графика"
+      },
+      "evse_schedule_edit_end_time": {
+        "name": "Краен час на графика"
+      },
+      "battery_new_schedule_start_time": {
+        "name": "Батерия Нов график Начално време"
+      },
+      "battery_new_schedule_end_time": {
+        "name": "Краен час на новия график на батерията"
+      },
+      "battery_schedule_edit_start_time": {
+        "name": "Начално време по график на батерията"
+      },
+      "battery_schedule_edit_end_time": {
+        "name": "Краен час на графика на батерията"
+      }
+    },
+    "calendar": {
+      "backup_history": {
+        "name": "История на резервното захранване"
+      }
+    },
+    "update": {
+      "gateway_firmware": {
+        "name": "Фърмуер на шлюза"
+      },
+      "charger_firmware": {
+        "name": "Фърмуер"
+      }
+    }
+  },
+  "device": {
+    "enphase_site": {
+      "name": "Обект Enphase {site_id}"
+    }
+  },
+  "device_automation": {
+    "action_type": {
+      "start_charging": "Стартиране на зареждане",
+      "stop_charging": "Спиране на зареждане"
+    },
+    "trigger_type": {
+      "charging_started": "Зареждането започна",
+      "charging_stopped": "Зареждането спря",
+      "plugged_in": "Свързан",
+      "unplugged": "Изключен"
+    }
+  },
+  "issues": {
+    "reauth_required": {
+      "title": "Enphase Energy изисква повторна автентикация",
+      "description": "Обект {site_id} изисква обновени заглавки на сесията. Моля, автентикирайте се отново."
+    },
+    "auth_blocked": {
+      "title": "Enphase Energy authentication temporarily blocked",
+      "description": "Enphase изглежда временно блокира удостоверяването за сайт {site_id}. Автоматичните опити са паузирани до {blocked_until}. Успешно ръчно повторно удостоверяване може да изчисти блока по-рано."
+    },
+    "too_many_active_sessions": {
+      "title": "Enphase Energy има твърде много активни сесии",
+      "description": "Enphase отхвърли удостоверяването за сайт {site_id}, защото има твърде много активни сесии в акаунта. Автоматичните повторни опити са спрени до {blocked_until}. Излезте от други сесии в приложението или браузъра на Enphase, след което опитайте повторно удостоверяване."
+    },
+    "rate_limited": {
+      "title": "Enphase Energy е с ограничение на заявките",
+      "description": "Облачният API върна ограничение на честотата. Опросът ще се забави до {backoff_ends}."
+    },
+    "cloud_unreachable": {
+      "title": "Облакът Enphase Energy е недостъпен",
+      "description": "Home Assistant не може да достигне облака Enphase за обект {site_id}. Опресняването се забавя автоматично; проверете статуса на услугата и мрежата."
+    },
+    "cloud_dns_resolution": {
+      "title": "Грешка при DNS резолюция за Enphase Energy",
+      "description": "Home Assistant не успя да разреши enlighten.enphaseenergy.com за обект {site_id}. Проверете DNS резолвера или интернет връзката."
+    },
+    "cloud_service_unavailable": {
+      "title": "Грешки в облака Enphase Energy",
+      "description": "Облакът Enphase за обект {site_id} отговаря с грешки. Опресняването се намалява автоматично; проверете статуса на услугата или лимитите на използване."
+    },
+    "scheduler_unavailable": {
+      "title": "Планировчикът на Enphase Energy не е наличен",
+      "description": "Услугата за планиране на Enphase за сайт {site_id} не е налична. Изборът на режим на зареждане и синхронизирането на графика са временно деактивирани."
+    },
+    "session_history_unavailable": {
+      "title": "Историята на сесиите на Enphase Energy не е налице",
+      "description": "Услугата за история на сесиите на Enphase за сайт {site_id} не е налична. Сензорите за история на сесиите ще показват кеширани данни, докато услугата се възстанови."
+    },
+    "site_energy_unavailable": {
+      "title": "Enphase Energy сайт не е наличен",
+      "description": "Доживотната енергийна услуга Enphase за обект {site_id} не е налична. Енергийните сензори на сайта ще показват кеширани данни, докато услугата се възстанови."
+    },
+    "auth_settings_unavailable": {
+      "title": "Настройките за удостоверяване на Enphase Energy не са налични",
+      "description": "Услугата за настройки за удостоверяване на зарядно устройство Enphase за сайт {site_id} не е налична. Контролите за удостоверяване на приложението са временно деактивирани."
+    },
+    "battery_profile_pending": {
+      "title": "Чакаща актуализация на профила на батерията в Enphase Energy",
+      "description": "Промяна на профила на батерията за обект {site_id} е в изчакване повече от {pending_timeout_minutes} минути. Възможно е облачната услуга все още да обработва заявката."
+    },
+    "hems_auth_degraded": {
+      "title": "Enphase Energy HEMS е временно спрян",
+      "description": "Запитванията Heat Pump/HEMS за сайт {site_id} са спрени до {backoff_until} след {failure_count} грешки, подобни на удостоверяване ({reason}). Wallbox, батерията, шлюзът и другите данни могат да продължат. Изключете групата Heat Pump, за да спрете HEMS, или използвайте Clear HEMS Auth Backoff след възстановяване на Enphase."
+    }
+  },
+  "system_health": {
+    "info": {
+      "site_id": "ID на обекта",
+      "can_reach_server": "Достъп до облака Enphase",
+      "last_success": "Последно успешно обновяване",
+      "latency_ms": "Латентност на облака (ms)",
+      "last_error": "Последна грешка",
+      "scheduler_available": "Наличен планировчик",
+      "scheduler_last_error": "Последната грешка в планировчика",
+      "scheduler_failures": "Грешки в планировчика",
+      "scheduler_backoff_active": "Отлагането на графика е активно",
+      "scheduler_backoff_ends_utc": "Отлагането на графика приключва (UTC)",
+      "backoff_active": "Backoff активен",
+      "network_errors": "Последователни мрежови грешки",
+      "http_errors": "Последователни HTTP грешки",
+      "site_count": "Брой сайтове",
+      "site_name": "Име на сайта",
+      "site_ids": "Идентификационни номера на сайтове",
+      "site_names": "Имена на сайтове",
+      "last_failure_status": "Последно състояние на грешка",
+      "last_failure_description": "Описание на последния отказ",
+      "phase_timings": "Времена на фазите",
+      "session_cache_ttl_s": "TTL на кеша на сесията (s)",
+      "sites": "сайтове",
+      "auth_settings_available": "Налични настройки за удостоверяване",
+      "auth_settings_last_error": "Последна грешка в настройките за удостоверяване",
+      "auth_settings_failures": "Грешки в настройките за удостоверяване",
+      "auth_settings_backoff_active": "Отмяната на настройките за удостоверяване е активна",
+      "auth_settings_backoff_ends_utc": "Отлагането на настройките за удостоверяване приключва (UTC)",
+      "session_history_available": "Налична е хронология на сесиите",
+      "session_history_last_error": "Последна грешка в историята на сесиите",
+      "session_history_failures": "Грешки в историята на сесиите",
+      "session_history_backoff_active": "Отлагането на историята на сесията е активно",
+      "session_history_backoff_ends_utc": "Историята на сесията приключва (UTC)",
+      "site_energy_available": "Налична енергия на сайта",
+      "site_energy_last_error": "Последна грешка в енергията на сайта",
+      "site_energy_failures": "Енергийни повреди на сайта",
+      "site_energy_backoff_active": "Енергийното забавяне на сайта е активно",
+      "site_energy_backoff_ends_utc": "Край на намаляването на енергията на сайта (UTC)"
+    }
+  },
+  "services": {
+    "start_charging": {
+      "name": "Стартиране на зареждане",
+      "description": "Стартиране на зареждане на избраното зарядно Enphase Energy.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "charging_level": {
+          "name": "Ниво на зареждане (A)",
+          "description": "Опционална настройка на ток в ампери (6-40)."
+        },
+        "connector_id": {
+          "name": "ID на конектора",
+          "description": "Опционален индекс на конектора (обикновено 1)."
+        }
+      }
+    },
+    "stop_charging": {
+      "name": "Спиране на зареждане",
+      "description": "Спиране на зареждане на избраното зарядно Enphase Energy."
+    },
+    "trigger_message": {
+      "name": "Задействане на OCPP съобщение",
+      "description": "Поискайте зарядното да изпрати OCPP съобщение и да върне cloud отговора.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "requested_message": {
+          "name": "Поискано съобщение",
+          "description": "Име на OCPP съобщение (напр. MeterValues); отговорът на услугата показва изхода на зарядното."
+        },
+        "confirm_advanced": {
+          "name": "Потвърждение за разширено задействане",
+          "description": "Изисква се за разширени OCPP съобщения, които може да поискат диагностика, фърмуер или известия за стартиране от зарядното."
+        },
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Опционален идентификатор на обект; открива се автоматично при избрано устройство на обект."
+        }
+      }
+    },
+    "clear_reauth_issue": {
+      "name": "Изчистване на проблем с повторна автентикация",
+      "description": "Изберете устройство на обект Enphase за изчистване на проблема с повторната автентикация.",
+      "fields": {
+        "device_id": {
+          "name": "Зарядни",
+          "description": "Изберете зарядни Enphase, за които да се изчисти проблемът с повторната автентикация."
+        },
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Опционален идентификатор на обект; открива се автоматично при избрано устройство на обект."
+        }
+      }
+    },
+    "start_live_stream": {
+      "name": "Стартиране на жив поток",
+      "description": "Поискайте по-бързи актуализации на статуса в облака за кратък период.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Опционален идентификатор на обект; открива се автоматично при избрано устройство на обект."
+        }
+      }
+    },
+    "stop_live_stream": {
+      "name": "Спиране на жив поток",
+      "description": "Спиране на заявката за жив поток от облака.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Опционален идентификатор на обект; открива се автоматично при избрано устройство на обект."
+        }
+      }
+    },
+    "sync_schedules": {
+      "name": "Синхронизиране на графиците",
+      "description": "Обновете графиците на Enphase от облака.",
+      "fields": {
+        "device_id": {
+          "name": "Зарядни",
+          "description": "Опционален избор на зарядно за целева синхронизация."
+        }
+      }
+    },
+    "request_grid_toggle_otp": {
+      "name": "Заявка за превключване на решетка OTP",
+      "description": "Изпратете необходимия еднократен код, преди да промените режима на мрежата на сайта.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Опционален идентификатор на обект; открива се автоматично при избрано устройство на обект."
+        }
+      }
+    },
+    "set_grid_mode": {
+      "name": "Задайте режим на мрежа",
+      "description": "Променете режима на мрежата на сайта след валидиране на еднократния код.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "mode": {
+          "name": "Режим на решетка",
+          "description": "Изберете on_grid или off_grid."
+        },
+        "otp": {
+          "name": "Еднократен код",
+          "description": "Въведете 4-цифрения OTP, изпратен на вашия регистриран имейл и телефон."
+        },
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Опционален идентификатор на обект; открива се автоматично при избрано устройство на обект."
+        }
+      }
+    },
+    "update_cfg_schedule": {
+      "name": "Обновяване на CFG графика",
+      "description": "Обновява началния час, крайния час и/или лимита на зареждане от мрежата в една атомарна операция.",
+      "fields": {
+        "start_time": {
+          "name": "Начален час",
+          "description": "Начален час на CFG графика."
+        },
+        "end_time": {
+          "name": "Краен час",
+          "description": "Краен час на CFG графика."
+        },
+        "limit": {
+          "name": "Лимит на зареждане",
+          "description": "Максимално ниво на заряд на батерията (%)."
+        },
+        "site_id": {
+          "name": "ID на обекта",
+          "description": "Enphase ID на обекта (по избор; определя се от целевото устройство)."
+        }
+      }
+    },
+    "force_refresh": {
+      "name": "Принудително опресняване",
+      "description": "Обновете незабавно данните за графика на батерията от облака Enphase.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "site_id": {
+          "name": "Идентификатор на обекта",
+          "description": "Незадължителен идентификатор на обекта; открива се автоматично, когато е избрано устройство на обекта."
+        },
+        "config_entry_id": {
+          "name": "Конфигуриране на идентификатор на запис",
+          "description": "Незадължителен идентификатор за въвеждане на конфигурация за единичен запис в Enphase сайт."
+        }
+      }
+    },
+    "add_schedule": {
+      "name": "Добавяне на график за батерията",
+      "description": "Създайте график на батерията за CFG, DTG или RBD.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Вид график",
+          "description": "Семейство график на батерията: cfg, dtg или rbd."
+        },
+        "start_time": {
+          "name": "Начално време",
+          "description": "Насрочете начален час."
+        },
+        "end_time": {
+          "name": "Краен час",
+          "description": "Насрочване на краен час."
+        },
+        "limit": {
+          "name": "Лимит на таксуване",
+          "description": "Максимално ниво на зареждане на батерията (%)."
+        },
+        "days": {
+          "name": "Дни",
+          "description": "Списък на активните делнични дни, използващи понеделник=1 до неделя=7."
+        },
+        "site_id": {
+          "name": "Идентификатор на обекта",
+          "description": "Незадължителен идентификатор на обекта; открива се автоматично, когато е избрано устройство на обекта."
+        },
+        "config_entry_id": {
+          "name": "Конфигуриране на идентификатор на запис",
+          "description": "Незадължителен идентификатор за въвеждане на конфигурация за единичен запис в Enphase сайт."
+        }
+      }
+    },
+    "update_schedule": {
+      "name": "Актуализиране на графика на батерията",
+      "description": "Актуализирайте график на батерията по ID на графика.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Насрочване на документ за самоличност",
+          "description": "Съществуващ идентификатор на графика на Enphase батерията."
+        },
+        "schedule_type": {
+          "name": "Вид график",
+          "description": "Семейство график на батерията: cfg, dtg или rbd."
+        },
+        "start_time": {
+          "name": "Начално време",
+          "description": "Насрочете начален час."
+        },
+        "end_time": {
+          "name": "Краен час",
+          "description": "Насрочване на краен час."
+        },
+        "limit": {
+          "name": "Лимит на таксуване",
+          "description": "Максимално ниво на зареждане на батерията (%)."
+        },
+        "days": {
+          "name": "Дни",
+          "description": "Списък на активните делнични дни, използващи понеделник=1 до неделя=7."
+        },
+        "confirm": {
+          "name": "Потвърждаване",
+          "description": "Задайте на „вярно “, за да потвърдите актуализацията на графика."
+        },
+        "site_id": {
+          "name": "Идентификатор на обекта",
+          "description": "Незадължителен идентификатор на обекта; открива се автоматично, когато е избрано устройство на обекта."
+        },
+        "config_entry_id": {
+          "name": "Конфигуриране на идентификатор на запис",
+          "description": "Незадължителен идентификатор за въвеждане на конфигурация за единичен запис в Enphase сайт."
+        }
+      }
+    },
+    "delete_schedule": {
+      "name": "Изтриване на графика на батерията",
+      "description": "Изтрийте един или повече графици на батерията по ID на график.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "schedule_id": {
+          "name": "Насрочване на документ за самоличност",
+          "description": "Идентификатор на график на единична Enphase батерия за изтриване."
+        },
+        "schedule_ids": {
+          "name": "Насрочване на документи за самоличност",
+          "description": "Незадължително въвеждане, разделено със запетая, или въвеждане на списък за множество идентификатори на график."
+        },
+        "confirm": {
+          "name": "Потвърждаване",
+          "description": "Задайте на „вярно “, за да потвърдите изтриването на графика."
+        },
+        "site_id": {
+          "name": "Идентификатор на обекта",
+          "description": "Незадължителен идентификатор на обекта; открива се автоматично, когато е избрано устройство на обекта."
+        },
+        "config_entry_id": {
+          "name": "Конфигуриране на идентификатор на запис",
+          "description": "Незадължителен идентификатор за въвеждане на конфигурация за единичен запис в Enphase сайт."
+        }
+      }
+    },
+    "validate_schedule": {
+      "name": "Потвърдете графика на батерията",
+      "description": "Проверете дали редактирането на графика на батерията е налично за избраното семейство графици.",
+      "sections": {
+        "advanced": {
+          "name": "Разширени опции"
+        }
+      },
+      "fields": {
+        "schedule_type": {
+          "name": "Вид график",
+          "description": "Семейство график на батерията: cfg, dtg или rbd."
+        },
+        "site_id": {
+          "name": "Идентификатор на обекта",
+          "description": "Незадължителен идентификатор на обекта; открива се автоматично, когато е избрано устройство на обекта."
+        },
+        "config_entry_id": {
+          "name": "Конфигуриране на идентификатор на запис",
+          "description": "Незадължителен идентификатор за въвеждане на конфигурация за единичен запис в Enphase сайт."
+        }
+      }
+    },
+    "try_reauth_now": {
+      "name": "Опитай повторно удостоверяване сега",
+      "description": "Използва съхранените Enphase идентификационни данни за незабавен опит за повторно удостоверяване на избрания сайт.",
+      "fields": {
+        "device_id": {
+          "name": "Устройства на сайта",
+          "description": "Изберете Enphase устройство на сайта, за което да се опита повторно удостоверяване."
+        },
+        "site_id": {
+          "name": "ID на сайта",
+          "description": "Незадължителен идентификатор на сайта; открива се автоматично, когато е избрано устройство на сайта."
+        }
+      }
+    },
+    "update_tariff": {
+      "name": "Актуализиране на тарифа",
+      "description": "Актуализирайте данните за цикъла на фактуриране на Enphase и една или повече съществуващи импортни или експортни тарифни ставки.",
+      "fields": {
+        "rate": {
+          "name": "Ставка",
+          "description": "Нова неотрицателна стойност за избраната тарифна ставка."
+        },
+        "rate_entity": {
+          "name": "Същност на ставка",
+          "description": "Незадължителна същност на тарифна ставка за актуализиране, когато не се използва целта на действието."
+        },
+        "import_rate": {
+          "name": "Импортна ставка",
+          "description": "Нова неотрицателна стойност на импортната тарифна ставка."
+        },
+        "import_rate_entity": {
+          "name": "Същност на импортна ставка",
+          "description": "Същност на импортна тарифна ставка за актуализиране."
+        },
+        "export_rate": {
+          "name": "Експортна ставка",
+          "description": "Нова неотрицателна стойност на експортната тарифна ставка."
+        },
+        "export_rate_entity": {
+          "name": "Същност на експортна ставка",
+          "description": "Същност на експортна тарифна ставка за актуализиране."
+        },
+        "billing_start_date": {
+          "name": "Начална дата на фактуриране",
+          "description": "Начална дата на периода за фактуриране в ISO формат."
+        },
+        "billing_frequency": {
+          "name": "Честота на фактуриране",
+          "description": "Единица за интервала на фактуриране: MONTH или DAY."
+        },
+        "billing_interval_value": {
+          "name": "Интервал на фактуриране",
+          "description": "Брой интервали за фактуриране. Използвайте 1-24 за месеци или 1-100 за дни."
+        },
+        "rates": {
+          "name": "Ставки",
+          "description": "Списък с ID на същности за тарифни ставки и неотрицателни стойности за актуализиране."
+        },
+        "site_id": {
+          "name": "ID на сайт",
+          "description": "Незадължителен идентификатор на сайт за актуализации на фактуриране."
+        },
+        "config_entry_id": {
+          "name": "ID на запис за конфигурация",
+          "description": "Незадължителен идентификатор на запис за конфигурация за един сайт на Enphase."
+        },
+        "tariff_payload": {
+          "name": "Тарифен payload",
+          "description": "Пълен Enphase тарифен payload за запис. Използвайте го за разширени структурни редакции."
+        },
+        "purchase_tariff": {
+          "name": "Структура на тарифата за внос",
+          "description": "Заместващ клон за тарифата за внос с тип, сезони, периоди, стъпала и цени."
+        },
+        "buyback_tariff": {
+          "name": "Структура на тарифата за износ",
+          "description": "Заместващ клон за тарифата за износ с тип, план за износ, сезони, периоди, стъпала и цени."
+        },
+        "configure_import_tariff": {
+          "name": "Guidet importtarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for importtariffen med de guidede felter."
+        },
+        "import_tariff_type": {
+          "name": "Importtariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt importpris."
+        },
+        "import_variation": {
+          "name": "Importvariation",
+          "description": "Vælg om importprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "import_flat_rate": {
+          "name": "Flad importpris",
+          "description": "En enkelt importpris for flad tarif uden periode-rækker."
+        },
+        "import_periods": {
+          "name": "Importperioder",
+          "description": "Rækker til flade eller tidsafhængige importpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "import_tiers": {
+          "name": "Importtrin",
+          "description": "Rækker til trindelte importpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "import_off_peak_rate": {
+          "name": "Import off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte importtariffer."
+        },
+        "configure_export_tariff": {
+          "name": "Guidet eksporttarif",
+          "description": "Aktiver dette felt for at opbygge en erstatning for eksporttariffen med de guidede felter."
+        },
+        "export_tariff_type": {
+          "name": "Eksporttariftype",
+          "description": "Vælg flad, tidsafhængig eller trindelt eksportpris."
+        },
+        "export_variation": {
+          "name": "Eksportvariation",
+          "description": "Vælg om eksportprisen varierer efter sæson eller hverdag/weekend."
+        },
+        "export_plan": {
+          "name": "Eksportplan",
+          "description": "Vælg Enphase-eksportplanen der skal skrives med eksporttariffen."
+        },
+        "export_flat_rate": {
+          "name": "Flad eksportpris",
+          "description": "En enkelt eksportpris for flad tarif uden periode-rækker."
+        },
+        "export_periods": {
+          "name": "Eksportperioder",
+          "description": "Rækker til flade eller tidsafhængige eksportpriser. Dage 1-7 er mandag-søndag; tider kan være HH:MM eller minutter efter midnat."
+        },
+        "export_tiers": {
+          "name": "Eksporttrin",
+          "description": "Rækker til trindelte eksportpriser. Brug end_value -1 for sidste ubegrænsede trin."
+        },
+        "export_off_peak_rate": {
+          "name": "Eksport off-peak basis",
+          "description": "Basispris uden for spidsbelastning for trindelte eksporttariffer."
+        },
+        "device_id": {
+          "name": "Enphase-enhed",
+          "description": "Valgfri Enphase-enhed til at vælge stedet for fakturerings- eller tarifstrukturændringer."
+        }
+      }
+    },
+    "clear_hems_auth_backoff": {
+      "name": "Изчистване на HEMS auth backoff",
+      "description": "Изчиства временната HEMS/Heat Pump пауза за удостоверяване без вход с парола.",
+      "fields": {
+        "device_id": {
+          "name": "Устройства на сайта",
+          "description": "Изберете устройство на Enphase сайт, за което да се изчисти HEMS auth backoff."
+        },
+        "site_id": {
+          "name": "ID на сайт",
+          "description": "Незадължителен идентификатор на сайт; открива се автоматично при избрано устройство."
+        }
+      }
+    }
+  }
+}
