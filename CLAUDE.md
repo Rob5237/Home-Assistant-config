@@ -106,6 +106,8 @@ Single source of truth: `input_boolean.vakantie_actief`. Sync via `vakantie_sync
 
 Als gebruiker via Luxtronik-display heating_mode → Holidays zet, fired sync_aan en zet 'm direct terug naar Automatic + parallel_shift naar 15°C. Dhw_mode wel naar Holidays (respecteert "Off"). Sync_uit reset dhw_mode terug naar Automatic als nog op Holidays staat.
 
+**TDI catch-up bij sync_uit**: als `input_datetime.tdi_laatste_start` ≥ 7 dgn geleden is (of unknown), forceert sync_uit direct een TDI-cyclus na het herstellen van parallel_shift — setpoint 62°C, dhw_mode Automatic, switch.heating aan, `tdi_laatste_start` = now, `tapwater_overschot_lock` = on. Ongeacht zon, uur of tariefcurve. Reset volgt via `tdi_einde_reset` (DHW > 60°C). Voorkomt dat de boiler na een vakantie nog dagen op niet-legionellaveilige 57°C draait voordat de reguliere TDI-automation aan de beurt komt.
+
 Gedrag tijdens vakantie:
 
 | Automatie | In vakantie |

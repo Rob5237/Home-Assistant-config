@@ -570,6 +570,14 @@
     safety-check naar Automatic (zou na sync_aan nooit op Holidays moeten
     staan, maar voor de zekerheid), parallel_shift_temperature herstellen uit
     input_number.vakantie_parallel_shift_backup en backup → 0.
+
+    TDI catch-up: als laatste TDI ≥7 dgn geleden was, wordt direct een
+    thermische desinfectie-cyclus gestart (setpoint 62°C, dhw_mode Automatic,
+    heating-switch aan, lock on) ongeacht zon, tijd of goedkoopste-uur. Reset
+    via tdi_einde_reset (DHW > 60). Vermijdt dat boiler na vakantie nog dagen
+    op niet-legionellaveilige 57°C draait voordat reguliere TDI-automation aan
+    de beurt komt.
+
     Notificatie toont DHW/kamer/buiten-temp, laatste TDI, heating-switch en
     de herstelde parallel_shift.
   triggers:
@@ -615,6 +623,51 @@
           entity_id: input_number.vakantie_parallel_shift_backup
         data:
           value: 0
+    # TDI catch-up: forceer thermische desinfectie als die ≥7 dgn geleden was.
+    # Ongeacht zon, tijd-van-de-dag of goedkoopste-uur — legionellaveiligheid
+    # gaat voor energiekost na een vakantieperiode. Reset volgt via
+    # tdi_einde_reset (DHW > 60 + setpoint > 60 + dhw_mode Automatic).
+    - if:
+      - condition: template
+        value_template: >
+          {% set last = states('input_datetime.tdi_laatste_start') %}
+          {{ last in ('unknown', 'unavailable')
+             or (now() - as_datetime(last)).days >= 7 }}
+      then:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.tdi_laatste_start
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - action: select.select_option
+        target:
+          entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
+        data:
+          option: "{{ now().strftime('%A') }}"
+      - action: select.select_option
+        target:
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+        data:
+          option: Automatic
+      - action: number.set_value
+        target:
+          entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+        data:
+          value: 62
+      - action: switch.turn_on
+        target:
+          entity_id: switch.luxtronik_280807_0450_heating
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.tapwater_overschot_lock
+      - action: persistent_notification.create
+        data:
+          title: "TDI catch-up na vakantie"
+          notification_id: tdi_catchup_vakantie
+          message: >-
+            Laatste TDI was ≥7 dgn geleden — TDI nu gestart (setpoint 62°C,
+            mode Automatic, heating-switch aan). Reset volgt via tdi_einde_reset
+            zodra DHW > 60°C.
     - action: persistent_notification.create
       data:
         title: "Vakantie uitgeschakeld"
