@@ -100,9 +100,11 @@
 Luxtronik DHW-hysterese: 8K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`).
 
 ## Vakantiemodus
-Single source of truth: `input_boolean.vakantie_actief`. Sync via `vakantie_sync_aan` (trigger: dhw_mode of heating_mode → Holidays, óf boolean → on) en `vakantie_sync_uit` (trigger: boolean → off, óf heating_mode van Holidays → iets anders). Dhw_mode is géén sync-uit trigger omdat zonne-overschot die kortstondig naar Automatic wijzigt.
+Single source of truth: `input_boolean.vakantie_actief`. Sync via `vakantie_sync_aan` (trigger: dhw_mode of heating_mode → Holidays, óf boolean → on) en `vakantie_sync_uit` (trigger: alleen boolean → off). Dhw_mode is géén sync-uit trigger omdat zonne-overschot die kortstondig naar Automatic wijzigt. Heating_mode `from: Holidays` is óók geen sync-uit trigger meer — sync_aan zet heating zelf van Holidays → Automatic, dat zou anders sync_uit direct triggeren (race).
 
-Sync_aan respecteert `Off` — modes die al uit staan worden niet overschreven naar Holidays (anders zou bv. zomerse "heating Off" omslaan naar vorstbescherming, en sync_uit later naar Automatic resetten i.p.v. Off). Sync_uit reset alleen modes die nog op Holidays staan, dus Off blijft Off door de hele cyclus.
+**Heating tijdens vakantie**: heating_mode blijft op `Automatic` (NIET Holidays — die mode hanteert intern een zeer lage curve waardoor kamertemp bij koud weer onder 10°C kan zakken). In plaats daarvan verlaagt sync_aan `heating_curve_parallel_shift_temperature` tijdelijk van de normale waarde (typisch 17°C) naar **15.0°C** (vakantie-stooklijn). De oorspronkelijke waarde staat in `input_number.vakantie_parallel_shift_backup` (0 = geen backup actief; Luxtronik-range 5–35°C dus 0 is veilige sentinel). Sync_uit herstelt de backup-waarde en zet backup → 0. Idempotent: sync_aan overschrijft de backup niet als die al > 0 staat.
+
+Als gebruiker via Luxtronik-display heating_mode → Holidays zet, fired sync_aan en zet 'm direct terug naar Automatic + parallel_shift naar 15°C. Dhw_mode wel naar Holidays (respecteert "Off"). Sync_uit reset dhw_mode terug naar Automatic als nog op Holidays staat.
 
 Gedrag tijdens vakantie:
 

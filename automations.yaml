@@ -485,12 +485,21 @@
   alias: "Vakantie: synchroniseer aan"
   description: >
     Activeert input_boolean.vakantie_actief zodra dhw_mode of heating_mode op
-    Holidays wordt gezet (Luxtronik-display), of zorgt dat beide Luxtronik-
-    modes op Holidays staan zodra de boolean handmatig in HA wordt aangezet.
-    Respecteert "Off" — modes die al op Off staan worden niet overschreven
-    (anders zou vorstbescherming ongewenst worden geactiveerd, en sync_uit
-    zou later naar Automatic resetten i.p.v. terug naar Off).
-    Single source of truth voor "ben ik met vakantie". Idempotent.
+    Holidays wordt gezet (Luxtronik-display), of zodra de boolean handmatig
+    in HA wordt aangezet.
+
+    Heating gaat NIET op Holidays — die mode hanteert intern een zeer lage
+    curve waardoor kamertemp bij koud weer onder 10°C kan zakken. In plaats
+    daarvan blijft heating_mode op Automatic en wordt
+    heating_curve_parallel_shift_temperature tijdelijk verlaagd naar 15.0°C
+    (vakantie-stooklijn). De oorspronkelijke waarde staat in
+    input_number.vakantie_parallel_shift_backup (0 = geen backup actief; de
+    Luxtronik-range is 5-35°C dus 0 is een veilige sentinel-waarde).
+
+    Heating_mode wordt teruggezet naar Automatic als die op Holidays stond
+    (Luxtronik-display gebruiker). Dhw_mode gaat wel naar Holidays (respecteert
+    "Off"). Idempotent: backup wordt alleen gemaakt als die nog 0 is, dus
+    herhaalde sync_aan-runs overschrijven de backup niet.
   triggers:
     - trigger: state
       entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -515,17 +524,30 @@
         data:
           option: Holidays
     - if:
-      - condition: not
-        conditions:
-        - condition: state
-          entity_id: select.luxtronik_280807_0450_heating_mode
-          state: "Off"
+      - condition: state
+        entity_id: select.luxtronik_280807_0450_heating_mode
+        state: Holidays
       then:
       - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_heating_mode
         data:
-          option: Holidays
+          option: Automatic
+    - if:
+      - condition: numeric_state
+        entity_id: input_number.vakantie_parallel_shift_backup
+        below: 0.1
+      then:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.vakantie_parallel_shift_backup
+        data:
+          value: "{{ states('number.luxtronik_280807_0450_heating_curve_parallel_shift_temperature') | float(17) }}"
+      - action: number.set_value
+        target:
+          entity_id: number.luxtronik_280807_0450_heating_curve_parallel_shift_temperature
+        data:
+          value: 15.0
     - action: input_boolean.turn_on
       target:
         entity_id: input_boolean.vakantie_actief
@@ -534,22 +556,26 @@
 - id: vakantie_sync_uit
   alias: "Vakantie: synchroniseer uit"
   description: >
-    Deactiveert vakantie zodra input_boolean wordt uitgezet (HA UI) of zodra
-    heating_mode van Holidays naar iets anders gaat (Luxtronik-display).
-    NB: dhw_mode-overgangen worden NIET als trigger gebruikt — die wijzigt
+    Deactiveert vakantie zodra input_boolean wordt uitgezet (HA UI).
+
+    NB1: dhw_mode-overgangen worden NIET als trigger gebruikt — die wijzigt
     kortstondig naar Automatic tijdens zonne-overschot cycli en zou anders
-    foutief vakantie uitschakelen. Heating_mode wordt door geen automatie
-    aangeraakt en is daarom een betrouwbaar signaal.
-    Resets alleen modes die nog op Holidays staan — respecteert handmatige
-    keuze (bv. heating_mode → Off i.p.v. Automatic). Notificatie toont
-    DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
+    foutief vakantie uitschakelen.
+    NB2: heating_mode-overgang `from: Holidays` is OOK GEEN trigger meer —
+    sync_aan zet heating_mode zelf terug van Holidays naar Automatic (omdat
+    Holidays kamertemp te laag laat zakken), en dat zou anders sync_uit
+    direct na sync_aan triggeren (race-condition).
+
+    Acties: dhw_mode terug naar Automatic (als nog op Holidays), heating_mode
+    safety-check naar Automatic (zou na sync_aan nooit op Holidays moeten
+    staan, maar voor de zekerheid), parallel_shift_temperature herstellen uit
+    input_number.vakantie_parallel_shift_backup en backup → 0.
+    Notificatie toont DHW/kamer/buiten-temp, laatste TDI, heating-switch en
+    de herstelde parallel_shift.
   triggers:
     - trigger: state
       entity_id: input_boolean.vakantie_actief
       to: "off"
-    - trigger: state
-      entity_id: select.luxtronik_280807_0450_heating_mode
-      from: Holidays
   actions:
     - action: input_boolean.turn_off
       target:
@@ -574,6 +600,21 @@
           entity_id: select.luxtronik_280807_0450_heating_mode
         data:
           option: Automatic
+    - if:
+      - condition: numeric_state
+        entity_id: input_number.vakantie_parallel_shift_backup
+        above: 0.1
+      then:
+      - action: number.set_value
+        target:
+          entity_id: number.luxtronik_280807_0450_heating_curve_parallel_shift_temperature
+        data:
+          value: "{{ states('input_number.vakantie_parallel_shift_backup') | float(17) }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.vakantie_parallel_shift_backup
+        data:
+          value: 0
     - action: persistent_notification.create
       data:
         title: "Vakantie uitgeschakeld"
@@ -582,7 +623,8 @@
           Kamer {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}°C |
           Buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C |
           Laatste TDI {{ states('input_datetime.tdi_laatste_start') }} |
-          Heating-switch {{ states('switch.luxtronik_280807_0450_heating') }}
+          Heating-switch {{ states('switch.luxtronik_280807_0450_heating') }} |
+          Parallel_shift {{ states('number.luxtronik_280807_0450_heating_curve_parallel_shift_temperature') }}°C
   mode: single
 
 - id: vorstbescherming_waarschuwing
