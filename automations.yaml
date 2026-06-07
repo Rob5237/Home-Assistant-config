@@ -713,6 +713,50 @@
           Vakantie {{ states('input_boolean.vakantie_actief') }}.
   mode: single
 
+- id: luxtronik_tdi_dag_check
+  alias: "Luxtronik: waarschuwing als TDI-dag intern geactiveerd is"
+  description: >
+    Bewaakt dat geen van de 8 TDI-dag-vlaggen (parameters 20-27:
+    BwTDI_akt_MO/DI/MI/DO/FR/SA/SO/AL) in de Luxtronik op 1 staat. HA
+    voert TDI zelf via tdi_legionella_solar_overschot uit; een interne
+    Luxtronik-TDI overruled dat en kost ~5 kWh tegen ongunstig nachttarief.
+    Triggert (a) bij elke wijziging van de select naar iets anders dan
+    "None", en (b) dagelijks om 09:00 voor het geval HA offline was tijdens
+    de wijziging. Een tweede trigger op de TDI-doeltemp signaleert ook
+    als die per ongeluk weer omhoog gezet wordt.
+  triggers:
+    - trigger: state
+      entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
+      id: dag_aan
+    - trigger: time
+      at: "09:00:00"
+      id: dagelijkse_check
+    - trigger: numeric_state
+      entity_id: number.luxtronik_280807_0450_dhw_thermal_desinfection_target
+      above: 62.5
+      id: target_omhoog
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ states('select.luxtronik_280807_0450_thermal_desinfection_day') not in ['None', 'unknown', 'unavailable']
+           or (states('number.luxtronik_280807_0450_dhw_thermal_desinfection_target') | float(0)) > 62.5 }}
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "⚠ Luxtronik TDI intern geactiveerd"
+        notification_id: luxtronik_tdi_intern
+        message: >-
+          Luxtronik staat ingesteld om zelf een TDI te draaien — HA moet de
+          enige TDI-aansturing zijn.
+
+          - TDI-dag: **{{ states('select.luxtronik_280807_0450_thermal_desinfection_day') }}**
+          - TDI-doel: **{{ states('number.luxtronik_280807_0450_dhw_thermal_desinfection_target') }}°C**
+          - Trigger: {{ trigger.id }}
+
+          Zet `thermal_desinfection_day` terug op **None** en
+          `dhw_thermal_desinfection_target` op **62°C** in de Luxtronik-card.
+  mode: single
+
 - id: github_nachtelijke_backup
   alias: "GitHub: nachtelijke config backup"
   description: >
