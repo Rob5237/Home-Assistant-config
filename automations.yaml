@@ -196,10 +196,13 @@
       entity_id: input_datetime.tdi_laatste_start
     data:
       datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+  # Schakel Luxtronik's interne wekelijkse TDI-scheduler uit. HA stuurt de
+  # TDI-cyclus zelf aan via dhw_target=62°C; we willen voorkomen dat de pomp
+  # autonoom om 00:00 op de geconfigureerde dag óók nog een TDI start.
   - target:
       entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
     data:
-      option: '{{ now().strftime(''%A'') }}'
+      option: 'None'
     action: select.select_option
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -636,11 +639,12 @@
           entity_id: input_datetime.tdi_laatste_start
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      # Idem als reguliere TDI-automation: Luxtronik weekly scheduler uit.
       - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
         data:
-          option: "{{ now().strftime('%A') }}"
+          option: 'None'
       - action: select.select_option
         target:
           entity_id: select.luxtronik_280807_0450_dhw_mode
