@@ -2,6 +2,10 @@
 # Automatische GitHub backup van Home Assistant configuratie
 # Bij push-fout: persistent notification via Supervisor API zodat de fout
 # niet stil blijft (anders zou de repo dagen kunnen achterlopen).
+# GIT_TERMINAL_PROMPT=0 voorkomt dat git interactief om een wachtwoord
+# vraagt wanneer de PAT-in-URL als username wordt geïnterpreteerd; zonder
+# deze guard zou een interactieve shell-run kunnen blokkeren.
+export GIT_TERMINAL_PROMPT=0
 cd /config
 
 notify_failure() {
