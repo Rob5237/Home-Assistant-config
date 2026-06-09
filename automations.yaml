@@ -78,7 +78,7 @@
   mode: single
 
 - id: waarschuwing_bij_herinstallatie
-  alias: Waarschuwing bij herinstallatie
+  alias: "Systeem: waarschuwing bij herinstallatie"
   triggers:
   - trigger: event
     event_type: home_assistant_start
@@ -93,7 +93,7 @@
         '
   mode: single
 - id: tapwater_zonne_overschot_klein
-  alias: Warmwater bij Zonne-overschot
+  alias: "Tapwater: opwarmen bij klein zonne-overschot"
   description: >
     Verwarm boiler met WP bij teruglevering >= 2000W EN voldoende zon-forecast
     voor het komende uur (>= 2.0 kWh, som van alle 3 dakgedeeltes via
@@ -135,7 +135,7 @@
       entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: tapwater_extra_opslag_groot_overschot
-  alias: Tapwater extra opslag bij groot zonne-overschot
+  alias: "Tapwater: extra opslag bij groot zonne-overschot"
   description: >
     Bij groot teruglevering (P1 < -4000W voor 10 min) en boiler al in
     zonne-overschot boost-modus (setpoint 55-60°C), verhoog setpoint naar
@@ -221,7 +221,7 @@
           Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}.
   mode: single
 - id: tdi_legionella_solar_overschot
-  alias: Legionella TDI bij laagste tarief overdag
+  alias: "TDI: legionella-cyclus bij laagste daguur"
   description: 'Elk heel uur overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
     resterende uur is op basis van Zonneplan tarieven. Klokprogramma 09:30-16:00
     (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).'
@@ -289,7 +289,7 @@
         Verwachting: reset firet zodra DHW ≥61°C voor 10 min vastgehouden.
   mode: single
 - id: tdi_einde_reset
-  alias: TDI einde - reset naar normaalstand
+  alias: "TDI: reset na cyclus"
   description: >
     Reset na TDI-cyclus: setpoint terug naar 48°C zodra DHW ≥ 61°C voor 10 min.
     De "voor 10 min" eis borgt Legionella-protocol (afdoding bij ≥60°C vereist
@@ -367,7 +367,7 @@
         Vergelijk met debug_tdi_start om houdtijd ≥10 min boven 60°C te bevestigen.
   mode: single
 - id: zonne_overschot_extra_opslag_reset
-  alias: Zonne-overschot extra opslag - reset
+  alias: "Tapwater: reset na extra opslag groot overschot"
   description: >
     Reset zonne-overschot extra opslag (setpoint 62°C, Party-mode): DHW-mode
     terug naar Automatic en setpoint naar 48°C zodra DHW > 58°C. Drempel lager
@@ -403,7 +403,7 @@
       entity_id: input_boolean.tapwater_overschot_lock
   mode: single
 - id: tapwater_bijverwarmen
-  alias: Tapwater bijverwarmen bij lage temperatuur
+  alias: "Tapwater: bijverwarmen bij lage temperatuur"
   description: >
     Verwarm tapwater naar 57°C als het onder 47°C zakt. Blokkeert bij hoog tarief
     (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 41°C).
@@ -446,7 +446,7 @@
   mode: single
 
 - id: tapwater_reset_na_bijverwarmen
-  alias: Tapwater reset naar normaalstand na bijverwarmen
+  alias: "Tapwater: reset na bijverwarmen"
   description: >
     Zet setpoint terug naar 48°C zodra tapwater 57°C bereikt (setpoint bereikt).
     Niet tijdens TDI (setpoint 62°C) en niet bij actief zonne-overschot (dan
@@ -509,7 +509,7 @@
   mode: single
 
 - id: tapwater_goedkoopste_nachtuur
-  alias: Tapwater verwarmen in goedkoopste nachtuur
+  alias: "Tapwater: opwarmen in goedkoopste nachtuur"
   description: >
     Elk heel uur tussen 22:00 en 06:00 wordt gecheckt of dit het goedkoopste uur
     in het nachtvenster is (Zonneplan forecast). Als ja en tapwater < 54°C → opwarmen
