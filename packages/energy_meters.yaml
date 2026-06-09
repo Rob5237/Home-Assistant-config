@@ -6,16 +6,17 @@
 utility_meter:
   # EXPORT/TERUGLEVERING METERS (P1 export naar net)
   # Let op: naam 'solar_*' is historisch — meet teruglevering, niet bruto productie.
+  # Bron heet 'energie' (NL), niet 'energy' — de _energy_export entity bestaat niet.
   solar_daily:
-    source: sensor.p1_meter_energy_export
+    source: sensor.p1_meter_energie_export
     cycle: daily
 
   solar_monthly:
-    source: sensor.p1_meter_energy_export
+    source: sensor.p1_meter_energie_export
     cycle: monthly
 
   solar_yearly:
-    source: sensor.p1_meter_energy_export
+    source: sensor.p1_meter_energie_export
     cycle: yearly
 
   # IMPORT METERS (P1 afname van net)
