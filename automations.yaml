@@ -99,6 +99,10 @@
     voor het komende uur (>= 2.0 kWh, som van alle 3 dakgedeeltes via
     forecast_solar). Dit voorkomt dat een cyclus halverwege uit het net gaat
     trekken als de zon onverwacht zakt.
+    Setpoint 62°C + dhw_mode Party (ipv 57°C Automatic) geeft een lange cyclus
+    (49→62 = 13K) ipv korte 8K-cycli die pendel-gedrag veroorzaken zolang
+    P1<-1500 blijft (reset van bijverwarmen firet dan niet). Reset volgt via
+    `zonne_overschot_extra_opslag_reset` (DHW > 58°C + mode Party).
   triggers:
   - entity_id:
     - sensor.p1_meter_power
@@ -117,15 +121,15 @@
     state: "on"
   actions:
   - target:
-      entity_id: select.luxtronik_280807_0450_dhw_mode
-    data:
-      option: Automatic
-    action: select.select_option
-  - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      value: 57
+      value: 62
     action: number.set_value
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: Party
+    action: select.select_option
   - action: input_boolean.turn_on
     target:
       entity_id: input_boolean.tapwater_overschot_lock
@@ -448,13 +452,32 @@
     Niet tijdens TDI (setpoint 62°C) en niet bij actief zonne-overschot (dan
     blijven doorladen). 48°C als rust-setpoint voorkomt dat de Luxtronik autonoom
     cycli draait onder 39°C (48 - 9K hysterese).
+    Avond-watchdog (22:00): de DHW>57-trigger is een transitie-trigger en kan
+    gemist worden als P1<-1500 op moment van stijging (conditie faalt, daarna
+    firet de trigger niet meer). Een tweede kans om 22:00 (zon definitief weg,
+    P1>0) reset alsnog wanneer lock=on en setpoint nog 50-60.
   triggers:
-  - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+  - id: dhw_boven_57
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 57
     for:
       minutes: 2
     trigger: numeric_state
+  - id: avond_watchdog
+    trigger: time
+    at: "22:00:00"
   conditions:
+  - condition: or
+    conditions:
+    - condition: trigger
+      id: dhw_boven_57
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: avond_watchdog
+      - condition: state
+        entity_id: input_boolean.tapwater_overschot_lock
+        state: "on"
   - condition: template
     value_template: >
       {% set setpoint = state_attr('water_heater.luxtronik_280807_0450_domestic_water',
@@ -876,4 +899,46 @@
         entity_id: input_datetime.last_github_backup
       data:
         datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+  mode: single
+
+- id: tapwater_lock_watchdog
+  alias: "Tapwater: lock watchdog (timeout)"
+  description: >
+    Vangnet: zet tapwater_overschot_lock uit als die >6 u aan staat zonder
+    actieve hoge-setpoint cyclus (setpoint < 55 EN dhw_mode ≠ Party). Voorkomt
+    dat een lock blijft hangen na een gemiste reset (HA-crash, storing, of
+    edge-case waarin een reset-trigger niet vuurt) — bij volgende vakantie
+    zou de Holidays-fallback in reset-automations dan ten onrechte vuren.
+    Orthogonaal aan tapwater_reset_na_bijverwarmen (die reset óók de setpoint);
+    deze watchdog raakt setpoint/dhw_mode NIET aan en doet alleen lock-cleanup.
+  triggers:
+    - trigger: time_pattern
+      minutes: '0'
+  conditions:
+    - condition: state
+      entity_id: input_boolean.tapwater_overschot_lock
+      state: "on"
+      for:
+        hours: 6
+    - condition: numeric_state
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+      below: 55
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+          state: Party
+  actions:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.tapwater_overschot_lock
+    - action: persistent_notification.create
+      data:
+        title: "Tapwater: lock watchdog"
+        notification_id: tapwater_lock_watchdog
+        message: >-
+          tapwater_overschot_lock stond >6 u aan zonder actieve hoge-setpoint
+          cyclus (setpoint {{ states('number.luxtronik_280807_0450_dhw_target_temperature') }}°C,
+          mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}). Lock
+          uitgezet.
   mode: single
