@@ -430,10 +430,19 @@
     Niet tijdens TDI (setpoint 62°C) en niet bij actief zonne-overschot (dan
     blijven doorladen). 48°C als rust-setpoint voorkomt dat de Luxtronik autonoom
     cycli draait onder 39°C (48 - 9K hysterese).
-    Avond-watchdog (22:00): de DHW>57-trigger is een transitie-trigger en kan
+    Avond-watchdog (21:55): de DHW>57-trigger is een transitie-trigger en kan
     gemist worden als P1<-1500 op moment van stijging (conditie faalt, daarna
-    firet de trigger niet meer). Een tweede kans om 22:00 (zon definitief weg,
-    P1>0) reset alsnog wanneer lock=on en setpoint nog 50-60.
+    firet de trigger niet meer). Een tweede kans vlak vóór het nachtvenster
+    reset alsnog wanneer lock=on en setpoint nog 50-60.
+    Tijd is bewust 21:55 i.p.v. 22:00 om race-condition met
+    `tapwater_goedkoopste_nachtuur` te vermijden: die triggert op
+    `time_pattern minutes:'0'` en zou óók om 22:00:00 kunnen vuren als 22 het
+    goedkoopste uur in het 22-06 venster is. HA garandeert geen volgorde
+    tussen twee time-triggers op exact hetzelfde tijdstip — bij watchdog-na-
+    nachtuur uitvoering zou setpoint 57 (net gezet door nachtuur) direct
+    teruggezet worden naar 48 en de geplande nachtopwarming volledig missen.
+    21:55 garandeert een schone uitgangstoestand (setpoint 48, lock off) als
+    het nachtvenster om 22:00:00 opengaat.
   triggers:
   - id: dhw_boven_57
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
@@ -443,7 +452,7 @@
     trigger: numeric_state
   - id: avond_watchdog
     trigger: time
-    at: "22:00:00"
+    at: "21:55:00"
   conditions:
   - condition: or
     conditions:
