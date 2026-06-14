@@ -33,7 +33,6 @@
 
 ## Helpers
 - `input_number.tapwater_tarief_drempel` — max tarief voor bijverwarmen (default 0.25 €/kWh)
-- `input_number.verbruiksprijs_kwh` — verbruiksprijs (default 0.2554 €/kWh)
 - `input_number.zon_forecast_drempel_kwh` — drempel voor `binary_sensor.zon_forecast_volgend_uur_voldoende` (default 2.0 kWh/uur)
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
 - `input_datetime.last_github_backup` — marker voor dagelijkse backup-poging

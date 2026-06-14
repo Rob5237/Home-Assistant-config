@@ -1,12 +1,21 @@
 # utility_meter definities voor Energie & Solar
 # Bron: P1-meter (DSMR)
-#   export → sensor.p1_meter_energy_export
-#   import → sensor.p1_meter_energy_import
+#
+# Naamgeving van de P1-meter entiteiten is historisch een mix (NL/EN):
+#   - import-kant      → sensor.p1_meter_energy_import        (EN, integration default)
+#   - export-kant      → sensor.p1_meter_energie_export       (NL, ooit handmatig hernoemd)
+#   - import_tariff_*  → sensor.p1_meter_energy_import_tariff_1/2 (EN)
+#   - export tariff 1  → sensor.p1_meter_energie_export_tarief_1  (NL, hernoemd)
+#   - export tariff 2  → sensor.p1_meter_energy_export_tariff_2   (EN)
+# Beide vormen bestaan dus echt in de entity_registry; dit is geen typo.
+# Bij een toekomstige opschoning: hernoem _energie_export(_tarief_1) terug naar
+# _energy_export(_tariff_1) via Developer Tools → Entities en pas de sources
+# hieronder aan. Statistics-history moet daarna overgezet via Developer Tools
+# → Statistics (fix issues), anders breekt het Energy-dashboard.
 
 utility_meter:
   # EXPORT/TERUGLEVERING METERS (P1 export naar net)
   # Let op: naam 'solar_*' is historisch — meet teruglevering, niet bruto productie.
-  # Bron heet 'energie' (NL), niet 'energy' — de _energy_export entity bestaat niet.
   solar_daily:
     source: sensor.p1_meter_energie_export
     cycle: daily

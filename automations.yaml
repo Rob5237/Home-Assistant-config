@@ -274,19 +274,6 @@
   - action: input_boolean.turn_on
     target:
       entity_id: input_boolean.tapwater_overschot_lock
-  # [DEBUG-MONITOR] Tijdelijk: log TDI-start om reset-gedrag te verifiëren
-  # na de 2026-06-08 wijziging (DHW>61 voor 10 min). Verwijder dit blok
-  # na 2026-06-15 zodra de eerste cyclus is geobserveerd.
-  - action: persistent_notification.create
-    data:
-      title: "[DEBUG-MONITOR] TDI gestart"
-      notification_id: debug_tdi_start
-      message: >-
-        TDI-cyclus gestart op {{ now().strftime('%Y-%m-%d %H:%M') }}.
-        DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
-        Buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C |
-        Tarief {{ states('sensor.zonneplan_current_electricity_tariff') }}.
-        Verwachting: reset firet zodra DHW ≥61°C voor 10 min vastgehouden.
   mode: single
 - id: tdi_einde_reset
   alias: "TDI: reset na cyclus"
@@ -352,19 +339,6 @@
   - action: input_boolean.turn_off
     target:
       entity_id: input_boolean.tapwater_overschot_lock
-  # [DEBUG-MONITOR] Tijdelijk: log TDI-reset om te bevestigen dat de nieuwe
-  # drempel (DHW>61 voor 10 min) correct vuurt. Vergelijk timestamp met
-  # debug_tdi_start om de houdtijd boven 60°C te valideren. Verwijder dit
-  # blok na 2026-06-15 zodra eerste cyclus is geobserveerd.
-  - action: persistent_notification.create
-    data:
-      title: "[DEBUG-MONITOR] TDI-reset geslaagd"
-      notification_id: debug_tdi_reset
-      message: >-
-        TDI-reset gevuurd op {{ now().strftime('%Y-%m-%d %H:%M') }}.
-        DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C bereikt;
-        setpoint teruggezet naar 48°C.
-        Vergelijk met debug_tdi_start om houdtijd ≥10 min boven 60°C te bevestigen.
   mode: single
 - id: zonne_overschot_extra_opslag_reset
   alias: "Tapwater: reset na extra opslag groot overschot"
