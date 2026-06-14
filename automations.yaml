@@ -99,10 +99,14 @@
     voor het komende uur (>= 2.0 kWh, som van alle 3 dakgedeeltes via
     forecast_solar). Dit voorkomt dat een cyclus halverwege uit het net gaat
     trekken als de zon onverwacht zakt.
-    Setpoint 62°C + dhw_mode Party (ipv 57°C Automatic) geeft een lange cyclus
-    (49→62 = 13K) ipv korte 8K-cycli die pendel-gedrag veroorzaken zolang
-    P1<-1500 blijft (reset van bijverwarmen firet dan niet). Reset volgt via
-    `zonne_overschot_extra_opslag_reset` (DHW > 58°C + mode Party).
+    Setpoint 57°C + dhw_mode Automatic: Luxtronik 8K-hysterese voorkomt korte
+    pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 49 na
+    uren warmteverlies). Lagere aanvoer (richting 57 i.p.v. 62) levert ~10-15%
+    betere COP over de cyclus dan een Party-cyclus naar 62.
+    Reset loopt via tapwater_reset_na_bijverwarmen (DHW>57 voor 2 min, alleen
+    bij solar>-1500 — bij blijvend overschot blijft setpoint 57 staan).
+    Escalatie naar 62°C verloopt via tapwater_extra_opslag_groot_overschot
+    (P1<-4000W voor 10 min, conditie setpoint 55-60 — past nu).
   triggers:
   - entity_id:
     - sensor.p1_meter_power
@@ -123,12 +127,12 @@
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      value: 62
+      value: 57
     action: number.set_value
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
     data:
-      option: Party
+      option: Automatic
     action: select.select_option
   - action: input_boolean.turn_on
     target:
