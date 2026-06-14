@@ -45,10 +45,6 @@ input_boolean:
     name: "Tapwater opwarm-cyclus actief (reset-lock)"
     icon: mdi:lock-clock
 
-  douche_piek_actief:
-    name: "Douche-piek periode actief"
-    icon: mdi:shower-head
-
 input_datetime:
   tdi_laatste_start:
     name: "TDI laatste start"
@@ -61,16 +57,3 @@ input_datetime:
     has_date: true
     has_time: true
     icon: mdi:cloud-upload
-
-  douche_piek_start:
-    name: "Douche-piek start"
-    has_date: true
-    has_time: true
-    icon: mdi:calendar-start
-
-  douche_piek_eind:
-    name: "Douche-piek eind"
-    has_date: true
-    has_time: true
-    icon: mdi:calendar-end
-
