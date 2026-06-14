@@ -1,0 +1,123 @@
+{#
+  Gedeelde macros voor de warmtepomp-templates (templates/warmtepomp.yaml).
+
+  Achtergrond: het sensor.warmtepomp_optimaal_startuur template berekent voor
+  state, kosten_per_kwh_warmte en uurlijks_overzicht steeds dezelfde
+  prijzen × weer lus met stooklijn- en COP-berekening. Deze macros centraliseren
+  die logica zodat formule-aanpassingen op één plek gebeuren.
+
+  COP-model: Carnot × 0.4 met clamp [1.5, 6.0]; lift = max(1, t_aanvoer - t_buiten).
+  Stooklijn: lineair van t_aanvoer_min @ t_drempel tot t_aanvoer_max @ -10°C,
+  clamped op beide uiteinden.
+  Zonneplan-prijs: p.electricity_price is in 10^-7 €/kWh → /10000000 = €/kWh.
+#}
+
+{%- macro stooklijn_aanvoer(t_buiten, t_min, t_max, t_drempel) -%}
+  {%- set helling = (t_max - t_min) / (t_drempel - (-10)) -%}
+  {{ [[t_min, t_min + helling * (t_drempel - t_buiten)] | max, t_max] | min }}
+{%- endmacro %}
+
+{%- macro cop(t_aanvoer, t_buiten) -%}
+  {%- set lift = [1, t_aanvoer - t_buiten] | max -%}
+  {{ [[1.5, 0.4 * (t_aanvoer + 273) / lift] | max, 6.0] | min }}
+{%- endmacro %}
+
+{%- macro kosten_warmte(prijs_raw, cop_val) -%}
+  {{ (prijs_raw | float(3000000)) / 10000000 / cop_val }}
+{%- endmacro %}
+
+{#
+  bereken_uren: itereert prijzen × weer en levert een lijst dicts terug
+  (één per toekomstig uur waarvoor zowel prijs als weer beschikbaar zijn).
+  Output via tojson zodat de aanroeper `| from_json` kan toepassen en daarna
+  Jinja-filters als `min(attribute='kosten_warmte')` kan inzetten.
+
+  Velden per uur:
+    dag           - 'YYYY-MM-DD' (voor groepering)
+    uur           - int hour 0-23
+    label         - 'dd-mm HH:MM' (display)
+    temp          - buitentemp °C, rond 1
+    aanvoer       - stooklijn-aanvoertemp °C, rond 1
+    cop_geschat   - geschatte COP, rond 2
+    prijs         - €/kWh, rond 4
+    kosten_warmte - €/kWh warmte (prijs/cop), rond 4
+#}
+{%- macro bereken_uren(prijzen, weer, t_min, t_max, t_drempel) -%}
+  {%- set helling = (t_max - t_min) / (t_drempel - (-10)) -%}
+  {%- set ns = namespace(uren=[]) -%}
+  {%- for p in prijzen -%}
+    {%- set p_dt = as_datetime(p.datetime) | as_local -%}
+    {%- if p_dt >= now() -%}
+      {%- for w in weer -%}
+        {%- set w_dt = as_datetime(w.datetime) | as_local -%}
+        {%- if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour -%}
+          {%- set t = w.temperature | float(10) -%}
+          {%- set t_a = [[t_min, t_min + helling * (t_drempel - t)] | max, t_max] | min -%}
+          {%- set lift = [1, t_a - t] | max -%}
+          {%- set c = [[1.5, 0.4 * (t_a + 273) / lift] | max, 6.0] | min -%}
+          {%- set prijs_eur = (p.electricity_price | float(3000000)) / 10000000 -%}
+          {%- set k = prijs_eur / c -%}
+          {%- set ns.uren = ns.uren + [{
+            'dag': p_dt.strftime('%Y-%m-%d'),
+            'uur': p_dt.hour,
+            'label': p_dt.strftime('%d-%m %H:%M'),
+            'temp': t | round(1),
+            'aanvoer': t_a | round(1),
+            'cop_geschat': c | round(2),
+            'prijs': prijs_eur | round(4),
+            'kosten_warmte': k | round(4)
+          }] -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ ns.uren | tojson }}
+{%- endmacro %}
+
+{#
+  bereken_tdi_uren: vindt de eerste dag waarop een TDI-cyclus mag plaatsvinden
+  (tdi_dagen_offset + dagen_vooruit >= 7) en levert de uren 09-16 van die dag
+  als JSON-lijst, met vaste aanvoertemperatuur 65°C.
+
+  Velden per uur: dag, uur, label, cop_geschat, prijs, kosten_warmte
+  (geen 'temp' / 'aanvoer' — TDI-aanvoer is constant 65°C).
+#}
+{%- macro bereken_tdi_uren(prijzen, weer, tdi_dagen) -%}
+  {%- set t_aanvoer_tdi = 65 -%}
+  {%- set ns = namespace(eerste_dag=none) -%}
+  {%- for p in prijzen -%}
+    {%- set p_dt = as_datetime(p.datetime) | as_local -%}
+    {%- if p_dt >= now() and 9 <= p_dt.hour < 16 and ns.eerste_dag is none -%}
+      {%- if tdi_dagen + (p_dt.date() - now().date()).days >= 7 -%}
+        {%- set ns.eerste_dag = p_dt.strftime('%Y-%m-%d') -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set ns2 = namespace(uren=[]) -%}
+  {%- if ns.eerste_dag is not none -%}
+    {%- for p in prijzen -%}
+      {%- set p_dt = as_datetime(p.datetime) | as_local -%}
+      {%- if p_dt.strftime('%Y-%m-%d') == ns.eerste_dag and 9 <= p_dt.hour < 16 -%}
+        {%- for w in weer -%}
+          {%- set w_dt = as_datetime(w.datetime) | as_local -%}
+          {%- if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour -%}
+            {%- set t = w.temperature | float(10) -%}
+            {%- set lift = [1, t_aanvoer_tdi - t] | max -%}
+            {%- set c = [[1.5, 0.4 * (t_aanvoer_tdi + 273) / lift] | max, 6.0] | min -%}
+            {%- set prijs_eur = (p.electricity_price | float(3000000)) / 10000000 -%}
+            {%- set k = prijs_eur / c -%}
+            {%- set ns2.uren = ns2.uren + [{
+              'dag': p_dt.strftime('%Y-%m-%d'),
+              'uur': p_dt.hour,
+              'label': p_dt.strftime('%d-%m %H:%M'),
+              'cop_geschat': c | round(2),
+              'prijs': prijs_eur | round(4),
+              'kosten_warmte': k | round(4)
+            }] -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {{ ns2.uren | tojson }}
+{%- endmacro %}

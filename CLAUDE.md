@@ -17,11 +17,17 @@
 ├── packages/
 │   ├── energy_meters.yaml      # utility_meter (dagelijks/maandelijks/jaarlijks)
 │   └── helpers.yaml            # input_number, input_datetime
-└── templates/
-    ├── warmtepomp.yaml         # COP-sensoren + optimaal_startuur (Zonneplan × COP × stooklijn)
-    ├── tapwater_decisions.yaml # beslissings-binary_sensors voor tapwater-automaties
-    └── elektriciteit_verbruik.yaml  # alleen nog export_365dagen (rest opgeruimd als dead code)
+├── templates/
+│   ├── warmtepomp.yaml         # COP-sensoren + optimaal_startuur (Zonneplan × COP × stooklijn)
+│   ├── tapwater_decisions.yaml # beslissings-binary_sensors voor tapwater-automaties
+│   └── elektriciteit_verbruik.yaml  # alleen nog export_365dagen (rest opgeruimd als dead code)
+└── custom_templates/
+    └── warmtepomp_macros.jinja # gedeelde stooklijn/COP/kosten + bereken_uren / bereken_tdi_uren
 ```
+
+Bij wijzigen van `custom_templates/*.jinja`: `homeassistant.reload_custom_templates`
+gevolgd door `template.reload`. Het eerste leest de macros opnieuw in,
+het tweede her-evalueert de templates die ze gebruiken.
 
 ## Integraties
 - **Luxtronik** — warmtepomp (entiteit-prefix: `luxtronik_280807_0450_`)
