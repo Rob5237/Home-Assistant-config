@@ -17,3 +17,8 @@ home-assistant_v2.db.backup_*
 ocpp_cert.pem
 ocpp_key.pem
 params.txt
+
+# Python bytecode (custom_components) — wordt automatisch aangemaakt door HA,
+# is gekoppeld aan Python-versie (cpython-3xx.pyc) en hoort niet in git.
+__pycache__/
+*.pyc
