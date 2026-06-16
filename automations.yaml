@@ -148,7 +148,7 @@
     Reset volgt via zonne_overschot_extra_opslag_reset bij DHW > 58°C
     (zet setpoint→48 en mode→Automatic, of →Holidays tijdens vakantie).
     Veiligheidsreset (interne delay 90 min): als de reguliere reset niet is
-    gevuurd binnen 90 min (bv. omdat user via display dhw_mode handmatig
+    geactiveerd binnen 90 min (bv. omdat user via display dhw_mode handmatig
     heeft gewijzigd zodat de Party-conditie in de reset-automation faalt),
     forceer dan alsnog setpoint→48 + mode→Automatic. Voorkomt achtergebleven
     setpoint 62°C waardoor bij volgend waterverbruik een ongewenste 62°C-
@@ -188,7 +188,7 @@
   - delay:
       minutes: 90
   # Veiligheidsreset: setpoint nog steeds > 55 betekent reguliere reset
-  # heeft niet gevuurd (bv. user heeft Party-mode handmatig gewijzigd).
+  # is niet geactiveerd (bv. user heeft Party-mode handmatig gewijzigd).
   - if:
     - condition: numeric_state
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
@@ -219,7 +219,7 @@
         title: "Zonne-overschot boost: veiligheidsreset"
         notification_id: extra_opslag_safety_reset
         message: >-
-          Reguliere reset op DHW>58°C heeft niet gevuurd binnen 90 min na
+          Reguliere reset op DHW>58°C is niet geactiveerd binnen 90 min na
           start van groot-overschot boost. Setpoint geforceerd naar 48°C.
           DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
           Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}.
@@ -436,7 +436,7 @@
     reset alsnog wanneer lock=on en setpoint nog 50-60.
     Tijd is bewust 21:55 i.p.v. 22:00 om race-condition met
     `tapwater_goedkoopste_nachtuur` te vermijden: die triggert op
-    `time_pattern minutes:'0'` en zou óók om 22:00:00 kunnen vuren als 22 het
+    `time_pattern minutes:'0'` en zou óók om 22:00:00 geactiveerd kunnen worden als 22 het
     goedkoopste uur in het 22-06 venster is. HA garandeert geen volgorde
     tussen twee time-triggers op exact hetzelfde tijdstip — bij watchdog-na-
     nachtuur uitvoering zou setpoint 57 (net gezet door nachtuur) direct
@@ -784,7 +784,7 @@
     EN heating_mode = Off (geen vorstbescherming actief in Luxtronik). Voorkomt
     dat een zomerse Off-stand vergeten wordt vóór de winter, met bevriezings-
     risico in vakanties of bij langdurige afwezigheid. Eénmalige notificatie
-    per dalingscyclus (trigger fired alleen bij overgang); mode: single.
+    per dalingscyclus (trigger wordt alleen bij overgang geactiveerd); mode: single.
   triggers:
     - trigger: numeric_state
       entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
@@ -894,8 +894,8 @@
     Vangnet: zet tapwater_overschot_lock uit als die >6 u aan staat zonder
     actieve hoge-setpoint cyclus (setpoint < 55 EN dhw_mode ≠ Party). Voorkomt
     dat een lock blijft hangen na een gemiste reset (HA-crash, storing, of
-    edge-case waarin een reset-trigger niet vuurt) — bij volgende vakantie
-    zou de Holidays-fallback in reset-automations dan ten onrechte vuren.
+    edge-case waarin een reset-trigger niet activeert) — bij volgende vakantie
+    zou de Holidays-fallback in reset-automations dan ten onrechte activeren.
     Orthogonaal aan tapwater_reset_na_bijverwarmen (die reset óók de setpoint);
     deze watchdog raakt setpoint/dhw_mode NIET aan en doet alleen lock-cleanup.
   triggers:
