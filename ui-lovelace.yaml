@@ -232,6 +232,8 @@ views:
         entities:
           - entity: sensor.envoy_122331077486_current_power_production
             name: Zonne-productie (W)
+          - entity: sensor.eigen_verbruik_zon
+            name: Eigen verbruik zon (W)
           - entity: sensor.zonneplan_current_electricity_tariff
             name: Huidig Tarief (€/kWh)
           - entity: sensor.zonneplan_current_tariff_group

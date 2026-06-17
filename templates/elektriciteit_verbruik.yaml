@@ -8,3 +8,20 @@
     unique_id: "export_365dagen"
     unit_of_measurement: "kWh"
     state: "{{ state_attr('sensor.solar_yearly', 'last_period') | float(0) }}"
+
+  # Eigen verbruik zon = Envoy-productie − teruglevering naar net.
+  # P1-meter: positief=afname, negatief=teruglevering. Bij afname (import)
+  # is teruglevering 0 en wordt alle productie zelf verbruikt.
+  - name: "Eigen verbruik zon"
+    unique_id: "eigen_verbruik_zon"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    availability: >
+      {{ has_value('sensor.envoy_122331077486_current_power_production')
+         and has_value('sensor.p1_meter_power') }}
+    state: >
+      {% set prod = states('sensor.envoy_122331077486_current_power_production') | float(0) %}
+      {% set p1   = states('sensor.p1_meter_power') | float(0) %}
+      {% set export = (-p1) if p1 < 0 else 0 %}
+      {{ [prod - export, 0] | max | round(0) }}
