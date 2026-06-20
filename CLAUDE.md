@@ -44,6 +44,7 @@ het tweede her-evalueert de templates die ze gebruiken.
 - `input_datetime.last_github_backup` — marker voor dagelijkse backup-poging
 - `input_boolean.vakantie_actief` — single source of truth voor vakantiemodus. Sync bidirectioneel met Luxtronik dhw_mode/heating_mode "Holidays" via `vakantie_sync_aan`/`vakantie_sync_uit`.
 - `input_boolean.tapwater_overschot_lock` — actief tijdens een opwarm-cyclus. Gezet door alle 5 start-automaties, gecheckt door 3 reset-automaties voor de "vakantie → Holidays" terugzet-actie, uitgezet door `tapwater_overschot_user_intervention` bij handmatige dhw_mode-wijziging.
+- `input_number.compressor_starts_dag` / `..._nacht` — KPI-tellers voor compressor off→on transities, gesplitst op tijdvenster (06:00-22:00 vs 22:00-06:00 lokaal). Doel: meten of wijzigingen aan rust-setpoint/hysterese de starts richting zonne-uren verschuiven. Geïncrementeerd door `automation.warmtepomp_tel_compressor_starts_dag_nacht`. Gebruikt `input_number` i.p.v. `counter` omdat counter geen reload-service heeft.
 
 ## Beslissings-binary_sensors (templates/tapwater_decisions.yaml)
 - `binary_sensor.zon_forecast_volgend_uur_voldoende` — `on` als som van 3 dakgedeeltes (`sensor.energy_next_hour[_2][_3]`) ≥ 2.0 kWh. Gebruikt door zonne-overschot automaties (klein + groot) als forecast-conditie. Attributen: `forecast_kwh`, `drempel_kwh`.
@@ -79,14 +80,14 @@ het tweede her-evalueert de templates die ze gebruiken.
 | P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C | Party | `tapwater_extra_opslag_groot_overschot` |
 | Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden | 62°C | Automatic | `tdi_legionella_solar_overschot` |
-| Autonome WP-cyclus | DHW ≤ setpoint − 8K (hysterese) | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
+| Autonome WP-cyclus | DHW ≤ setpoint − 10K (hysterese) | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
 
 ## Tapwater stop-events
 | Trigger | Conditie | Nieuwe setpoint | Nieuwe mode | Automatie |
 |---|---|---|---|---|
-| DHW > 57°C voor 2 min | 50 < setpoint < 60 **EN** P1 > -1500W | 48°C | (ongewijzigd) | `tapwater_reset_na_bijverwarmen` |
-| DHW > 58°C | mode = Party **EN** setpoint > 55 | 48°C | Automatic | `zonne_overschot_extra_opslag_reset` |
-| DHW > 60°C | mode = Automatic **EN** setpoint > 55 | 48°C | (ongewijzigd) | `tdi_einde_reset` — verwarming-switch uit bij warm weer |
+| DHW > 57°C voor 2 min | 50 < setpoint < 60 **EN** P1 > -1500W | 50°C | (ongewijzigd) | `tapwater_reset_na_bijverwarmen` |
+| DHW > 58°C | mode = Party **EN** setpoint > 55 | 50°C | Automatic | `zonne_overschot_extra_opslag_reset` |
+| DHW > 60°C | mode = Automatic **EN** setpoint > 55 | 50°C | (ongewijzigd) | `tdi_einde_reset` — verwarming-switch uit bij warm weer |
 | Autonome WP-stop | DHW ≥ setpoint | (ongewijzigd) | (ongewijzigd) | Luxtronik intern |
 
 ## Tapwater drempel-temperaturen
@@ -94,7 +95,7 @@ het tweede her-evalueert de templates die ze gebruiken.
 |---|---|
 | **41°C** | Noodgrens — bijverwarmen ongeacht tarief |
 | **47°C** | Bijverwarm-trigger (mits tarief OK) |
-| **48°C** | Rust-setpoint → autonome WP-start bij **40°C** (48-8K) |
+| **50°C** | Rust-setpoint → autonome WP-start bij **40°C** (50-10K) |
 | **52°C** | Bovengrens zonne-overschot start |
 | **54°C** | Bovengrens nachtuur start |
 | **57°C** | Target voor bijverwarmen/nacht/overschot + reset-trigger bijverwarmen |
@@ -102,7 +103,7 @@ het tweede her-evalueert de templates die ze gebruiken.
 | **60°C** | Reset-trigger TDI |
 | **62°C** | Target voor TDI + extra opslag |
 
-Luxtronik DHW-hysterese: 8K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`).
+Luxtronik DHW-hysterese: 10K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`).
 
 ## Vakantiemodus
 Single source of truth: `input_boolean.vakantie_actief`. Sync via `vakantie_sync_aan` (trigger: dhw_mode of heating_mode → Holidays, óf boolean → on) en `vakantie_sync_uit` (trigger: alleen boolean → off). Dhw_mode is géén sync-uit trigger omdat zonne-overschot die kortstondig naar Automatic wijzigt. Heating_mode `from: Holidays` is óók geen sync-uit trigger meer — sync_aan zet heating zelf van Holidays → Automatic, dat zou anders sync_uit direct triggeren (race).

@@ -27,6 +27,22 @@ input_number:
     unit_of_measurement: "°C"
     icon: mdi:content-save-cog
 
+  compressor_starts_dag:
+    name: "Compressor-starts overdag (06:00-22:00)"
+    initial: 0
+    min: 0
+    max: 99999
+    step: 1
+    icon: mdi:counter
+
+  compressor_starts_nacht:
+    name: "Compressor-starts 's nachts (22:00-06:00)"
+    initial: 0
+    min: 0
+    max: 99999
+    step: 1
+    icon: mdi:counter
+
 input_boolean:
   vakantie_actief:
     name: "Vakantiemodus actief"

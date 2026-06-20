@@ -99,8 +99,8 @@
     voor het komende uur (>= 2.0 kWh, som van alle 3 dakgedeeltes via
     forecast_solar). Dit voorkomt dat een cyclus halverwege uit het net gaat
     trekken als de zon onverwacht zakt.
-    Setpoint 57°C + dhw_mode Automatic: Luxtronik 8K-hysterese voorkomt korte
-    pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 49 na
+    Setpoint 57°C + dhw_mode Automatic: Luxtronik 10K-hysterese voorkomt korte
+    pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 47 na
     uren warmteverlies). Lagere aanvoer (richting 57 i.p.v. 62) levert ~10-15%
     betere COP over de cyclus dan een Party-cyclus naar 62.
     Reset loopt via tapwater_reset_na_bijverwarmen (DHW>57 voor 2 min, alleen
@@ -144,13 +144,13 @@
     Bij groot teruglevering (P1 < -4000W voor 10 min) en boiler al in
     zonne-overschot boost-modus (setpoint 55-60°C), verhoog setpoint naar
     62°C voor extra opslag. DHW-mode tijdelijk op "Party" om de hysterese
-    (8K) te overrulen — anders zou de WP niet opnieuw starten bij DHW>54.
+    (10K) te overrulen — anders zou de WP niet opnieuw starten bij DHW>52.
     Reset volgt via zonne_overschot_extra_opslag_reset bij DHW > 58°C
-    (zet setpoint→48 en mode→Automatic, of →Holidays tijdens vakantie).
+    (zet setpoint→50 en mode→Automatic, of →Holidays tijdens vakantie).
     Veiligheidsreset (interne delay 90 min): als de reguliere reset niet is
     geactiveerd binnen 90 min (bv. omdat user via display dhw_mode handmatig
     heeft gewijzigd zodat de Party-conditie in de reset-automation faalt),
-    forceer dan alsnog setpoint→48 + mode→Automatic. Voorkomt achtergebleven
+    forceer dan alsnog setpoint→50 + mode→Automatic. Voorkomt achtergebleven
     setpoint 62°C waardoor bij volgend waterverbruik een ongewenste 62°C-
     oplaadcyclus zou starten. Mode: single blokkeert in deze 90 min nieuwe
     boost-starts, wat acceptabel is (geen dubbele boost gewenst).
@@ -197,7 +197,7 @@
     - target:
         entity_id: number.luxtronik_280807_0450_dhw_target_temperature
       data:
-        value: 48
+        value: 50
       action: number.set_value
     - if:
       - condition: state
@@ -220,7 +220,7 @@
         notification_id: extra_opslag_safety_reset
         message: >-
           Reguliere reset op DHW>58°C is niet geactiveerd binnen 90 min na
-          start van groot-overschot boost. Setpoint geforceerd naar 48°C.
+          start van groot-overschot boost. Setpoint geforceerd naar 50°C.
           DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
           Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}.
   mode: single
@@ -282,7 +282,7 @@
 - id: tdi_einde_reset
   alias: "TDI: reset na cyclus"
   description: >
-    Reset na TDI-cyclus: setpoint terug naar 48°C zodra DHW ≥ 61°C voor 10 min.
+    Reset na TDI-cyclus: setpoint terug naar 50°C zodra DHW ≥ 61°C voor 10 min.
     De "voor 10 min" eis borgt Legionella-protocol (afdoding bij ≥60°C vereist
     minimaal 10-11 min houdtijd) — een eenmalig passeren van 60°C door stratificatie
     is onvoldoende. Drempel op 61°C (i.p.v. exact 62°C-setpoint) voorkomt dat
@@ -312,7 +312,7 @@
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      value: 48
+      value: 50
     action: number.set_value
   - if:
     - condition: state
@@ -348,7 +348,7 @@
   alias: "Tapwater: reset na extra opslag groot overschot"
   description: >
     Reset zonne-overschot extra opslag (setpoint 62°C, Party-mode): DHW-mode
-    terug naar Automatic en setpoint naar 48°C zodra DHW > 58°C. Drempel lager
+    terug naar Automatic en setpoint naar 50°C zodra DHW > 58°C. Drempel lager
     dan TDI-reset (60°C) omdat WP bij hoge DHW-temperaturen kan stagneren
     voordat 60°C bereikt wordt; setpoint 62 was alleen bedoeld om hysterese
     te overrulen, niet als hard streefgetal.
@@ -374,7 +374,7 @@
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      value: 48
+      value: 50
     action: number.set_value
   - action: input_boolean.turn_off
     target:
@@ -426,10 +426,10 @@
 - id: tapwater_reset_na_bijverwarmen
   alias: "Tapwater: reset na bijverwarmen"
   description: >
-    Zet setpoint terug naar 48°C zodra tapwater 57°C bereikt (setpoint bereikt).
+    Zet setpoint terug naar 50°C zodra tapwater 57°C bereikt (setpoint bereikt).
     Niet tijdens TDI (setpoint 62°C) en niet bij actief zonne-overschot (dan
-    blijven doorladen). 48°C als rust-setpoint voorkomt dat de Luxtronik autonoom
-    cycli draait onder 39°C (48 - 9K hysterese).
+    blijven doorladen). 50°C als rust-setpoint voorkomt dat de Luxtronik autonoom
+    cycli draait onder 40°C (50 - 10K hysterese).
     Avond-watchdog (21:55): de DHW>57-trigger is een transitie-trigger en kan
     gemist worden als P1<-1500 op moment van stijging (conditie faalt, daarna
     firet de trigger niet meer). Een tweede kans vlak vóór het nachtvenster
@@ -440,8 +440,8 @@
     goedkoopste uur in het 22-06 venster is. HA garandeert geen volgorde
     tussen twee time-triggers op exact hetzelfde tijdstip — bij watchdog-na-
     nachtuur uitvoering zou setpoint 57 (net gezet door nachtuur) direct
-    teruggezet worden naar 48 en de geplande nachtopwarming volledig missen.
-    21:55 garandeert een schone uitgangstoestand (setpoint 48, lock off) als
+    teruggezet worden naar 50 en de geplande nachtopwarming volledig missen.
+    21:55 garandeert een schone uitgangstoestand (setpoint 50, lock off) als
     het nachtvenster om 22:00:00 opengaat.
   triggers:
   - id: dhw_boven_57
@@ -475,7 +475,7 @@
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      value: 48
+      value: 50
     action: number.set_value
   - if:
     - condition: state
@@ -928,4 +928,77 @@
           cyclus (setpoint {{ states('number.luxtronik_280807_0450_dhw_target_temperature') }}°C,
           mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}). Lock
           uitgezet.
+  mode: single
+
+- id: compressor_starts_week_check_2026_06_27
+  alias: "Warmtepomp: weekcheck compressor-starts (2026-06-27)"
+  description: >
+    Eenmalige meting van compressor-starts dag/nacht verdeling 1 week na
+    rust-setpoint 48→50 en hysterese 8K→10K wijzigingen (2026-06-20). Doel:
+    bevestigen of starts naar zonne-uren zijn verschoven. Baseline pre-wijziging
+    (recorder 2026-06-10 t/m 2026-06-20): 60% dag / 40% nacht over 12 starts.
+    Trigger via dagelijkse 11:00 + datum-conditie, dus fire-once op 2026-06-27.
+    Automation mag na uitvoering verwijderd worden (dode code na die datum).
+  triggers:
+  - trigger: time
+    at: "11:00:00"
+  conditions:
+  - condition: template
+    value_template: "{{ now().strftime('%Y-%m-%d') == '2026-06-27' }}"
+  actions:
+  - variables:
+      dag: "{{ states('input_number.compressor_starts_dag') | int(0) }}"
+      nacht: "{{ states('input_number.compressor_starts_nacht') | int(0) }}"
+      totaal: "{{ dag + nacht }}"
+      nacht_pct: "{{ (nacht / totaal * 100) | round(0) if totaal > 0 else 0 }}"
+      dag_pct: "{{ 100 - nacht_pct }}"
+      gem_per_dag: "{{ (totaal / 7) | round(1) }}"
+      advies: >-
+        {% if totaal == 0 %}Geen starts gemeten — controleer of de teller-automation actief was.
+        {% elif nacht_pct <= 40 %}Nacht-aandeel ({{ nacht_pct }}%) ≤ 40% baseline — geen winst van 10K+50, overweeg 12K+50 voor echte solar-shift.
+        {% elif nacht_pct > 50 %}Nacht-aandeel ({{ nacht_pct }}%) hoger dan baseline — ongunstig, overweeg terug naar 8K+48.
+        {% else %}Nacht-aandeel ({{ nacht_pct }}%) rond baseline — stabiel, beslissing pending op meer data.
+        {% endif %}
+  - action: persistent_notification.create
+    data:
+      title: "Compressor-starts weekmeting"
+      notification_id: compressor_starts_week_check
+      message: >-
+        Periode 2026-06-20 t/m 2026-06-27 (7 dagen).
+        Totaal: {{ totaal }} starts ({{ gem_per_dag }}/dag).
+        Dag (06-22u): {{ dag }} ({{ dag_pct }}%) | Nacht (22-06u): {{ nacht }} ({{ nacht_pct }}%).
+        Baseline pre-wijziging: 60% dag / 40% nacht over 1,2 starts/dag.
+        Conclusie: {{ advies }}
+  mode: single
+
+- id: compressor_starts_counter
+  alias: "Warmtepomp: tel compressor-starts dag/nacht"
+  description: >
+    Telt elke compressor off→on transitie en split op tijdvenster (lokale tijd):
+    dag = 06:00-22:00, nacht = 22:00-06:00. KPI om effect van rust-setpoint/
+    hysterese-wijzigingen op solar-shift te meten. Gebruikt input_number i.p.v.
+    counter omdat counter geen reload-service heeft (zou core restart vereisen).
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    from: "off"
+    to: "on"
+  actions:
+  - choose:
+    - conditions:
+      - condition: time
+        after: "06:00:00"
+        before: "22:00:00"
+      sequence:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.compressor_starts_dag
+        data:
+          value: "{{ states('input_number.compressor_starts_dag') | int(0) + 1 }}"
+    default:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.compressor_starts_nacht
+      data:
+        value: "{{ states('input_number.compressor_starts_nacht') | int(0) + 1 }}"
   mode: single
