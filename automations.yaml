@@ -239,7 +239,7 @@
   - condition: template
     value_template: >
       {% set last = states('input_datetime.tdi_laatste_start') %}
-      {{ last in ('unknown', 'unavailable') or (now() - as_datetime(last)).days >= 7 }}
+      {{ last in ('unknown', 'unavailable') or (now().date() - as_datetime(last).date()).days >= 7 }}
   - condition: state
     entity_id: binary_sensor.goedkoopste_tdi_uur_nu
     state: "on"
@@ -728,7 +728,7 @@
         value_template: >
           {% set last = states('input_datetime.tdi_laatste_start') %}
           {{ last in ('unknown', 'unavailable')
-             or (now() - as_datetime(last)).days >= 7 }}
+             or (now().date() - as_datetime(last).date()).days >= 7 }}
       then:
       - action: input_datetime.set_datetime
         target:
