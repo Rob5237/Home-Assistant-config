@@ -77,10 +77,12 @@ het tweede her-evalueert de templates die ze gebruiken.
 |---|---|---|---|---|
 | DHW < 47°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 41°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
 | Heel uur 22:00-06:00 | goedkoopste nachtuur **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
-| P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
+| P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C | Party | `tapwater_extra_opslag_groot_overschot` |
 | Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden | 62°C | Automatic | `tdi_legionella_solar_overschot` |
 | Autonome WP-cyclus | DHW ≤ setpoint − 10K (hysterese) | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
+
+De `dhw_mode ≠ Party` guard op klein-overschot voorkomt dat een zojuist gestarte groot-overschot boost (setpoint 62 + Party) door klein-overschot wordt overschreven (setpoint→57 + mode→Automatic). Zonder die guard breekt de Party→Automatic-overschrijving `zonne_overschot_extra_opslag_reset` (conditie `mode = Party`) en degradeert de boost-target.
 
 ## Tapwater stop-events
 | Trigger | Conditie | Nieuwe setpoint | Nieuwe mode | Automatie |

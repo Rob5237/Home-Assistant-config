@@ -123,6 +123,14 @@
   - condition: state
     entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
     state: "on"
+  # Niet klein-overschot draaien als groot-overschot net Party heeft gezet:
+  # anders zou setpoint 62→57 en mode Party→Automatic worden overschreven,
+  # wat de zonne_overschot_extra_opslag_reset (DHW>58 + mode=Party) breekt.
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      state: Party
   actions:
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
