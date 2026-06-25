@@ -97,13 +97,16 @@
   description: >
     Verwarm boiler met WP bij teruglevering >= 2000W EN voldoende zon-forecast
     voor het komende uur (>= 2.0 kWh, som van alle 3 dakgedeeltes via
-    forecast_solar). Dit voorkomt dat een cyclus halverwege uit het net gaat
-    trekken als de zon onverwacht zakt.
+    forecast_solar) EN actuele Enphase-productie >= 1500W. De forecast is
+    een uurgemiddelde dat een wolkenfront aan het begin van het uur niet
+    direct registreert; de realtime Enphase-check is een tweede guard die
+    voorkomt dat een cyclus start vlak nadat de zon plots wegvalt en daarna
+    uit het net gaat trekken tot DHW > 57.
     Setpoint 57°C + dhw_mode Automatic: Luxtronik 10K-hysterese voorkomt korte
     pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 47 na
     uren warmteverlies). Lagere aanvoer (richting 57 i.p.v. 62) levert ~10-15%
     betere COP over de cyclus dan een Party-cyclus naar 62.
-    Reset loopt via tapwater_reset_na_bijverwarmen (DHW>57 voor 2 min, alleen
+    Reset loopt via tapwater_reset_na_bijverwarmen (DHW>57 voor 1 min, alleen
     bij solar>-1500 — bij blijvend overschot blijft setpoint 57 staan).
     Escalatie naar 62°C verloopt via tapwater_extra_opslag_groot_overschot
     (P1<-4000W voor 10 min, conditie setpoint 55-60 — past nu).
@@ -123,6 +126,9 @@
   - condition: state
     entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
     state: "on"
+  - condition: numeric_state
+    entity_id: sensor.envoy_122331077486_current_power_production
+    above: 1500
   # Niet klein-overschot draaien als groot-overschot net Party heeft gezet:
   # anders zou setpoint 62→57 en mode Party→Automatic worden overschreven,
   # wat de zonne_overschot_extra_opslag_reset (DHW>58 + mode=Party) breekt.
@@ -155,13 +161,16 @@
     (10K) te overrulen — anders zou de WP niet opnieuw starten bij DHW>52.
     Reset volgt via zonne_overschot_extra_opslag_reset bij DHW > 58°C
     (zet setpoint→50 en mode→Automatic, of →Holidays tijdens vakantie).
-    Veiligheidsreset (interne delay 90 min): als de reguliere reset niet is
-    geactiveerd binnen 90 min (bv. omdat user via display dhw_mode handmatig
+    Veiligheidsreset (interne delay 45 min): als de reguliere reset niet is
+    geactiveerd binnen 45 min (bv. omdat user via display dhw_mode handmatig
     heeft gewijzigd zodat de Party-conditie in de reset-automation faalt),
     forceer dan alsnog setpoint→50 + mode→Automatic. Voorkomt achtergebleven
     setpoint 62°C waardoor bij volgend waterverbruik een ongewenste 62°C-
-    oplaadcyclus zou starten. Mode: single blokkeert in deze 90 min nieuwe
-    boost-starts, wat acceptabel is (geen dubbele boost gewenst).
+    oplaadcyclus zou starten. 45 min (was 90) volstaat voor een normale
+    boost-cyclus naar 62°C (typisch 30-40 min vanaf DHW ~52); een kortere
+    safety verkleint het pendel-venster waarin een onverwacht waterverbruik
+    de WP opnieuw naar 62 zou laten lopen. Mode: single blokkeert in deze 45
+    min nieuwe boost-starts, wat acceptabel is (geen dubbele boost gewenst).
   triggers:
   - entity_id: sensor.p1_meter_power
     below: -4000
@@ -194,7 +203,7 @@
     target:
       entity_id: input_boolean.tapwater_overschot_lock
   - delay:
-      minutes: 90
+      minutes: 45
   # Veiligheidsreset: setpoint nog steeds > 55 betekent reguliere reset
   # is niet geactiveerd (bv. user heeft Party-mode handmatig gewijzigd).
   - if:
@@ -227,16 +236,23 @@
         title: "Zonne-overschot boost: veiligheidsreset"
         notification_id: extra_opslag_safety_reset
         message: >-
-          Reguliere reset op DHW>58°C is niet geactiveerd binnen 90 min na
+          Reguliere reset op DHW>58°C is niet geactiveerd binnen 45 min na
           start van groot-overschot boost. Setpoint geforceerd naar 50°C.
           DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
           Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}.
   mode: single
 - id: tdi_legionella_solar_overschot
   alias: "TDI: legionella-cyclus bij laagste daguur"
-  description: 'Elk heel uur overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
+  description: >
+    Elk heel uur overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
     resterende uur is op basis van Zonneplan tarieven. Klokprogramma 09:30-16:00
-    (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).'
+    (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).
+
+    dhw_mode wordt op Party gezet (i.p.v. Automatic) om de 10K-hysterese te
+    negeren: bij DHW al > 52°C door een eerdere zonne-cyclus zou Automatic +
+    setpoint 62 niet starten (62-10=52), en de TDI-cyclus zou pas later op de
+    dag autonoom beginnen — buiten het goedkoopste-uur venster. Reset via
+    tdi_einde_reset zet mode terug naar Automatic.
   triggers:
   - trigger: time_pattern
     minutes: '0'
@@ -268,7 +284,7 @@
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
     data:
-      option: Automatic
+      option: Party
     action: select.select_option
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
@@ -298,10 +314,16 @@
     onder setpoint.
     Verwarmingsswitch alleen uit als buitentemp ≥ stookdrempel — anders zou
     ruimteverwarming bij koud weer ten onrechte uitgaan na TDI.
-    Onderscheid van zonne-overschot extra opslag (zelfde setpoint 62°C, maar
-    Party-mode) via DHW-mode = Automatic.
+    TDI start nu in Party-mode (om 10K-hysterese te negeren bij hoge DHW),
+    dus de mode-conditie staat zowel Party als Automatic toe. Onderscheid van
+    zonne-overschot extra-opslag (ook Party, ook setpoint 62): de
+    zonne_overschot_extra_opslag_reset triggert al bij DHW > 58 en zou
+    setpoint al naar 50 hebben gezet voordat DHW > 61 voor 10 min haalbaar
+    is — dus in praktijk firet deze automation alleen na een TDI-cyclus.
     Setpoint > 60 voorkomt onbedoelde trigger bij gewone bijverwarm-cycli
     (setpoint 57) waar restwarmte/overshoot DHW boven 60°C kan duwen.
+    Actie zet dhw_mode altijd terug naar Automatic (idempotent als al
+    Automatic).
   triggers:
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
@@ -310,9 +332,6 @@
       minutes: 10
     trigger: numeric_state
   conditions:
-  - condition: state
-    entity_id: select.luxtronik_280807_0450_dhw_mode
-    state: Automatic
   - condition: numeric_state
     entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     above: 60
@@ -322,19 +341,15 @@
     data:
       value: 50
     action: number.set_value
-  - if:
-    - condition: state
-      entity_id: input_boolean.vakantie_actief
-      state: "on"
-    - condition: state
-      entity_id: input_boolean.tapwater_overschot_lock
-      state: "on"
-    then:
-    - target:
-        entity_id: select.luxtronik_280807_0450_dhw_mode
-      data:
-        option: Holidays
-      action: select.select_option
+  # Dhw_mode terug: Holidays als vakantie + lock=on, anders Automatic. Single
+  # write i.p.v. eerst Automatic dan eventueel Holidays.
+  - target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: >-
+        {% if is_state('input_boolean.vakantie_actief', 'on')
+              and is_state('input_boolean.tapwater_overschot_lock', 'on') %}Holidays{% else %}Automatic{% endif %}
+    action: select.select_option
   - if:
     - condition: state
       entity_id: input_boolean.vakantie_actief
@@ -438,10 +453,18 @@
     Niet tijdens TDI (setpoint 62°C) en niet bij actief zonne-overschot (dan
     blijven doorladen). 50°C als rust-setpoint voorkomt dat de Luxtronik autonoom
     cycli draait onder 40°C (50 - 10K hysterese).
+    Sneller-detectie via for: 1 min (was 2 min) verlaagt de kans dat een korte
+    overshoot-piek gemist wordt; drempel 57 blijft bewust staan zodat de trigger
+    alleen na bereiken setpoint firet (lager zou cyclus halverwege afbreken).
     Avond-watchdog (21:55): de DHW>57-trigger is een transitie-trigger en kan
     gemist worden als P1<-1500 op moment van stijging (conditie faalt, daarna
     firet de trigger niet meer). Een tweede kans vlak vóór het nachtvenster
     reset alsnog wanneer lock=on en setpoint nog 50-60.
+    Dag-watchdog (13:55) doet hetzelfde vlak vóór het TDI-venster (start typisch
+    14:00 of later op het goedkoopste uur). Extra guard `DHW > 56`: de
+    dag-watchdog mag een actief lopende ochtend-cyclus niet afbreken
+    (avond is dat geen risico — om 21:55 zijn alle cycli normaal lang
+    afgerond).
     Tijd is bewust 21:55 i.p.v. 22:00 om race-condition met
     `tapwater_goedkoopste_nachtuur` te vermijden: die triggert op
     `time_pattern minutes:'0'` en zou óók om 22:00:00 geactiveerd kunnen worden als 22 het
@@ -450,17 +473,20 @@
     nachtuur uitvoering zou setpoint 57 (net gezet door nachtuur) direct
     teruggezet worden naar 50 en de geplande nachtopwarming volledig missen.
     21:55 garandeert een schone uitgangstoestand (setpoint 50, lock off) als
-    het nachtvenster om 22:00:00 opengaat.
+    het nachtvenster om 22:00:00 opengaat. 13:55 ligt analoog vóór het TDI-uur.
   triggers:
   - id: dhw_boven_57
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 57
     for:
-      minutes: 2
+      minutes: 1
     trigger: numeric_state
   - id: avond_watchdog
     trigger: time
     at: "21:55:00"
+  - id: dag_watchdog
+    trigger: time
+    at: "13:55:00"
   conditions:
   - condition: or
     conditions:
@@ -473,6 +499,16 @@
       - condition: state
         entity_id: input_boolean.tapwater_overschot_lock
         state: "on"
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: dag_watchdog
+      - condition: state
+        entity_id: input_boolean.tapwater_overschot_lock
+        state: "on"
+      - condition: numeric_state
+        entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+        above: 56
   - condition: template
     value_template: >
       {% set setpoint = state_attr('water_heater.luxtronik_280807_0450_domestic_water',
@@ -1009,4 +1045,72 @@
         entity_id: input_number.compressor_starts_nacht
       data:
         value: "{{ states('input_number.compressor_starts_nacht') | int(0) + 1 }}"
+  mode: single
+
+- id: warmtepomp_korte_cyclus_detector
+  alias: "Warmtepomp: korte cyclus detector (<10 min)"
+  description: >
+    Detecteert pendelen: notificeert wanneer een compressor on-fase < 10 min
+    duurde. Berekent duur tussen off→on (trigger.from_state.last_changed) en
+    on→off (trigger.to_state.last_changed). Bij Luxtronik DHW-cycli is een
+    gezonde aan-fase typisch 25-60 min (afhankelijk van setpoint en DHW-start
+    temperatuur); aan-fasen <10 min wijzen op een instelling die
+    hysterese-overrule te kort houdt, of conflicterende automaties die
+    setpoint mid-cyclus terug naar 50 zetten. Twee notificaties binnen 24u
+    is een signaal om instellingen te herzien (Party-safety, reset-timing).
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    from: "on"
+    to: "off"
+  conditions:
+  - condition: template
+    value_template: >
+      {% set start = trigger.from_state.last_changed %}
+      {% set einde = trigger.to_state.last_changed %}
+      {{ start is not none and einde is not none
+         and (einde - start).total_seconds() < 600 }}
+  actions:
+  - variables:
+      duur_sec: "{{ (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() | int }}"
+      duur_min: "{{ (duur_sec / 60) | round(1) }}"
+  - action: persistent_notification.create
+    data:
+      title: "⚠ Warmtepomp: korte cyclus ({{ duur_min }} min)"
+      notification_id: "wp_korte_cyclus_{{ now().strftime('%Y%m%d_%H%M') }}"
+      message: >-
+        Compressor aan-fase was {{ duur_min }} min (< 10 min drempel).
+        DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
+        Setpoint {{ states('number.luxtronik_280807_0450_dhw_target_temperature') }}°C |
+        Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }} |
+        Buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C |
+        Aanvoer {{ states('sensor.luxtronik_280807_0450_flow_in_temperature') }}°C.
+        Bij herhaling: controleer reset-automaties en Party-safety timing.
+  mode: parallel
+  max: 3
+
+- id: compressor_starts_monthly_reset
+  alias: "Warmtepomp: maandelijkse reset compressor-tellers"
+  description: >
+    Reset compressor_starts_dag en _nacht naar 0 op de 1e van elke maand om
+    00:01. Houdt KPI bruikbaar voor maand-over-maand trending. Trigger om
+    00:01 (niet 00:00) om eventuele dagovergangs-jitter in time-triggers te
+    vermijden.
+  triggers:
+  - trigger: time
+    at: "00:01:00"
+  conditions:
+  - condition: template
+    value_template: "{{ now().day == 1 }}"
+  actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.compressor_starts_dag
+    data:
+      value: 0
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.compressor_starts_nacht
+    data:
+      value: 0
   mode: single
