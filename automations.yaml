@@ -103,7 +103,7 @@
     voorkomt dat een cyclus start vlak nadat de zon plots wegvalt en daarna
     uit het net gaat trekken tot DHW > 57.
     Setpoint 57°C + dhw_mode Automatic: Luxtronik 10K-hysterese voorkomt korte
-    pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 47 na
+    pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 43 na
     uren warmteverlies). Lagere aanvoer (richting 57 i.p.v. 62) levert ~10-15%
     betere COP over de cyclus dan een Party-cyclus naar 62.
     Reset loopt via tapwater_reset_na_bijverwarmen (DHW>57 voor 1 min, alleen
@@ -122,7 +122,7 @@
   conditions:
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 52
+    below: 47
   - condition: state
     entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
     state: "on"
@@ -406,11 +406,14 @@
 - id: tapwater_bijverwarmen
   alias: "Tapwater: bijverwarmen bij lage temperatuur"
   description: >
-    Verwarm tapwater naar 57°C als het onder 47°C zakt. Blokkeert bij hoog tarief
+    Verwarm tapwater naar 57°C als het onder 43°C zakt. Blokkeert bij hoog tarief
     (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 41°C).
+    Drempel 43°C i.p.v. hoger geeft de boiler ruimte om dieper te zakken (betere
+    COP per cyclus, minder pendel). Buffer tot autonome Luxtronik-start (40°C =
+    rust-setpoint 50 − 10K hysterese) is 3°C, ruim genoeg gegeven de 5-min `for:`.
   triggers:
   - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 47
+    below: 43
     for:
       minutes: 5
     trigger: numeric_state
