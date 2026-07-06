@@ -375,10 +375,26 @@
     dan TDI-reset (60°C) omdat WP bij hoge DHW-temperaturen kan stagneren
     voordat 60°C bereikt wordt; setpoint 62 was alleen bedoeld om hysterese
     te overrulen, niet als hard streefgetal.
+    Avond-watchdog (21:55): de DHW>58-trigger is een transitie-trigger en
+    vereist een stijgende flank. Als DHW bij start van Party+62 al ≥58 is
+    (bv. door eerdere zonne-boost, of een TDI-cyclus die niet doorstookt
+    omdat de tank al warm was), firet de trigger nooit en blijft Party+62
+    hangen tot de tank ver genoeg is afgekoeld — soms >12u later, buiten
+    het bedoelde venster. De watchdog vangt dit op vlak vóór het nachtuur-
+    venster (22:00) zodat de nacht met schone setpoint 50/Automatic begint.
+    Tijd 21:55 i.p.v. 22:00 om race met `tapwater_goedkoopste_nachtuur`
+    (time_pattern minutes:'0') te vermijden — analoog aan
+    `tapwater_reset_na_bijverwarmen`. Lock=on borgt dat we alleen een echte
+    hangende cyclus resetten en niet een user-gezette Party (dan is de lock
+    door `tapwater_overschot_user_intervention` al uit).
   triggers:
-  - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+  - id: dhw_boven_58
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     above: 58
     trigger: numeric_state
+  - id: avond_watchdog
+    trigger: time
+    at: "21:55:00"
   conditions:
   - condition: state
     entity_id: select.luxtronik_280807_0450_dhw_mode
@@ -386,6 +402,17 @@
   - condition: numeric_state
     entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     above: 55
+  - condition: or
+    conditions:
+    - condition: trigger
+      id: dhw_boven_58
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: avond_watchdog
+      - condition: state
+        entity_id: input_boolean.tapwater_overschot_lock
+        state: "on"
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode

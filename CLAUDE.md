@@ -94,7 +94,7 @@ De realtime Enphase-check (`> 1500W`) op klein-overschot is een tweede guard naa
 | Trigger | Conditie | Nieuwe setpoint | Nieuwe mode | Automatie |
 |---|---|---|---|---|
 | DHW > 57°C voor 1 min **OF** 13:55 (lock=on, DHW>56) **OF** 21:55 (lock=on) | 50 < setpoint < 60 **EN** P1 > -1500W | 50°C | (ongewijzigd) | `tapwater_reset_na_bijverwarmen` |
-| DHW > 58°C | mode = Party **EN** setpoint > 55 | 50°C | Automatic (of Holidays) | `zonne_overschot_extra_opslag_reset` |
+| DHW > 58°C **OF** 21:55 (lock=on) | mode = Party **EN** setpoint > 55 | 50°C | Automatic (of Holidays) | `zonne_overschot_extra_opslag_reset` |
 | DHW > 61°C voor 10 min | setpoint > 60 | 50°C | Automatic (of Holidays) | `tdi_einde_reset` — verwarming-switch uit bij warm weer, geen mode-check meer (TDI loopt nu in Party) |
 | Autonome WP-stop | DHW ≥ setpoint | (ongewijzigd) | (ongewijzigd) | Luxtronik intern |
 
