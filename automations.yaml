@@ -103,9 +103,15 @@
     voorkomt dat een cyclus start vlak nadat de zon plots wegvalt en daarna
     uit het net gaat trekken tot DHW > 57.
     Setpoint 57°C + dhw_mode Automatic: Luxtronik 10K-hysterese voorkomt korte
-    pendel-cycli vanzelf (na bereiken setpoint zakt DHW pas weer naar 43 na
-    uren warmteverlies). Lagere aanvoer (richting 57 i.p.v. 62) levert ~10-15%
-    betere COP over de cyclus dan een Party-cyclus naar 62.
+    pendel-cycli vanzelf. Lagere aanvoer (richting 57 i.p.v. 62) levert
+    ~10-15% betere COP over de cyclus dan een Party-cyclus naar 62.
+    DHW-drempel 52°C (was 47): analyse 2 weken toonde ~41 kWh/dag netto
+    teruglevering en slechts 4-5 kWh DHW-verbruik. Cyclusstarts bij DHW 43-46
+    (bijverwarm-noodgeval) betekenden 14K delta-T = lange cyclus in koude
+    tank = COP 2.3-2.7. Met drempel 52 vangt de klein-overschot cyclus
+    warmteverlies eerder op (delta-T 5-10K), betere gem. COP en groter
+    noodbuffer. Verwacht ~1 extra cyclus/dag; blijft ruim onder pendel-drempel
+    (hysterese 10K = min. delta 10K tussen starts).
     Reset loopt via tapwater_reset_na_bijverwarmen (DHW>57 voor 1 min, alleen
     bij solar>-1500 — bij blijvend overschot blijft setpoint 57 staan).
     Escalatie naar 62°C verloopt via tapwater_extra_opslag_groot_overschot
@@ -122,7 +128,7 @@
   conditions:
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 47
+    below: 52
   - condition: state
     entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
     state: "on"
@@ -253,6 +259,18 @@
     setpoint 62 niet starten (62-10=52), en de TDI-cyclus zou pas later op de
     dag autonoom beginnen — buiten het goedkoopste-uur venster. Reset via
     tdi_einde_reset zet mode terug naar Automatic.
+
+    Startguard DHW ≥ 58: op 07-05 zetten we Party+62 met DHW al 58°C door
+    eerdere zonne-boost. Empirisch: Party respecteert wél 10K-hysterese in
+    deze Luxtronik-firmware, dus compressor startte pas 16u later bij DHW ~52
+    (autonoom, niet op goedkoopste uur). Party+62 hing overnight, opgelost
+    door 21:55 watchdog maar niet ideaal. Nieuwe aanpak: bij DHW ≥ 58 slaan
+    we het setpoint-boost over (WP zou toch niet starten binnen goedkoopste
+    uur), tdi_laatste_start-update slaan we óók over zodat de TDI-check
+    volgende dag opnieuw firet zodra DHW voldoende is gezakt (< 58 = ~2-3
+    dagen later door natuurlijk warmteverlies). Aanname: DHW ≥ 58 hoge deel
+    van de tank betekent recente warmtecyclus, legionella-risico beperkt tot
+    volgende poging.
   triggers:
   - trigger: time_pattern
     minutes: '0'
@@ -267,6 +285,9 @@
   - condition: state
     entity_id: binary_sensor.goedkoopste_tdi_uur_nu
     state: "on"
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 58
   actions:
   - action: input_datetime.set_datetime
     target:
@@ -433,14 +454,17 @@
 - id: tapwater_bijverwarmen
   alias: "Tapwater: bijverwarmen bij lage temperatuur"
   description: >
-    Verwarm tapwater naar 57°C als het onder 43°C zakt. Blokkeert bij hoog tarief
+    Verwarm tapwater naar 57°C als het onder 46°C zakt. Blokkeert bij hoog tarief
     (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 41°C).
-    Drempel 43°C i.p.v. hoger geeft de boiler ruimte om dieper te zakken (betere
-    COP per cyclus, minder pendel). Buffer tot autonome Luxtronik-start (40°C =
-    rust-setpoint 50 − 10K hysterese) is 3°C, ruim genoeg gegeven de 5-min `for:`.
+    Drempel 46°C (was 43): 3°C hogere drempel geeft grotere douche-buffer
+    (~50L trekking = ~5-6°C drop; van 46 kom je op 40, van 43 op 37 = koud).
+    Impact op solar-benutting minimaal — bijverwarmen firet alleen als het
+    tarief laag is (bij overschot ligt tarief typisch laag), en klein-overschot
+    (nu drempel 52) vangt de meeste warmteverlies al eerder op. Emergency
+    <41°C ongewijzigd.
   triggers:
   - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 43
+    below: 46
     for:
       minutes: 5
     trigger: numeric_state
