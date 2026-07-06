@@ -1,0 +1,734 @@
+"""SolarCharger number platform."""
+
+import logging
+
+from homeassistant import config_entries, core
+from homeassistant.components.number import (
+    NumberDeviceClass,
+    NumberEntityDescription,
+    NumberExtraStoredData,
+    NumberMode,
+    RestoreNumber,
+)
+from homeassistant.config_entries import ConfigSubentry
+from homeassistant.const import (
+    DEGREE,
+    PERCENTAGE,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfTime,
+)
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+
+from .config.config_utils import get_device_config_default_value
+from .const import (
+    DOMAIN,
+    NUMBER,
+    NUMBER_CHARGE_LIMIT_FRIDAY,
+    NUMBER_CHARGE_LIMIT_MONDAY,
+    NUMBER_CHARGE_LIMIT_SATURDAY,
+    NUMBER_CHARGE_LIMIT_SUNDAY,
+    NUMBER_CHARGE_LIMIT_THURSDAY,
+    NUMBER_CHARGE_LIMIT_TUESDAY,
+    NUMBER_CHARGE_LIMIT_WEDNESDAY,
+    NUMBER_CHARGEE_CHARGE_LIMIT,
+    NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
+    NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
+    NUMBER_CHARGER_EFFECTIVE_VOLTAGE,
+    NUMBER_CHARGER_MAX_CURRENT,
+    NUMBER_CHARGER_MAX_SPEED,
+    NUMBER_CHARGER_MIN_CURRENT,
+    NUMBER_CHARGER_MIN_WORKABLE_CURRENT,
+    NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD,
+    NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
+    NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
+    NUMBER_CHARGER_PRIORITY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY,
+    NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY,
+    NUMBER_MAX_CONSUMED_ENERGY_LIMIT,
+    NUMBER_OCPP_PROFILE_ID,
+    NUMBER_OCPP_PROFILE_STACK_LEVEL,
+    NUMBER_POWER_MONITOR_DURATION,
+    NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
+    NUMBER_SUNSET_ELEVATION_END_TRIGGER,
+    NUMBER_WAIT_CHARGEE_LIMIT_CHANGE,
+    NUMBER_WAIT_CHARGEE_UPDATE_HA,
+    NUMBER_WAIT_CHARGEE_WAKEUP,
+    NUMBER_WAIT_CHARGER_AMP_CHANGE,
+    NUMBER_WAIT_CHARGER_OFF,
+    NUMBER_WAIT_CHARGER_ON,
+)
+from .entity import (
+    SolarChargerEntity,
+    SolarChargerEntityType,
+    get_single_entity_type,
+    is_create_entity,
+)
+from .modules.coordinator import SolarChargerCoordinator
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+_LOGGER = logging.getLogger(__name__)
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+class SolarChargerNumberEntity(SolarChargerEntity, RestoreNumber):
+    """SolarCharger number entity."""
+
+    def __init__(
+        self,
+        config_item: str,
+        subentry: ConfigSubentry,
+        entity_type: SolarChargerEntityType,
+        desc: NumberEntityDescription,
+    ) -> None:
+        """Initialize the number."""
+        SolarChargerEntity.__init__(self, config_item, subentry, entity_type)
+        self.set_entity_id(NUMBER, config_item)
+        self.set_entity_unique_id(NUMBER, config_item)
+        self.entity_description = desc
+
+    # ----------------------------------------------------------------------------
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value."""
+        self._attr_native_value = value
+
+        # Should force state update here, otherwise update by polling only and be delayed by few seconds.
+        self.update_ha_state()
+
+    # ----------------------------------------------------------------------------
+    # See https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-event-setup/
+    async def async_added_to_hass(self) -> None:
+        """Entity about to be added to hass. Restore state and subscribe for events here if needed."""
+
+        await super().async_added_to_hass()
+
+        restore_num: (
+            NumberExtraStoredData | None
+        ) = await self.async_get_last_number_data()
+        if restore_num is not None and restore_num.native_value is not None:
+            await self.async_set_native_value(restore_num.native_value)
+            _LOGGER.debug(
+                "Restored %s: %s",
+                self.entity_id,
+                self._attr_native_value,
+            )
+        else:
+            _LOGGER.debug("No restored data for %s", self.entity_id)
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+class SolarChargerNumberConfigEntity(SolarChargerNumberEntity):
+    """SolarCharger configurable number entity."""
+
+    #     _entity_key = ENTITY_KEY_CHARGER_EFFECTIVE_VOLTAGE
+    #     _attr_entity_category = EntityCategory.CONFIG
+    #     _attr_native_min_value = 100.0
+    #     _attr_native_max_value = 700.0
+    #     _attr_native_step = 1.0
+    #     _attr_native_unit_of_measurement = "V"
+    #     _attr_mode = NumberMode.BOX
+    #     # _attr_mode = NumberMode.AUTO
+
+    def __init__(
+        self,
+        config_item: str,
+        subentry: ConfigSubentry,
+        entity_type: SolarChargerEntityType,
+        desc: NumberEntityDescription,
+        default_val: float | None,
+    ) -> None:
+        """Initialise number."""
+        super().__init__(config_item, subentry, entity_type, desc)
+
+        # self._attr_native_step = 1.0
+        self._attr_mode = NumberMode.BOX
+
+        self._attr_has_entity_name = True
+
+        # Set default value if value is not set.
+        if self.value is None:
+            self._attr_native_value = default_val
+            self.update_ha_state()
+
+    # ----------------------------------------------------------------------------
+    async def async_set_native_value(self, value: float) -> None:
+        """Set new value."""
+        await super().async_set_native_value(value)
+
+    # ----------------------------------------------------------------------------
+    # TODO: Think about using dedicated coordinator to update values in local device.
+    # Custom EntityDescrption can contain the key to update value in dictionary.
+    # Coordinator need to determine if device is using local or global config.
+    # self.coordinator.max_charging_current = value
+    # await self.coordinator.update_configuration()
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+CONFIG_NUMBER_LIST: tuple[
+    tuple[
+        str,
+        SolarChargerEntityType | list[SolarChargerEntityType],
+        NumberEntityDescription,
+    ],
+    ...,
+] = (
+    #####################################
+    # Global defaults or local device entities
+    # Hidden if not device entities, except for global defaults.
+    # entity_category=EntityCategory.CONFIG
+    #####################################
+    # Used as local device entity for OCPP only. Others come with own entity.
+    (
+        NUMBER_CHARGEE_CHARGE_LIMIT,
+        [
+            SolarChargerEntityType.TYPE_LOCAL_OCPP,
+            SolarChargerEntityType.TYPE_LOCAL_USER_CUSTOM,
+        ],
+        NumberEntityDescription(
+            key=NUMBER_CHARGEE_CHARGE_LIMIT,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    # Used as local device entity.
+    # OCPP comes with own entity, but should also use this to avoid reading from OCPP.
+    # So will make this configurable.
+    (
+        NUMBER_CHARGER_MAX_CURRENT,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_MAX_CURRENT,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.CURRENT,
+            native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+            native_min_value=0.0,
+            native_max_value=100.0,
+            native_step=0.01,
+        ),
+    ),
+    #####################################
+    # Local device config or control entities
+    # Must haves, ie. not hidden for all
+    # entity_category=None
+    # entity_category=EntityCategory.CONFIG
+    #####################################
+    (
+        NUMBER_CHARGER_MAX_SPEED,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_MAX_SPEED,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement="%/hr",
+            native_min_value=0.0,
+            native_max_value=100.0,
+            native_step=0.001,
+        ),
+    ),
+    (
+        NUMBER_CHARGER_MIN_CURRENT,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_MIN_CURRENT,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.CURRENT,
+            native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+            native_min_value=0.0,
+            native_max_value=100.0,
+            native_step=0.01,
+        ),
+    ),
+    (
+        NUMBER_CHARGER_MIN_WORKABLE_CURRENT,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_MIN_WORKABLE_CURRENT,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.CURRENT,
+            native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+            native_min_value=0.0,
+            native_max_value=100.0,
+            native_step=0.01,
+        ),
+    ),
+    (
+        NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=-500,
+            native_max_value=500,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=-500,
+            native_max_value=500,
+            native_step=1,
+        ),
+    ),
+    # Control entity
+    (
+        NUMBER_CHARGER_PRIORITY,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_PRIORITY,
+            native_min_value=5,  # Priority 0 to 4 reserved for system use.
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_MAX_CONSUMED_ENERGY_LIMIT,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_MAX_CONSUMED_ENERGY_LIMIT,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.ENERGY,
+            native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+            native_min_value=0.0,
+            native_max_value=100.0,
+            native_step=0.001,
+        ),
+    ),
+    #####################################
+    # Global default config entities
+    # Hidden except for global defaults
+    # entity_category=EntityCategory.CONFIG
+    #####################################
+    (
+        NUMBER_CHARGER_EFFECTIVE_VOLTAGE,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_EFFECTIVE_VOLTAGE,
+            # translation_key=OPTION_CHARGER_EFFECTIVE_VOLTAGE,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.VOLTAGE,
+            native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+            native_min_value=100.0,
+            native_max_value=700.0,
+            native_step=0.01,
+            # native_step=1.0,
+            # mode=NumberMode.BOX,
+            # entity_registry_enabled_default=True,
+        ),
+    ),
+    (
+        NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=DEGREE,
+            native_min_value=-90.0,
+            native_max_value=+90.0,
+            native_step=0.01,
+        ),
+    ),
+    (
+        NUMBER_SUNSET_ELEVATION_END_TRIGGER,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_SUNSET_ELEVATION_END_TRIGGER,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=DEGREE,
+            native_min_value=-90.0,
+            native_max_value=+90.0,
+            native_step=0.01,
+        ),
+    ),
+    (
+        NUMBER_WAIT_CHARGEE_WAKEUP,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_WAIT_CHARGEE_WAKEUP,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            native_min_value=1.0,
+            native_max_value=600.0,
+            native_step=0.1,
+        ),
+    ),
+    (
+        NUMBER_WAIT_CHARGEE_UPDATE_HA,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_WAIT_CHARGEE_UPDATE_HA,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            native_min_value=1.0,
+            native_max_value=600.0,
+            native_step=0.1,
+        ),
+    ),
+    (
+        NUMBER_WAIT_CHARGEE_LIMIT_CHANGE,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_WAIT_CHARGEE_LIMIT_CHANGE,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            native_min_value=1.0,
+            native_max_value=600.0,
+            native_step=0.1,
+        ),
+    ),
+    (
+        NUMBER_WAIT_CHARGER_ON,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_WAIT_CHARGER_ON,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            native_min_value=1.0,
+            native_max_value=600.0,
+            native_step=0.1,
+        ),
+    ),
+    (
+        NUMBER_WAIT_CHARGER_OFF,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_WAIT_CHARGER_OFF,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            native_min_value=1.0,
+            native_max_value=600.0,
+            native_step=0.1,
+        ),
+    ),
+    (
+        NUMBER_WAIT_CHARGER_AMP_CHANGE,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_WAIT_CHARGER_AMP_CHANGE,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.SECONDS,
+            native_min_value=1.0,
+            native_max_value=600.0,
+            native_step=0.1,
+        ),
+    ),
+    #####################################
+    # Charger configs
+    #####################################
+    (
+        NUMBER_POWER_MONITOR_DURATION,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_POWER_MONITOR_DURATION,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.MINUTES,
+            native_min_value=0.0,
+            native_max_value=60.0,
+            native_step=0.01,
+        ),
+    ),
+    #####################################
+    # Charge limits
+    #####################################
+    # Max/min charge limit config.
+    (
+        NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    # Default charge limit configs.
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    # Actual charge limit configs.
+    (
+        NUMBER_CHARGE_LIMIT_MONDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_MONDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGE_LIMIT_TUESDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_TUESDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGE_LIMIT_WEDNESDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_WEDNESDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGE_LIMIT_THURSDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_THURSDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGE_LIMIT_FRIDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_FRIDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGE_LIMIT_SATURDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_SATURDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_CHARGE_LIMIT_SUNDAY,
+        SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGE_LIMIT_SUNDAY,
+            entity_category=EntityCategory.CONFIG,
+            native_unit_of_measurement=PERCENTAGE,
+            native_min_value=0,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    #####################################
+    # OCPP only
+    #####################################
+    (
+        NUMBER_OCPP_PROFILE_ID,
+        SolarChargerEntityType.TYPE_LOCAL_OCPP,
+        NumberEntityDescription(
+            key=NUMBER_OCPP_PROFILE_ID,
+            entity_category=EntityCategory.CONFIG,
+            native_min_value=1,
+            native_step=1,
+        ),
+    ),
+    (
+        NUMBER_OCPP_PROFILE_STACK_LEVEL,
+        SolarChargerEntityType.TYPE_LOCAL_OCPP,
+        NumberEntityDescription(
+            key=NUMBER_OCPP_PROFILE_STACK_LEVEL,
+            entity_category=EntityCategory.CONFIG,
+            native_min_value=-1,
+            native_max_value=100,
+            native_step=1,
+        ),
+    ),
+    #####################################
+    # Diagnostic entities
+    # entity_category=EntityCategory.DIAGNOSTIC
+    #####################################
+)
+
+
+# ----------------------------------------------------------------------------
+async def async_setup_entry(
+    hass: core.HomeAssistant,
+    config_entry: config_entries.ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    """Set up numbers based on config entry."""
+    coordinator: SolarChargerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    for subentry in config_entry.subentries.values():
+        # if subentry.subentry_type == SUBENTRY_TYPE_CHARGER:
+        #     numbers = async_init_charger_numbers(coordinator, subentry)
+        # elif subentry.subentry_type == SUBENTRY_TYPE_DEFAULTS:
+        #     numbers = async_init_global_default_numbers(coordinator, subentry)
+        # else:
+        #     continue
+
+        # For both global default and charger subentries
+        numbers: dict[str, SolarChargerNumberConfigEntity] = {}
+        for config_item, entity_type_or_list, entity_description in CONFIG_NUMBER_LIST:
+            if is_create_entity(subentry, entity_type_or_list):
+                single_entity_type = get_single_entity_type(
+                    subentry, entity_type_or_list
+                )
+                numbers[config_item] = SolarChargerNumberConfigEntity(
+                    config_item,
+                    subentry,
+                    single_entity_type,
+                    entity_description,
+                    get_device_config_default_value(subentry, config_item),
+                )
+
+        if len(numbers) > 0:
+            coordinator.device_controls[
+                subentry.subentry_id
+            ].controller.charge_control.entities.numbers = numbers
+            async_add_entities(
+                numbers.values(),
+                update_before_add=False,
+                config_subentry_id=subentry.subentry_id,
+            )

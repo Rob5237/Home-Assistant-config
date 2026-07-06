@@ -1,0 +1,35 @@
+{
+  "domain": "solarcharger",
+  "name": "SolarCharger",
+  "after_dependencies": [
+    "binary_sensor",
+    "button",
+    "datetime",
+    "device_tracker",
+    "number",
+    "select",
+    "sensor",
+    "switch",
+    "time",
+    "sun",
+    "ping",
+    "mqtt",
+    "esphome",
+    "tesla_custom",
+    "tesla_fleet",
+    "tessie",
+    "teslemetry",
+    "ocpp"
+  ],
+  "codeowners": [
+    "@flashg1"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/flashg1/solarcharger",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/flashg1/solarcharger/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.8.2"
+}

@@ -1,0 +1,354 @@
+"""SolarCharger button platform."""
+
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
+
+from homeassistant import config_entries, core
+from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+from homeassistant.config_entries import ConfigSubentry
+from homeassistant.const import STATE_ON
+from homeassistant.core import State
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
+
+from .config.config_utils import get_device_config_default_value
+from .const import (
+    DOMAIN,
+    # RESTORE_ON_START_FALSE,
+    RESTORE_ON_START_TRUE,
+    SWITCH,
+    SWITCH_CALIBRATE_MAX_CHARGE_SPEED,
+    SWITCH_CHARGE,
+    SWITCH_END_ON_MAX_CONSUMED_ENERGY,
+    SWITCH_FAST_CHARGE_MODE,
+    SWITCH_PAUSE_ON_START,
+    SWITCH_PLUGIN_TRIGGER,
+    SWITCH_POLL_CHARGER_UPDATE,
+    SWITCH_PRESENCE_TRIGGER,
+    SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE,
+    SWITCH_SCHEDULE_CHARGE,
+    SWITCH_SUN_TRIGGER,
+)
+from .entity import SolarChargerEntity, SolarChargerEntityType, is_create_entity
+from .models.model_device_control import DeviceControl
+
+type SWITCH_ACTION_TYPE = Callable[[DeviceControl, bool], Coroutine[Any, Any, None]]
+
+if TYPE_CHECKING:
+    from .modules.coordinator import SolarChargerCoordinator
+
+# Examples:
+# homeassistant/components/netgear/switch.py
+# homeassistant/components/ring/switch.py
+# homeassistant/components/sun/sensor.py
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+class SolarChargerSwitchEntity(SolarChargerEntity, SwitchEntity, RestoreEntity):
+    """SolarCharger switch base entity."""
+
+    def __init__(
+        self,
+        config_item: str,
+        subentry: ConfigSubentry,
+        entity_type: SolarChargerEntityType,
+        desc: SwitchEntityDescription,
+        coordinator: SolarChargerCoordinator,
+        default_val: bool,
+        is_restore_state: bool,
+        action: SWITCH_ACTION_TYPE,
+    ) -> None:
+        """Initialize the SolarCharger switch entity."""
+        SolarChargerEntity.__init__(self, config_item, subentry, entity_type)
+        self.set_entity_id(SWITCH, config_item)
+        self.set_entity_unique_id(SWITCH, config_item)
+        self.entity_description = desc
+
+        # self._attr_has_entity_name = True
+        self._coordinator = coordinator
+        self._default_val = default_val
+        self._is_restore_state = is_restore_state
+        self._action = action
+
+    # ----------------------------------------------------------------------------
+    def turn_on(self, **kwargs: Any) -> None:
+        """Turn the entity on."""
+        self._attr_is_on = True
+        self.update_ha_state()
+
+    # ----------------------------------------------------------------------------
+    def turn_off(self, **kwargs: Any) -> None:
+        """Turn the entity off."""
+        self._attr_is_on = False
+        self.update_ha_state()
+
+    # ----------------------------------------------------------------------------
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the entity on."""
+        # self._attr_is_on = True
+        self.turn_on()
+
+    # ----------------------------------------------------------------------------
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the entity off."""
+        # self._attr_is_on = False
+        self.turn_off()
+
+    # ----------------------------------------------------------------------------
+    # See https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-event-setup/
+    async def async_added_to_hass(self) -> None:
+        """Entity about to be added to hass. Restore state and subscribe for events here if needed."""
+
+        await super().async_added_to_hass()
+
+        turn_on = self._default_val
+        if self._is_restore_state:
+            restored: State | None = await self.async_get_last_state()
+            if restored is not None:
+                turn_on = restored.state == STATE_ON
+
+        if turn_on:
+            await self.async_turn_on()
+        else:
+            await self.async_turn_off()
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+class SolarChargerSwitchActionEntity(SolarChargerSwitchEntity):
+    """Representation of a SolarCharger switch."""
+
+    def __init__(
+        self,
+        config_item: str,
+        subentry: ConfigSubentry,
+        entity_type: SolarChargerEntityType,
+        desc: SwitchEntityDescription,
+        coordinator: SolarChargerCoordinator,
+        default_val: bool,
+        is_restore_state: bool,
+        action: SWITCH_ACTION_TYPE,
+    ) -> None:
+        """Initialize the switch."""
+        super().__init__(
+            config_item,
+            subentry,
+            entity_type,
+            desc,
+            coordinator,
+            default_val,
+            is_restore_state,
+            action,
+        )
+
+    # ----------------------------------------------------------------------------
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the entity on."""
+
+        if not self.is_on:
+            await super().async_turn_on(**kwargs)
+            await self._action(
+                self._coordinator.device_controls[self._subentry.subentry_id],
+                True,
+            )
+
+    # ----------------------------------------------------------------------------
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the entity off."""
+
+        if self.is_on:
+            await super().async_turn_off(**kwargs)
+            await self._action(
+                self._coordinator.device_controls[self._subentry.subentry_id],
+                False,
+            )
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+async def async_setup_entry(
+    hass: core.HomeAssistant,
+    config_entry: config_entries.ConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+    # async_add_entities: Callable,
+) -> None:
+    """Set up buttons based on config entry."""
+    coordinator: SolarChargerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    CONFIG_SWITCH_LIST: tuple[
+        tuple[
+            str,
+            Any,
+            bool,
+            SWITCH_ACTION_TYPE,
+            SolarChargerEntityType,
+            SwitchEntityDescription,
+        ],
+        ...,
+    ] = (
+        #####################################
+        # Control:  entity_category=None
+        # Config:   entity_category=EntityCategory.CONFIG
+        #####################################
+        #####################################
+        # Boolean switches
+        #####################################
+        (
+            SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE,
+            SolarChargerSwitchEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_dummy,
+            SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
+            SwitchEntityDescription(
+                key=SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_FAST_CHARGE_MODE,
+            SolarChargerSwitchEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_dummy,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_FAST_CHARGE_MODE,
+            ),
+        ),
+        (
+            SWITCH_POLL_CHARGER_UPDATE,
+            SolarChargerSwitchEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_dummy,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_POLL_CHARGER_UPDATE,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_END_ON_MAX_CONSUMED_ENERGY,
+            SolarChargerSwitchEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_dummy,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_END_ON_MAX_CONSUMED_ENERGY,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_PAUSE_ON_START,
+            SolarChargerSwitchEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_dummy,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_PAUSE_ON_START,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        #####################################
+        # Action switches - calls coordinator to perform action
+        #####################################
+        (
+            SWITCH_SCHEDULE_CHARGE,
+            SolarChargerSwitchActionEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_schedule_charge,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_SCHEDULE_CHARGE,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_PLUGIN_TRIGGER,
+            SolarChargerSwitchActionEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_plugin_trigger,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_PLUGIN_TRIGGER,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_PRESENCE_TRIGGER,
+            SolarChargerSwitchActionEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_presence_trigger,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_PRESENCE_TRIGGER,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_SUN_TRIGGER,
+            SolarChargerSwitchActionEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_sun_elevation_trigger,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_SUN_TRIGGER,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+        (
+            SWITCH_CHARGE,
+            SolarChargerSwitchActionEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_charge,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_CHARGE,
+            ),
+        ),
+        (
+            SWITCH_CALIBRATE_MAX_CHARGE_SPEED,
+            SolarChargerSwitchActionEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_calibrate_max_charge_speed,
+            SolarChargerEntityType.TYPE_LOCAL,
+            SwitchEntityDescription(
+                key=SWITCH_CALIBRATE_MAX_CHARGE_SPEED,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
+    )
+
+    for subentry in config_entry.subentries.values():
+        # For global defaults and charger subentries
+        switches: dict[str, SolarChargerSwitchEntity] = {}
+
+        for (
+            config_item,
+            cls,
+            is_restore_state,
+            action,
+            entity_type,
+            entity_description,
+        ) in CONFIG_SWITCH_LIST:
+            if is_create_entity(subentry, entity_type):
+                switches[config_item] = cls(
+                    config_item,
+                    subentry,
+                    entity_type,
+                    entity_description,
+                    coordinator,
+                    get_device_config_default_value(subentry, config_item),
+                    is_restore_state,
+                    action,
+                )
+
+        if len(switches) > 0:
+            coordinator.device_controls[
+                subentry.subentry_id
+            ].controller.charge_control.entities.switches = switches
+            async_add_entities(
+                switches.values(),
+                update_before_add=False,
+                config_subentry_id=subentry.subentry_id,
+            )
