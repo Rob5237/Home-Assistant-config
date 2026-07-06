@@ -40,6 +40,61 @@
       buitentemperatuur: >
         {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(None) }}
 
+  # Daily/monthly DHW COP via utility_meter deltas (packages/energy_meters.yaml).
+  # Guard input > 0.3 kWh voorkomt divergerende COP aan begin van de dag/maand
+  # (baseline standby ~0.4 kWh/dag zonder warmte-output = 0/klein).
+  - name: "Warmtepomp COP Tapwater Dag"
+    unique_id: "warmtepomp_cop_tapwater_dag"
+    unit_of_measurement: ""
+    state_class: measurement
+    icon: mdi:water-boiler
+    state: >
+      {% set warmte = states('sensor.dhw_heat_dagelijks') | float(0) %}
+      {% set input = states('sensor.dhw_input_dagelijks') | float(0) %}
+      {% if input > 0.3 %}
+        {{ (warmte / input) | round(2) }}
+      {% else %}
+        {{ 'unavailable' }}
+      {% endif %}
+    attributes:
+      warmte_kwh: "{{ states('sensor.dhw_heat_dagelijks') | float(0) | round(2) }}"
+      input_kwh: "{{ states('sensor.dhw_input_dagelijks') | float(0) | round(2) }}"
+
+  - name: "Warmtepomp COP Tapwater Maand"
+    unique_id: "warmtepomp_cop_tapwater_maand"
+    unit_of_measurement: ""
+    state_class: measurement
+    icon: mdi:water-boiler
+    state: >
+      {% set warmte = states('sensor.dhw_heat_maandelijks') | float(0) %}
+      {% set input = states('sensor.dhw_input_maandelijks') | float(0) %}
+      {% if input > 1.0 %}
+        {{ (warmte / input) | round(2) }}
+      {% else %}
+        {{ 'unavailable' }}
+      {% endif %}
+    attributes:
+      warmte_kwh: "{{ states('sensor.dhw_heat_maandelijks') | float(0) | round(1) }}"
+      input_kwh: "{{ states('sensor.dhw_input_maandelijks') | float(0) | round(1) }}"
+
+  # Compressor cycli deze maand (sum van bestaande dag/nacht tellers).
+  # Gebruik voor pendel-detectie en solar-shift KPI (nacht/dag ratio).
+  - name: "Warmtepomp compressor-starts maand"
+    unique_id: "warmtepomp_compressor_starts_maand"
+    unit_of_measurement: "starts"
+    state_class: measurement
+    icon: mdi:counter
+    state: >
+      {{ (states('input_number.compressor_starts_dag') | int(0))
+       + (states('input_number.compressor_starts_nacht') | int(0)) }}
+    attributes:
+      dag: "{{ states('input_number.compressor_starts_dag') | int(0) }}"
+      nacht: "{{ states('input_number.compressor_starts_nacht') | int(0) }}"
+      nacht_pct: >
+        {% set d = states('input_number.compressor_starts_dag') | int(0) %}
+        {% set n = states('input_number.compressor_starts_nacht') | int(0) %}
+        {% if d + n > 0 %}{{ ((n / (d + n)) * 100) | round(0) }}{% else %}0{% endif %}
+
   - name: "Warmtepomp COP Totaal"
     unique_id: "warmtepomp_cop_totaal"
     unit_of_measurement: ""
@@ -186,3 +241,74 @@
           {% else %}
             {{ [] }}
           {% endif %}
+
+# DHW delta-T bij compressor-start: 57 - DHW-temp op moment van compressor
+# off→on. Hoge waarde (>10K) = diepe ontlading vóór start = lange cyclus in
+# koude tank = mindere gemiddelde COP. Streefwaarde na drempel-verhoging
+# 47→52 in klein-overschot: 5-10K.
+# Trigger-based template: alleen ge-update bij DHW-cyclusstart (dhw_target>55).
+# In winter met heating cycli (dhw_target blijft 50) blijft de sensor stabiel
+# tot volgende echte DHW-cyclus. Restore state overleeft HA-restart.
+- trigger:
+  - platform: state
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    from: "off"
+    to: "on"
+  condition:
+  - condition: numeric_state
+    entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    above: 55
+  sensor:
+  - name: "DHW delta-T bij compressor-start"
+    unique_id: dhw_delta_t_bij_compressor_start
+    unit_of_measurement: "K"
+    state_class: measurement
+    icon: mdi:delta
+    state: >
+      {% set target = states('number.luxtronik_280807_0450_dhw_target_temperature') | float(57) %}
+      {% set dhw = states('sensor.luxtronik_280807_0450_dhw_temperature') | float(57) %}
+      {{ (target - dhw) | round(1) }}
+    attributes:
+      dhw_bij_start: "{{ states('sensor.luxtronik_280807_0450_dhw_temperature') | float(0) | round(1) }}"
+      setpoint_bij_start: "{{ states('number.luxtronik_280807_0450_dhw_target_temperature') | float(0) | round(1) }}"
+      dhw_mode: "{{ states('select.luxtronik_280807_0450_dhw_mode') }}"
+      buiten: "{{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(0) | round(1) }}"
+      tijd: "{{ now().strftime('%Y-%m-%d %H:%M') }}"
+
+# DHW-cycli vandaag: telt off→on transities met dhw_target > 55 (= DHW-boost
+# actief, niet heating). Reset dagelijks om 00:00. Als er tijdens een cyclus
+# HA herstart, blijft de teller-waarde behouden (trigger-based sensors
+# restoren state).
+- trigger:
+  - id: cyclus_start
+    platform: state
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    from: "off"
+    to: "on"
+  - id: dagreset
+    platform: time
+    at: "00:00:00"
+  condition:
+  - condition: or
+    conditions:
+    - condition: trigger
+      id: dagreset
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: cyclus_start
+      - condition: numeric_state
+        entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+        above: 55
+  sensor:
+  - name: "DHW cycli vandaag"
+    unique_id: dhw_cycli_vandaag
+    unit_of_measurement: "cycli"
+    state_class: measurement
+    icon: mdi:counter
+    state: >
+      {% if trigger.id == 'dagreset' %}
+        0
+      {% else %}
+        {{ (this.state | int(0)) + 1 }}
+      {% endif %}

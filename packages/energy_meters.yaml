@@ -53,3 +53,23 @@ utility_meter:
   enphase_yearly:
     source: sensor.envoy_122331077486_lifetime_energy_production
     cycle: yearly
+
+  # WARMTEPOMP DHW METERS (bruto warmte + elektrisch input voor COP-tracking)
+  # dhw_heat_amount = geproduceerde warmte in tapwater (thermisch, kWh)
+  # dhw_energy_input = verbruikte elektriciteit voor tapwater (elektrisch, kWh)
+  # COP = dhw_heat_amount / dhw_energy_input, berekend in templates/warmtepomp.yaml
+  dhw_heat_dagelijks:
+    source: sensor.luxtronik_280807_0450_dhw_heat_amount
+    cycle: daily
+
+  dhw_heat_maandelijks:
+    source: sensor.luxtronik_280807_0450_dhw_heat_amount
+    cycle: monthly
+
+  dhw_input_dagelijks:
+    source: sensor.luxtronik_280807_0450_dhw_energy_input
+    cycle: daily
+
+  dhw_input_maandelijks:
+    source: sensor.luxtronik_280807_0450_dhw_energy_input
+    cycle: monthly
