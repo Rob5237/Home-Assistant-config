@@ -1168,3 +1168,48 @@
     data:
       value: 0
   mode: single
+
+- id: kamer_gelijk_buiten_forecast_signaal
+  alias: "Signaal: kamertemp ≈ buitentemp (forecast volgend uur)"
+  description: >
+    Vergelijkt kamertemperatuur met de voorspelde buitentemperatuur voor het
+    eerstvolgende uur (weather.thuis, hourly forecast). Verstuurt een persistent
+    notification als beide binnen ±0.5°C liggen. Herevalueert ieder uur op HH:05
+    (5 minuten marge zodat de forecast na het hele uur is bijgewerkt). Notificatie
+    wordt automatisch gedismist zodra het verschil weer > 0.5°C is; stabiele
+    notification_id zorgt dat opeenvolgende updates de bestaande melding
+    vervangen in plaats van te stapelen.
+  triggers:
+  - trigger: time_pattern
+    minutes: 5
+  actions:
+  - action: weather.get_forecasts
+    target:
+      entity_id: weather.thuis
+    data:
+      type: hourly
+    response_variable: weer_forecast
+  - variables:
+      volgend_uur: "{{ weer_forecast['weather.thuis'].forecast[0] }}"
+      buiten_forecast: "{{ volgend_uur.temperature | float }}"
+      kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      verschil: "{{ (kamer_temp - buiten_forecast) | abs }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ kamer_temp > -900 and verschil <= 0.5 }}"
+      sequence:
+      - action: persistent_notification.create
+        data:
+          title: "🌡 Kamer ≈ buiten (forecast)"
+          notification_id: kamer_gelijk_buiten_forecast
+          message: >-
+            Kamertemperatuur {{ kamer_temp }}°C is binnen 0.5°C gelijk aan de
+            voorspelde buitentemperatuur ({{ buiten_forecast }}°C, forecast-tijd
+            {{ as_datetime(volgend_uur.datetime) | as_local | as_timestamp
+               | timestamp_custom('%H:%M') }}).
+    default:
+    - action: persistent_notification.dismiss
+      data:
+        notification_id: kamer_gelijk_buiten_forecast
+  mode: single
