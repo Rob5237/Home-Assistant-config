@@ -2,6 +2,7 @@
   "domain": "enphase_ev",
   "name": "Enphase Energy",
   "after_dependencies": [
+    "logbook",
     "recorder"
   ],
   "codeowners": [
@@ -18,5 +19,5 @@
   ],
   "quality_scale": "platinum",
   "requirements": [],
-  "version": "3.2.0"
+  "version": "3.2.1"
 }
