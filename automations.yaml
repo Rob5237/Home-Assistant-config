@@ -1178,7 +1178,7 @@
     (input_boolean.vakantie_actief on), tijdens stilte-periode (22:30-07:00)
     en tijdens regen (weather.thuis state rainy/pouring/lightning-rainy/
     snowy-rainy/hail — het regen-signaal neemt het dan over). Cross-clear
-    naar alle andere ventilatie-signalen bij vuren. Herevalueert elke 15
+    naar alle andere ventilatie-signalen bij activeren. Herevalueert elke 15
     minuten.
   triggers:
   - trigger: time_pattern
@@ -1291,7 +1291,7 @@
     buitentemperatuur (weather.thuis) beide ≤ 20°C zijn. Edge-triggered
     mobile+HA-UI push. Guards: onderdrukt tijdens vakantie, tijdens stilte-
     periode (22:00-07:00) en tijdens regen (het regen-signaal neemt het dan
-    over). Cross-clear naar alle andere ventilatie-signalen bij vuren.
+    over). Cross-clear naar alle andere ventilatie-signalen bij activeren.
     Herevalueert elke 15 minuten.
   triggers:
   - trigger: time_pattern
@@ -1405,7 +1405,7 @@
     ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
     Guards: onderdrukt tijdens vakantie, tijdens stilte-periode (22:30-07:00)
     en tijdens regen (het regen-signaal neemt het dan over). Cross-clear
-    naar alle andere ventilatie-signalen bij vuren. Herevalueert elke 15
+    naar alle andere ventilatie-signalen bij activeren. Herevalueert elke 15
     minuten.
   triggers:
   - trigger: time_pattern
@@ -1519,7 +1519,7 @@
     Onafhankelijk van temperatuur — regen bepaalt de actie. Vakantie-
     onderdrukking actief. GEEN stilte-periode: regen is urgent (nat interieur
     weegt zwaarder dan geluidsoverlast). Edge-triggered via
-    input_boolean.regen_signaal_actief. Bij vuren worden alle andere
+    input_boolean.regen_signaal_actief. Bij activeren worden alle andere
     ventilatie-signalen weggeveegd (mobile + HA UI). Herevalueert elke 15
     minuten.
   triggers:
@@ -1627,11 +1627,11 @@
     Sterke pre-slaap wenk om ramen open te zetten wanneer 's avonds/nachts
     (22:30-06:00) de kamer nog >22°C is EN buiten al <18°C (koele nacht na
     warme dag). Sluit aan op de stilte-periode van de generieke signalen
-    (die stopt met vuren om 22:30) — dit is het nacht-signaal dat de plek
+    (die stopt met activeren om 22:30) — dit is het nacht-signaal dat de plek
     inneemt. Vakantie-onderdrukking actief. Regen heeft voorrang (regen-
     guard in conditie). Edge-triggered via input_boolean.
     nachtventilatie_signaal_actief. Cross-clear naar de andere ventilatie-
-    signalen bij vuren. Herevalueert elke 15 minuten.
+    signalen bij activeren. Herevalueert elke 15 minuten.
   triggers:
   - trigger: time_pattern
     minutes: "/15"

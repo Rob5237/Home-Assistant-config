@@ -25,7 +25,7 @@ content: |
   **Guards nu:**
   {{ '🏝' if vakantie else '·' }} vakantie  ·  {{ '🌙' if stille else '·' }} stilte 22:30–07:00  ·  {{ '🌧' if regen else '·' }} regen
 
-  **Signalen:**  (○ = conditie niet waar · ✓ = fires nu · ✗ = conditie waar maar onderdrukt door guard)
+  **Signalen:**  (○ = conditie niet waar · ✓ = activeert nu · ✗ = conditie waar maar onderdrukt door guard)
 
   | # | Signaal | Conditie | Status |
   |---|---|---|---|
