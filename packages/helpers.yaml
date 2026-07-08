@@ -64,6 +64,14 @@ input_boolean:
     name: "Ramen-dicht-signaal reeds verstuurd"
     icon: mdi:bell-check
 
+  regen_signaal_actief:
+    name: "Regen-signaal reeds verstuurd"
+    icon: mdi:bell-check
+
+  nachtventilatie_signaal_actief:
+    name: "Nachtventilatie-signaal reeds verstuurd"
+    icon: mdi:bell-check
+
 input_datetime:
   tdi_laatste_start:
     name: "TDI laatste start"

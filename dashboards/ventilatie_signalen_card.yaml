@@ -1,8 +1,8 @@
-# Dashboard-kaart voor de drie ventilatie-signalen (ventileren, sluit ramen,
-# houd ramen dicht). Storage-mode dashboards worden niet automatisch uit dit
-# bestand geladen; plak deze YAML in een dashboard via ⋮ menu → Edit dashboard →
-# +Add card → onderaan "Manual" → paste. Dit bestand dient als git-bewaarde
-# referentie.
+# Dashboard-kaart voor de vijf ventilatie-signalen (ventileren, sluit ramen,
+# houd ramen dicht, regen, nachtventilatie). Storage-mode dashboards worden
+# niet automatisch uit dit bestand geladen; plak deze YAML in een dashboard
+# via ⋮ menu → Edit dashboard → +Add card → onderaan "Manual" → paste. Dit
+# bestand dient als git-bewaarde referentie.
 
 type: vertical-stack
 cards:
@@ -11,21 +11,37 @@ cards:
     content: |
       {% set kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) %}
       {% set buiten = state_attr('weather.thuis', 'temperature') | float(-999) %}
+      {% set weer = states('weather.thuis') %}
       {% set ok = kamer > -900 and buiten > -900 %}
-      {% set ventileren = ok and kamer >= 20 and buiten < kamer %}
-      {% set sluit = ok and kamer <= 20 and buiten <= 20 %}
-      {% set houd_dicht = ok and kamer > 20 and buiten > kamer %}
-      **Kamer:** {{ '%.1f'|format(kamer) }} °C  ·  **Buiten:** {{ '%.1f'|format(buiten) }} °C
-
-      {% if ventileren %}
+      {% set vakantie = is_state('input_boolean.vakantie_actief', 'on') %}
+      {% set regen = weer in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] %}
+      {% set stille = now().hour >= 22 or now().hour < 7 %}
+      {% set in_nacht = now().hour >= 22 or now().hour < 6 %}
+      {% set s_ventileren = ok and kamer >= 20 and buiten < kamer and not vakantie and not stille and not regen %}
+      {% set s_sluit = ok and kamer <= 20 and buiten <= 20 and not vakantie and not stille and not regen %}
+      {% set s_houd_dicht = ok and kamer > 20 and buiten > kamer and not vakantie and not stille and not regen %}
+      {% set s_regen = regen and not vakantie %}
+      {% set s_nachtvent = ok and kamer > 22 and buiten < 18 and in_nacht and not vakantie and not regen %}
+      **Kamer:** {{ '%.1f'|format(kamer) }} °C  ·  **Buiten:** {{ '%.1f'|format(buiten) }} °C  ·  **Weer:** {{ weer }}
+      {% if vakantie %}
+      🏝 _Vakantiemodus actief — alle ventilatie-signalen onderdrukt._
+      {% elif s_regen %}
+      🌧 **Sluit ramen — het regent**
+      Sluit ramen en deuren; het regent buiten.
+      {% elif s_nachtvent %}
+      🌙 **Nachtventilatie: zet ramen open**
+      Zet ramen wagenwijd open voor het slapengaan; buitenlucht is koel.
+      {% elif s_ventileren %}
       🌡 **Ventileren om binnenshuis af te koelen**
       Zet ramen en tuindeuren open.
-      {% elif sluit %}
+      {% elif s_sluit %}
       🌡 **Sluit ramen om afkoeling te beperken**
       Sluit ramen en buitendeuren.
-      {% elif houd_dicht %}
+      {% elif s_houd_dicht %}
       🌡 **Houd ramen en deuren gesloten**
       Houd de ramen en deuren gesloten om het huis niet op te warmen.
+      {% elif stille %}
+      🌙 _Stille periode (22:00-07:00): normale signalen onderdrukt._
       {% else %}
       _Geen actief signaal._
       {% endif %}
@@ -49,4 +65,16 @@ cards:
         name: Houd-ramen-dicht-signaal
         secondary_info: last-triggered
       - entity: input_boolean.ramen_dicht_signaal_actief
+        name: — reeds verstuurd (marker)
+      - type: divider
+      - entity: automation.signaal_sluit_ramen_het_regent_actueel
+        name: Regen-signaal
+        secondary_info: last-triggered
+      - entity: input_boolean.regen_signaal_actief
+        name: — reeds verstuurd (marker)
+      - type: divider
+      - entity: automation.signaal_nachtventilatie_kamer_22degc_en_buiten_18degc_22_00_06_00
+        name: Nachtventilatie-signaal
+        secondary_info: last-triggered
+      - entity: input_boolean.nachtventilatie_signaal_actief
         name: — reeds verstuurd (marker)

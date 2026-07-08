@@ -1173,14 +1173,13 @@
   alias: "Signaal: ventileren — kamer ≥20°C en buiten < kamer (actueel)"
   description: >
     Vergelijkt kamertemperatuur met de actueel waargenomen buitentemperatuur
-    van weather.thuis (attribuut temperature, internet-bron voor de omgeving
-    Den Bosch). Edge-triggered: verstuurt éénmalig een mobile-app push als
-    kamer ≥20°C is EN de actuele buitentemperatuur LAGER is dan de kamer.
-    Zolang de conditie bij volgende ticks nog steeds waar is wordt géén
-    tweede melding gestuurd (input_boolean.ventileren_signaal_actief markeert
-    dat er al gemeld is). Zodra de conditie faalt wordt de bestaande push
-    weggeveegd en de marker gereset, zodat een volgende overgang weer een
-    nieuwe push oplevert. Herevalueert elke 15 minuten.
+    van weather.thuis. Edge-triggered mobile+HA-UI push als kamer ≥20°C is
+    EN buiten LAGER is dan de kamer. Guards: onderdrukt tijdens vakantie
+    (input_boolean.vakantie_actief on), tijdens stilte-periode (22:00-07:00)
+    en tijdens regen (weather.thuis state rainy/pouring/lightning-rainy/
+    snowy-rainy/hail — het regen-signaal neemt het dan over). Cross-clear
+    naar alle andere ventilatie-signalen bij vuren. Herevalueert elke 15
+    minuten.
   triggers:
   - trigger: time_pattern
     minutes: "/15"
@@ -1188,9 +1187,13 @@
   - variables:
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
+      stille_periode: "{{ now().hour >= 22 or now().hour < 7 }}"
+      regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp >= 20 and buiten_actueel < kamer_temp }}
+           and kamer_temp >= 20 and buiten_actueel < kamer_temp
+           and not vakantie and not stille_periode and not regen }}
       gemeld: "{{ is_state('input_boolean.ventileren_signaal_actief', 'on') }}"
   - choose:
     - conditions:
@@ -1233,6 +1236,22 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: kamer_warm_buiten_warmer
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_regen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_regen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: nachtventilatie
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: nachtventilatie
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ventileren_signaal_actief
@@ -1242,6 +1261,12 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.ramen_dicht_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.regen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.nachtventilatie_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1262,13 +1287,12 @@
 - id: kamer_te_koel_sluit_ramen_signaal
   alias: "Signaal: sluit ramen — kamer ≤20°C en buiten ≤20°C (actueel)"
   description: >
-    Waarschuwt om ramen/tuindeuren te sluiten wanneer kamer- én actuele
-    buitentemperatuur (weather.thuis) beide ≤ 20°C zijn — dan is verder
-    ventileren niet gewenst omdat de kamer anders te ver afkoelt.
-    Edge-triggered: verstuurt éénmalig een push zolang de conditie waar is
-    (input_boolean.sluit_ramen_signaal_actief markeert dat er al gemeld is).
-    Zodra de conditie faalt wordt de bestaande push weggeveegd en de marker
-    gereset. Herevalueert elke 15 minuten.
+    Waarschuwt om ramen/tuindeuren te sluiten wanneer kamer én actuele
+    buitentemperatuur (weather.thuis) beide ≤ 20°C zijn. Edge-triggered
+    mobile+HA-UI push. Guards: onderdrukt tijdens vakantie, tijdens stilte-
+    periode (22:00-07:00) en tijdens regen (het regen-signaal neemt het dan
+    over). Cross-clear naar alle andere ventilatie-signalen bij vuren.
+    Herevalueert elke 15 minuten.
   triggers:
   - trigger: time_pattern
     minutes: "/15"
@@ -1276,9 +1300,13 @@
   - variables:
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
+      stille_periode: "{{ now().hour >= 22 or now().hour < 7 }}"
+      regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp <= 20 and buiten_actueel <= 20 }}
+           and kamer_temp <= 20 and buiten_actueel <= 20
+           and not vakantie and not stille_periode and not regen }}
       gemeld: "{{ is_state('input_boolean.sluit_ramen_signaal_actief', 'on') }}"
   - choose:
     - conditions:
@@ -1321,6 +1349,22 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: kamer_warm_buiten_warmer
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_regen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_regen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: nachtventilatie
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: nachtventilatie
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
@@ -1330,6 +1374,12 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.ramen_dicht_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.regen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.nachtventilatie_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1352,10 +1402,11 @@
   description: >
     Waarschuwt om ramen en deuren gesloten te houden wanneer kamer >20°C is
     én de actuele buitentemperatuur (weather.thuis) HOGER is dan de kamer —
-    ventileren zou dan juist opwarmen. Edge-triggered met input_boolean.
-    ramen_dicht_signaal_actief. Bij vuren worden ventileren- en sluit-ramen-
-    meldingen weggeveegd (mobile + HA UI) en hun helpers gereset zodat ze
-    niet tegelijk vuren. Herevalueert elke 15 minuten.
+    ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
+    Guards: onderdrukt tijdens vakantie, tijdens stilte-periode (22:00-07:00)
+    en tijdens regen (het regen-signaal neemt het dan over). Cross-clear
+    naar alle andere ventilatie-signalen bij vuren. Herevalueert elke 15
+    minuten.
   triggers:
   - trigger: time_pattern
     minutes: "/15"
@@ -1363,9 +1414,13 @@
   - variables:
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
+      stille_periode: "{{ now().hour >= 22 or now().hour < 7 }}"
+      regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp > 20 and buiten_actueel > kamer_temp }}
+           and kamer_temp > 20 and buiten_actueel > kamer_temp
+           and not vakantie and not stille_periode and not regen }}
       gemeld: "{{ is_state('input_boolean.ramen_dicht_signaal_actief', 'on') }}"
   - choose:
     - conditions:
@@ -1408,6 +1463,22 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: kamer_te_koel_sluit_ramen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_regen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_regen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: nachtventilatie
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: nachtventilatie
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ramen_dicht_signaal_actief
@@ -1417,6 +1488,12 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.regen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.nachtventilatie_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1432,4 +1509,217 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.ramen_dicht_signaal_actief
+  mode: single
+
+- id: regen_sluit_ramen_signaal
+  alias: "Signaal: sluit ramen — het regent (actueel)"
+  description: >
+    Waarschuwt om ramen en deuren te sluiten wanneer weather.thuis state
+    duidt op regen (rainy, pouring, lightning-rainy, snowy-rainy of hail).
+    Onafhankelijk van temperatuur — regen bepaalt de actie. Vakantie-
+    onderdrukking actief. GEEN stilte-periode: regen is urgent (nat interieur
+    weegt zwaarder dan geluidsoverlast). Edge-triggered via
+    input_boolean.regen_signaal_actief. Bij vuren worden alle andere
+    ventilatie-signalen weggeveegd (mobile + HA UI). Herevalueert elke 15
+    minuten.
+  triggers:
+  - trigger: time_pattern
+    minutes: "/15"
+  actions:
+  - variables:
+      vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
+      regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
+      buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
+      conditie: "{{ regen and not vakantie }}"
+      gemeld: "{{ is_state('input_boolean.regen_signaal_actief', 'on') }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ conditie and not gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🌧 Sluit ramen — het regent"
+          message: >-
+            Sluit ramen en deuren; het regent buiten
+            ({{ states('weather.thuis') }}).
+          data:
+            tag: kamer_regen
+            channel: Kamer-buiten temperatuur
+            importance: high
+            priority: high
+            ttl: 0
+            notification_icon: mdi:weather-pouring
+      - action: persistent_notification.create
+        data:
+          title: "🌧 Sluit ramen — het regent"
+          notification_id: kamer_regen
+          message: >-
+            Sluit ramen en deuren; het regent buiten
+            ({{ states('weather.thuis') }}).
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_gelijk_buiten_actueel
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_gelijk_buiten_actueel
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_te_koel_sluit_ramen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_te_koel_sluit_ramen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_warm_buiten_warmer
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_warm_buiten_warmer
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: nachtventilatie
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: nachtventilatie
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.regen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ventileren_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sluit_ramen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ramen_dicht_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.nachtventilatie_signaal_actief
+    - conditions:
+      - condition: template
+        value_template: "{{ not conditie and gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_regen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_regen
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.regen_signaal_actief
+  mode: single
+
+- id: nachtventilatie_signaal
+  alias: "Signaal: nachtventilatie — kamer >22°C en buiten <18°C (22:00-06:00)"
+  description: >
+    Sterke pre-slaap wenk om ramen open te zetten wanneer 's avonds/nachts
+    (22:00-06:00) de kamer nog >22°C is EN buiten al <18°C (koele nacht na
+    warme dag). Vakantie-onderdrukking actief. NIET onderdrukt door de
+    generieke stilte-periode — dit signaal IS het nacht-signaal. Regen
+    heeft nog steeds voorrang (regen-guard in conditie). Edge-triggered via
+    input_boolean.nachtventilatie_signaal_actief. Cross-clear naar de
+    andere ventilatie-signalen bij vuren. Herevalueert elke 15 minuten.
+  triggers:
+  - trigger: time_pattern
+    minutes: "/15"
+  actions:
+  - variables:
+      buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
+      kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
+      regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
+      in_venster: "{{ now().hour >= 22 or now().hour < 6 }}"
+      conditie: >-
+        {{ kamer_temp > -900 and buiten_actueel > -900
+           and kamer_temp > 22 and buiten_actueel < 18
+           and in_venster and not vakantie and not regen }}
+      gemeld: "{{ is_state('input_boolean.nachtventilatie_signaal_actief', 'on') }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ conditie and not gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🌙 Nachtventilatie: zet ramen open"
+          message: >-
+            Zet ramen wagenwijd open voor het slapengaan; buitenlucht is
+            koel. Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
+          data:
+            tag: nachtventilatie
+            channel: Kamer-buiten temperatuur
+            importance: high
+            priority: high
+            ttl: 0
+            notification_icon: mdi:weather-night
+      - action: persistent_notification.create
+        data:
+          title: "🌙 Nachtventilatie: zet ramen open"
+          notification_id: nachtventilatie
+          message: >-
+            Zet ramen wagenwijd open voor het slapengaan; buitenlucht is
+            koel. Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_gelijk_buiten_actueel
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_gelijk_buiten_actueel
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_te_koel_sluit_ramen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_te_koel_sluit_ramen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_warm_buiten_warmer
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_warm_buiten_warmer
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.nachtventilatie_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ventileren_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sluit_ramen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ramen_dicht_signaal_actief
+    - conditions:
+      - condition: template
+        value_template: "{{ not conditie and gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: nachtventilatie
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: nachtventilatie
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.nachtventilatie_signaal_actief
   mode: single
