@@ -1,0 +1,41 @@
+# Dashboard-kaart voor de twee ventilatie-signalen (ventileren + sluit ramen).
+# Storage-mode dashboards worden niet automatisch uit dit bestand geladen; plak
+# deze YAML in een dashboard via ⋮ menu → Edit dashboard → +Add card →
+# onderaan "Manual" → paste. Dit bestand dient als git-bewaarde referentie.
+
+type: vertical-stack
+cards:
+  - type: markdown
+    title: Ventilatie-signalen
+    content: |
+      {% set kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) %}
+      {% set buiten = state_attr('weather.thuis', 'temperature') | float(-999) %}
+      {% set ok = kamer > -900 and buiten > -900 %}
+      {% set ventileren = ok and kamer >= 20 and buiten < kamer %}
+      {% set sluit = ok and kamer <= 20 and buiten <= 20 %}
+      **Kamer:** {{ '%.1f'|format(kamer) }} °C  ·  **Buiten:** {{ '%.1f'|format(buiten) }} °C
+
+      {% if ventileren %}
+      🌡 **Ventileren om binnenshuis af te koelen**
+      Zet ramen en tuindeuren open.
+      {% elif sluit %}
+      🌡 **Sluit ramen om afkoeling te beperken**
+      Sluit ramen en buitendeuren.
+      {% else %}
+      _Geen actief signaal._
+      {% endif %}
+
+  - type: entities
+    show_header_toggle: false
+    entities:
+      - entity: automation.signaal_kamertemp_buitentemp_actueel
+        name: Ventileren-signaal
+        secondary_info: last-triggered
+      - entity: input_boolean.ventileren_signaal_actief
+        name: — reeds verstuurd (marker)
+      - type: divider
+      - entity: automation.signaal_sluit_ramen_kamer_20degc_en_buiten_20degc_actueel
+        name: Sluit-ramen-signaal
+        secondary_info: last-triggered
+      - entity: input_boolean.sluit_ramen_signaal_actief
+        name: — reeds verstuurd (marker)

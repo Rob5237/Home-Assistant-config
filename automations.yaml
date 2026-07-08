@@ -1225,12 +1225,23 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: kamer_te_koel_sluit_ramen
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_warm_buiten_warmer
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_warm_buiten_warmer
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ventileren_signaal_actief
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ramen_dicht_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1302,12 +1313,23 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: kamer_gelijk_buiten_actueel
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_warm_buiten_warmer
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_warm_buiten_warmer
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.ventileren_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ramen_dicht_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1323,4 +1345,91 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
+  mode: single
+
+- id: kamer_warm_buiten_warmer_signaal
+  alias: "Signaal: houd ramen dicht — kamer >20°C en buiten > kamer (actueel)"
+  description: >
+    Waarschuwt om ramen en deuren gesloten te houden wanneer kamer >20°C is
+    én de actuele buitentemperatuur (weather.thuis) HOGER is dan de kamer —
+    ventileren zou dan juist opwarmen. Edge-triggered met input_boolean.
+    ramen_dicht_signaal_actief. Bij vuren worden ventileren- en sluit-ramen-
+    meldingen weggeveegd (mobile + HA UI) en hun helpers gereset zodat ze
+    niet tegelijk vuren. Herevalueert elke 15 minuten.
+  triggers:
+  - trigger: time_pattern
+    minutes: "/15"
+  actions:
+  - variables:
+      buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
+      kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      conditie: >-
+        {{ kamer_temp > -900 and buiten_actueel > -900
+           and kamer_temp > 20 and buiten_actueel > kamer_temp }}
+      gemeld: "{{ is_state('input_boolean.ramen_dicht_signaal_actief', 'on') }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ conditie and not gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🌡 Houd ramen en deuren gesloten"
+          message: >-
+            Houd de ramen en deuren gesloten om het huis niet op te warmen.
+            Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
+          data:
+            tag: kamer_warm_buiten_warmer
+            channel: Kamer-buiten temperatuur
+            importance: high
+            priority: high
+            ttl: 0
+            notification_icon: mdi:thermometer
+      - action: persistent_notification.create
+        data:
+          title: "🌡 Houd ramen en deuren gesloten"
+          notification_id: kamer_warm_buiten_warmer
+          message: >-
+            Houd de ramen en deuren gesloten om het huis niet op te warmen.
+            Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_gelijk_buiten_actueel
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_gelijk_buiten_actueel
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_te_koel_sluit_ramen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_te_koel_sluit_ramen
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ramen_dicht_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ventileren_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sluit_ramen_signaal_actief
+    - conditions:
+      - condition: template
+        value_template: "{{ not conditie and gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_warm_buiten_warmer
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_warm_buiten_warmer
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ramen_dicht_signaal_actief
   mode: single

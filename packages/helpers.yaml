@@ -60,6 +60,10 @@ input_boolean:
     name: "Sluit-ramen-signaal reeds verstuurd"
     icon: mdi:bell-check
 
+  ramen_dicht_signaal_actief:
+    name: "Ramen-dicht-signaal reeds verstuurd"
+    icon: mdi:bell-check
+
 input_datetime:
   tdi_laatste_start:
     name: "TDI laatste start"
