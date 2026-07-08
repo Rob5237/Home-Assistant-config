@@ -1210,11 +1210,21 @@
             priority: high
             ttl: 0
             notification_icon: mdi:thermometer
+      - action: persistent_notification.create
+        data:
+          title: "🌡 Ventileren om binnenshuis af te koelen"
+          notification_id: kamer_gelijk_buiten_actueel
+          message: >-
+            Zet ramen en tuindeuren open. Kamer {{ kamer_temp }}°C,
+            buiten {{ buiten_actueel }}°C.
       - action: notify.mobile_app_sm_g781b
         data:
           message: clear_notification
           data:
             tag: kamer_te_koel_sluit_ramen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_te_koel_sluit_ramen
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ventileren_signaal_actief
@@ -1230,6 +1240,9 @@
           message: clear_notification
           data:
             tag: kamer_gelijk_buiten_actueel
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_gelijk_buiten_actueel
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.ventileren_signaal_actief
@@ -1274,11 +1287,21 @@
             priority: high
             ttl: 0
             notification_icon: mdi:thermometer
+      - action: persistent_notification.create
+        data:
+          title: "🌡 Sluit ramen om afkoeling te beperken"
+          notification_id: kamer_te_koel_sluit_ramen
+          message: >-
+            Sluit ramen en buitendeuren. Kamer {{ kamer_temp }}°C,
+            buiten {{ buiten_actueel }}°C.
       - action: notify.mobile_app_sm_g781b
         data:
           message: clear_notification
           data:
             tag: kamer_gelijk_buiten_actueel
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_gelijk_buiten_actueel
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
@@ -1294,6 +1317,9 @@
           message: clear_notification
           data:
             tag: kamer_te_koel_sluit_ramen
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_te_koel_sluit_ramen
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
