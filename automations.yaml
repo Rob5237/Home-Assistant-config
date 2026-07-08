@@ -1201,9 +1201,8 @@
         data:
           title: "🌡 Ventileren om binnenshuis af te koelen"
           message: >-
-            Zet ramen en tuindeuren open om temperatuur in huis af te koelen.
-            Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C
-            (bron weather.thuis).
+            Zet ramen en tuindeuren open. Kamer {{ kamer_temp }}°C,
+            buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_gelijk_buiten_actueel
             channel: Kamer-buiten temperatuur
@@ -1266,9 +1265,8 @@
         data:
           title: "🌡 Sluit ramen om afkoeling te beperken"
           message: >-
-            Sluit ramen en buitendeuren om de kamertemperatuur niet te ver
-            te laten afkoelen. Kamer {{ kamer_temp }}°C, buiten
-            {{ buiten_actueel }}°C (bron weather.thuis).
+            Sluit ramen en buitendeuren. Kamer {{ kamer_temp }}°C,
+            buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_te_koel_sluit_ramen
             channel: Kamer-buiten temperatuur
