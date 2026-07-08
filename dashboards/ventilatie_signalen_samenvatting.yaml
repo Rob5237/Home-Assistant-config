@@ -1,12 +1,3 @@
-# Samenvatting-kaart voor alle vijf ventilatie-signalen: conditie + huidige
-# guards (vakantie/stilte/regen) + welk signaal er nu actief is. Puur
-# informatief, geen toggles — voor toggles/last-triggered zie
-# ventilatie_signalen_card.yaml.
-#
-# Storage-mode dashboards worden niet automatisch uit dit bestand geladen;
-# plak deze YAML in een dashboard via ⋮ menu → Edit dashboard → +Add card →
-# onderaan "Manual" → paste.
-
 type: markdown
 title: Ventilatie-signalen — samenvatting
 content: |
