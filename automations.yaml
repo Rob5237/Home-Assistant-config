@@ -1175,7 +1175,7 @@
     Vergelijkt kamertemperatuur met de actueel waargenomen buitentemperatuur
     van weather.thuis. Edge-triggered mobile+HA-UI push als kamer ≥20°C is
     EN buiten LAGER is dan de kamer. Guards: onderdrukt tijdens vakantie
-    (input_boolean.vakantie_actief on), tijdens stilte-periode (22:00-07:00)
+    (input_boolean.vakantie_actief on), tijdens stilte-periode (22:30-07:00)
     en tijdens regen (weather.thuis state rainy/pouring/lightning-rainy/
     snowy-rainy/hail — het regen-signaal neemt het dan over). Cross-clear
     naar alle andere ventilatie-signalen bij vuren. Herevalueert elke 15
@@ -1188,7 +1188,7 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
-      stille_periode: "{{ now().hour >= 22 or now().hour < 7 }}"
+      stille_periode: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
@@ -1301,7 +1301,7 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
-      stille_periode: "{{ now().hour >= 22 or now().hour < 7 }}"
+      stille_periode: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
@@ -1403,7 +1403,7 @@
     Waarschuwt om ramen en deuren gesloten te houden wanneer kamer >20°C is
     én de actuele buitentemperatuur (weather.thuis) HOGER is dan de kamer —
     ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
-    Guards: onderdrukt tijdens vakantie, tijdens stilte-periode (22:00-07:00)
+    Guards: onderdrukt tijdens vakantie, tijdens stilte-periode (22:30-07:00)
     en tijdens regen (het regen-signaal neemt het dan over). Cross-clear
     naar alle andere ventilatie-signalen bij vuren. Herevalueert elke 15
     minuten.
@@ -1415,7 +1415,7 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
-      stille_periode: "{{ now().hour >= 22 or now().hour < 7 }}"
+      stille_periode: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
@@ -1622,15 +1622,16 @@
   mode: single
 
 - id: nachtventilatie_signaal
-  alias: "Signaal: nachtventilatie — kamer >22°C en buiten <18°C (22:00-06:00)"
+  alias: "Signaal: nachtventilatie — kamer >22°C en buiten <18°C (22:30-06:00)"
   description: >
     Sterke pre-slaap wenk om ramen open te zetten wanneer 's avonds/nachts
-    (22:00-06:00) de kamer nog >22°C is EN buiten al <18°C (koele nacht na
-    warme dag). Vakantie-onderdrukking actief. NIET onderdrukt door de
-    generieke stilte-periode — dit signaal IS het nacht-signaal. Regen
-    heeft nog steeds voorrang (regen-guard in conditie). Edge-triggered via
-    input_boolean.nachtventilatie_signaal_actief. Cross-clear naar de
-    andere ventilatie-signalen bij vuren. Herevalueert elke 15 minuten.
+    (22:30-06:00) de kamer nog >22°C is EN buiten al <18°C (koele nacht na
+    warme dag). Sluit aan op de stilte-periode van de generieke signalen
+    (die stopt met vuren om 22:30) — dit is het nacht-signaal dat de plek
+    inneemt. Vakantie-onderdrukking actief. Regen heeft voorrang (regen-
+    guard in conditie). Edge-triggered via input_boolean.
+    nachtventilatie_signaal_actief. Cross-clear naar de andere ventilatie-
+    signalen bij vuren. Herevalueert elke 15 minuten.
   triggers:
   - trigger: time_pattern
     minutes: "/15"
@@ -1640,7 +1641,7 @@
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
-      in_venster: "{{ now().hour >= 22 or now().hour < 6 }}"
+      in_venster: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 6 }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
            and kamer_temp > 22 and buiten_actueel < 18
