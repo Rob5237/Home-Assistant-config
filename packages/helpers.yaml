@@ -52,6 +52,14 @@ input_boolean:
     name: "Tapwater opwarm-cyclus actief (reset-lock)"
     icon: mdi:lock-clock
 
+  ventileren_signaal_actief:
+    name: "Ventileren-signaal reeds verstuurd"
+    icon: mdi:bell-check
+
+  sluit_ramen_signaal_actief:
+    name: "Sluit-ramen-signaal reeds verstuurd"
+    icon: mdi:bell-check
+
 input_datetime:
   tdi_laatste_start:
     name: "TDI laatste start"

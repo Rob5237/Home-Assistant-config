@@ -1170,38 +1170,117 @@
   mode: single
 
 - id: kamer_gelijk_buiten_actueel_signaal
-  alias: "Signaal: kamertemp ≈ buitentemp (actueel)"
+  alias: "Signaal: ventileren — kamer ≥20°C en buiten < kamer (actueel)"
   description: >
     Vergelijkt kamertemperatuur met de actueel waargenomen buitentemperatuur
     van weather.thuis (attribuut temperature, internet-bron voor de omgeving
-    Den Bosch). Verstuurt een persistent notification als beide binnen ±0.5°C
-    liggen. Herevalueert ieder uur op HH:05. Notificatie wordt automatisch
-    gedismist zodra het verschil weer > 0.5°C is; stabiele notification_id
-    zorgt dat opeenvolgende updates de bestaande melding vervangen in plaats
-    van te stapelen.
+    Den Bosch). Edge-triggered: verstuurt éénmalig een mobile-app push als
+    kamer ≥20°C is EN de actuele buitentemperatuur LAGER is dan de kamer.
+    Zolang de conditie bij volgende ticks nog steeds waar is wordt géén
+    tweede melding gestuurd (input_boolean.ventileren_signaal_actief markeert
+    dat er al gemeld is). Zodra de conditie faalt wordt de bestaande push
+    weggeveegd en de marker gereset, zodat een volgende overgang weer een
+    nieuwe push oplevert. Herevalueert elke 15 minuten.
   triggers:
   - trigger: time_pattern
-    minutes: 5
+    minutes: "/15"
   actions:
   - variables:
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
-      verschil: "{{ (kamer_temp - buiten_actueel) | abs }}"
+      conditie: >-
+        {{ kamer_temp > -900 and buiten_actueel > -900
+           and kamer_temp >= 20 and buiten_actueel < kamer_temp }}
+      gemeld: "{{ is_state('input_boolean.ventileren_signaal_actief', 'on') }}"
   - choose:
     - conditions:
       - condition: template
-        value_template: "{{ kamer_temp > -900 and buiten_actueel > -900 and verschil <= 0.5 }}"
+        value_template: "{{ conditie and not gemeld }}"
       sequence:
-      - action: persistent_notification.create
+      - action: notify.mobile_app_sm_g781b
         data:
-          title: "🌡 Kamer ≈ buiten (actueel)"
-          notification_id: kamer_gelijk_buiten_actueel
+          title: "🌡 Ventileren om binnenshuis af te koelen"
           message: >-
-            Kamertemperatuur {{ kamer_temp }}°C is binnen 0.5°C gelijk aan de
-            actueel waargenomen buitentemperatuur ({{ buiten_actueel }}°C,
-            bron weather.thuis).
-    default:
-    - action: persistent_notification.dismiss
-      data:
-        notification_id: kamer_gelijk_buiten_actueel
+            Zet ramen en tuindeuren open om temperatuur in huis af te koelen.
+            Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C
+            (bron weather.thuis).
+          data:
+            tag: kamer_gelijk_buiten_actueel
+            channel: Kamer-buiten temperatuur
+            importance: high
+            priority: high
+            ttl: 0
+            notification_icon: mdi:thermometer
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ventileren_signaal_actief
+    - conditions:
+      - condition: template
+        value_template: "{{ not conditie and gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_gelijk_buiten_actueel
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ventileren_signaal_actief
+  mode: single
+
+- id: kamer_te_koel_sluit_ramen_signaal
+  alias: "Signaal: sluit ramen — kamer ≤20°C en buiten ≤20°C (actueel)"
+  description: >
+    Waarschuwt om ramen/tuindeuren te sluiten wanneer kamer- én actuele
+    buitentemperatuur (weather.thuis) beide ≤ 20°C zijn — dan is verder
+    ventileren niet gewenst omdat de kamer anders te ver afkoelt.
+    Edge-triggered: verstuurt éénmalig een push zolang de conditie waar is
+    (input_boolean.sluit_ramen_signaal_actief markeert dat er al gemeld is).
+    Zodra de conditie faalt wordt de bestaande push weggeveegd en de marker
+    gereset. Herevalueert elke 15 minuten.
+  triggers:
+  - trigger: time_pattern
+    minutes: "/15"
+  actions:
+  - variables:
+      buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
+      kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
+      conditie: >-
+        {{ kamer_temp > -900 and buiten_actueel > -900
+           and kamer_temp <= 20 and buiten_actueel <= 20 }}
+      gemeld: "{{ is_state('input_boolean.sluit_ramen_signaal_actief', 'on') }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ conditie and not gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🌡 Sluit ramen om afkoeling te beperken"
+          message: >-
+            Sluit ramen en buitendeuren om de kamertemperatuur niet te ver
+            te laten afkoelen. Kamer {{ kamer_temp }}°C, buiten
+            {{ buiten_actueel }}°C (bron weather.thuis).
+          data:
+            tag: kamer_te_koel_sluit_ramen
+            channel: Kamer-buiten temperatuur
+            importance: high
+            priority: high
+            ttl: 0
+            notification_icon: mdi:thermometer
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.sluit_ramen_signaal_actief
+    - conditions:
+      - condition: template
+        value_template: "{{ not conditie and gemeld }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_te_koel_sluit_ramen
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sluit_ramen_signaal_actief
   mode: single
