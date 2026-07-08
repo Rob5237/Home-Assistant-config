@@ -1169,47 +1169,39 @@
       value: 0
   mode: single
 
-- id: kamer_gelijk_buiten_forecast_signaal
-  alias: "Signaal: kamertemp ≈ buitentemp (forecast volgend uur)"
+- id: kamer_gelijk_buiten_actueel_signaal
+  alias: "Signaal: kamertemp ≈ buitentemp (actueel)"
   description: >
-    Vergelijkt kamertemperatuur met de voorspelde buitentemperatuur voor het
-    eerstvolgende uur (weather.thuis, hourly forecast). Verstuurt een persistent
-    notification als beide binnen ±0.5°C liggen. Herevalueert ieder uur op HH:05
-    (5 minuten marge zodat de forecast na het hele uur is bijgewerkt). Notificatie
-    wordt automatisch gedismist zodra het verschil weer > 0.5°C is; stabiele
-    notification_id zorgt dat opeenvolgende updates de bestaande melding
-    vervangen in plaats van te stapelen.
+    Vergelijkt kamertemperatuur met de actueel waargenomen buitentemperatuur
+    van weather.thuis (attribuut temperature, internet-bron voor de omgeving
+    Den Bosch). Verstuurt een persistent notification als beide binnen ±0.5°C
+    liggen. Herevalueert ieder uur op HH:05. Notificatie wordt automatisch
+    gedismist zodra het verschil weer > 0.5°C is; stabiele notification_id
+    zorgt dat opeenvolgende updates de bestaande melding vervangen in plaats
+    van te stapelen.
   triggers:
   - trigger: time_pattern
     minutes: 5
   actions:
-  - action: weather.get_forecasts
-    target:
-      entity_id: weather.thuis
-    data:
-      type: hourly
-    response_variable: weer_forecast
   - variables:
-      volgend_uur: "{{ weer_forecast['weather.thuis'].forecast[0] }}"
-      buiten_forecast: "{{ volgend_uur.temperature | float }}"
+      buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
-      verschil: "{{ (kamer_temp - buiten_forecast) | abs }}"
+      verschil: "{{ (kamer_temp - buiten_actueel) | abs }}"
   - choose:
     - conditions:
       - condition: template
-        value_template: "{{ kamer_temp > -900 and verschil <= 0.5 }}"
+        value_template: "{{ kamer_temp > -900 and buiten_actueel > -900 and verschil <= 0.5 }}"
       sequence:
       - action: persistent_notification.create
         data:
-          title: "🌡 Kamer ≈ buiten (forecast)"
-          notification_id: kamer_gelijk_buiten_forecast
+          title: "🌡 Kamer ≈ buiten (actueel)"
+          notification_id: kamer_gelijk_buiten_actueel
           message: >-
             Kamertemperatuur {{ kamer_temp }}°C is binnen 0.5°C gelijk aan de
-            voorspelde buitentemperatuur ({{ buiten_forecast }}°C, forecast-tijd
-            {{ as_datetime(volgend_uur.datetime) | as_local | as_timestamp
-               | timestamp_custom('%H:%M') }}).
+            actueel waargenomen buitentemperatuur ({{ buiten_actueel }}°C,
+            bron weather.thuis).
     default:
     - action: persistent_notification.dismiss
       data:
-        notification_id: kamer_gelijk_buiten_forecast
+        notification_id: kamer_gelijk_buiten_actueel
   mode: single
