@@ -1211,9 +1211,17 @@
             priority: high
             ttl: 0
             notification_icon: mdi:thermometer
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_te_koel_sluit_ramen
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ventileren_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sluit_ramen_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1268,9 +1276,17 @@
             priority: high
             ttl: 0
             notification_icon: mdi:thermometer
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_gelijk_buiten_actueel
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ventileren_signaal_actief
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
