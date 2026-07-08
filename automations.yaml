@@ -267,7 +267,7 @@
     door 21:55 watchdog maar niet ideaal. Nieuwe aanpak: bij DHW ≥ 58 slaan
     we het setpoint-boost over (WP zou toch niet starten binnen goedkoopste
     uur), tdi_laatste_start-update slaan we óók over zodat de TDI-check
-    volgende dag opnieuw firet zodra DHW voldoende is gezakt (< 58 = ~2-3
+    volgende dag opnieuw activeert zodra DHW voldoende is gezakt (< 58 = ~2-3
     dagen later door natuurlijk warmteverlies). Aanname: DHW ≥ 58 hoge deel
     van de tank betekent recente warmtecyclus, legionella-risico beperkt tot
     volgende poging.
@@ -340,7 +340,7 @@
     zonne-overschot extra-opslag (ook Party, ook setpoint 62): de
     zonne_overschot_extra_opslag_reset triggert al bij DHW > 58 en zou
     setpoint al naar 50 hebben gezet voordat DHW > 61 voor 10 min haalbaar
-    is — dus in praktijk firet deze automation alleen na een TDI-cyclus.
+    is — dus in praktijk activeert deze automation alleen na een TDI-cyclus.
     Setpoint > 60 voorkomt onbedoelde trigger bij gewone bijverwarm-cycli
     (setpoint 57) waar restwarmte/overshoot DHW boven 60°C kan duwen.
     Actie zet dhw_mode altijd terug naar Automatic (idempotent als al
@@ -399,7 +399,7 @@
     Avond-watchdog (21:55): de DHW>58-trigger is een transitie-trigger en
     vereist een stijgende flank. Als DHW bij start van Party+62 al ≥58 is
     (bv. door eerdere zonne-boost, of een TDI-cyclus die niet doorstookt
-    omdat de tank al warm was), firet de trigger nooit en blijft Party+62
+    omdat de tank al warm was), activeert de trigger nooit en blijft Party+62
     hangen tot de tank ver genoeg is afgekoeld — soms >12u later, buiten
     het bedoelde venster. De watchdog vangt dit op vlak vóór het nachtuur-
     venster (22:00) zodat de nacht met schone setpoint 50/Automatic begint.
@@ -458,7 +458,7 @@
     (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 41°C).
     Drempel 46°C (was 43): 3°C hogere drempel geeft grotere douche-buffer
     (~50L trekking = ~5-6°C drop; van 46 kom je op 40, van 43 op 37 = koud).
-    Impact op solar-benutting minimaal — bijverwarmen firet alleen als het
+    Impact op solar-benutting minimaal — bijverwarmen activeert alleen als het
     tarief laag is (bij overschot ligt tarief typisch laag), en klein-overschot
     (nu drempel 52) vangt de meeste warmteverlies al eerder op. Emergency
     <41°C ongewijzigd.
@@ -509,10 +509,10 @@
     cycli draait onder 40°C (50 - 10K hysterese).
     Sneller-detectie via for: 1 min (was 2 min) verlaagt de kans dat een korte
     overshoot-piek gemist wordt; drempel 57 blijft bewust staan zodat de trigger
-    alleen na bereiken setpoint firet (lager zou cyclus halverwege afbreken).
+    alleen na bereiken setpoint activeert (lager zou cyclus halverwege afbreken).
     Avond-watchdog (21:55): de DHW>57-trigger is een transitie-trigger en kan
     gemist worden als P1<-1500 op moment van stijging (conditie faalt, daarna
-    firet de trigger niet meer). Een tweede kans vlak vóór het nachtvenster
+    activeert de trigger niet meer). Een tweede kans vlak vóór het nachtvenster
     reset alsnog wanneer lock=on en setpoint nog 50-60.
     Dag-watchdog (13:55) doet hetzelfde vlak vóór het TDI-venster (start typisch
     14:00 of later op het goedkoopste uur). Extra guard `DHW > 56`: de
@@ -1035,7 +1035,7 @@
     rust-setpoint 48→50 en hysterese 8K→10K wijzigingen (2026-06-20). Doel:
     bevestigen of starts naar zonne-uren zijn verschoven. Baseline pre-wijziging
     (recorder 2026-06-10 t/m 2026-06-20): 60% dag / 40% nacht over 12 starts.
-    Trigger via dagelijkse 11:00 + datum-conditie, dus fire-once op 2026-06-27.
+    Trigger via dagelijkse 11:00 + datum-conditie, dus eenmalig geactiveerd op 2026-06-27.
     Automation mag na uitvoering verwijderd worden (dode code na die datum).
   triggers:
   - trigger: time
