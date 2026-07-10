@@ -86,6 +86,8 @@ from .const import (
     DRY_CONTACT_SETTINGS_STALE_AFTER_S,
     DOMAIN,
     GRID_CONTROL_CHECK_STALE_AFTER_S,
+    GRID_OUTAGE_CONTEXT_CACHE_TTL,
+    GRID_OUTAGE_CONTEXT_STALE_AFTER_S,
     HEMS_AUTH_BACKOFF_STEPS_S,
     HEMS_AUTH_MANUAL_CLEAR_COOLDOWN_S,
     OPT_API_TIMEOUT,
@@ -901,6 +903,15 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
             "grid_control_check": EndpointFamilyPolicy(
                 success_ttl_s=300.0,
                 stale_after_s=GRID_CONTROL_CHECK_STALE_AFTER_S,
+                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
+                max_backoff_s=3600.0,
+                optional=True,
+                suppress_after_failures=3,
+                support_state_on_success=True,
+            ),
+            "grid_outage_context": EndpointFamilyPolicy(
+                success_ttl_s=GRID_OUTAGE_CONTEXT_CACHE_TTL,
+                stale_after_s=GRID_OUTAGE_CONTEXT_STALE_AFTER_S,
                 failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
                 max_backoff_s=3600.0,
                 optional=True,
@@ -2343,6 +2354,9 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
             "grid_control_check_payload": getattr(
                 self, "_grid_control_check_payload", None
             ),
+            "grid_outage_context_payload": getattr(
+                self, "_grid_outage_context_payload", None
+            ),
             "dry_contacts_payload": getattr(
                 self, "_dry_contact_settings_payload", None
             ),
@@ -2926,6 +2940,55 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
                     self.async_set_update_interval(new_interval)
                 except Exception:
                     pass
+
+    @staticmethod
+    def _charger_amp_bounds_missing(data: dict[str, object]) -> bool:
+        """Return True when a charger snapshot still lacks number range bounds."""
+
+        charging_amps_supported = _coerce_optional_boolish(
+            data.get("charging_amps_supported")
+        )
+        if charging_amps_supported is False:
+            return False
+        has_amp_hint = any(
+            data.get(key) is not None
+            for key in (
+                "charging_level",
+                "session_charge_level",
+                "default_charge_level",
+                "max_current",
+            )
+        )
+        if charging_amps_supported is not True and not has_amp_hint:
+            return False
+        return (
+            _coerce_intish(data.get("min_amp")) is None
+            or _coerce_intish(data.get("max_amp")) is None
+        )
+
+    def _summary_refresh_needed_for_amp_bounds(
+        self, data: dict[str, dict[str, object]]
+    ) -> bool:
+        """Return True when cached summary data is missing EVSE amp bounds."""
+
+        previous_data = self.data if isinstance(self.data, dict) else {}
+        for sn in self.iter_serials():
+            if not sn:
+                continue
+            snapshot = data.get(sn)
+            if not isinstance(snapshot, dict):
+                continue
+            if self._charger_amp_bounds_missing(snapshot):
+                previous = previous_data.get(sn)
+                if isinstance(previous, dict):
+                    merged = dict(snapshot)
+                    for key in ("min_amp", "max_amp"):
+                        if merged.get(key) is None and previous.get(key) is not None:
+                            merged[key] = previous.get(key)
+                    if not self._charger_amp_bounds_missing(merged):
+                        continue
+                return True
+        return False
 
     def _finish_refresh_pipeline(
         self,
@@ -3810,6 +3873,8 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
             want_fast=polling_state["want_fast"],
             target_interval=float(polling_state["target"]),
         )
+        if not summary_force and self._summary_refresh_needed_for_amp_bounds(out):
+            summary_force = True
 
         # Enrich with summary v2 data
         summary_start = time.monotonic()
@@ -3825,20 +3890,29 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
                 cur.setdefault("nominal_v", self._nominal_v)
                 prev_sn = prev_data.get(sn) if isinstance(prev_data, dict) else None
                 # Max current capability and phase/status
-                cur["max_current"] = item.get("maxCurrent")
+                max_current = item.get("maxCurrent")
+                if max_current is None and isinstance(prev_sn, dict):
+                    max_current = prev_sn.get("max_current")
+                cur["max_current"] = max_current
                 cld = item.get("chargeLevelDetails") or {}
+                if not isinstance(cld, dict):
+                    cld = {}
                 try:
                     cur["min_amp"] = (
                         int(str(cld.get("min"))) if cld.get("min") is not None else None
                     )
                 except Exception:
                     cur["min_amp"] = None
+                if cur["min_amp"] is None and isinstance(prev_sn, dict):
+                    cur["min_amp"] = _as_int(prev_sn.get("min_amp"))
                 try:
                     cur["max_amp"] = (
                         int(str(cld.get("max"))) if cld.get("max") is not None else None
                     )
                 except Exception:
                     cur["max_amp"] = None
+                if cur["max_amp"] is None and isinstance(prev_sn, dict):
+                    cur["max_amp"] = _as_int(prev_sn.get("max_amp"))
                 try:
                     cur["amp_granularity"] = (
                         int(str(cld.get("granularity")))
@@ -3847,6 +3921,8 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
                     )
                 except Exception:
                     cur["amp_granularity"] = None
+                if cur["amp_granularity"] is None and isinstance(prev_sn, dict):
+                    cur["amp_granularity"] = _as_int(prev_sn.get("amp_granularity"))
                 if any(
                     cur.get(key) is not None
                     for key in (
@@ -6209,6 +6285,51 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
             return None
         return getattr(self, "_grid_control_user_initiated_toggle", None)
 
+    def _grid_outage_context_is_stale(self) -> bool:
+        raw_supported = getattr(self, "_grid_outage_context_supported", None)
+        if raw_supported is None:
+            return True
+        last_success = getattr(self, "_grid_outage_context_last_success_mono", None)
+        if not isinstance(last_success, (int, float)):
+            return False
+        age = time.monotonic() - float(last_success)
+        if age < 0:
+            return False
+        return age >= GRID_OUTAGE_CONTEXT_STALE_AFTER_S
+
+    @property
+    def grid_outage_context_supported(self) -> bool | None:
+        raw_supported = getattr(self, "_grid_outage_context_supported", None)
+        if raw_supported is None:
+            return None
+        if self._grid_outage_context_is_stale():
+            return None
+        return raw_supported
+
+    @property
+    def grid_outage_is_grid_outage(self) -> bool | None:
+        if self.grid_outage_context_supported is not True:
+            return None
+        return getattr(self, "_grid_outage_is_grid_outage", None)
+
+    @property
+    def grid_outage_show_grid_connect(self) -> bool | None:
+        if self.grid_outage_context_supported is not True:
+            return None
+        return getattr(self, "_grid_outage_show_grid_connect", None)
+
+    @property
+    def grid_outage_has_battery(self) -> bool | None:
+        if self.grid_outage_context_supported is not True:
+            return None
+        return getattr(self, "_grid_outage_has_battery", None)
+
+    @property
+    def grid_outage_is_sunlight_backup(self) -> bool | None:
+        if self.grid_outage_context_supported is not True:
+            return None
+        return getattr(self, "_grid_outage_is_sunlight_backup", None)
+
     @property
     def grid_toggle_pending(self) -> bool:
         return self.grid_control_user_initiated_toggle is True
@@ -6301,34 +6422,21 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
 
     @property
     def grid_mode_raw_states(self) -> list[str]:
-        out: list[str] = []
-        seen: set[str] = set()
-        data = self.data if isinstance(self.data, dict) else {}
-        for payload in data.values():
-            if not isinstance(payload, dict):
-                continue
-            raw = self._coerce_optional_text(payload.get("off_grid_state"))
-            if not raw:
-                continue
-            if raw in seen:
-                continue
-            seen.add(raw)
-            out.append(raw)
-        return sorted(out)
+        outage_state = self.grid_outage_is_grid_outage
+        if outage_state is True:
+            return ["is_grid_outage:true"]
+        if outage_state is False:
+            return ["is_grid_outage:false"]
+        return []
 
     @property
     def grid_mode(self) -> str | None:
-        raw_states = self.grid_mode_raw_states
-        if not raw_states:
-            return None
-        normalized = {
-            mode
-            for mode in (self._normalize_grid_mode_value(state) for state in raw_states)
-            if mode is not None
-        }
-        if len(normalized) == 1:
-            return next(iter(normalized))
-        return "unknown"
+        outage_state = self.grid_outage_is_grid_outage
+        if outage_state is True:
+            return "off_grid"
+        if outage_state is False:
+            return "on_grid"
+        return None
 
     def _raise_grid_validation(
         self,
@@ -7279,6 +7387,9 @@ class EnphaseCoordinator(DataUpdateCoordinator[dict]):
 
     async def _async_refresh_grid_control_check(self, *, force: bool = False) -> None:
         await self.battery_runtime.async_refresh_grid_control_check(force=force)
+
+    async def _async_refresh_grid_outage_context(self, *, force: bool = False) -> None:
+        await self.battery_runtime.async_refresh_grid_outage_context(force=force)
 
     async def _async_refresh_dry_contact_settings(self, *, force: bool = False) -> None:
         await self.battery_runtime.async_refresh_dry_contact_settings(force=force)
