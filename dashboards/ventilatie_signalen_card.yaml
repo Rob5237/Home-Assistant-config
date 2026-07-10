@@ -26,9 +26,15 @@ cards:
       {% set buiten_str = ('%.1f' % buiten) + ' °C' %}
       {% set kamer_color = '#e53935' if kamer > buiten else ('#1976d2' if kamer < buiten else '') %}
       {% set buiten_color = '#e53935' if buiten > kamer else ('#1976d2' if buiten < kamer else '') %}
-      {% set kamer_html = ('<span style="color:' + kamer_color + '"><b>Kamer:</b> <b>' + kamer_str + '</b></span>') if kamer_color else ('<b>Kamer:</b> ' + kamer_str) %}
-      {% set buiten_html = ('<span style="color:' + buiten_color + '"><b>Buiten:</b> <b>' + buiten_str + '</b></span>') if buiten_color else ('<b>Buiten:</b> ' + buiten_str) %}
-      {{ kamer_html }}  ·  {{ buiten_html }}  ·  **Weer:** {{ weer }}
+      {% set kamer_style = ('color:' + kamer_color) if kamer_color else '' %}
+      {% set buiten_style = ('color:' + buiten_color) if buiten_color else '' %}
+      {% set weer_nl = {'sunny':'Zonnig','clear-night':'Heldere nacht','cloudy':'Bewolkt','partlycloudy':'Half bewolkt','rainy':'Regen','pouring':'Zware regen','lightning':'Onweer','lightning-rainy':'Onweer met regen','snowy':'Sneeuw','snowy-rainy':'Sneeuw met regen','windy':'Winderig','windy-variant':'Winderig','fog':'Mist','hail':'Hagel','exceptional':'Uitzonderlijk'}.get(weer, weer) %}
+      {% set weer_icon = {'sunny':'☀️','clear-night':'🌙','cloudy':'☁️','partlycloudy':'⛅','rainy':'🌧️','pouring':'🌧️','lightning':'⚡','lightning-rainy':'⛈️','snowy':'❄️','snowy-rainy':'🌨️','windy':'💨','windy-variant':'💨','fog':'🌫️','hail':'🌨️','exceptional':'⚠️'}.get(weer, '') %}
+      <table style="border-collapse:collapse;border:none">
+      <tr style="border:none"><td style="{{ kamer_style }};border:none;padding:0 12px 0 0"><b>Kamertemperatuur:</b></td><td style="{{ kamer_style }};border:none;padding:0"><b>{{ kamer_str }}</b></td></tr>
+      <tr style="border:none"><td style="{{ buiten_style }};border:none;padding:0 12px 0 0"><b>Buitentemperatuur:</b></td><td style="{{ buiten_style }};border:none;padding:0"><b>{{ buiten_str }}</b></td></tr>
+      <tr style="border:none"><td style="border:none;padding:0 12px 0 0"><b>Weer:</b></td><td style="border:none;padding:0">{{ weer_icon }} {{ weer_nl }}</td></tr>
+      </table>
       {% if vakantie %}
       🏝 _Vakantiemodus actief — alle ventilatie-signalen onderdrukt._
       {% elif s_regen %}
