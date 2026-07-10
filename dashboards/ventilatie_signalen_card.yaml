@@ -24,16 +24,20 @@ cards:
       {% set s_nachtvent = ok and kamer > 20 and buiten < 18 and in_nacht and not vakantie and not regen %}
       {% set kamer_str = ('%.1f' % kamer) + ' °C' %}
       {% set buiten_str = ('%.1f' % buiten) + ' °C' %}
-      {% set kamer_color = '#e53935' if kamer > buiten else ('#1976d2' if kamer < buiten else '') %}
-      {% set buiten_color = '#e53935' if buiten > kamer else ('#1976d2' if buiten < kamer else '') %}
-      {% set kamer_style = ('color:' + kamer_color) if kamer_color else '' %}
-      {% set buiten_style = ('color:' + buiten_color) if buiten_color else '' %}
+      {% set kamer_bg = '#e53935' if kamer > buiten else '' %}
+      {% set buiten_bg = '#e53935' if buiten > kamer else '' %}
+      {% set kamer_icon = '🟥' if kamer > buiten else '' %}
+      {% set buiten_icon = '🟥' if buiten > kamer else '' %}
+      {% set kamer_open = ('<span style="background-color:' + kamer_bg + ';color:#fff;padding:2px 6px;border-radius:3px">') if kamer_bg else '' %}
+      {% set kamer_close = '</span>' if kamer_bg else '' %}
+      {% set buiten_open = ('<span style="background-color:' + buiten_bg + ';color:#fff;padding:2px 6px;border-radius:3px">') if buiten_bg else '' %}
+      {% set buiten_close = '</span>' if buiten_bg else '' %}
       {% set weer_nl = {'sunny':'Zonnig','clear-night':'Heldere nacht','cloudy':'Bewolkt','partlycloudy':'Half bewolkt','rainy':'Regen','pouring':'Zware regen','lightning':'Onweer','lightning-rainy':'Onweer met regen','snowy':'Sneeuw','snowy-rainy':'Sneeuw met regen','windy':'Winderig','windy-variant':'Winderig','fog':'Mist','hail':'Hagel','exceptional':'Uitzonderlijk'}.get(weer, weer) %}
       {% set weer_icon = {'sunny':'☀️','clear-night':'🌙','cloudy':'☁️','partlycloudy':'⛅','rainy':'🌧️','pouring':'🌧️','lightning':'⚡','lightning-rainy':'⛈️','snowy':'❄️','snowy-rainy':'🌨️','windy':'💨','windy-variant':'💨','fog':'🌫️','hail':'🌨️','exceptional':'⚠️'}.get(weer, '') %}
-      <table style="border-collapse:collapse;border:none">
-      <tr style="border:none"><td style="{{ kamer_style }};border:none;padding:0 12px 0 0"><b>Kamertemperatuur:</b></td><td style="{{ kamer_style }};border:none;padding:0"><b>{{ kamer_str }}</b></td></tr>
-      <tr style="border:none"><td style="{{ buiten_style }};border:none;padding:0 12px 0 0"><b>Buitentemperatuur:</b></td><td style="{{ buiten_style }};border:none;padding:0"><b>{{ buiten_str }}</b></td></tr>
-      <tr style="border:none"><td style="border:none;padding:0 12px 0 0"><b>Weer:</b></td><td style="border:none;padding:0">{{ weer_icon }} {{ weer_nl }}</td></tr>
+      <table style="border-collapse:collapse;border-color:var(--card-background-color)">
+      <tr><td align="right" style="border-color:var(--card-background-color);padding:2px 12px 2px 0"><b>{{ kamer_icon }} Kamertemperatuur:</b></td><td style="border-color:var(--card-background-color);padding:2px 0">{{ kamer_open }}<b>{{ kamer_str }}</b>{{ kamer_close }}</td></tr>
+      <tr><td align="right" style="border-color:var(--card-background-color);padding:2px 12px 2px 0"><b>{{ buiten_icon }} Buitentemperatuur:</b></td><td style="border-color:var(--card-background-color);padding:2px 0">{{ buiten_open }}<b>{{ buiten_str }}</b>{{ buiten_close }}</td></tr>
+      <tr><td align="right" style="border-color:var(--card-background-color);padding:2px 12px 2px 0"><b>Weer:</b></td><td style="border-color:var(--card-background-color);padding:2px 0">{{ weer_icon }} {{ weer_nl }}</td></tr>
       </table>
       {% if vakantie %}
       🏝 _Vakantiemodus actief — alle ventilatie-signalen onderdrukt._
@@ -58,36 +62,3 @@ cards:
       {% if stil_venster and not vakantie %}
       🔇 _Stil-venster 22:30-07:30: meldingen komen door zonder wek-geluid._
       {% endif %}
-
-  - type: entities
-    show_header_toggle: false
-    entities:
-      - entity: automation.signaal_kamertemp_buitentemp_actueel
-        name: Ventileren-signaal
-        secondary_info: last-triggered
-      - entity: input_boolean.ventileren_signaal_actief
-        name: — reeds verstuurd (marker)
-      - type: divider
-      - entity: automation.signaal_sluit_ramen_kamer_20degc_en_buiten_20degc_actueel
-        name: Sluit-ramen-signaal
-        secondary_info: last-triggered
-      - entity: input_boolean.sluit_ramen_signaal_actief
-        name: — reeds verstuurd (marker)
-      - type: divider
-      - entity: automation.signaal_houd_ramen_dicht_kamer_20degc_en_buiten_kamer_actueel
-        name: Houd-ramen-en-tuindeuren-dicht-signaal
-        secondary_info: last-triggered
-      - entity: input_boolean.ramen_dicht_signaal_actief
-        name: — reeds verstuurd (marker)
-      - type: divider
-      - entity: automation.signaal_sluit_ramen_het_regent_actueel
-        name: Regen-signaal
-        secondary_info: last-triggered
-      - entity: input_boolean.regen_signaal_actief
-        name: — reeds verstuurd (marker)
-      - type: divider
-      - entity: automation.signaal_nachtventilatie_kamer_22degc_en_buiten_18degc_22_00_06_00
-        name: Nachtventilatie-signaal
-        secondary_info: last-triggered
-      - entity: input_boolean.nachtventilatie_signaal_actief
-        name: — reeds verstuurd (marker)
