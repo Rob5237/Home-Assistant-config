@@ -20,7 +20,13 @@ content: |
   {% set f_r = c_r and not vakantie %}
   {% set f_n = c_n and not vakantie and not regen %}
   {% set actief = 'Regen' if f_r else 'Nachtventilatie' if f_n else 'Ventileren' if f_v else 'Sluit ramen' if f_s else 'Houd dicht' if f_h else '—' %}
-  **Live:** kamer **{{ '%.1f'|format(kamer) }} °C**  ·  buiten **{{ '%.1f'|format(buiten) }} °C**  ·  weer **{{ weer }}**
+  {% set kamer_str = ('%.1f' % kamer) + ' °C' %}
+  {% set buiten_str = ('%.1f' % buiten) + ' °C' %}
+  {% set kamer_color = '#e53935' if kamer > buiten else ('#1976d2' if kamer < buiten else '') %}
+  {% set buiten_color = '#e53935' if buiten > kamer else ('#1976d2' if buiten < kamer else '') %}
+  {% set kamer_html = ('<span style="color:' + kamer_color + '"><b>kamer ' + kamer_str + '</b></span>') if kamer_color else ('<b>kamer ' + kamer_str + '</b>') %}
+  {% set buiten_html = ('<span style="color:' + buiten_color + '"><b>buiten ' + buiten_str + '</b></span>') if buiten_color else ('<b>buiten ' + buiten_str + '</b>') %}
+  **Live:** {{ kamer_html }}  ·  {{ buiten_html }}  ·  weer **{{ weer }}**
 
   **Guards nu:**
   {{ '🏝' if vakantie else '·' }} vakantie  ·  {{ '🔇' if stil_venster else '·' }} stil-venster 22:30–07:30 (geluid uit)  ·  {{ '🌧' if regen else '·' }} regen

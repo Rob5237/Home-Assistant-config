@@ -22,7 +22,13 @@ cards:
       {% set s_houd_dicht = ok and kamer > 20 and buiten > kamer and not vakantie and not regen %}
       {% set s_regen = regen and not vakantie %}
       {% set s_nachtvent = ok and kamer > 20 and buiten < 18 and in_nacht and not vakantie and not regen %}
-      **Kamer:** {{ '%.1f'|format(kamer) }} °C  ·  **Buiten:** {{ '%.1f'|format(buiten) }} °C  ·  **Weer:** {{ weer }}
+      {% set kamer_str = ('%.1f' % kamer) + ' °C' %}
+      {% set buiten_str = ('%.1f' % buiten) + ' °C' %}
+      {% set kamer_color = '#e53935' if kamer > buiten else ('#1976d2' if kamer < buiten else '') %}
+      {% set buiten_color = '#e53935' if buiten > kamer else ('#1976d2' if buiten < kamer else '') %}
+      {% set kamer_html = ('<span style="color:' + kamer_color + '"><b>Kamer:</b> <b>' + kamer_str + '</b></span>') if kamer_color else ('<b>Kamer:</b> ' + kamer_str) %}
+      {% set buiten_html = ('<span style="color:' + buiten_color + '"><b>Buiten:</b> <b>' + buiten_str + '</b></span>') if buiten_color else ('<b>Buiten:</b> ' + buiten_str) %}
+      {{ kamer_html }}  ·  {{ buiten_html }}  ·  **Weer:** {{ weer }}
       {% if vakantie %}
       🏝 _Vakantiemodus actief — alle ventilatie-signalen onderdrukt._
       {% elif s_regen %}
