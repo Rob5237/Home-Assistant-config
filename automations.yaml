@@ -1178,9 +1178,14 @@
     (input_boolean.vakantie_actief on), tijdens stilte-periode (22:30-07:00)
     en tijdens regen (weather.thuis state rainy/pouring/lightning-rainy/
     snowy-rainy/hail — het regen-signaal neemt het dan over). Cross-clear
-    naar alle andere ventilatie-signalen bij activeren. Herevalueert elke 15
-    minuten.
+    naar alle andere ventilatie-signalen bij activeren. Triggers: event
+    kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
+    bevestigde 0,2°C trend-omkering, ongeacht richting) PLUS time_pattern
+    /15 min als fallback voor de clear-path en robuustheid bij gemiste
+    events.
   triggers:
+  - trigger: event
+    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1292,8 +1297,12 @@
     mobile+HA-UI push. Guards: onderdrukt tijdens vakantie, tijdens stilte-
     periode (22:00-07:00) en tijdens regen (het regen-signaal neemt het dan
     over). Cross-clear naar alle andere ventilatie-signalen bij activeren.
-    Herevalueert elke 15 minuten.
+    Triggers: event kamer_temp_reversal (van kamer_trend_tracker — activeert
+    direct bij bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min
+    voor de clear-path en robuustheid.
   triggers:
+  - trigger: event
+    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1405,9 +1414,13 @@
     ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
     Guards: onderdrukt tijdens vakantie, tijdens stilte-periode (22:30-07:00)
     en tijdens regen (het regen-signaal neemt het dan over). Cross-clear
-    naar alle andere ventilatie-signalen bij activeren. Herevalueert elke 15
-    minuten.
+    naar alle andere ventilatie-signalen bij activeren. Triggers: event
+    kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
+    bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min voor de
+    clear-path en robuustheid.
   triggers:
+  - trigger: event
+    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1520,9 +1533,15 @@
     onderdrukking actief. GEEN stilte-periode: regen is urgent (nat interieur
     weegt zwaarder dan geluidsoverlast). Edge-triggered via
     input_boolean.regen_signaal_actief. Bij activeren worden alle andere
-    ventilatie-signalen weggeveegd (mobile + HA UI). Herevalueert elke 15
-    minuten.
+    ventilatie-signalen weggeveegd (mobile + HA UI). Triggers: event
+    kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
+    bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min voor de
+    clear-path en robuustheid. Kamertemp-omkering is voor regen inhoudelijk
+    niet relevant, maar het event zorgt voor snellere response als het weer
+    net omslaat.
   triggers:
+  - trigger: event
+    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1622,17 +1641,21 @@
   mode: single
 
 - id: nachtventilatie_signaal
-  alias: "Signaal: nachtventilatie — kamer >22°C en buiten <18°C (22:30-06:00)"
+  alias: "Signaal: nachtventilatie — kamer >20°C en buiten <18°C (22:30-06:00)"
   description: >
     Sterke pre-slaap wenk om ramen open te zetten wanneer 's avonds/nachts
-    (22:30-06:00) de kamer nog >22°C is EN buiten al <18°C (koele nacht na
+    (22:30-06:00) de kamer nog >20°C is EN buiten al <18°C (koele nacht na
     warme dag). Sluit aan op de stilte-periode van de generieke signalen
     (die stopt met activeren om 22:30) — dit is het nacht-signaal dat de plek
     inneemt. Vakantie-onderdrukking actief. Regen heeft voorrang (regen-
     guard in conditie). Edge-triggered via input_boolean.
     nachtventilatie_signaal_actief. Cross-clear naar de andere ventilatie-
-    signalen bij activeren. Herevalueert elke 15 minuten.
+    signalen bij activeren. Triggers: event kamer_temp_reversal (van
+    kamer_trend_tracker — activeert direct bij bevestigde 0,2°C trend-
+    omkering) PLUS time_pattern /15 min voor de clear-path en robuustheid.
   triggers:
+  - trigger: event
+    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1644,7 +1667,7 @@
       in_venster: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 6 }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp > 22 and buiten_actueel < 18
+           and kamer_temp > 20 and buiten_actueel < 18
            and in_venster and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.nachtventilatie_signaal_actief', 'on') }}"
   - choose:
@@ -1724,3 +1747,94 @@
         target:
           entity_id: input_boolean.nachtventilatie_signaal_actief
   mode: single
+
+- id: kamer_trend_tracker
+  alias: "Kamer trend tracker (extremum + 0.2°C reversal-detectie)"
+  description: >
+    Volgt de kamertemperatuur en detecteert trend-omkeringen: houdt het
+    laatste piek/dal-punt (extremum) bij in input_number.kamer_ref_temp en
+    de huidige trendrichting in input_boolean.kamer_stijgt. Zolang de trend
+    doorloopt schuift het extremum mee met elke nieuwe piek/dal-waarde.
+    Zodra de kamertemp ≥0,2°C tegen de trend in beweegt is dat een
+    bevestigde omkering: richting wordt geflipt, extremum ge-reset naar de
+    huidige waarde, en het event 'kamer_temp_reversal' wordt afgevuurd
+    (event_data: richting = 'naar_stijgend' of 'naar_dalend', temp = huidige
+    kamertemp). Andere automations kunnen dat event als trigger gebruiken.
+    Ref-initialisatie gebeurt automatisch bij de eerste geldige state-change
+    na start (initial value 0 wordt als sentinel behandeld). Mode: parallel
+    zodat opeenvolgende sensor-updates niet worden overgeslagen.
+  triggers:
+  - trigger: state
+    entity_id: sensor.luxtronik_280807_0450_room_thermostat_temperature
+  actions:
+  - variables:
+      cur: "{{ trigger.to_state.state | float(-999) }}"
+      ref: "{{ states('input_number.kamer_ref_temp') | float(0) }}"
+      stijgt: "{{ is_state('input_boolean.kamer_stijgt', 'on') }}"
+      geinit: "{{ ref > 5 }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ cur <= -900 }}"
+      sequence: []
+    - conditions:
+      - condition: template
+        value_template: "{{ not geinit }}"
+      sequence:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.kamer_ref_temp
+        data:
+          value: "{{ cur }}"
+    - conditions:
+      - condition: template
+        value_template: "{{ stijgt and cur >= ref }}"
+      sequence:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.kamer_ref_temp
+        data:
+          value: "{{ cur }}"
+    - conditions:
+      - condition: template
+        value_template: "{{ stijgt and (ref - cur) >= 0.2 }}"
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.kamer_stijgt
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.kamer_ref_temp
+        data:
+          value: "{{ cur }}"
+      - event: kamer_temp_reversal
+        event_data:
+          richting: naar_dalend
+          temp: "{{ cur }}"
+    - conditions:
+      - condition: template
+        value_template: "{{ not stijgt and cur <= ref }}"
+      sequence:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.kamer_ref_temp
+        data:
+          value: "{{ cur }}"
+    - conditions:
+      - condition: template
+        value_template: "{{ not stijgt and (cur - ref) >= 0.2 }}"
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.kamer_stijgt
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.kamer_ref_temp
+        data:
+          value: "{{ cur }}"
+      - event: kamer_temp_reversal
+        event_data:
+          richting: naar_stijgend
+          temp: "{{ cur }}"
+  mode: parallel
+  max: 20

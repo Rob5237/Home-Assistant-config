@@ -13,7 +13,7 @@ content: |
   {% set c_s = ok and kamer <= 20 and buiten <= 20 %}
   {% set c_h = ok and kamer > 20 and buiten > kamer %}
   {% set c_r = regen %}
-  {% set c_n = ok and kamer > 22 and buiten < 18 and in_nacht %}
+  {% set c_n = ok and kamer > 20 and buiten < 18 and in_nacht %}
   {% set f_v = c_v and not vakantie and not stille and not regen %}
   {% set f_s = c_s and not vakantie and not stille and not regen %}
   {% set f_h = c_h and not vakantie and not stille and not regen %}
@@ -33,6 +33,6 @@ content: |
   | 2 | 🌡 Sluit ramen | kamer ≤20 & buiten ≤20 | {{ '✓' if f_s else ('✗' if c_s else '○') }} |
   | 3 | 🌡 Houd dicht | kamer >20 & buiten>kamer | {{ '✓' if f_h else ('✗' if c_h else '○') }} |
   | 4 | 🌧 Regen | rainy / pouring / hail | {{ '✓' if f_r else ('✗' if c_r else '○') }} |
-  | 5 | 🌙 Nachtvent | kamer >22 & buiten <18 & 22:30–06:00 | {{ '✓' if f_n else ('✗' if c_n else '○') }} |
+  | 5 | 🌙 Nachtvent | kamer >20 & buiten <18 & 22:30–06:00 | {{ '✓' if f_n else ('✗' if c_n else '○') }} |
 
   **Actief signaal:** {{ actief }}

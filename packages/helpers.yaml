@@ -43,6 +43,15 @@ input_number:
     step: 1
     icon: mdi:counter
 
+  kamer_ref_temp:
+    name: "Kamer temp referentie (peak/trough)"
+    initial: 0
+    min: -30
+    max: 60
+    step: 0.1
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-lines
+
 input_boolean:
   vakantie_actief:
     name: "Vakantiemodus actief"
@@ -71,6 +80,10 @@ input_boolean:
   nachtventilatie_signaal_actief:
     name: "Nachtventilatie-signaal reeds verstuurd"
     icon: mdi:bell-check
+
+  kamer_stijgt:
+    name: "Kamer temp trend: stijgend"
+    icon: mdi:trending-up
 
 input_datetime:
   tdi_laatste_start:

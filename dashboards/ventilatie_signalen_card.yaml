@@ -21,7 +21,7 @@ cards:
       {% set s_sluit = ok and kamer <= 20 and buiten <= 20 and not vakantie and not stille and not regen %}
       {% set s_houd_dicht = ok and kamer > 20 and buiten > kamer and not vakantie and not stille and not regen %}
       {% set s_regen = regen and not vakantie %}
-      {% set s_nachtvent = ok and kamer > 22 and buiten < 18 and in_nacht and not vakantie and not regen %}
+      {% set s_nachtvent = ok and kamer > 20 and buiten < 18 and in_nacht and not vakantie and not regen %}
       **Kamer:** {{ '%.1f'|format(kamer) }} °C  ·  **Buiten:** {{ '%.1f'|format(buiten) }} °C  ·  **Weer:** {{ weer }}
       {% if vakantie %}
       🏝 _Vakantiemodus actief — alle ventilatie-signalen onderdrukt._
