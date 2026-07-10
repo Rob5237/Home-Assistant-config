@@ -7,7 +7,7 @@
 type: vertical-stack
 cards:
   - type: markdown
-    title: Ventilatie-signalen
+    title: Ventilatie advies
     content: |
       {% set kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) %}
       {% set buiten = state_attr('weather.thuis', 'temperature') | float(-999) %}
