@@ -34,31 +34,34 @@ cards:
       {% set buiten_close = '</span>' if buiten_bg else '' %}
       {% set weer_nl = {'sunny':'Zonnig','clear-night':'Heldere nacht','cloudy':'Bewolkt','partlycloudy':'Half bewolkt','rainy':'Regen','pouring':'Zware regen','lightning':'Onweer','lightning-rainy':'Onweer met regen','snowy':'Sneeuw','snowy-rainy':'Sneeuw met regen','windy':'Winderig','windy-variant':'Winderig','fog':'Mist','hail':'Hagel','exceptional':'Uitzonderlijk'}.get(weer, weer) %}
       {% set weer_icon = {'sunny':'☀️','clear-night':'🌙','cloudy':'☁️','partlycloudy':'⛅','rainy':'🌧️','pouring':'🌧️','lightning':'⚡','lightning-rainy':'⛈️','snowy':'❄️','snowy-rainy':'🌨️','windy':'💨','windy-variant':'💨','fog':'🌫️','hail':'🌨️','exceptional':'⚠️'}.get(weer, '') %}
+      {% if vakantie %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">🏝 Vakantiemodus actief</h3>
+      <div style="margin:0;line-height:1.2">Alle ventilatie-signalen onderdrukt.</div>
+      {% elif s_regen %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">🌧 Sluit ramen — het regent</h3>
+      <div style="margin:0;line-height:1.2">Sluit ramen en deuren; het regent buiten.</div>
+      {% elif s_nachtvent %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">🌙 Nachtventilatie: zet ramen open</h3>
+      <div style="margin:0;line-height:1.2">Zet ramen wagenwijd open voor het slapengaan; buitenlucht is koel.</div>
+      {% elif s_ventileren %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">🌡 Ventileren om binnenshuis af te koelen</h3>
+      <div style="margin:0;line-height:1.2">Zet ramen en tuindeuren open.</div>
+      {% elif s_sluit %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">🌡 Sluit ramen om afkoeling te beperken</h3>
+      <div style="margin:0;line-height:1.2">Sluit ramen en buitendeuren.</div>
+      {% elif s_houd_dicht %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">🌡 Houd ramen en tuindeuren dicht</h3>
+      <div style="margin:0;line-height:1.2">Houd ramen en tuindeuren dicht om het huis niet op te warmen.</div>
+      {% else %}
+      <h3 style="font-size:1.1em;margin:0;line-height:1.1">Geen actief signaal</h3>
+      {% endif %}
+
+      <div style="height:0.8em;line-height:0.8em">&nbsp;</div>
       <table style="border-collapse:collapse;border-color:var(--card-background-color)">
       <tr><td align="right" style="border-color:var(--card-background-color);padding:2px 12px 2px 0"><b>{{ kamer_icon }} Kamertemperatuur:</b></td><td style="border-color:var(--card-background-color);padding:2px 0">{{ kamer_open }}<b>{{ kamer_str }}</b>{{ kamer_close }}</td></tr>
       <tr><td align="right" style="border-color:var(--card-background-color);padding:2px 12px 2px 0"><b>{{ buiten_icon }} Buitentemperatuur:</b></td><td style="border-color:var(--card-background-color);padding:2px 0">{{ buiten_open }}<b>{{ buiten_str }}</b>{{ buiten_close }}</td></tr>
       <tr><td align="right" style="border-color:var(--card-background-color);padding:2px 12px 2px 0"><b>Weer:</b></td><td style="border-color:var(--card-background-color);padding:2px 0">{{ weer_icon }} {{ weer_nl }}</td></tr>
       </table>
-      {% if vakantie %}
-      🏝 _Vakantiemodus actief — alle ventilatie-signalen onderdrukt._
-      {% elif s_regen %}
-      🌧 **Sluit ramen — het regent**
-      Sluit ramen en deuren; het regent buiten.
-      {% elif s_nachtvent %}
-      🌙 **Nachtventilatie: zet ramen open**
-      Zet ramen wagenwijd open voor het slapengaan; buitenlucht is koel.
-      {% elif s_ventileren %}
-      🌡 **Ventileren om binnenshuis af te koelen**
-      Zet ramen en tuindeuren open.
-      {% elif s_sluit %}
-      🌡 **Sluit ramen om afkoeling te beperken**
-      Sluit ramen en buitendeuren.
-      {% elif s_houd_dicht %}
-      🌡 **Houd ramen en tuindeuren dicht**
-      Houd ramen en tuindeuren dicht om het huis niet op te warmen.
-      {% else %}
-      _Geen actief signaal._
-      {% endif %}
       {% if stil_venster and not vakantie %}
       🔇 _Stil-venster 22:30-07:30: meldingen komen door zonder wek-geluid._
       {% endif %}
