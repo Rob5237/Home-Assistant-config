@@ -1200,6 +1200,7 @@
            and kamer_temp >= 20 and buiten_actueel < kamer_temp
            and not vakantie and not stille_periode and not regen }}
       gemeld: "{{ is_state('input_boolean.ventileren_signaal_actief', 'on') }}"
+      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
   - choose:
     - conditions:
       - condition: template
@@ -1213,9 +1214,9 @@
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_gelijk_buiten_actueel
-            channel: Kamer-buiten temperatuur
-            importance: high
-            priority: high
+            channel: "{{ 'Kamer-buiten temperatuur (stil)' if stil_venster else 'Kamer-buiten temperatuur' }}"
+            importance: "{{ 'low' if stil_venster else 'high' }}"
+            priority: "{{ 'normal' if stil_venster else 'high' }}"
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1317,6 +1318,7 @@
            and kamer_temp <= 20 and buiten_actueel <= 20
            and not vakantie and not stille_periode and not regen }}
       gemeld: "{{ is_state('input_boolean.sluit_ramen_signaal_actief', 'on') }}"
+      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
   - choose:
     - conditions:
       - condition: template
@@ -1330,9 +1332,9 @@
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_te_koel_sluit_ramen
-            channel: Kamer-buiten temperatuur
-            importance: high
-            priority: high
+            channel: "{{ 'Kamer-buiten temperatuur (stil)' if stil_venster else 'Kamer-buiten temperatuur' }}"
+            importance: "{{ 'low' if stil_venster else 'high' }}"
+            priority: "{{ 'normal' if stil_venster else 'high' }}"
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1435,6 +1437,7 @@
            and kamer_temp > 20 and buiten_actueel > kamer_temp
            and not vakantie and not stille_periode and not regen }}
       gemeld: "{{ is_state('input_boolean.ramen_dicht_signaal_actief', 'on') }}"
+      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
   - choose:
     - conditions:
       - condition: template
@@ -1448,9 +1451,9 @@
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_warm_buiten_warmer
-            channel: Kamer-buiten temperatuur
-            importance: high
-            priority: high
+            channel: "{{ 'Kamer-buiten temperatuur (stil)' if stil_venster else 'Kamer-buiten temperatuur' }}"
+            importance: "{{ 'low' if stil_venster else 'high' }}"
+            priority: "{{ 'normal' if stil_venster else 'high' }}"
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1551,6 +1554,7 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       conditie: "{{ regen and not vakantie }}"
       gemeld: "{{ is_state('input_boolean.regen_signaal_actief', 'on') }}"
+      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
   - choose:
     - conditions:
       - condition: template
@@ -1564,9 +1568,9 @@
             ({{ states('weather.thuis') }}).
           data:
             tag: kamer_regen
-            channel: Kamer-buiten temperatuur
-            importance: high
-            priority: high
+            channel: "{{ 'Kamer-buiten temperatuur (stil)' if stil_venster else 'Kamer-buiten temperatuur' }}"
+            importance: "{{ 'low' if stil_venster else 'high' }}"
+            priority: "{{ 'normal' if stil_venster else 'high' }}"
             ttl: 0
             notification_icon: mdi:weather-pouring
       - action: persistent_notification.create
@@ -1670,6 +1674,7 @@
            and kamer_temp > 20 and buiten_actueel < 18
            and in_venster and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.nachtventilatie_signaal_actief', 'on') }}"
+      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
   - choose:
     - conditions:
       - condition: template
@@ -1683,9 +1688,9 @@
             koel. Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: nachtventilatie
-            channel: Kamer-buiten temperatuur
-            importance: high
-            priority: high
+            channel: "{{ 'Kamer-buiten temperatuur (stil)' if stil_venster else 'Kamer-buiten temperatuur' }}"
+            importance: "{{ 'low' if stil_venster else 'high' }}"
+            priority: "{{ 'normal' if stil_venster else 'high' }}"
             ttl: 0
             notification_icon: mdi:weather-night
       - action: persistent_notification.create
