@@ -1175,9 +1175,11 @@
     Vergelijkt kamertemperatuur met de actueel waargenomen buitentemperatuur
     van weather.thuis. Edge-triggered mobile+HA-UI push als kamer ≥20°C is
     EN buiten LAGER is dan de kamer. Guards: onderdrukt tijdens vakantie
-    (input_boolean.vakantie_actief on), tijdens stilte-periode (22:30-07:00)
-    en tijdens regen (weather.thuis state rainy/pouring/lightning-rainy/
-    snowy-rainy/hail — het regen-signaal neemt het dan over). Cross-clear
+    (input_boolean.vakantie_actief on) en tijdens regen (weather.thuis
+    state rainy/pouring/lightning-rainy/snowy-rainy/hail — het regen-
+    signaal neemt het dan over). Meldingen komen 24/7 door; alleen het
+    push-geluid is uitgeschakeld tijdens het stil-venster 22:30-07:30
+    (aparte Android-kanaal 'Kamer-buiten temperatuur (stil)'). Cross-clear
     naar alle andere ventilatie-signalen bij activeren. Triggers: event
     kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
     bevestigde 0,2°C trend-omkering, ongeacht richting) PLUS time_pattern
@@ -1193,14 +1195,13 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
-      stille_periode: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
            and kamer_temp >= 20 and buiten_actueel < kamer_temp
-           and not vakantie and not stille_periode and not regen }}
+           and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.ventileren_signaal_actief', 'on') }}"
-      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
+      stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
   - choose:
     - conditions:
       - condition: template
@@ -1295,9 +1296,11 @@
   description: >
     Waarschuwt om ramen/tuindeuren te sluiten wanneer kamer én actuele
     buitentemperatuur (weather.thuis) beide ≤ 20°C zijn. Edge-triggered
-    mobile+HA-UI push. Guards: onderdrukt tijdens vakantie, tijdens stilte-
-    periode (22:00-07:00) en tijdens regen (het regen-signaal neemt het dan
-    over). Cross-clear naar alle andere ventilatie-signalen bij activeren.
+    mobile+HA-UI push. Guards: onderdrukt tijdens vakantie en tijdens regen
+    (het regen-signaal neemt het dan over). Meldingen komen 24/7 door;
+    alleen het push-geluid is uit tijdens het stil-venster 22:30-07:30
+    (aparte Android-kanaal 'Kamer-buiten temperatuur (stil)'). Cross-clear
+    naar alle andere ventilatie-signalen bij activeren.
     Triggers: event kamer_temp_reversal (van kamer_trend_tracker — activeert
     direct bij bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min
     voor de clear-path en robuustheid.
@@ -1311,14 +1314,13 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
-      stille_periode: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
            and kamer_temp <= 20 and buiten_actueel <= 20
-           and not vakantie and not stille_periode and not regen }}
+           and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.sluit_ramen_signaal_actief', 'on') }}"
-      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
+      stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
   - choose:
     - conditions:
       - condition: template
@@ -1414,9 +1416,11 @@
     Waarschuwt om ramen en deuren gesloten te houden wanneer kamer >20°C is
     én de actuele buitentemperatuur (weather.thuis) HOGER is dan de kamer —
     ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
-    Guards: onderdrukt tijdens vakantie, tijdens stilte-periode (22:30-07:00)
-    en tijdens regen (het regen-signaal neemt het dan over). Cross-clear
-    naar alle andere ventilatie-signalen bij activeren. Triggers: event
+    Guards: onderdrukt tijdens vakantie en tijdens regen (het regen-signaal
+    neemt het dan over). Meldingen komen 24/7 door; alleen het push-geluid
+    is uit tijdens het stil-venster 22:30-07:30 (aparte Android-kanaal
+    'Kamer-buiten temperatuur (stil)'). Cross-clear naar alle andere
+    ventilatie-signalen bij activeren. Triggers: event
     kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
     bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min voor de
     clear-path en robuustheid.
@@ -1430,14 +1434,13 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       vakantie: "{{ is_state('input_boolean.vakantie_actief', 'on') }}"
-      stille_periode: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 }}"
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
            and kamer_temp > 20 and buiten_actueel > kamer_temp
-           and not vakantie and not stille_periode and not regen }}
+           and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.ramen_dicht_signaal_actief', 'on') }}"
-      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
+      stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
   - choose:
     - conditions:
       - condition: template
@@ -1533,8 +1536,9 @@
     Waarschuwt om ramen en deuren te sluiten wanneer weather.thuis state
     duidt op regen (rainy, pouring, lightning-rainy, snowy-rainy of hail).
     Onafhankelijk van temperatuur — regen bepaalt de actie. Vakantie-
-    onderdrukking actief. GEEN stilte-periode: regen is urgent (nat interieur
-    weegt zwaarder dan geluidsoverlast). Edge-triggered via
+    onderdrukking actief. Meldingen 24/7, maar in het stil-venster
+    22:30-07:30 wordt het aparte Android-kanaal 'Kamer-buiten temperatuur
+    (stil)' gebruikt zodat er geen wek-geluid klinkt. Edge-triggered via
     input_boolean.regen_signaal_actief. Bij activeren worden alle andere
     ventilatie-signalen weggeveegd (mobile + HA UI). Triggers: event
     kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
@@ -1554,7 +1558,7 @@
       buiten_actueel: "{{ state_attr('weather.thuis', 'temperature') | float(-999) }}"
       conditie: "{{ regen and not vakantie }}"
       gemeld: "{{ is_state('input_boolean.regen_signaal_actief', 'on') }}"
-      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
+      stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
   - choose:
     - conditions:
       - condition: template
@@ -1649,10 +1653,10 @@
   description: >
     Sterke pre-slaap wenk om ramen open te zetten wanneer 's avonds/nachts
     (22:30-06:00) de kamer nog >20°C is EN buiten al <18°C (koele nacht na
-    warme dag). Sluit aan op de stilte-periode van de generieke signalen
-    (die stopt met activeren om 22:30) — dit is het nacht-signaal dat de plek
-    inneemt. Vakantie-onderdrukking actief. Regen heeft voorrang (regen-
-    guard in conditie). Edge-triggered via input_boolean.
+    warme dag). Vakantie-onderdrukking actief. Regen heeft voorrang (regen-
+    guard in conditie). Meldingen 24/7 door, maar in het stil-venster
+    22:30-07:30 gaat de push naar het aparte 'Kamer-buiten temperatuur
+    (stil)'-kanaal (geen wek-geluid). Edge-triggered via input_boolean.
     nachtventilatie_signaal_actief. Cross-clear naar de andere ventilatie-
     signalen bij activeren. Triggers: event kamer_temp_reversal (van
     kamer_trend_tracker — activeert direct bij bevestigde 0,2°C trend-
@@ -1674,7 +1678,7 @@
            and kamer_temp > 20 and buiten_actueel < 18
            and in_venster and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.nachtventilatie_signaal_actief', 'on') }}"
-      stil_venster: "{{ now().hour == 7 and now().minute < 30 }}"
+      stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
   - choose:
     - conditions:
       - condition: template

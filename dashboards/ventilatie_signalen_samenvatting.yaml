@@ -7,23 +7,23 @@ content: |
   {% set ok = kamer > -900 and buiten > -900 %}
   {% set vakantie = is_state('input_boolean.vakantie_actief', 'on') %}
   {% set regen = weer in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] %}
-  {% set stille = (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 7 %}
+  {% set stil_venster = now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) %}
   {% set in_nacht = (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 6 %}
   {% set c_v = ok and kamer >= 20 and buiten < kamer %}
   {% set c_s = ok and kamer <= 20 and buiten <= 20 %}
   {% set c_h = ok and kamer > 20 and buiten > kamer %}
   {% set c_r = regen %}
   {% set c_n = ok and kamer > 20 and buiten < 18 and in_nacht %}
-  {% set f_v = c_v and not vakantie and not stille and not regen %}
-  {% set f_s = c_s and not vakantie and not stille and not regen %}
-  {% set f_h = c_h and not vakantie and not stille and not regen %}
+  {% set f_v = c_v and not vakantie and not regen %}
+  {% set f_s = c_s and not vakantie and not regen %}
+  {% set f_h = c_h and not vakantie and not regen %}
   {% set f_r = c_r and not vakantie %}
   {% set f_n = c_n and not vakantie and not regen %}
   {% set actief = 'Regen' if f_r else 'Nachtventilatie' if f_n else 'Ventileren' if f_v else 'Sluit ramen' if f_s else 'Houd dicht' if f_h else '—' %}
   **Live:** kamer **{{ '%.1f'|format(kamer) }} °C**  ·  buiten **{{ '%.1f'|format(buiten) }} °C**  ·  weer **{{ weer }}**
 
   **Guards nu:**
-  {{ '🏝' if vakantie else '·' }} vakantie  ·  {{ '🌙' if stille else '·' }} stilte 22:30–07:00  ·  {{ '🌧' if regen else '·' }} regen
+  {{ '🏝' if vakantie else '·' }} vakantie  ·  {{ '🔇' if stil_venster else '·' }} stil-venster 22:30–07:30 (geluid uit)  ·  {{ '🌧' if regen else '·' }} regen
 
   **Signalen:**  (○ = conditie niet waar · ✓ = activeert nu · ✗ = conditie waar maar onderdrukt door guard)
 
