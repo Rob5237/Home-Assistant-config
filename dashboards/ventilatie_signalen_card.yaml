@@ -1,5 +1,5 @@
 # Dashboard-kaart voor de vijf ventilatie-signalen (ventileren, sluit ramen,
-# houd ramen dicht, regen, nachtventilatie). Storage-mode dashboards worden
+# houd ramen en tuindeuren dicht, regen, nachtventilatie). Storage-mode dashboards worden
 # niet automatisch uit dit bestand geladen; plak deze YAML in een dashboard
 # via ⋮ menu → Edit dashboard → +Add card → onderaan "Manual" → paste. Dit
 # bestand dient als git-bewaarde referentie.
@@ -44,8 +44,8 @@ cards:
       🌡 **Sluit ramen om afkoeling te beperken**
       Sluit ramen en buitendeuren.
       {% elif s_houd_dicht %}
-      🌡 **Houd ramen en deuren gesloten**
-      Houd de ramen en deuren gesloten om het huis niet op te warmen.
+      🌡 **Houd ramen en tuindeuren dicht**
+      Houd ramen en tuindeuren dicht om het huis niet op te warmen.
       {% else %}
       _Geen actief signaal._
       {% endif %}
@@ -69,7 +69,7 @@ cards:
         name: — reeds verstuurd (marker)
       - type: divider
       - entity: automation.signaal_houd_ramen_dicht_kamer_20degc_en_buiten_kamer_actueel
-        name: Houd-ramen-dicht-signaal
+        name: Houd-ramen-en-tuindeuren-dicht-signaal
         secondary_info: last-triggered
       - entity: input_boolean.ramen_dicht_signaal_actief
         name: — reeds verstuurd (marker)

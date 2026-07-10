@@ -1459,9 +1459,9 @@
   mode: single
 
 - id: kamer_warm_buiten_warmer_signaal
-  alias: "Signaal: houd ramen dicht — kamer >20°C en buiten > kamer (actueel)"
+  alias: "Signaal: houd ramen en tuindeuren dicht — kamer >20°C en buiten > kamer (actueel)"
   description: >
-    Waarschuwt om ramen en deuren gesloten te houden wanneer kamer >20°C is
+    Waarschuwt om ramen en tuindeuren dicht te houden wanneer kamer >20°C is
     én de actuele buitentemperatuur (weather.thuis) HOGER is dan de kamer —
     ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
     Guards: onderdrukt tijdens vakantie en tijdens regen (het regen-signaal
@@ -1496,9 +1496,9 @@
       sequence:
       - action: notify.mobile_app_sm_g781b
         data:
-          title: "🌡 Houd ramen en deuren gesloten"
+          title: "🌡 Houd ramen en tuindeuren dicht"
           message: >-
-            Houd de ramen en deuren gesloten om het huis niet op te warmen.
+            Houd ramen en tuindeuren dicht om het huis niet op te warmen.
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_warm_buiten_warmer
@@ -1509,10 +1509,10 @@
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
         data:
-          title: "🌡 Houd ramen en deuren gesloten"
+          title: "🌡 Houd ramen en tuindeuren dicht"
           notification_id: kamer_warm_buiten_warmer
           message: >-
-            Houd de ramen en deuren gesloten om het huis niet op te warmen.
+            Houd ramen en tuindeuren dicht om het huis niet op te warmen.
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
       - action: notify.mobile_app_sm_g781b
         data:
@@ -1567,9 +1567,9 @@
       sequence:
       - action: notify.mobile_app_sm_g781b
         data:
-          title: "🌡 Houd ramen en deuren gesloten"
+          title: "🌡 Houd ramen en tuindeuren dicht"
           message: >-
-            Houd de ramen en deuren gesloten om het huis niet op te warmen.
+            Houd ramen en tuindeuren dicht om het huis niet op te warmen.
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_warm_buiten_warmer
@@ -1580,10 +1580,10 @@
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
         data:
-          title: "🌡 Houd ramen en deuren gesloten"
+          title: "🌡 Houd ramen en tuindeuren dicht"
           notification_id: kamer_warm_buiten_warmer
           message: >-
-            Houd de ramen en deuren gesloten om het huis niet op te warmen.
+            Houd ramen en tuindeuren dicht om het huis niet op te warmen.
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
     - conditions:
       - condition: template
