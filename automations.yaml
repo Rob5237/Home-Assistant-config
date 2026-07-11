@@ -1886,21 +1886,31 @@
     doorloopt schuift het extremum mee met elke nieuwe piek/dal-waarde.
     Zodra de kamertemp ≥0,2°C tegen de trend in beweegt is dat een
     bevestigde omkering: richting wordt geflipt, extremum ge-reset naar de
-    huidige waarde, en het event 'kamer_temp_reversal' wordt afgevuurd
-    (event_data: richting = 'naar_stijgend' of 'naar_dalend', temp = huidige
-    kamertemp). Andere automations kunnen dat event als trigger gebruiken.
-    Ref-initialisatie gebeurt automatisch bij de eerste geldige state-change
-    na start (initial value 0 wordt als sentinel behandeld). Mode: parallel
-    zodat opeenvolgende sensor-updates niet worden overgeslagen.
+    huidige waarde, alle 5 signaal-helpers worden gereset naar off (zodat de
+    eerstvolgende push weer luid met heads-up wordt), en het event
+    'kamer_temp_reversal' wordt afgevuurd (event_data: richting =
+    'naar_stijgend' of 'naar_dalend', temp = huidige kamertemp). Andere
+    automations kunnen dat event als trigger gebruiken. Bij HA-start wordt
+    ref opnieuw geïnitialiseerd met de huidige sensor-waarde. Sentinel voor
+    'niet-geinit': ref < -900. Mode: parallel zodat opeenvolgende sensor-
+    updates niet worden overgeslagen.
   triggers:
   - trigger: state
     entity_id: sensor.luxtronik_280807_0450_room_thermostat_temperature
+  - trigger: homeassistant
+    event: start
   actions:
   - variables:
-      cur: "{{ trigger.to_state.state | float(-999) }}"
-      ref: "{{ states('input_number.kamer_ref_temp') | float(0) }}"
+      cur: >-
+        {% if trigger.platform == 'state' %}
+          {{ trigger.to_state.state | float(-999) }}
+        {% else %}
+          {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}
+        {% endif %}
+      ref: "{{ states('input_number.kamer_ref_temp') | float(-999) }}"
       stijgt: "{{ is_state('input_boolean.kamer_stijgt', 'on') }}"
-      geinit: "{{ ref > 5 }}"
+      geinit: "{{ ref > -900 and ref != 0 }}"
+      is_ha_start: "{{ trigger.platform == 'homeassistant' }}"
   - choose:
     - conditions:
       - condition: template
@@ -1908,7 +1918,7 @@
       sequence: []
     - conditions:
       - condition: template
-        value_template: "{{ not geinit }}"
+        value_template: "{{ is_ha_start or not geinit }}"
       sequence:
       - action: input_number.set_value
         target:
@@ -1936,6 +1946,14 @@
           entity_id: input_number.kamer_ref_temp
         data:
           value: "{{ cur }}"
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+          - input_boolean.ventileren_signaal_actief
+          - input_boolean.sluit_ramen_signaal_actief
+          - input_boolean.ramen_dicht_signaal_actief
+          - input_boolean.regen_signaal_actief
+          - input_boolean.nachtventilatie_signaal_actief
       - event: kamer_temp_reversal
         event_data:
           richting: naar_dalend
@@ -1961,6 +1979,14 @@
           entity_id: input_number.kamer_ref_temp
         data:
           value: "{{ cur }}"
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+          - input_boolean.ventileren_signaal_actief
+          - input_boolean.sluit_ramen_signaal_actief
+          - input_boolean.ramen_dicht_signaal_actief
+          - input_boolean.regen_signaal_actief
+          - input_boolean.nachtventilatie_signaal_actief
       - event: kamer_temp_reversal
         event_data:
           richting: naar_stijgend
