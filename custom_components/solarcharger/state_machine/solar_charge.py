@@ -51,6 +51,7 @@ from ..const import (
     SENSOR_NET_ALLOCATED_POWER_SAMPLE_SIZE,
     SENSOR_PAUSE_COUNT,
     SENSOR_RUN_STATE,
+    SENSOR_SELF_PAUSED_TODAY,
     SENSOR_SHARE_ALLOCATION,
     SENSOR_SMA_NET_ALLOCATED_POWER,
     ChargeStatus,
@@ -141,6 +142,7 @@ class SolarCharge(ScOptionState):
         # Entity backed by variable for efficiency. Ok if re-direction is not required.
         self._share_allocation: int = 0
         self._consumed_power: float = 0.0
+        self._self_paused: bool = False
 
         # Initialise state machine self._state variable.
         self.set_machine_state(StateStart())
@@ -175,6 +177,11 @@ class SolarCharge(ScOptionState):
         """Return the current state of the machine."""
         return self._machine_state
 
+    @property
+    def is_self_paused(self) -> bool:
+        """Return True if the charger is self-paused."""
+        return self._self_paused
+
     # ----------------------------------------------------------------------------
     # State machine methods
     # ----------------------------------------------------------------------------
@@ -202,6 +209,12 @@ class SolarCharge(ScOptionState):
 
         assert self.entities.sensors is not None
         self.entities.sensors[SENSOR_RUN_STATE].set_state(state.value)
+
+    # ----------------------------------------------------------------------------
+    def set_self_paused(self, self_paused: bool) -> None:
+        """Set the self-paused state of the object."""
+
+        self._self_paused = self_paused
 
     # ----------------------------------------------------------------------------
     # Global utils
@@ -326,6 +339,12 @@ class SolarCharge(ScOptionState):
         """Set consumed energy today."""
 
         self.update_sensor(SENSOR_CONSUMED_ENERGY_TODAY, val)
+
+    # ----------------------------------------------------------------------------
+    def set_self_paused_today(self, val: int) -> None:
+        """Set self-paused today."""
+
+        self.update_sensor(SENSOR_SELF_PAUSED_TODAY, val)
 
     # ----------------------------------------------------------------------------
     def set_pause_count(self, val: int) -> None:
@@ -483,8 +502,23 @@ class SolarCharge(ScOptionState):
         return self.charger.can_set_charge_current()
 
     # ----------------------------------------------------------------------------
-    def validate_current(self, max_current: float, current: float) -> float:
+    def get_charger_max_current(self) -> float:
+        """Get charger max current."""
+
+        max_current = self.charger.get_max_charge_current()
+        if max_current is None or max_current <= 0:
+            raise ValueError("Failed to get charger max current")
+
+        return max_current
+
+    # ----------------------------------------------------------------------------
+    def validate_current(
+        self, current: float, max_current: float | None = None
+    ) -> float:
         """Validate charge current is within charger supported range."""
+
+        if max_current is None:
+            max_current = self.get_charger_max_current()
 
         if current < 0:
             current = 0
@@ -495,7 +529,7 @@ class SolarCharge(ScOptionState):
 
     # ----------------------------------------------------------------------------
     def get_charger_min_current(
-        self, charger_max_current: float, direct: bool = False
+        self, max_current: float | None = None, direct: bool = False
     ) -> float:
         """Get charger min current."""
 
@@ -506,17 +540,7 @@ class SolarCharge(ScOptionState):
                 NUMBER_CHARGER_MIN_CURRENT
             )
 
-        return self.validate_current(charger_max_current, config_min_current)
-
-    # ----------------------------------------------------------------------------
-    def get_charger_max_current(self) -> float:
-        """Get charger max current."""
-
-        charger_max_current = self.charger.get_max_charge_current()
-        if charger_max_current is None or charger_max_current <= 0:
-            raise ValueError("Failed to get charger max current")
-
-        return charger_max_current
+        return self.validate_current(config_min_current, max_current)
 
     # ----------------------------------------------------------------------------
     def get_charger_effective_voltage(self) -> float:
@@ -533,11 +557,17 @@ class SolarCharge(ScOptionState):
         return charger_effective_voltage
 
     # ----------------------------------------------------------------------------
-    def get_charge_current(self, charger: Charger, val_dict: ConfigValueDict) -> float:
-        """Get device charge current. Return max current if do not support reading current."""
+    def get_charge_current(
+        self, charger: Charger, val_dict: ConfigValueDict | None = None
+    ) -> float:
+        """Get charge current. Return max current if device do not support reading current."""
+
+        config_item = ENTITY_CHARGER_GET_CHARGE_CURRENT
+        if val_dict is None:
+            val_dict = ConfigValueDict(config_item, {})
 
         charge_current = charger.get_charge_current(val_dict)
-        if val_dict.config_values[ENTITY_CHARGER_GET_CHARGE_CURRENT].entity_id is None:
+        if val_dict.config_values[config_item].entity_id is None:
             # Device do not support reading current, eg. a resistive load.
             # So just return charger_max_current.
             # All devices must have max charge current configured.
@@ -657,6 +687,7 @@ class SolarCharge(ScOptionState):
 
         # Must reset time here to avoid possible wrong energy calculation if pausing.
         self.charge_current_updatetime = datetime.min
+        self.set_self_paused(False)
 
     # ----------------------------------------------------------------------------
     async def async_set_charge_limit(

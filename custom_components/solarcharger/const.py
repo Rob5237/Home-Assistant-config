@@ -12,7 +12,7 @@ NAME = "SolarCharger"
 DOMAIN = "solarcharger"
 DOMAIN_DATA = f"{DOMAIN}_data"
 # Also need to set version in manifest.json, README.md and CHANGELOG.md.
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 ISSUE_URL = "https://github.com/flashg1/SolarCharger/issues"
 CONFIG_URL = "https://github.com/flashg1/SolarCharger"
 
@@ -67,6 +67,7 @@ PLATFORMS: list[Platform | str] = [
 # Max number of allowable consecutive failures in charge loop
 MAX_CONSECUTIVE_FAILURE_COUNT = 10
 SELECT_NONE = "None"
+CHARGER_INITIAL_CURRENT = 6.0
 
 #######################################################
 # Subentry constants
@@ -178,6 +179,7 @@ SENSOR_CONSUMED_POWER = "consumed_power"
 SENSOR_CONSUMED_ENERGY_TODAY = "consumed_energy_today"
 SENSOR_INSTANCE_COUNT = "instance_count"  # 0 or 1
 SENSOR_SHARE_ALLOCATION = "share_allocation"  # 1=shared or 0=not shared
+SENSOR_SELF_PAUSED_TODAY = "self_paused_today"
 # Pause count per session
 SENSOR_PAUSE_COUNT = "pause_count"
 # Pause avg duration per session
@@ -1011,7 +1013,11 @@ class RunState(Enum):
     UNDEFINED = "undefined"
     STARTING = "starting"
     INITIALISING = "initialising"
+
     CHARGING = "charging"
+    # SELF_PAUSED is a sub-state of CHARGING state.
+    SELF_PAUSED = "self-paused"
+
     PAUSED = "paused"
     ABORTING = "aborting"
     ENDING = "ending"

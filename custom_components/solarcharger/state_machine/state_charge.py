@@ -12,8 +12,8 @@ from homeassistant.util.dt import as_local, utcnow
 from ..chargers.chargeable import Chargeable
 from ..chargers.charger import Charger
 from ..const import (
+    CHARGER_INITIAL_CURRENT,
     ENTITY_CHARGER_CHARGING_SENSOR,
-    ENTITY_CHARGER_GET_CHARGE_CURRENT,
     NUMBER_CHARGER_MAX_SPEED,
     NUMBER_WAIT_CHARGER_AMP_CHANGE,
     ChargeStatus,
@@ -32,6 +32,9 @@ from .state_tidyup import StateTidyUp
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 _LOGGER = logging.getLogger(__name__)
+
+# Allow 0.5% of max current as leak current when turned off.
+LEAK_CURRENT_PERCENTAGE = 0.5
 
 
 # ----------------------------------------------------------------------------
@@ -202,34 +205,60 @@ class StateCharge(SolarChargeState):
     # ----------------------------------------------------------------------------
     # Charge loop
     # ----------------------------------------------------------------------------
-    def _is_zero_current(self, current) -> bool:
+    def _set_charging_substate(self) -> None:
+        """Set the charging sub-state of the object."""
+
+        if self.solarcharge.is_self_paused:
+            self.solarcharge.set_run_state(RunState.SELF_PAUSED)
+        else:
+            self.solarcharge.set_run_state(RunState.CHARGING)
+
+    # ----------------------------------------------------------------------------
+    def _set_self_paused_state(self, self_paused: bool) -> None:
+        """Set the self-paused state of the object."""
+
+        self.solarcharge.set_self_paused(self_paused)
+        self._set_charging_substate()
+
+    # ----------------------------------------------------------------------------
+    def _get_leak_current(self) -> float:
+        """Get leak current for device that do not support setting current."""
+
+        max_current = self.solarcharge.get_charger_max_current()
+        return max_current * LEAK_CURRENT_PERCENTAGE / 100
+
+    # ----------------------------------------------------------------------------
+    def _is_zero_current(
+        self, current: float, leak_current: float | None = None
+    ) -> bool:
         """Is zero current?"""
 
-        return -0.5 < current < +0.5
+        if leak_current is None:
+            leak_current = self._get_leak_current()
+
+        return -leak_current < current < +leak_current
 
     # ----------------------------------------------------------------------------
     def _is_device_turn_off_by_itself(
-        self, old_current: float, new_current: float
+        self, new_current: float, old_current: float, leak_current: float
     ) -> bool:
         """Device turned off by itself?"""
 
-        return self._is_zero_current(new_current) and not self._is_zero_current(
-            old_current
-        )
+        return self._is_zero_current(
+            new_current, leak_current
+        ) and not self._is_zero_current(old_current, leak_current)
 
     # ----------------------------------------------------------------------------
     def _is_device_turn_on_by_itself(
-        self, old_current: float, new_current: float
+        self, new_current: float, old_current: float, leak_current: float
     ) -> bool:
         """Device turned on by itself?"""
 
-        return self._is_zero_current(old_current) and not self._is_zero_current(
-            new_current
-        )
+        return self._is_zero_current(
+            old_current, leak_current
+        ) and not self._is_zero_current(new_current, leak_current)
 
     # ----------------------------------------------------------------------------
-    # if old_charge_current is None:
-    #     raise ValueError("Failed to get charge current")
     def _calc_current_change(
         self,
         charger: Charger,
@@ -242,10 +271,7 @@ class StateCharge(SolarChargeState):
 
         if not self.solarcharge.can_set_current:
             # Device do not support setting current.
-            # Use max current if device do not support reading current.
-            new_charge_current = self.solarcharge.get_charge_current(
-                charger, ConfigValueDict(ENTITY_CHARGER_GET_CHARGE_CURRENT, {})
-            )
+            new_charge_current = self.solarcharge.get_charge_current(charger)
             return (new_charge_current, old_charge_current)
 
         #####################################
@@ -320,25 +346,52 @@ class StateCharge(SolarChargeState):
         return (new_charge_current, old_charge_current)
 
     # ----------------------------------------------------------------------------
+    def _update_self_paused_state(self, new_current: float, old_current: float) -> None:
+        """Update self-paused state for device that do not support setting current."""
+
+        # Check if device turned off by itself for device that do not support setting current.
+        # Self-paused state is communicated directly to allocator via set_self_paused(),
+        # or indirectly via consumed power set in async_set_charge_current().
+        # Allocator is triggered by net power update on another thread set up by the coordinator.
+        if not self.solarcharge.can_set_current:
+            leak_current = self._get_leak_current()
+
+            if self._is_device_turn_off_by_itself(
+                new_current, old_current, leak_current
+            ):
+                self._set_self_paused_state(True)
+
+                self_paused_today = self.solarcharge.get_self_paused_today()
+                self_paused_today += 1
+                self.solarcharge.set_self_paused_today(self_paused_today)
+
+            elif self._is_device_turn_on_by_itself(
+                new_current, old_current, leak_current
+            ):
+                self._set_self_paused_state(False)
+
+    # ----------------------------------------------------------------------------
     async def _async_adjust_charge_current(
         self, charger: Charger, delta_allocated_power: float
     ) -> None:
-        """Adjust charge current."""
+        """Adjust charge current triggered by net power update and charge current update period."""
 
-        new_charge_current, old_charge_current = self._calc_current_change(
+        new_current, old_current = self._calc_current_change(
             charger, delta_allocated_power, self.solarcharge.running_goal
         )
+
+        self._update_self_paused_state(new_current, old_current)
 
         _LOGGER.info(
             "%s: delta_allocated_power=%.2f, old_current=%s, new_current=%s",
             self.solarcharge.caller,
             delta_allocated_power,
-            old_charge_current,
-            new_charge_current,
+            old_current,
+            new_current,
         )
 
         await self.solarcharge.async_set_charge_current(
-            charger, new_charge_current, old_charge_current
+            charger, new_current, old_current
         )
 
         # No need to update status here because it is now done at the main loop.
@@ -388,10 +441,8 @@ class StateCharge(SolarChargeState):
             # Change charge limit if required
             await self.solarcharge.async_set_charge_limit_if_required(chargeable, goal)
             # Set max current
-            charger_max_current = self.solarcharge.get_charger_max_current()
-            await self.solarcharge.async_set_charge_current(
-                charger, charger_max_current
-            )
+            max_current = self.solarcharge.get_charger_max_current()
+            await self.solarcharge.async_set_charge_current(charger, max_current)
             await self.async_option_sleep(NUMBER_WAIT_CHARGER_AMP_CHANGE)
         else:
             raise EntityExceptionError("Missing SOC sensor")
@@ -436,10 +487,27 @@ class StateCharge(SolarChargeState):
         )
 
         await self.solarcharge.async_turn_charger_switch(charger, turn_on=True)
-        # Set initial charge current.
+
+        #####################################
+        # Set initial charge current
+        #####################################
+        # Fix for Tesla Wall Connector charge current mismatch on startup.
+        # The fix is to set initial charge current to 6A.
+        # If SolarCharger attempts to set current to 1A after switching on Tesla Wall Connector,
+        # Tesla Wall Connector will set current to 5A causing the mismatch.
         # min_workable_current = self.solarcharge.get_charger_min_workable_current()
         # await self.solarcharge.async_set_charge_current(charger, min_workable_current)
-        await self.solarcharge.async_set_charge_current(charger, 6.0)
+        if not self.solarcharge.can_set_current:
+            # Device do not support setting current.
+            initial_current = self.solarcharge.get_charge_current(charger)
+            if self._is_zero_current(initial_current):
+                self._set_self_paused_state(True)
+            else:
+                self._set_self_paused_state(False)
+        else:
+            initial_current = self.solarcharge.validate_current(CHARGER_INITIAL_CURRENT)
+        await self.solarcharge.async_set_charge_current(charger, initial_current)
+
         await self.solarcharge.async_update_ha(chargeable)
 
         self._subscribe_sync_update()
