@@ -1993,3 +1993,50 @@
           temp: "{{ cur }}"
   mode: parallel
   max: 20
+
+- id: kamer_reversal_melding
+  alias: "Signaal: kamer trend-omkering ≥0,2°C"
+  description: >
+    Verstuurt bij elk 'kamer_temp_reversal' event (van kamer_trend_tracker
+    — bevestigde 0,2°C omkering) een mobile-app + HA-UI push met de nieuwe
+    trendrichting, huidige kamertemp, en vergelijking met de ideale
+    kamertemperatuur van 20°C. Onafhankelijk van de 5 signaal-condities
+    (ventileren/sluit/houd/regen/nachtventilatie). In stil-venster
+    22:30-07:30 wordt het (stil) kanaal gebruikt (geen wek-geluid).
+    Vakantie-onderdrukking actief.
+  triggers:
+  - trigger: event
+    event_type: kamer_temp_reversal
+  conditions:
+  - condition: state
+    entity_id: input_boolean.vakantie_actief
+    state: "off"
+  actions:
+  - variables:
+      stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
+      kamer_temp: "{{ trigger.event.data.temp | float(-999) }}"
+      richting: "{{ trigger.event.data.richting }}"
+      diff: "{{ (kamer_temp - 20.0) | round(1) }}"
+      diff_txt: >-
+        {% if diff > 0 %}{{ diff | abs }}°C boven ideaal{% elif diff < 0 %}{{ diff | abs }}°C onder ideaal{% else %}precies op ideaal{% endif %}
+      pijl: "{{ '↗' if richting == 'naar_stijgend' else '↘' }}"
+      actie_txt: "{{ 'stijgt weer' if richting == 'naar_stijgend' else 'daalt weer' }}"
+  - action: notify.mobile_app_sm_g781b
+    data:
+      title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
+      message: >-
+        Nu {{ kamer_temp }}°C ({{ diff_txt }}, ideaal 20°C).
+      data:
+        tag: kamer_reversal
+        channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
+        importance: "{{ 'low' if stil_venster else 'high' }}"
+        priority: "{{ 'normal' if stil_venster else 'high' }}"
+        ttl: 0
+        notification_icon: "{{ 'mdi:trending-up' if richting == 'naar_stijgend' else 'mdi:trending-down' }}"
+  - action: persistent_notification.create
+    data:
+      title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
+      notification_id: kamer_reversal
+      message: >-
+        Nu {{ kamer_temp }}°C ({{ diff_txt }}, ideaal 20°C).
+  mode: single
