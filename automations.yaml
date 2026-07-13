@@ -2020,6 +2020,55 @@
         {% if d %}{{ (d | as_local).strftime('%H:%M') }}{% else %}—{% endif %}
       reversal_msg: >-
         {% if is_stijgend %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% else %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% endif %}
+  # Reversal is leidend — wis alle andere ventilatie-signaal meldingen zodat er
+  # geen tegenstrijdig advies zichtbaar blijft (ventileren-tag wordt hieronder
+  # bij naar_stijgend alsnog overschreven door sluit-koelte push).
+  - action: notify.mobile_app_sm_g781b
+    data:
+      message: clear_notification
+      data:
+        tag: kamer_te_koel_sluit_ramen
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: kamer_te_koel_sluit_ramen
+  - action: notify.mobile_app_sm_g781b
+    data:
+      message: clear_notification
+      data:
+        tag: kamer_warm_buiten_warmer
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: kamer_warm_buiten_warmer
+  - action: notify.mobile_app_sm_g781b
+    data:
+      message: clear_notification
+      data:
+        tag: kamer_regen
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: kamer_regen
+  - action: notify.mobile_app_sm_g781b
+    data:
+      message: clear_notification
+      data:
+        tag: nachtventilatie
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: nachtventilatie
+  # Bij naar_dalend ook de ventileren-tag wissen (bij naar_stijgend wordt die
+  # hieronder alsnog overschreven met de sluit-koelte push)
+  - if:
+    - condition: template
+      value_template: "{{ not is_stijgend }}"
+    then:
+    - action: notify.mobile_app_sm_g781b
+      data:
+        message: clear_notification
+        data:
+          tag: kamer_gelijk_buiten_actueel
+    - action: persistent_notification.dismiss
+      data:
+        notification_id: kamer_gelijk_buiten_actueel
   - action: notify.mobile_app_sm_g781b
     data:
       title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
