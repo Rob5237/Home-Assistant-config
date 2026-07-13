@@ -2060,8 +2060,8 @@
           title: "🌡 Sluit ramen en tuindeuren"
           message: >-
             Sluit ramen en tuindeuren om de koelte binnen te houden.
-            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C
-            om {{ extremum_hhmm }}).
+            Kamertemperatuur stijgt weer: {{ kamer_temp }}°C
+            (laagst {{ extremum }}°C om {{ extremum_hhmm }}).
           data:
             tag: kamer_gelijk_buiten_actueel
             channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
@@ -2075,6 +2075,6 @@
           notification_id: kamer_gelijk_buiten_actueel
           message: >-
             Sluit ramen en tuindeuren om de koelte binnen te houden.
-            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C
-            om {{ extremum_hhmm }}).
+            Kamertemperatuur stijgt weer: {{ kamer_temp }}°C
+            (laagst {{ extremum }}°C om {{ extremum_hhmm }}).
   mode: single
