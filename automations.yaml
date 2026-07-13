@@ -1180,14 +1180,11 @@
     signaal neemt het dan over). Meldingen komen 24/7 door; alleen het
     push-geluid is uitgeschakeld tijdens het stil-venster 22:30-07:30
     (aparte Android-kanaal 'Ventilatie advies (stil)'). Cross-clear
-    naar alle andere ventilatie-signalen bij activeren. Triggers: event
-    kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
-    bevestigde 0,2°C trend-omkering, ongeacht richting) PLUS time_pattern
-    /15 min als fallback voor de clear-path en robuustheid bij gemiste
-    events.
+    naar alle andere ventilatie-signalen bij activeren. Trigger:
+    time_pattern /15 min. Reageert NIET op kamer_temp_reversal events —
+    daar is kamer_reversal_melding leidend (voorkomt tegenstrijdige
+    pushes op reversal-momenten).
   triggers:
-  - trigger: event
-    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1325,12 +1322,10 @@
     alleen het push-geluid is uit tijdens het stil-venster 22:30-07:30
     (aparte Android-kanaal 'Ventilatie advies (stil)'). Cross-clear
     naar alle andere ventilatie-signalen bij activeren.
-    Triggers: event kamer_temp_reversal (van kamer_trend_tracker — activeert
-    direct bij bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min
-    voor de clear-path en robuustheid.
+    Trigger: time_pattern /15 min. Reageert NIET op kamer_temp_reversal
+    events — daar is kamer_reversal_melding leidend (voorkomt
+    tegenstrijdige pushes op reversal-momenten).
   triggers:
-  - trigger: event
-    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1468,13 +1463,11 @@
     neemt het dan over). Meldingen komen 24/7 door; alleen het push-geluid
     is uit tijdens het stil-venster 22:30-07:30 (aparte Android-kanaal
     'Ventilatie advies (stil)'). Cross-clear naar alle andere
-    ventilatie-signalen bij activeren. Triggers: event
-    kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
-    bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min voor de
-    clear-path en robuustheid.
+    ventilatie-signalen bij activeren. Trigger: time_pattern /15 min.
+    Reageert NIET op kamer_temp_reversal events — daar is
+    kamer_reversal_melding leidend (voorkomt tegenstrijdige pushes op
+    reversal-momenten).
   triggers:
-  - trigger: event
-    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1612,15 +1605,10 @@
     22:30-07:30 wordt het aparte Android-kanaal 'Ventilatie advies
     (stil)' gebruikt zodat er geen wek-geluid klinkt. Edge-triggered via
     input_boolean.regen_signaal_actief. Bij activeren worden alle andere
-    ventilatie-signalen weggeveegd (mobile + HA UI). Triggers: event
-    kamer_temp_reversal (van kamer_trend_tracker — activeert direct bij
-    bevestigde 0,2°C trend-omkering) PLUS time_pattern /15 min voor de
-    clear-path en robuustheid. Kamertemp-omkering is voor regen inhoudelijk
-    niet relevant, maar het event zorgt voor snellere response als het weer
-    net omslaat.
+    ventilatie-signalen weggeveegd (mobile + HA UI). Trigger:
+    time_pattern /15 min. Reageert NIET op kamer_temp_reversal events —
+    daar is kamer_reversal_melding leidend.
   triggers:
-  - trigger: event
-    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
@@ -1754,12 +1742,10 @@
     22:30-07:30 gaat de push naar het aparte 'Ventilatie advies
     (stil)'-kanaal (geen wek-geluid). Edge-triggered via input_boolean.
     nachtventilatie_signaal_actief. Cross-clear naar de andere ventilatie-
-    signalen bij activeren. Triggers: event kamer_temp_reversal (van
-    kamer_trend_tracker — activeert direct bij bevestigde 0,2°C trend-
-    omkering) PLUS time_pattern /15 min voor de clear-path en robuustheid.
+    signalen bij activeren. Trigger: time_pattern /15 min. Reageert NIET
+    op kamer_temp_reversal events — daar is kamer_reversal_melding
+    leidend.
   triggers:
-  - trigger: event
-    event_type: kamer_temp_reversal
   - trigger: time_pattern
     minutes: "/15"
   actions:
