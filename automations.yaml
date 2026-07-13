@@ -1958,6 +1958,7 @@
         event_data:
           richting: naar_dalend
           temp: "{{ cur }}"
+          extremum: "{{ ref }}"
     - conditions:
       - condition: template
         value_template: "{{ not stijgt and cur <= ref }}"
@@ -1991,6 +1992,7 @@
         event_data:
           richting: naar_stijgend
           temp: "{{ cur }}"
+          extremum: "{{ ref }}"
   mode: parallel
   max: 20
 
@@ -1999,11 +2001,13 @@
   description: >
     Verstuurt bij elk 'kamer_temp_reversal' event (van kamer_trend_tracker
     — bevestigde 0,2°C omkering) een mobile-app + HA-UI push met de nieuwe
-    trendrichting, huidige kamertemp, en vergelijking met de ideale
-    kamertemperatuur van 20°C. Onafhankelijk van de 5 signaal-condities
-    (ventileren/sluit/houd/regen/nachtventilatie). In stil-venster
-    22:30-07:30 wordt het (stil) kanaal gebruikt (geen wek-geluid).
-    Vakantie-onderdrukking actief.
+    trendrichting, het extremum (laagst of hoogst gemeten) en de huidige
+    kamertemp. Bij een naar_stijgend reversal wordt bovendien de eventueel
+    actieve 'Ventileren om binnenshuis af te koelen'-melding op de telefoon
+    en HA UI overschreven door een 'Sluit ramen en deuren om de koelte
+    binnen te houden'-melding (koelfase voorbij). In stil-venster 22:30-
+    07:30 wordt het (stil) kanaal gebruikt (geen wek-geluid). Vakantie-
+    onderdrukking actief.
   triggers:
   - trigger: event
     event_type: kamer_temp_reversal
@@ -2015,28 +2019,53 @@
   - variables:
       stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
       kamer_temp: "{{ trigger.event.data.temp | float(-999) }}"
+      extremum: "{{ trigger.event.data.extremum | float(-999) }}"
       richting: "{{ trigger.event.data.richting }}"
-      diff: "{{ (kamer_temp - 20.0) | round(1) }}"
-      diff_txt: >-
-        {% if diff > 0 %}{{ diff | abs }}°C boven ideaal{% elif diff < 0 %}{{ diff | abs }}°C onder ideaal{% else %}precies op ideaal{% endif %}
-      pijl: "{{ '↗' if richting == 'naar_stijgend' else '↘' }}"
-      actie_txt: "{{ 'stijgt weer' if richting == 'naar_stijgend' else 'daalt weer' }}"
+      is_stijgend: "{{ richting == 'naar_stijgend' }}"
+      pijl: "{{ '↗' if is_stijgend else '↘' }}"
+      actie_txt: "{{ 'stijgt weer' if is_stijgend else 'daalt weer' }}"
+      extremum_label: "{{ 'Laagst gemeten' if is_stijgend else 'Hoogst gemeten' }}"
+      reversal_msg: >-
+        {{ extremum_label }}: {{ extremum }}°C. Nu: {{ kamer_temp }}°C.
   - action: notify.mobile_app_sm_g781b
     data:
       title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
-      message: >-
-        Nu {{ kamer_temp }}°C ({{ diff_txt }}, ideaal 20°C).
+      message: "{{ reversal_msg }}"
       data:
         tag: kamer_reversal
         channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
         importance: "{{ 'low' if stil_venster else 'high' }}"
         priority: "{{ 'normal' if stil_venster else 'high' }}"
         ttl: 0
-        notification_icon: "{{ 'mdi:trending-up' if richting == 'naar_stijgend' else 'mdi:trending-down' }}"
+        notification_icon: "{{ 'mdi:trending-up' if is_stijgend else 'mdi:trending-down' }}"
   - action: persistent_notification.create
     data:
       title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
       notification_id: kamer_reversal
-      message: >-
-        Nu {{ kamer_temp }}°C ({{ diff_txt }}, ideaal 20°C).
+      message: "{{ reversal_msg }}"
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ is_stijgend }}"
+      sequence:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🌡 Sluit ramen en deuren"
+          message: >-
+            Sluit ramen en deuren om de koelte binnen te houden.
+            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C).
+          data:
+            tag: kamer_gelijk_buiten_actueel
+            channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
+            importance: "{{ 'low' if stil_venster else 'high' }}"
+            priority: "{{ 'normal' if stil_venster else 'high' }}"
+            ttl: 0
+            notification_icon: mdi:window-closed-variant
+      - action: persistent_notification.create
+        data:
+          title: "🌡 Sluit ramen en deuren"
+          notification_id: kamer_gelijk_buiten_actueel
+          message: >-
+            Sluit ramen en deuren om de koelte binnen te houden.
+            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C).
   mode: single
