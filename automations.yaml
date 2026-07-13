@@ -1354,7 +1354,7 @@
         data:
           title: "🌡 Sluit ramen om afkoeling te beperken"
           message: >-
-            Sluit ramen en buitendeuren. Kamer {{ kamer_temp }}°C,
+            Sluit ramen en tuindeuren. Kamer {{ kamer_temp }}°C,
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_te_koel_sluit_ramen
@@ -1368,7 +1368,7 @@
           title: "🌡 Sluit ramen om afkoeling te beperken"
           notification_id: kamer_te_koel_sluit_ramen
           message: >-
-            Sluit ramen en buitendeuren. Kamer {{ kamer_temp }}°C,
+            Sluit ramen en tuindeuren. Kamer {{ kamer_temp }}°C,
             buiten {{ buiten_actueel }}°C.
       - action: notify.mobile_app_sm_g781b
         data:
@@ -1425,7 +1425,7 @@
         data:
           title: "🌡 Sluit ramen om afkoeling te beperken"
           message: >-
-            Sluit ramen en buitendeuren. Kamer {{ kamer_temp }}°C,
+            Sluit ramen en tuindeuren. Kamer {{ kamer_temp }}°C,
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_te_koel_sluit_ramen
@@ -1439,7 +1439,7 @@
           title: "🌡 Sluit ramen om afkoeling te beperken"
           notification_id: kamer_te_koel_sluit_ramen
           message: >-
-            Sluit ramen en buitendeuren. Kamer {{ kamer_temp }}°C,
+            Sluit ramen en tuindeuren. Kamer {{ kamer_temp }}°C,
             buiten {{ buiten_actueel }}°C.
     - conditions:
       - condition: template
@@ -1605,7 +1605,7 @@
 - id: regen_sluit_ramen_signaal
   alias: "Signaal: sluit ramen — het regent (actueel)"
   description: >
-    Waarschuwt om ramen en deuren te sluiten wanneer weather.thuis state
+    Waarschuwt om ramen en tuindeuren te sluiten wanneer weather.thuis state
     duidt op regen (rainy, pouring, lightning-rainy, snowy-rainy of hail).
     Onafhankelijk van temperatuur — regen bepaalt de actie. Vakantie-
     onderdrukking actief. Meldingen 24/7, maar in het stil-venster
@@ -1640,7 +1640,7 @@
         data:
           title: "🌧 Sluit ramen — het regent"
           message: >-
-            Sluit ramen en deuren; het regent buiten
+            Sluit ramen en tuindeuren; het regent buiten
             ({{ states('weather.thuis') }}).
           data:
             tag: kamer_regen
@@ -1654,7 +1654,7 @@
           title: "🌧 Sluit ramen — het regent"
           notification_id: kamer_regen
           message: >-
-            Sluit ramen en deuren; het regent buiten
+            Sluit ramen en tuindeuren; het regent buiten
             ({{ states('weather.thuis') }}).
       - action: notify.mobile_app_sm_g781b
         data:
@@ -1711,7 +1711,7 @@
         data:
           title: "🌧 Sluit ramen — het regent"
           message: >-
-            Sluit ramen en deuren; het regent buiten
+            Sluit ramen en tuindeuren; het regent buiten
             ({{ states('weather.thuis') }}).
           data:
             tag: kamer_regen
@@ -1725,7 +1725,7 @@
           title: "🌧 Sluit ramen — het regent"
           notification_id: kamer_regen
           message: >-
-            Sluit ramen en deuren; het regent buiten
+            Sluit ramen en tuindeuren; het regent buiten
             ({{ states('weather.thuis') }}).
     - conditions:
       - condition: template
@@ -2004,7 +2004,7 @@
     trendrichting, het extremum (laagst of hoogst gemeten) en de huidige
     kamertemp. Bij een naar_stijgend reversal wordt bovendien de eventueel
     actieve 'Ventileren om binnenshuis af te koelen'-melding op de telefoon
-    en HA UI overschreven door een 'Sluit ramen en deuren om de koelte
+    en HA UI overschreven door een 'Sluit ramen en tuindeuren om de koelte
     binnen te houden'-melding (koelfase voorbij). In stil-venster 22:30-
     07:30 wordt het (stil) kanaal gebruikt (geen wek-geluid). Vakantie-
     onderdrukking actief.
@@ -2050,9 +2050,9 @@
       sequence:
       - action: notify.mobile_app_sm_g781b
         data:
-          title: "🌡 Sluit ramen en deuren"
+          title: "🌡 Sluit ramen en tuindeuren"
           message: >-
-            Sluit ramen en deuren om de koelte binnen te houden.
+            Sluit ramen en tuindeuren om de koelte binnen te houden.
             Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C).
           data:
             tag: kamer_gelijk_buiten_actueel
@@ -2063,9 +2063,9 @@
             notification_icon: mdi:window-closed-variant
       - action: persistent_notification.create
         data:
-          title: "🌡 Sluit ramen en deuren"
+          title: "🌡 Sluit ramen en tuindeuren"
           notification_id: kamer_gelijk_buiten_actueel
           message: >-
-            Sluit ramen en deuren om de koelte binnen te houden.
+            Sluit ramen en tuindeuren om de koelte binnen te houden.
             Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C).
   mode: single
