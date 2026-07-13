@@ -1908,6 +1908,7 @@
           {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}
         {% endif %}
       ref: "{{ states('input_number.kamer_ref_temp') | float(-999) }}"
+      ref_last: "{{ states.input_number.kamer_ref_temp.last_changed }}"
       stijgt: "{{ is_state('input_boolean.kamer_stijgt', 'on') }}"
       geinit: "{{ ref > -900 and ref != 0 }}"
       is_ha_start: "{{ trigger.platform == 'homeassistant' }}"
@@ -1959,6 +1960,7 @@
           richting: naar_dalend
           temp: "{{ cur }}"
           extremum: "{{ ref }}"
+          extremum_tijd: "{{ ref_last }}"
     - conditions:
       - condition: template
         value_template: "{{ not stijgt and cur <= ref }}"
@@ -1993,6 +1995,7 @@
           richting: naar_stijgend
           temp: "{{ cur }}"
           extremum: "{{ ref }}"
+          extremum_tijd: "{{ ref_last }}"
   mode: parallel
   max: 20
 
@@ -2018,15 +2021,19 @@
   actions:
   - variables:
       stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
-      kamer_temp: "{{ trigger.event.data.temp | float(-999) }}"
+      kamer_temp: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) }}"
       extremum: "{{ trigger.event.data.extremum | float(-999) }}"
       richting: "{{ trigger.event.data.richting }}"
       is_stijgend: "{{ richting == 'naar_stijgend' }}"
       pijl: "{{ '↗' if is_stijgend else '↘' }}"
       actie_txt: "{{ 'stijgt weer' if is_stijgend else 'daalt weer' }}"
       extremum_label: "{{ 'Laagst gemeten' if is_stijgend else 'Hoogst gemeten' }}"
+      extremum_tijd_raw: "{{ trigger.event.data.extremum_tijd }}"
+      extremum_hhmm: >-
+        {% set d = as_datetime(extremum_tijd_raw) %}
+        {% if d %}{{ (d | as_local).strftime('%H:%M') }}{% else %}—{% endif %}
       reversal_msg: >-
-        {{ extremum_label }}: {{ extremum }}°C. Nu: {{ kamer_temp }}°C.
+        {% if is_stijgend %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% else %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% endif %}
   - action: notify.mobile_app_sm_g781b
     data:
       title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
@@ -2053,7 +2060,8 @@
           title: "🌡 Sluit ramen en tuindeuren"
           message: >-
             Sluit ramen en tuindeuren om de koelte binnen te houden.
-            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C).
+            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C
+            om {{ extremum_hhmm }}).
           data:
             tag: kamer_gelijk_buiten_actueel
             channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
@@ -2067,5 +2075,6 @@
           notification_id: kamer_gelijk_buiten_actueel
           message: >-
             Sluit ramen en tuindeuren om de koelte binnen te houden.
-            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C).
+            Kamer stijgt weer: {{ kamer_temp }}°C (laagst {{ extremum }}°C
+            om {{ extremum_hhmm }}).
   mode: single
