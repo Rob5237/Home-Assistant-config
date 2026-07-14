@@ -1256,6 +1256,14 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: nachtventilatie
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_reversal
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_reversal
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ventileren_signaal_actief
@@ -1295,6 +1303,14 @@
           message: >-
             Zet ramen en tuindeuren open. Kamer {{ kamer_temp }}°C,
             buiten {{ buiten_actueel }}°C.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_reversal
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_reversal
     - conditions:
       - condition: template
         value_template: "{{ not conditie and gemeld }}"
@@ -1397,6 +1413,14 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: nachtventilatie
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_reversal
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_reversal
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.sluit_ramen_signaal_actief
@@ -1539,6 +1563,14 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: nachtventilatie
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_reversal
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_reversal
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.ramen_dicht_signaal_actief
@@ -1676,6 +1708,14 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: nachtventilatie
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_reversal
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_reversal
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.regen_signaal_actief
@@ -1810,6 +1850,14 @@
       - action: persistent_notification.dismiss
         data:
           notification_id: kamer_warm_buiten_warmer
+      - action: notify.mobile_app_sm_g781b
+        data:
+          message: clear_notification
+          data:
+            tag: kamer_reversal
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: kamer_reversal
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.nachtventilatie_signaal_actief
@@ -1989,13 +2037,13 @@
   alias: "Signaal: kamer trend-omkering ≥0,2°C"
   description: >
     Verstuurt bij elk 'kamer_temp_reversal' event (van kamer_trend_tracker
-    — bevestigde 0,2°C omkering) een mobile-app + HA-UI push met de nieuwe
+    — bevestigde 0,2°C omkering) één mobile-app + HA-UI push met de nieuwe
     trendrichting, het extremum (laagst of hoogst gemeten) en de huidige
-    kamertemp. Bij een naar_stijgend reversal wordt bovendien de eventueel
-    actieve 'Ventileren om binnenshuis af te koelen'-melding op de telefoon
-    en HA UI overschreven door een 'Sluit ramen en tuindeuren om de koelte
-    binnen te houden'-melding (koelfase voorbij). In stil-venster 22:30-
-    07:30 wordt het (stil) kanaal gebruikt (geen wek-geluid). Vakantie-
+    kamertemp. Bij een naar_stijgend reversal bevat dezelfde push ook het
+    advies om ramen en tuindeuren te sluiten om de koelte binnen te houden
+    (geen aparte tweede notificatie meer). Alle andere ventilatie-signalen
+    worden bij activeren gewist (cross-clear). In stil-venster 22:30-07:30
+    wordt het (stil) kanaal gebruikt (geen wek-geluid). Vakantie-
     onderdrukking actief.
   triggers:
   - trigger: event
@@ -2019,10 +2067,10 @@
         {% set d = as_datetime(extremum_tijd_raw) %}
         {% if d %}{{ (d | as_local).strftime('%H:%M') }}{% else %}—{% endif %}
       reversal_msg: >-
-        {% if is_stijgend %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% else %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% endif %}
+        {% if is_stijgend %}Sluit ramen en tuindeuren om de koelte binnen te houden. {{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% else %}{{ extremum_label }}: {{ extremum }}°C om {{ extremum_hhmm }}. Nu: {{ kamer_temp }}°C.{% endif %}
   # Reversal is leidend — wis alle andere ventilatie-signaal meldingen zodat er
-  # geen tegenstrijdig advies zichtbaar blijft (ventileren-tag wordt hieronder
-  # bij naar_stijgend alsnog overschreven door sluit-koelte push).
+  # geen tegenstrijdig advies zichtbaar blijft. De sluit-ramen-advies zit bij
+  # naar_stijgend in de reversal-push zelf (geen aparte tweede notificatie).
   - action: notify.mobile_app_sm_g781b
     data:
       message: clear_notification
@@ -2055,20 +2103,14 @@
   - action: persistent_notification.dismiss
     data:
       notification_id: nachtventilatie
-  # Bij naar_dalend ook de ventileren-tag wissen (bij naar_stijgend wordt die
-  # hieronder alsnog overschreven met de sluit-koelte push)
-  - if:
-    - condition: template
-      value_template: "{{ not is_stijgend }}"
-    then:
-    - action: notify.mobile_app_sm_g781b
+  - action: notify.mobile_app_sm_g781b
+    data:
+      message: clear_notification
       data:
-        message: clear_notification
-        data:
-          tag: kamer_gelijk_buiten_actueel
-    - action: persistent_notification.dismiss
-      data:
-        notification_id: kamer_gelijk_buiten_actueel
+        tag: kamer_gelijk_buiten_actueel
+  - action: persistent_notification.dismiss
+    data:
+      notification_id: kamer_gelijk_buiten_actueel
   - action: notify.mobile_app_sm_g781b
     data:
       title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
@@ -2079,37 +2121,10 @@
         importance: "{{ 'low' if stil_venster else 'high' }}"
         priority: "{{ 'normal' if stil_venster else 'high' }}"
         ttl: 0
-        notification_icon: "{{ 'mdi:trending-up' if is_stijgend else 'mdi:trending-down' }}"
+        notification_icon: "{{ 'mdi:window-closed-variant' if is_stijgend else 'mdi:trending-down' }}"
   - action: persistent_notification.create
     data:
       title: "{{ pijl }} Kamertemperatuur {{ actie_txt }}"
       notification_id: kamer_reversal
       message: "{{ reversal_msg }}"
-  - choose:
-    - conditions:
-      - condition: template
-        value_template: "{{ is_stijgend }}"
-      sequence:
-      - action: notify.mobile_app_sm_g781b
-        data:
-          title: "🌡 Sluit ramen en tuindeuren"
-          message: >-
-            Sluit ramen en tuindeuren om de koelte binnen te houden.
-            Kamertemperatuur stijgt weer: {{ kamer_temp }}°C
-            (laagst {{ extremum }}°C om {{ extremum_hhmm }}).
-          data:
-            tag: kamer_gelijk_buiten_actueel
-            channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if stil_venster else 'high' }}"
-            priority: "{{ 'normal' if stil_venster else 'high' }}"
-            ttl: 0
-            notification_icon: mdi:window-closed-variant
-      - action: persistent_notification.create
-        data:
-          title: "🌡 Sluit ramen en tuindeuren"
-          notification_id: kamer_gelijk_buiten_actueel
-          message: >-
-            Sluit ramen en tuindeuren om de koelte binnen te houden.
-            Kamertemperatuur stijgt weer: {{ kamer_temp }}°C
-            (laagst {{ extremum }}°C om {{ extremum_hhmm }}).
   mode: single
