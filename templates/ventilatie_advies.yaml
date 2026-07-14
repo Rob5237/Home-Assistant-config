@@ -1,0 +1,59 @@
+# Template-sensoren voor ventilatie-advies / trend-voorspelling.
+# - Gebruikt weather.thuis hourly forecast om te voorspellen wanneer de
+#   kamertemperatuur naar verwachting de eerstvolgende trend-omkering
+#   (dal of piek) bereikt.
+# - Update elke 10 minuten + bij HA-start.
+# - Heuristiek: reversal treedt op wanneer buitentemp door kamertemp
+#   kruist (buitenkant gaat van kouder naar warmer of andersom). Simpele
+#   benadering zonder thermische massa-vertraging; verfijning kan later.
+
+- trigger:
+  - platform: time_pattern
+    minutes: "/10"
+  - platform: homeassistant
+    event: start
+  action:
+  - action: weather.get_forecasts
+    target:
+      entity_id: weather.thuis
+    data:
+      type: hourly
+    response_variable: weer_forecast
+  sensor:
+  - name: "Kamer volgende reversal (verwacht)"
+    unique_id: "kamer_volgende_reversal_verwacht"
+    icon: mdi:sine-wave
+    state: >
+      {% set fc = weer_forecast['weather.thuis'].forecast if weer_forecast else none %}
+      {% set kamer = states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(-999) %}
+      {% set stijgt = is_state('input_boolean.kamer_stijgt', 'on') %}
+      {% if fc and kamer > -900 %}
+        {% set ns = namespace(found=none) %}
+        {% for hour in fc %}
+          {% if ns.found is none %}
+            {% set buiten = hour.temperature | float(none) %}
+            {% if buiten is not none %}
+              {% if (stijgt and buiten < kamer) or (not stijgt and buiten > kamer) %}
+                {% set ns.found = hour.datetime %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.found %}
+          {{ (ns.found | as_datetime | as_local).strftime('%H:%M') }}
+        {% else %}
+          > 24u
+        {% endif %}
+      {% else %}
+        onbekend
+      {% endif %}
+    attributes:
+      richting: >
+        {% set stijgt = is_state('input_boolean.kamer_stijgt', 'on') %}
+        {{ 'naar dalend (verwacht piek)' if stijgt else 'naar stijgend (verwacht dal)' }}
+      toelichting: >
+        Voorspelling: eerstvolgende uur waarop buitentemp door kamertemp
+        kruist (weather.thuis hourly forecast). Simpele benadering zonder
+        thermische massa-vertraging.
+      kamer_nu: >
+        {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}
