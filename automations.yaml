@@ -657,14 +657,6 @@
     - action: input_boolean.turn_off
       target:
         entity_id: input_boolean.tapwater_overschot_lock
-    - action: persistent_notification.create
-      data:
-        title: "Tapwater: user-overname gedetecteerd"
-        notification_id: tapwater_user_intervention
-        message: >-
-          dhw_mode handmatig gewijzigd naar
-          **{{ trigger.to_state.state }}** tijdens actieve opwarm-cyclus.
-          Reset-automation zal dhw_mode NIET terugzetten naar Holidays.
   mode: single
 
 - id: vakantie_sync_aan
