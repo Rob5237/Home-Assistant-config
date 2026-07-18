@@ -42,10 +42,20 @@ OPT_API_TIMEOUT = "api_timeout"
 OPT_SESSION_HISTORY_INTERVAL = "session_history_interval"
 OPT_SCHEDULE_SYNC_ENABLED = "schedule_sync_enabled"
 OPT_BATTERY_SCHEDULES_ENABLED = "battery_schedules_enabled"
+OPT_SYSTEM_EVENT_REPAIR_ISSUES = "system_event_repair_issues"
 OPT_DEGRADED_SERVICE_REPAIR_ISSUES = "degraded_service_repair_issues"
+OPT_WEATHER_ENABLED = "weather_enabled"
+OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED = "microinverter_lifetime_energy_enabled"
+OPT_MICROINVERTER_POWER_ENABLED = "microinverter_power_enabled"
+OPT_PRICING_EDITS_ENABLED = "pricing_edits_enabled"
 DEFAULT_SCHEDULE_SYNC_ENABLED = True
 DEFAULT_BATTERY_SCHEDULES_ENABLED = True
-DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES = True
+DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES = False
+DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES = False
+DEFAULT_WEATHER_ENABLED = False
+DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED = True
+DEFAULT_MICROINVERTER_POWER_ENABLED = False
+DEFAULT_PRICING_EDITS_ENABLED = True
 ISSUE_NETWORK_UNREACHABLE = "cloud_unreachable"
 ISSUE_DNS_RESOLUTION = "cloud_dns_resolution"
 ISSUE_CLOUD_ERRORS = "cloud_service_unavailable"
@@ -62,6 +72,7 @@ ISSUE_BATTERY_PROFILE_PENDING = "battery_profile_pending"
 
 BASE_URL = "https://enlighten.enphaseenergy.com"
 ENTREZ_URL = "https://entrez.enphaseenergy.com"
+SELF_TOKEN_URL = f"{BASE_URL}/users/self/token"
 LOGIN_URL = f"{BASE_URL}/login/login.json"
 LOGIN_FORM_URL = f"{BASE_URL}/login/login"
 MFA_VALIDATE_URL = f"{BASE_URL}/app-api/validate_login_otp"
@@ -120,11 +131,13 @@ STORM_GUARD_CACHE_TTL = 300.0
 STORM_ALERT_CACHE_TTL = 300.0
 STORM_GUARD_PENDING_HOLD_S = 90.0
 GRID_CONTROL_CHECK_CACHE_TTL = 60.0
+GRID_MODE_STATUS_CACHE_TTL = 300.0
 GRID_OUTAGE_CONTEXT_CACHE_TTL = 60.0
 # Keep the last confirmed grid-control state valid across the initial
 # endpoint-family cooldown window after a transient failure. This avoids
 # spurious ready/unknown flapping while the retry is intentionally deferred.
 GRID_CONTROL_CHECK_STALE_AFTER_S = 360.0
+GRID_MODE_STATUS_STALE_AFTER_S = 360.0
 GRID_OUTAGE_CONTEXT_STALE_AFTER_S = 360.0
 DRY_CONTACT_SETTINGS_CACHE_TTL = 300.0
 DRY_CONTACT_SETTINGS_FAILURE_CACHE_TTL = 15.0

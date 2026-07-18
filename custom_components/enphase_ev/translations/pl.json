@@ -95,7 +95,7 @@
       "message": "Sterowanie siecią jest niedostępne dla tej witryny."
     },
     "grid_control_blocked": {
-      "message": "Sterowanie siecią jest obecnie zablokowane: {reasons}."
+      "message": "Sterowanie siecią jest obecnie zablokowane."
     },
     "grid_mode_invalid": {
       "message": "Tryb sieci musi być on_grid lub off_grid."
@@ -412,6 +412,9 @@
     "tariff_rate_api_unavailable": {
       "message": "API zapisu taryf jest niedostępne."
     },
+    "pricing_edits_disabled": {
+      "message": "Edycja cen jest wyłączona w opcjach integracji."
+    },
     "tariff_rate_entity_required": {
       "message": "Wybierz dokładnie jedną encję stawki taryfy."
     },
@@ -456,6 +459,27 @@
     },
     "firmware_advisory_only": {
       "message": "Aktualizacje oprogramowania układowego mają wyłącznie charakter informacyjny."
+    },
+    "grid_profile_installer_required": {
+      "message": "Sterowanie profilem sieci wymaga dostępu instalatora do Enphase Activation."
+    },
+    "grid_profile_profile_invalid": {
+      "message": "Wybrany profil sieci nie jest dostępny dla kraju i regionu tej lokalizacji."
+    },
+    "grid_profile_gateway_required": {
+      "message": "Zastosowanie profilu sieci wymaga rekordu Cloud Activation Gateway."
+    },
+    "grid_profile_apply_failed": {
+      "message": "Nie udało się zastosować profilu sieci."
+    },
+    "grid_profile_confirmation_required": {
+      "message": "Zastosowanie profilu sieci wymaga potwierdzenia."
+    },
+    "grid_profile_region_invalid": {
+      "message": "Wybrany region profilu sieci nie jest dostępny."
+    },
+    "grid_profile_unavailable": {
+      "message": "Sterowanie profilem sieci jest niedostępne."
     }
   },
   "options": {
@@ -464,12 +488,20 @@
         "title": "Opcje Enphase Energy",
         "description": "Wybierz, co chcesz zrobić z tym wpisem integracji.",
         "menu_options": {
-          "settings": "Ustawienia",
-          "migrate_envoy": "Migruj historię Envoy"
+          "settings": "Odpytywanie",
+          "devices": "Wybierz urządzenia",
+          "repair_notifications": "Powiadomienia",
+          "authentication_settings": "Uwierzytelnianie",
+          "migrate_envoy": "Migruj historię Envoy",
+          "advanced": "Zaawansowane"
         },
         "menu_option_descriptions": {
           "settings": "Dostosuj odpytywanie i działanie.",
-          "migrate_envoy": "Przejmij wybrane identyfikatory encji energii Enphase Envoy, aby historia Home Assistant Energy była kontynuowana przez tę integrację."
+          "devices": "Wybierz, które grupy urządzeń dodać. Wszystkie wybory współdzielą ten sam interwał odpytywania.",
+          "repair_notifications": "Zarządzaj powiadomieniami o naprawach Home Assistant.",
+          "authentication_settings": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
+          "migrate_envoy": "Przejmij wybrane identyfikatory encji energii Enphase Envoy, aby historia Home Assistant Energy była kontynuowana przez tę integrację.",
+          "advanced": "Opcjonalne sterowanie trybem sieci i sterowanie profilem tylko dla instalatora."
         },
         "data": {
           "type_envoy": "Brama",
@@ -480,15 +512,16 @@
           "slow_poll_interval": "Wolny interwał odpytywania (s)",
           "fast_while_streaming": "Preferuj szybkie odpytywanie podczas aktywnego strumienia chmury",
           "api_timeout": "Limit czasu API (s)",
-          "nominal_voltage": "Napięcie znamionowe (V)",
+          "nominal_voltage": "Napięcie znamionowe ładowarki EV (V)",
           "session_history_interval": "Interwał historii sesji (min)",
           "schedule_sync_enabled": "Włącz harmonogram ładowania pojazdów elektrycznych",
-          "reauth": "Rozpocznij ponowne uwierzytelnienie",
-          "forget_password": "Usuń zapisane hasło",
           "type_heatpump": "Pompa ciepła",
           "type_ac_battery": "Bateria AC",
           "battery_schedules_enabled": "Włącz harmonogram baterii",
-          "degraded_service_repair_issues": "Włącz naprawy usług zdegradowanych"
+          "degraded_service_repair_issues": "Włącz naprawy usług zdegradowanych",
+          "weather_enabled": "Włącz pogodę",
+          "microinverter_lifetime_energy_enabled": "Włącz energię całkowitą mikroinwerterów",
+          "microinverter_power_enabled": "Włącz moc mikroinwerterów"
         },
         "data_description": {
           "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
@@ -499,57 +532,140 @@
           "slow_poll_interval": "Interwał używany w stanie bezczynności.",
           "fast_while_streaming": "Gdy włączone, szybkie odpytywanie podczas aktywnego strumienia chmury.",
           "api_timeout": "Liczba sekund przed przekroczeniem limitu czasu żądań API.",
-          "nominal_voltage": "Napięcie zapasowe do szacowania mocy ładowarki.",
+          "nominal_voltage": "Typowe napięcie zasilania AC używane do szacowania mocy, gdy napięcie bieżące jest niedostępne.",
           "session_history_interval": "Minuty oczekiwania między pobieraniem historii sesji z chmury.",
-          "schedule_sync_enabled": "Zarządzaj harmonogramami ładowarek IQ EV",
-          "reauth": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
-          "forget_password": "Usuwa zapisane hasło. Automatyczne odświeżanie nie będzie już wykonywane.",
           "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
           "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne.",
-          "battery_schedules_enabled": "Zarządzaj harmonogramami baterii IQ",
-          "degraded_service_repair_issues": "Tworzy problemy w Repairs, gdy opcjonalne usługi Enphase są zdegradowane."
+          "degraded_service_repair_issues": "Tworzy problemy w Repairs, gdy opcjonalne usługi Enphase są zdegradowane.",
+          "weather_enabled": "Pobiera bieżącą pogodę dla lokalizacji z Enphase i tworzy encję pogody tylko wtedy, gdy punkt końcowy jest dostępny.",
+          "microinverter_lifetime_energy_enabled": "Włącza wszystkie czujniki energii całkowitej poszczególnych mikroinwerterów.",
+          "microinverter_power_enabled": "Włącza wszystkie czujniki mocy poszczególnych mikroinwerterów, gdy telemetria instalatora jest dostępna."
         }
       },
       "settings": {
-        "title": "Opcje Enphase Energy",
+        "title": "Odpytywanie",
         "description": "Dostosuj odpytywanie i zachowanie.",
         "data": {
-          "type_envoy": "Brama",
-          "type_encharge": "Bateria",
-          "type_iqevse": "Ładowarki",
-          "type_microinverter": "Mikrofalowniki",
           "fast_poll_interval": "Szybki interwał odpytywania (s)",
           "slow_poll_interval": "Wolny interwał odpytywania (s)",
           "fast_while_streaming": "Preferuj szybkie odpytywanie podczas aktywnego strumienia chmury",
           "api_timeout": "Limit czasu API (s)",
-          "nominal_voltage": "Napięcie znamionowe (V)",
           "session_history_interval": "Interwał historii sesji (min)",
-          "schedule_sync_enabled": "Włącz obsługę harmonogramu",
-          "reauth": "Rozpocznij ponowne uwierzytelnienie",
-          "forget_password": "Usuń zapisane hasło",
-          "type_heatpump": "Pompa ciepła",
-          "type_ac_battery": "Bateria AC",
-          "battery_schedules_enabled": "Włącz harmonogram baterii",
           "degraded_service_repair_issues": "Włącz naprawy usług zdegradowanych"
         },
         "data_description": {
-          "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
-          "type_encharge": "Zawiera stan baterii i encje sterujące, gdy są dostępne.",
-          "type_iqevse": "Zawiera encje i sterowanie ładowarkami EV.",
-          "type_microinverter": "Zawiera czujniki łączności mikroinwerterów, liczby aktywnych i produkcji całkowitej.",
           "fast_poll_interval": "Interwał używany podczas ładowania lub strumieniowania.",
           "slow_poll_interval": "Interwał używany w stanie bezczynności.",
           "fast_while_streaming": "Gdy włączone, szybkie odpytywanie podczas aktywnego strumienia chmury.",
           "api_timeout": "Liczba sekund przed przekroczeniem limitu czasu żądań API.",
-          "nominal_voltage": "Napięcie zapasowe do szacowania mocy ładowarki.",
           "session_history_interval": "Minuty oczekiwania między pobieraniem historii sesji z chmury.",
-          "schedule_sync_enabled": "Zarządzaj zarządzaniem harmonogramem Enphase",
-          "reauth": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
-          "forget_password": "Usuwa zapisane hasło. Automatyczne odświeżanie nie będzie już wykonywane.",
-          "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
-          "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne.",
-          "battery_schedules_enabled": "Zarządzaj harmonogramami baterii IQ",
           "degraded_service_repair_issues": "Tworzy problemy w Repairs, gdy opcjonalne usługi Enphase są zdegradowane."
+        }
+      },
+      "devices": {
+        "title": "Wybierz urządzenia",
+        "description": "Wybierz, które grupy urządzeń dodać. Wszystkie wybory współdzielą ten sam interwał odpytywania.",
+        "sections": {
+          "devices": {
+            "name": "Wybierz urządzenia",
+            "data": {
+              "type_envoy": "Brama",
+              "type_encharge": "Bateria",
+              "type_ac_battery": "Bateria AC",
+              "type_iqevse": "Ładowarki",
+              "type_heatpump": "Pompa ciepła",
+              "type_microinverter": "Mikrofalowniki"
+            },
+            "data_description": {
+              "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
+              "type_encharge": "Zawiera stan baterii i encje sterujące, gdy są dostępne.",
+              "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne.",
+              "type_iqevse": "Zawiera encje i sterowanie ładowarkami EV.",
+              "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
+              "type_microinverter": "Zawiera czujniki łączności mikroinwerterów, liczby aktywnych i produkcji całkowitej."
+            }
+          },
+          "device_features": {
+            "name": "Funkcje urządzeń",
+            "data": {
+              "schedule_sync_enabled": "Włącz obsługę harmonogramu",
+              "battery_schedules_enabled": "Włącz harmonogram baterii",
+              "system_event_repair_issues": "Włącz powiadomienia o naprawach zdarzeń systemowych",
+              "pricing_edits_enabled": "Włącz edycję cen",
+              "weather_enabled": "Włącz pogodę",
+              "nominal_voltage": "Napięcie znamionowe ładowarki EV (V)",
+              "microinverter_lifetime_energy_enabled": "Włącz energię całkowitą mikroinwerterów",
+              "microinverter_power_enabled": "Włącz moc mikroinwerterów"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Tworzy naprawy Home Assistant dla aktywnych trwałych alarmów Enphase. Domyślnie wyłączone.",
+              "pricing_edits_enabled": "Zarządzaj taryfami energii elektrycznej IQ Gateway",
+              "weather_enabled": "Pobiera bieżącą pogodę dla lokalizacji z Enphase i tworzy encję pogody tylko wtedy, gdy punkt końcowy jest dostępny.",
+              "nominal_voltage": "Typowe napięcie zasilania AC używane do szacowania mocy, gdy napięcie bieżące jest niedostępne.",
+              "schedule_sync_enabled": "Zarządzaj harmonogramami IQ EV Charger.",
+              "battery_schedules_enabled": "Zarządzaj harmonogramami IQ Battery.",
+              "microinverter_lifetime_energy_enabled": "Włącza wszystkie czujniki energii całkowitej poszczególnych mikroinwerterów.",
+              "microinverter_power_enabled": "Włącza wszystkie czujniki mocy poszczególnych mikroinwerterów, gdy telemetria instalatora jest dostępna."
+            }
+          }
+        },
+        "data": {
+          "devices": "Wybierz urządzenia",
+          "device_features": "Funkcje urządzeń",
+          "type_envoy": "Brama",
+          "type_encharge": "Bateria",
+          "type_ac_battery": "Bateria AC",
+          "type_iqevse": "Ładowarki",
+          "type_heatpump": "Pompa ciepła",
+          "type_microinverter": "Mikrofalowniki",
+          "schedule_sync_enabled": "Włącz obsługę harmonogramu",
+          "battery_schedules_enabled": "Włącz harmonogram baterii",
+          "system_event_repair_issues": "Włącz powiadomienia o naprawach zdarzeń systemowych",
+          "pricing_edits_enabled": "Włącz edycję cen",
+          "weather_enabled": "Włącz pogodę",
+          "nominal_voltage": "Napięcie znamionowe ładowarki EV (V)",
+          "microinverter_lifetime_energy_enabled": "Włącz energię całkowitą mikroinwerterów",
+          "microinverter_power_enabled": "Włącz moc mikroinwerterów"
+        },
+        "data_description": {
+          "type_envoy": "Zawiera diagnostykę łączności bramy i liczników.",
+          "type_encharge": "Zawiera stan baterii i encje sterujące, gdy są dostępne.",
+          "type_ac_battery": "Obejmuje sensory baterii AC i sterowanie trybem uśpienia, gdy są dostępne.",
+          "type_iqevse": "Zawiera encje i sterowanie ładowarkami EV.",
+          "type_heatpump": "Zawiera czujniki stanu, diagnostyki i zużycia pompy ciepła.",
+          "type_microinverter": "Zawiera czujniki łączności mikroinwerterów, liczby aktywnych i produkcji całkowitej.",
+          "system_event_repair_issues": "Tworzy naprawy Home Assistant dla aktywnych trwałych alarmów Enphase. Domyślnie wyłączone.",
+          "pricing_edits_enabled": "Zarządzaj taryfami energii elektrycznej IQ Gateway",
+          "weather_enabled": "Pobiera bieżącą pogodę dla lokalizacji z Enphase i tworzy encję pogody tylko wtedy, gdy punkt końcowy jest dostępny.",
+          "nominal_voltage": "Typowe napięcie zasilania AC używane do szacowania mocy, gdy napięcie bieżące jest niedostępne.",
+          "schedule_sync_enabled": "Zarządzaj harmonogramami IQ EV Charger.",
+          "battery_schedules_enabled": "Zarządzaj harmonogramami IQ Battery.",
+          "microinverter_lifetime_energy_enabled": "Włącza wszystkie czujniki energii całkowitej poszczególnych mikroinwerterów.",
+          "microinverter_power_enabled": "Włącza wszystkie czujniki mocy poszczególnych mikroinwerterów, gdy telemetria instalatora jest dostępna."
+        }
+      },
+      "repair_notifications": {
+        "title": "Powiadomienia",
+        "description": "Wybierz, które warunki Enphase tworzą naprawy Home Assistant.",
+        "data": {
+          "degraded_service_repair_issues": "Włącz naprawy usług zdegradowanych",
+          "system_event_repair_issues": "Włącz powiadomienia o naprawach zdarzeń systemowych"
+        },
+        "data_description": {
+          "degraded_service_repair_issues": "Tworzy problemy w Repairs, gdy opcjonalne usługi Enphase są zdegradowane.",
+          "system_event_repair_issues": "Tworzy naprawy Home Assistant dla aktywnych trwałych alarmów Enphase. Domyślnie wyłączone."
+        }
+      },
+      "authentication_settings": {
+        "title": "Uwierzytelnianie",
+        "description": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
+        "data": {
+          "reauth": "Rozpocznij ponowne uwierzytelnienie",
+          "forget_password": "Usuń zapisane hasło"
+        },
+        "data_description": {
+          "reauth": "Uruchom proces logowania, aby odświeżyć dane uwierzytelniające bez usuwania integracji.",
+          "forget_password": "Usuwa zapisane hasło. Automatyczne odświeżanie nie będzie już wykonywane."
         }
       },
       "migrate_envoy_source": {
@@ -578,12 +694,12 @@
           "battery_discharge": "Rozładowanie baterii"
         },
         "data_description": {
-          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
-          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
-          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
-          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
-          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
-          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+          "solar_production": "Przypisz skumulowaną wartość całkowitą do czujnika Produkcja słoneczna lokalizacji. Nie wybieraj energii dziennej ani mocy chwilowej.",
+          "consumption": "Przypisz skumulowaną wartość całkowitą do czujnika Zużycie lokalizacji. Nie wybieraj energii dziennej ani mocy chwilowej.",
+          "grid_import": "Przypisz skumulowaną wartość całkowitą do czujnika Import z sieci lokalizacji. Nie wybieraj energii dziennej ani mocy chwilowej.",
+          "grid_export": "Przypisz skumulowaną wartość całkowitą do czujnika Eksport do sieci lokalizacji. Nie wybieraj energii dziennej ani mocy chwilowej.",
+          "battery_charge": "Przypisz skumulowaną wartość całkowitą do czujnika Ładowanie baterii lokalizacji. Nie wybieraj energii dziennej ani mocy chwilowej.",
+          "battery_discharge": "Przypisz skumulowaną wartość całkowitą do czujnika Rozładowanie baterii lokalizacji. Nie wybieraj energii dziennej ani mocy chwilowej."
         }
       },
       "migrate_envoy_confirm": {
@@ -593,6 +709,67 @@
           "confirm_reassign": "Rozumiem, że wybrane identyfikatory encji źródłowych zostaną ponownie przypisane",
           "disable_archived_envoy_sensors": "Wyłącz zarchiwizowane czujniki źródłowe po migracji"
         }
+      },
+      "advanced": {
+        "title": "Zaawansowane",
+        "description": "Działania instalatora i konserwacji.",
+        "menu_options": {
+          "grid_toggle": "Tryb sieci",
+          "grid_profile": "Sterowanie profilem sieci"
+        },
+        "menu_option_descriptions": {
+          "grid_toggle": "Skonfiguruj ręczne sterowanie trybem sieci.",
+          "grid_profile": "Przeglądanie i stosowanie profili sieci Activation tylko dla instalatorów."
+        }
+      },
+      "grid_toggle": {
+        "title": "Tryb sieci",
+        "description": "Bieżący tryb sieci: **{current_mode}**.\n\nZmiana trybu sieci ma wpływ na bezpieczeństwo. Wybierz żądany tryb, aby wysłać jednorazowy kod na zarejestrowany adres e-mail i telefon.",
+        "data": {
+          "mode": "Żądany tryb siatki"
+        }
+      },
+      "grid_profile": {
+        "title": "Sterowanie profilem sieci",
+        "description": "Filtruje katalog profili sieci Activation dla kraju tej instalacji.\n\nOSTRZEŻENIE: ZASTOSOWANIE NIEPRAWIDŁOWEGO PROFILU SIECI MOŻE SPOWODOWAĆ NIEPRAWIDŁOWE DZIAŁANIE SYSTEMU.",
+        "data": {
+          "grid_profile_region": "Region",
+          "grid_profile_commonly_used": "Lista profili"
+        },
+        "data_description": {
+          "grid_profile_region": "Dostępne są tylko regiony dla kraju tej instalacji.",
+          "grid_profile_commonly_used": "Wybierz często używane profile lub wszystkie profile dla wybranego regionu."
+        }
+      },
+      "grid_profile_select": {
+        "title": "Wybierz profil sieci",
+        "description": "Wybierz profil do przygotowania. Nic nie zostanie zastosowane do kroku potwierdzenia.",
+        "data": {
+          "grid_profile_id": "Profil sieci"
+        }
+      },
+      "grid_profile_confirm": {
+        "title": "Potwierdź profil sieci",
+        "description": "Bieżący profil: **{current_profile}**\n\nWybrany profil: **{selected_profile}**\n\nIdentyfikator profilu: **{selected_profile_id}**\n\nPEL Enhanced: **{selected_profile_pel}**\n\nZgodność z 277 V: **{selected_profile_277v}**\n\nKraj: **{country}**\n\nRegion: **{region}**\n\nStan zastosowania w chmurze: **{apply_status}**.",
+        "data": {
+          "confirm_apply": "Zastosuj wybrany profil sieci"
+        }
+      },
+      "grid_profile_applied": {
+        "title": "Aktualizacja profilu sieci zaakceptowana",
+        "description": "Enphase zaakceptował aktualizację profilu sieci dla **{selected_profile}**.\n\nŻądany identyfikator profilu: **{requested_profile_id}**\n\nStatus chmury: **{cloud_apply_status}**\n\nNowy profil może pojawić się jako bieżący dopiero po maksymalnie **5 minutach**, gdy chmura i Gateway zakończą przetwarzanie. Czujnik Grid Profile zaktualizuje się, gdy rekord Activation zgłosi nowy bieżący profil."
+      },
+      "grid_toggle_otp": {
+        "title": "Potwierdź zmianę trybu siatki",
+        "description": "Bieżący tryb sieci: **{current_mode}**.\n\nŻądany tryb siatki: **{target_mode}**.\n\nWprowadź 4-cyfrowy kod jednorazowy i potwierdź zmianę ze względów bezpieczeństwa.",
+        "data": {
+          "otp": "Kod jednorazowy",
+          "confirm": "Potwierdź zmianę trybu siatki"
+        }
+      },
+      "grid_toggle_applied": {
+        "title": "Zmiana trybu siatki została zaakceptowana",
+        "description": "Enphase zaakceptował żądanie zmiany trybu sieci na **{target_mode}**.\n\nPrzekaźnik fizyczny może wciąż się zmieniać. Użyj czujnika trybu siatki, aby obserwować wynikowy stan."
       }
     },
     "error": {
@@ -602,16 +779,73 @@
       "migration_no_selection": "Wybierz co najmniej jeden zgodny czujnik energii do migracji.",
       "migration_duplicate_selection": "Ta sama encja źródłowa nie może zostać użyta więcej niż raz.",
       "envoy_entry_loaded": "Integracji Envoy nie udało się tymczasowo wyładować na potrzeby migracji.",
-      "incompatible_energy_total": "Wybrane encje nie są zgodnymi skumulowanymi sumami energii."
+      "incompatible_energy_total": "Wybrane encje nie są zgodnymi skumulowanymi sumami energii.",
+      "grid_profile_unavailable": "Sterowanie profilem sieci jest niedostępne.",
+      "grid_profile_installer_required": "Sterowanie profilem sieci wymaga dostępu instalatora do Enphase Activation.",
+      "grid_profile_no_regions": "Dla kraju tej instalacji nie ma dostępnych regionów profilu sieci.",
+      "grid_profile_no_profiles": "Żaden profil sieci nie pasuje do wybranych filtrów.",
+      "grid_profile_region_invalid": "Wybrany region profilu sieci jest niedostępny.",
+      "grid_profile_profile_invalid": "Wybrany profil sieci jest niedostępny dla kraju i regionu tej instalacji.",
+      "grid_profile_gateway_required": "Zastosowanie profilu sieci wymaga rekordu Gateway z chmurowej usługi Activation.",
+      "grid_profile_apply_failed": "Nie udało się zastosować profilu sieci.",
+      "grid_mode_invalid": "Wybierz opcję Na siatce lub Poza siecią.",
+      "grid_mode_already_active": "Witryna jest już w wybranym trybie siatki.",
+      "grid_mode_confirm_required": "Przed kontynuowaniem potwierdź zmianę trybu siatki.",
+      "grid_control_unavailable": "Sterowanie siecią jest niedostępne dla tej witryny.",
+      "grid_control_blocked": "Sterowanie siecią jest obecnie zablokowane.",
+      "grid_otp_required": "Wprowadź kod jednorazowy.",
+      "grid_otp_invalid_format": "Kod jednorazowy musi zawierać dokładnie cztery cyfry.",
+      "grid_otp_invalid": "Kod jednorazowy jest nieprawidłowy lub wygasł.",
+      "grid_envoy_serial_missing": "Nie można określić bramy dla tej witryny."
     },
     "abort": {
       "migration_no_envoy_sources": "Brak dostępnych sensorów energii Enphase Envoy do migracji.",
       "migration_no_targets": "Brak zgodnych sensorów Enphase Energy do migracji.",
-      "migration_partial_failure": "Migracja zatrzymała się po częściowym zakończeniu.\n\nZakończone mapowania:\n{completed_mappings}\n\nBłąd podczas przetwarzania `{failed_entity_id}`: {failure_reason}\n\nPrzywróć kopię zapasową, jeśli wynik jest nieakceptowalny."
+      "migration_partial_failure": "Migracja zatrzymała się po częściowym zakończeniu.\n\nZakończone mapowania:\n{completed_mappings}\n\nBłąd podczas przetwarzania `{failed_entity_id}`: {failure_reason}\n\nPrzywróć kopię zapasową, jeśli wynik jest nieakceptowalny.",
+      "grid_profile_unavailable": "Sterowanie profilem sieci jest niedostępne.",
+      "grid_profile_installer_required": "Sterowanie profilem sieci wymaga dostępu instalatora do Enphase Activation.",
+      "grid_profile_no_regions": "Dla kraju tej instalacji nie ma dostępnych regionów profilu sieci.",
+      "grid_mode_unavailable": "Sterowanie trybem siatki jest niedostępne dla tej witryny.",
+      "grid_mode_blocked": "Kontrola trybu siatki jest obecnie zablokowana: {reasons}."
     },
     "create_entry": {
       "migration_success": "Migracja zakończona. Enphase Energy przejęło teraz wybrane identyfikatory encji źródłowych. Sprawdź panel Energy i Developer Tools > Statistics po następnym odświeżeniu.",
       "migration_success_reload_needed": "Migracja została zakończona, ale jednej lub wielu integracji nie udało się automatycznie przeładować. W razie potrzeby przeładuj ręcznie Enphase Energy i Enphase Envoy, a następnie sprawdź panel Energy i Developer Tools > Statistics."
+    }
+  },
+  "selector": {
+    "grid_profile_list_mode": {
+      "options": {
+        "commonly_used": "Często używane",
+        "all_profiles": "Wszystkie profile"
+      }
+    },
+    "grid_profile_status": {
+      "options": {
+        "yes": "Tak",
+        "no": "Nie",
+        "unknown": "Nieznany",
+        "available": "Dostępny",
+        "unavailable": "Niedostępny",
+        "accepted": "Zaakceptowano"
+      }
+    },
+    "grid_mode": {
+      "options": {
+        "on_grid": "Na siatce",
+        "off_grid": "Poza siecią",
+        "unknown": "Nieznany"
+      }
+    },
+    "grid_control_block_reason": {
+      "options": {
+        "disable_grid_control": "Sterowanie siecią jest wyłączone dla lokalizacji.",
+        "active_download": "Trwa pobieranie systemowe.",
+        "sunlight_backup_system_check": "Kontrola systemu Sunlight Backup jest aktywna.",
+        "grid_outage_check": "Kontrola awarii sieci jest aktywna.",
+        "pending": "Zmiana trybu sieci już oczekuje.",
+        "unknown": "Aktywny jest nieznany warunek blokujący."
+      }
     }
   },
   "entity": {
@@ -895,6 +1129,9 @@
           },
           "metrics_available": {
             "name": "Metryki dostępne"
+          },
+          "endpoint_failure_details": {
+            "name": "Szczegóły błędów punktów końcowych"
           }
         }
       },
@@ -929,6 +1166,9 @@
       },
       "schedule_end": {
         "name": "Koniec harmonogramu"
+      },
+      "inverter_lifetime_energy": {
+        "name": "{serial} Energia całkowita"
       },
       "lifetime_energy": {
         "name": "Energia całkowita",
@@ -1179,16 +1419,8 @@
           "active": "Aktywny"
         }
       },
-      "grid_control_status": {
-        "name": "Stan sterowania siecią",
-        "state": {
-          "ready": "Gotowe",
-          "blocked": "Zablokowane",
-          "pending": "Oczekujące"
-        }
-      },
       "grid_mode": {
-        "name": "Tryb siatki",
+        "name": "Tryb sieci",
         "state": {
           "on_grid": "Na siatce",
           "off_grid": "Poza siecią",
@@ -1456,6 +1688,9 @@
       "microinverter_reporting_count": {
         "name": "Aktywne mikroinwertery"
       },
+      "inverter_telemetry": {
+        "name": "Moc {serial_number}"
+      },
       "microinverter_last_reported": {
         "name": "Ostatni raport mikroinwerterów"
       },
@@ -1558,9 +1793,9 @@
       "ac_battery_overall_status": {
         "name": "Ogólny stan baterii AC",
         "state": {
-          "charging": "Ładowanie",
-          "discharging": "Rozładowywanie",
-          "idle": "Bezczynny",
+          "normal": "Normalna",
+          "warning": "Ostrzeżenie",
+          "error": "Błąd",
           "unknown": "Nieznany"
         }
       },
@@ -1576,9 +1811,9 @@
       "ac_battery_storage_status": {
         "name": "Stan {serial}",
         "state": {
-          "charging": "Ładowanie",
-          "discharging": "Rozładowywanie",
-          "idle": "Bezczynny",
+          "normal": "Normalna",
+          "warning": "Ostrzeżenie",
+          "error": "Błąd",
           "unknown": "Nieznany"
         }
       },
@@ -1759,6 +1994,9 @@
       },
       "dry_contacts": {
         "name": "Styki bezpotencjałowe"
+      },
+      "current_grid_profile": {
+        "name": "Profil sieci"
       }
     },
     "number": {
@@ -1952,6 +2190,38 @@
             "name": "Adres IP"
           }
         }
+      },
+      "active_system_events": {
+        "name": "Aktywne zdarzenia systemowe",
+        "state_attributes": {
+          "available": {
+            "name": "Usługa zdarzeń dostępna"
+          },
+          "active_count": {
+            "name": "Liczba aktywnych zdarzeń"
+          },
+          "high_impact_count": {
+            "name": "Liczba zdarzeń o dużym wpływie"
+          },
+          "standing_alarm_count": {
+            "name": "Liczba aktywnych alarmów"
+          },
+          "active_events": {
+            "name": "Aktywne zdarzenia"
+          },
+          "severity_counts": {
+            "name": "Liczba według ważności"
+          },
+          "device_type_counts": {
+            "name": "Liczba według typu urządzenia"
+          },
+          "last_success_utc": {
+            "name": "Ostatnie odświeżenie zdarzeń (UTC)"
+          },
+          "using_cached_data": {
+            "name": "Używanie danych zdarzeń z pamięci podręcznej"
+          }
+        }
       }
     },
     "switch": {
@@ -2082,9 +2352,6 @@
       "cancel_pending_profile_change": {
         "name": "Anuluj oczekującą zmianę profilu"
       },
-      "request_grid_toggle_otp": {
-        "name": "Żądanie przełączenia siatki OTP"
-      },
       "storm_alert_opt_out": {
         "name": "Zrezygnuj z alertu burzowego"
       },
@@ -2154,6 +2421,9 @@
     "calendar": {
       "backup_history": {
         "name": "Historia zasilania rezerwowego"
+      },
+      "system_event_history": {
+        "name": "Historia zdarzeń systemowych"
       }
     },
     "update": {
@@ -2162,6 +2432,11 @@
       },
       "charger_firmware": {
         "name": "Oprogramowanie sprzętowe"
+      }
+    },
+    "weather": {
+      "site_weather": {
+        "name": "Pogoda"
       }
     }
   },
@@ -2188,7 +2463,7 @@
       "description": "Lokalizacja {site_id} wymaga zaktualizowanych nagłówków sesji. Uwierzytelnij ponownie."
     },
     "auth_blocked": {
-      "title": "Enphase Energy authentication temporarily blocked",
+      "title": "Uwierzytelnianie Enphase Energy jest tymczasowo zablokowane",
       "description": "Wygląda na to, że Enphase tymczasowo blokuje uwierzytelnianie dla lokalizacji {site_id}. Automatyczne próby są wstrzymane do {blocked_until}. Udane ręczne ponowne uwierzytelnienie może wcześniej usunąć blokadę."
     },
     "too_many_active_sessions": {
@@ -2234,6 +2509,10 @@
     "hems_auth_degraded": {
       "title": "HEMS Enphase Energy tymczasowo wstrzymany",
       "description": "Odpytywanie Heat Pump/HEMS dla lokalizacji {site_id} jest wstrzymane do {backoff_until} po {failure_count} błędach podobnych do uwierzytelniania ({reason}). Wallbox, bateria, brama i inne dane mogą działać dalej. Wyłącz grupę Heat Pump albo użyj Clear HEMS Auth Backoff po przywróceniu Enphase."
+    },
+    "active_system_event": {
+      "title": "Aktywne zdarzenie systemowe Enphase o dużym wpływie",
+      "description": "W lokalizacji {site_id} występuje aktywne zdarzenie {severity} dotyczące {device_type}, zgłoszone po raz pierwszy {event_date}. Szczegóły i zalecane działanie znajdziesz w Enlighten. Ta naprawa zostanie automatycznie usunięta, gdy Enphase zgłosi rozwiązanie zdarzenia."
     }
   },
   "system_health": {
@@ -2274,7 +2553,21 @@
       "site_energy_last_error": "Ostatni błąd dotyczący energii obiektu",
       "site_energy_failures": "Awarie energetyczne obiektu",
       "site_energy_backoff_active": "Aktywny zwrot energii w obiekcie",
-      "site_energy_backoff_ends_utc": "Koniec potrąceń energii w obiekcie (UTC)"
+      "site_energy_backoff_ends_utc": "Koniec potrąceń energii w obiekcie (UTC)",
+      "tariff_available": "Taryfa dostępna",
+      "tariff_service_status": "Stan usługi taryfowej",
+      "tariff_last_error": "Ostatni błąd taryfy",
+      "tariff_failures": "Błędy taryfy",
+      "tariff_backoff_active": "Wycofanie taryfy aktywne",
+      "tariff_backoff_ends_utc": "Wycofanie taryfy kończy się (UTC)",
+      "degraded_endpoint_families": "Rodziny punktów końcowych o obniżonej sprawności",
+      "degraded_services": "Usługi o obniżonej sprawności",
+      "firmware_catalog_last_fetch_utc": "Ostatnie pobranie katalogu oprogramowania układowego (UTC)",
+      "firmware_catalog_last_success_utc": "Ostatnie udane pobranie katalogu oprogramowania układowego (UTC)",
+      "firmware_catalog_last_error": "Ostatni błąd katalogu oprogramowania układowego",
+      "firmware_catalog_using_stale": "Katalog oprogramowania układowego używa nieaktualnych danych",
+      "firmware_catalog_generated_at": "Katalog oprogramowania układowego wygenerowano",
+      "firmware_catalog_source_age_seconds": "Wiek źródła katalogu oprogramowania układowego (s)"
     }
   },
   "services": {
@@ -2381,26 +2674,16 @@
     "request_grid_toggle_otp": {
       "name": "Żądanie przełączenia siatki OTP",
       "description": "Wyślij wymagany kod jednorazowy przed zmianą trybu siatki witryny.",
-      "sections": {
-        "advanced": {
-          "name": "Opcje zaawansowane"
-        }
-      },
       "fields": {
-        "site_id": {
-          "name": "ID lokalizacji",
-          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        "config_entry_id": {
+          "name": "Wpis konfiguracji Enphase",
+          "description": "Wybierz witrynę Enphase, która powinna otrzymać jednorazowy kod."
         }
       }
     },
     "set_grid_mode": {
       "name": "Ustaw tryb siatki",
       "description": "Zmień tryb siatki witryny po sprawdzeniu poprawności kodu jednorazowego.",
-      "sections": {
-        "advanced": {
-          "name": "Opcje zaawansowane"
-        }
-      },
       "fields": {
         "mode": {
           "name": "Tryb siatki",
@@ -2410,9 +2693,9 @@
           "name": "Kod jednorazowy",
           "description": "Wprowadź 4-cyfrowy kod jednorazowy wysłany na zarejestrowany adres e-mail i telefon."
         },
-        "site_id": {
-          "name": "ID lokalizacji",
-          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia lokalizacji."
+        "config_entry_id": {
+          "name": "Wpis konfiguracji Enphase",
+          "description": "Wybierz lokalizację Enphase, której tryb sieci powinien się zmienić."
         }
       }
     },
@@ -2762,6 +3045,111 @@
         "site_id": {
           "name": "ID lokalizacji",
           "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia."
+        }
+      }
+    },
+    "browse_grid_profiles": {
+      "name": "Przeglądaj profile sieci",
+      "description": "Przeglądaj profile sieci Cloud Activation dostępne dla kraju i regionu wybranej lokalizacji.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Kod regionu",
+          "description": "Opcjonalny kod regionu lub stanu, na przykład VIC."
+        },
+        "commonly_used": {
+          "name": "Tylko często używane",
+          "description": "Po włączeniu zwraca katalog często używanych profili."
+        },
+        "device_id": {
+          "name": "Urządzenia lokalizacji",
+          "description": "Wybierz urządzenie Enphase w lokalizacji."
+        },
+        "site_id": {
+          "name": "Identyfikator lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji lokalizacji docelowej."
+        },
+        "query": {
+          "name": "Szukaj",
+          "description": "Opcjonalny tekst wyszukiwania regionów i profili w kraju lokalizacji."
+        }
+      }
+    },
+    "refresh_grid_profiles": {
+      "name": "Odśwież profile sieci",
+      "description": "Odśwież dane referencyjne profili sieci Cloud Activation i katalog wybranego regionu.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Kod regionu",
+          "description": "Opcjonalny kod regionu lub stanu, na przykład VIC."
+        },
+        "commonly_used": {
+          "name": "Tylko często używane",
+          "description": "Po włączeniu zwraca katalog często używanych profili."
+        },
+        "device_id": {
+          "name": "Urządzenia lokalizacji",
+          "description": "Wybierz urządzenie Enphase w lokalizacji."
+        },
+        "site_id": {
+          "name": "Identyfikator lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji lokalizacji docelowej."
+        }
+      }
+    },
+    "set_grid_profile": {
+      "name": "Ustaw profil sieci",
+      "description": "Zastosuj profil sieci Cloud Activation po wyraźnym potwierdzeniu.",
+      "sections": {
+        "advanced": {
+          "name": "Opcje zaawansowane"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Kod regionu",
+          "description": "Opcjonalny kod regionu lub stanu, na przykład VIC."
+        },
+        "device_id": {
+          "name": "Urządzenia lokalizacji",
+          "description": "Wybierz urządzenie Enphase w lokalizacji."
+        },
+        "site_id": {
+          "name": "Identyfikator lokalizacji",
+          "description": "Opcjonalny identyfikator lokalizacji; wykrywany automatycznie po wybraniu urządzenia."
+        },
+        "config_entry_id": {
+          "name": "Identyfikator wpisu konfiguracji",
+          "description": "Opcjonalny identyfikator wpisu konfiguracji lokalizacji docelowej."
+        },
+        "profile_id": {
+          "name": "Identyfikator profilu",
+          "description": "Identyfikator profilu Cloud Activation wraz z prefiksem agf:."
+        },
+        "confirm": {
+          "name": "Potwierdź zastosowanie",
+          "description": "Musi być włączone, aby zastosować wybrany profil sieci."
+        },
+        "gateway_serial": {
+          "name": "Numer seryjny Gateway",
+          "description": "Opcjonalny numer seryjny Gateway, gdy rekord Activation zawiera wiele Gatewayów."
         }
       }
     }

@@ -95,7 +95,7 @@
       "message": "Grid control is unavailable for this site."
     },
     "grid_control_blocked": {
-      "message": "Grid control is currently blocked: {reasons}."
+      "message": "Grid control is currently blocked."
     },
     "grid_mode_invalid": {
       "message": "Grid mode must be on_grid or off_grid."
@@ -412,6 +412,9 @@
     "tariff_rate_api_unavailable": {
       "message": "Tariff write API is unavailable."
     },
+    "pricing_edits_disabled": {
+      "message": "Pricing edits are disabled in the integration options."
+    },
     "tariff_rate_entity_required": {
       "message": "Select exactly one tariff rate entity."
     },
@@ -456,6 +459,27 @@
     },
     "firmware_advisory_only": {
       "message": "Firmware updates are advisory only."
+    },
+    "grid_profile_installer_required": {
+      "message": "Grid profile control requires installer-level Enphase Activation access."
+    },
+    "grid_profile_unavailable": {
+      "message": "Grid profile control is unavailable."
+    },
+    "grid_profile_profile_invalid": {
+      "message": "Selected grid profile is not available for this site country and region."
+    },
+    "grid_profile_gateway_required": {
+      "message": "Grid profile apply requires Activation gateway metadata."
+    },
+    "grid_profile_apply_failed": {
+      "message": "Grid profile apply failed."
+    },
+    "grid_profile_confirmation_required": {
+      "message": "Confirmation is required to apply a grid profile."
+    },
+    "grid_profile_region_invalid": {
+      "message": "Selected grid profile region is not available."
     }
   },
   "options": {
@@ -464,11 +488,19 @@
         "title": "Enphase Energy Options",
         "description": "Choose what to do with this integration entry.",
         "menu_options": {
-          "settings": "Settings",
+          "settings": "Polling",
+          "devices": "Devices",
+          "repair_notifications": "Notifications",
+          "authentication_settings": "Authentication",
+          "advanced": "Advanced",
           "migrate_envoy": "Migrate Envoy history"
         },
         "menu_option_descriptions": {
           "settings": "Tune polling and behavior.",
+          "devices": "Choose device categories and scheduler features.",
+          "repair_notifications": "Manage Home Assistant Repair notifications.",
+          "authentication_settings": "Manage stored credentials and start reauthentication.",
+          "advanced": "Optional Grid Mode controls and installer-only grid profile controls.",
           "migrate_envoy": "Take over selected Enphase Envoy energy entity IDs so Home Assistant Energy history continues under this integration."
         },
         "data": {
@@ -482,13 +514,14 @@
           "slow_poll_interval": "Slow poll interval (s)",
           "fast_while_streaming": "Prefer fast polling while cloud stream active",
           "api_timeout": "API timeout (s)",
-          "nominal_voltage": "Nominal voltage (V)",
+          "nominal_voltage": "EV Charger nominal voltage (V)",
           "session_history_interval": "Session history interval (min)",
           "schedule_sync_enabled": "Enable EV Charger Scheduler",
           "battery_schedules_enabled": "Enable Battery Scheduler",
-          "reauth": "Start reauthentication",
-          "forget_password": "Forget stored password",
-          "degraded_service_repair_issues": "Enable degraded service repairs"
+          "degraded_service_repair_issues": "Enable degraded service repairs",
+          "microinverter_lifetime_energy_enabled": "Enable Microinverter Lifetime Energy",
+          "microinverter_power_enabled": "Enable Microinverter Power",
+          "weather_enabled": "Enable weather"
         },
         "data_description": {
           "type_envoy": "Includes gateway connectivity and meter diagnostics.",
@@ -501,36 +534,98 @@
           "slow_poll_interval": "Interval to use when idle.",
           "fast_while_streaming": "When enabled, fast poll during active cloud streaming.",
           "api_timeout": "Seconds before API requests time out.",
-          "nominal_voltage": "Fallback voltage used for charger power estimates.",
+          "nominal_voltage": "Typical AC supply voltage used to estimate charger power when live voltage is unavailable.",
           "session_history_interval": "Minutes to wait between cloud session history fetches.",
-          "schedule_sync_enabled": "Manage IQ EV Charger Schedules",
-          "battery_schedules_enabled": "Manage IQ Battery Schedules",
-          "reauth": "Launch the login flow to refresh credentials without removing the integration.",
-          "forget_password": "Removes the stored password. Automatic refresh will no longer be attempted.",
-          "degraded_service_repair_issues": "Raise Repairs issues when optional Enphase services are degraded."
+          "degraded_service_repair_issues": "Raise Repairs issues when optional Enphase services are degraded.",
+          "microinverter_lifetime_energy_enabled": "Enable all per-microinverter lifetime energy sensors.",
+          "microinverter_power_enabled": "Enable all per-microinverter power sensors when installer telemetry is available.",
+          "weather_enabled": "Fetch current site weather from Enphase and create a weather entity only when the endpoint is available."
         }
       },
       "settings": {
-        "title": "Enphase Energy Options",
+        "title": "Polling",
         "description": "Tune polling and behavior.",
         "data": {
+          "fast_poll_interval": "Fast poll interval (s)",
+          "slow_poll_interval": "Slow poll interval (s)",
+          "fast_while_streaming": "Prefer fast polling while cloud stream active",
+          "api_timeout": "API timeout (s)",
+          "session_history_interval": "Session history interval (min)",
+          "degraded_service_repair_issues": "Enable degraded service repairs"
+        },
+        "data_description": {
+          "fast_poll_interval": "Interval to use while charging or streaming.",
+          "slow_poll_interval": "Interval to use when idle.",
+          "fast_while_streaming": "When enabled, fast poll during active cloud streaming.",
+          "api_timeout": "Seconds before API requests time out.",
+          "session_history_interval": "Minutes to wait between cloud session history fetches.",
+          "degraded_service_repair_issues": "Raise Repairs issues when optional Enphase services are degraded."
+        }
+      },
+      "devices": {
+        "title": "Devices",
+        "description": "Choose device categories and scheduler features.",
+        "sections": {
+          "devices": {
+            "name": "Devices",
+            "data": {
+              "type_envoy": "Gateway",
+              "type_encharge": "Battery",
+              "type_ac_battery": "AC Battery",
+              "type_iqevse": "EV Chargers",
+              "type_heatpump": "Heat Pump",
+              "type_microinverter": "Microinverters"
+            },
+            "data_description": {
+              "type_envoy": "Includes gateway connectivity and meter diagnostics.",
+              "type_encharge": "Includes battery status and control entities when available.",
+              "type_ac_battery": "Includes AC Battery sensors and sleep mode controls when available.",
+              "type_iqevse": "Includes EV charger entities and controls.",
+              "type_heatpump": "Includes heat pump status, diagnostics, and usage sensors.",
+              "type_microinverter": "Includes microinverter connectivity, active count, and lifetime production sensors."
+            }
+          },
+          "device_features": {
+            "name": "Device Features",
+            "data": {
+              "schedule_sync_enabled": "Enable EV Charger Scheduler",
+              "battery_schedules_enabled": "Enable Battery Scheduler",
+              "system_event_repair_issues": "Enable System Event Repair Notifications",
+              "pricing_edits_enabled": "Enable Pricing Edits",
+              "microinverter_lifetime_energy_enabled": "Enable Microinverter Lifetime Energy",
+              "microinverter_power_enabled": "Enable Microinverter Power",
+              "weather_enabled": "Enable weather",
+              "nominal_voltage": "EV Charger nominal voltage (V)"
+            },
+            "data_description": {
+              "schedule_sync_enabled": "Manage IQ EV Charger schedules.",
+              "battery_schedules_enabled": "Manage IQ Battery schedules.",
+              "system_event_repair_issues": "Create Home Assistant Repairs for active Enphase standing alarms. Disabled by default.",
+              "pricing_edits_enabled": "Manage IQ Gateway Electricity Rates",
+              "microinverter_lifetime_energy_enabled": "Enable all per-microinverter lifetime energy sensors.",
+              "microinverter_power_enabled": "Enable all per-microinverter power sensors when installer telemetry is available.",
+              "weather_enabled": "Fetch current site weather from Enphase and create a weather entity only when the endpoint is available.",
+              "nominal_voltage": "Typical AC supply voltage used to estimate charger power when live voltage is unavailable."
+            }
+          }
+        },
+        "data": {
+          "devices": "Devices",
+          "device_features": "Device Features",
           "type_envoy": "Gateway",
           "type_encharge": "Battery",
           "type_ac_battery": "AC Battery",
           "type_iqevse": "EV Chargers",
           "type_heatpump": "Heat Pump",
           "type_microinverter": "Microinverters",
-          "fast_poll_interval": "Fast poll interval (s)",
-          "slow_poll_interval": "Slow poll interval (s)",
-          "fast_while_streaming": "Prefer fast polling while cloud stream active",
-          "api_timeout": "API timeout (s)",
-          "nominal_voltage": "Nominal voltage (V)",
-          "session_history_interval": "Session history interval (min)",
           "schedule_sync_enabled": "Enable EV Charger Scheduler",
           "battery_schedules_enabled": "Enable Battery Scheduler",
-          "reauth": "Start reauthentication",
-          "forget_password": "Forget stored password",
-          "degraded_service_repair_issues": "Enable degraded service repairs"
+          "system_event_repair_issues": "Enable System Event Repair Notifications",
+          "pricing_edits_enabled": "Enable Pricing Edits",
+          "microinverter_lifetime_energy_enabled": "Enable Microinverter Lifetime Energy",
+          "microinverter_power_enabled": "Enable Microinverter Power",
+          "weather_enabled": "Enable weather",
+          "nominal_voltage": "EV Charger nominal voltage (V)"
         },
         "data_description": {
           "type_envoy": "Includes gateway connectivity and meter diagnostics.",
@@ -539,18 +634,100 @@
           "type_iqevse": "Includes EV charger entities and controls.",
           "type_heatpump": "Includes heat pump status, diagnostics, and usage sensors.",
           "type_microinverter": "Includes microinverter connectivity, active count, and lifetime production sensors.",
-          "fast_poll_interval": "Interval to use while charging or streaming.",
-          "slow_poll_interval": "Interval to use when idle.",
-          "fast_while_streaming": "When enabled, fast poll during active cloud streaming.",
-          "api_timeout": "Seconds before API requests time out.",
-          "nominal_voltage": "Fallback voltage used for charger power estimates.",
-          "session_history_interval": "Minutes to wait between cloud session history fetches.",
-          "schedule_sync_enabled": "Manage IQ EV Charger Schedules",
-          "battery_schedules_enabled": "Manage IQ Battery Schedules",
-          "reauth": "Launch the login flow to refresh credentials without removing the integration.",
-          "forget_password": "Removes the stored password. Automatic refresh will no longer be attempted.",
-          "degraded_service_repair_issues": "Raise Repairs issues when optional Enphase services are degraded."
+          "schedule_sync_enabled": "Manage IQ EV Charger schedules.",
+          "battery_schedules_enabled": "Manage IQ Battery schedules.",
+          "system_event_repair_issues": "Create Home Assistant Repairs for active Enphase standing alarms. Disabled by default.",
+          "pricing_edits_enabled": "Manage IQ Gateway Electricity Rates",
+          "microinverter_lifetime_energy_enabled": "Enable all per-microinverter lifetime energy sensors.",
+          "microinverter_power_enabled": "Enable all per-microinverter power sensors when installer telemetry is available.",
+          "weather_enabled": "Fetch current site weather from Enphase and create a weather entity only when the endpoint is available.",
+          "nominal_voltage": "Typical AC supply voltage used to estimate charger power when live voltage is unavailable."
         }
+      },
+      "repair_notifications": {
+        "title": "Notifications",
+        "description": "Choose which Enphase conditions create Home Assistant Repairs.",
+        "data": {
+          "degraded_service_repair_issues": "Enable degraded service repairs",
+          "system_event_repair_issues": "Enable System Event Repair Notifications"
+        },
+        "data_description": {
+          "degraded_service_repair_issues": "Raise Repairs issues when optional Enphase services are degraded.",
+          "system_event_repair_issues": "Create Home Assistant Repairs for active Enphase standing alarms. Disabled by default."
+        }
+      },
+      "authentication_settings": {
+        "title": "Authentication",
+        "description": "Manage stored credentials and start reauthentication.",
+        "data": {
+          "reauth": "Start reauthentication",
+          "forget_password": "Forget stored password"
+        },
+        "data_description": {
+          "reauth": "Launch the login flow to refresh credentials without removing the integration.",
+          "forget_password": "Removes the stored password. Automatic refresh will no longer be attempted."
+        }
+      },
+      "advanced": {
+        "title": "Advanced",
+        "description": "Installer and maintenance actions.",
+        "menu_options": {
+          "grid_toggle": "Grid Mode",
+          "grid_profile": "Grid profile control"
+        },
+        "menu_option_descriptions": {
+          "grid_toggle": "Configure manual Grid Mode controls.",
+          "grid_profile": "Browse and apply installer-only Activation grid profiles."
+        }
+      },
+      "grid_toggle": {
+        "title": "Grid Mode",
+        "description": "Current Grid Mode: **{current_mode}**.\n\nChanging Grid Mode is safety-sensitive. Select the requested mode to send a one-time code to the registered email and phone.",
+        "data": {
+          "mode": "Requested Grid Mode"
+        }
+      },
+      "grid_toggle_otp": {
+        "title": "Confirm Grid Mode Change",
+        "description": "Current Grid Mode: **{current_mode}**.\n\nRequested Grid Mode: **{target_mode}**.\n\nEnter the 4-digit one-time code and confirm the safety-sensitive change.",
+        "data": {
+          "otp": "One-time code",
+          "confirm": "Confirm the Grid Mode change"
+        }
+      },
+      "grid_toggle_applied": {
+        "title": "Grid Mode change accepted",
+        "description": "Enphase accepted the request to change Grid Mode to **{target_mode}**.\n\nThe physical relay may still be changing. Use the Grid Mode sensor to observe the resulting state."
+      },
+      "grid_profile": {
+        "title": "Grid Profile Control",
+        "description": "Filter the Activation grid profile catalog for this site's country.\n\nWARNING: APPLYING AN INCORRECT GRID PROFILE MAY CAUSE THE SYSTEM TO MALFUNCTION.",
+        "data": {
+          "grid_profile_region": "Region",
+          "grid_profile_commonly_used": "Profile list"
+        },
+        "data_description": {
+          "grid_profile_region": "Only regions for the site's country are available.",
+          "grid_profile_commonly_used": "Choose commonly used profiles or all profiles for the selected region."
+        }
+      },
+      "grid_profile_select": {
+        "title": "Select Grid Profile",
+        "description": "Choose a profile to stage. Nothing is applied until the confirmation step.",
+        "data": {
+          "grid_profile_id": "Grid profile"
+        }
+      },
+      "grid_profile_confirm": {
+        "title": "Confirm Grid Profile",
+        "description": "Current profile: **{current_profile}**\n\nSelected profile: **{selected_profile}**\n\nProfile ID: **{selected_profile_id}**\n\nPEL Enhanced: **{selected_profile_pel}**\n\n277V Compatible: **{selected_profile_277v}**\n\nCountry: **{country}**\n\nRegion: **{region}**\n\nCloud apply status: **{apply_status}**.",
+        "data": {
+          "confirm_apply": "Apply the selected grid profile"
+        }
+      },
+      "grid_profile_applied": {
+        "title": "Grid profile update accepted",
+        "description": "Enphase accepted the grid profile update for **{selected_profile}**.\n\nRequested profile ID: **{requested_profile_id}**\n\nCloud status: **{cloud_apply_status}**\n\nThe new profile may take up to **5 minutes** to appear as current while the cloud and Gateway finish processing it. The Grid Profile sensor will update after the Activation record reports the new current profile."
       },
       "migrate_envoy_source": {
         "title": "Select Envoy Source",
@@ -602,16 +779,73 @@
       "migration_no_selection": "Select at least one compatible energy sensor to migrate.",
       "migration_duplicate_selection": "The same source entity cannot be used more than once.",
       "envoy_entry_loaded": "Envoy integration could not be temporarily unloaded for migration.",
-      "incompatible_energy_total": "Selected entities are not compatible energy totals."
+      "incompatible_energy_total": "Selected entities are not compatible energy totals.",
+      "grid_profile_unavailable": "Grid profile control is unavailable.",
+      "grid_profile_installer_required": "Grid profile control requires installer-level Enphase Activation access.",
+      "grid_profile_no_regions": "No grid profile regions are available for this site's country.",
+      "grid_profile_no_profiles": "No grid profiles match the selected filters.",
+      "grid_profile_region_invalid": "Selected grid profile region is not available.",
+      "grid_profile_profile_invalid": "Selected grid profile is not available for this site country and region.",
+      "grid_profile_gateway_required": "Grid profile apply requires Activation gateway metadata.",
+      "grid_profile_apply_failed": "Grid profile apply failed.",
+      "grid_mode_invalid": "Select On Grid or Off Grid.",
+      "grid_mode_already_active": "The site is already in the selected Grid Mode.",
+      "grid_mode_confirm_required": "Confirm the Grid Mode change before continuing.",
+      "grid_control_unavailable": "Grid control is unavailable for this site.",
+      "grid_control_blocked": "Grid control is currently blocked.",
+      "grid_otp_required": "Enter the one-time code.",
+      "grid_otp_invalid_format": "The one-time code must contain exactly four digits.",
+      "grid_otp_invalid": "The one-time code is invalid or expired.",
+      "grid_envoy_serial_missing": "The Gateway for this site could not be determined."
     },
     "abort": {
       "migration_no_envoy_sources": "No Enphase Envoy energy sensors are available to migrate.",
       "migration_no_targets": "No compatible Enphase Energy site sensors are available for migration.",
-      "migration_partial_failure": "The migration stopped after partial completion.\n\nCompleted mappings:\n{completed_mappings}\n\nFailed while processing `{failed_entity_id}`: {failure_reason}\n\nRestore from backup if the result is not acceptable."
+      "migration_partial_failure": "The migration stopped after partial completion.\n\nCompleted mappings:\n{completed_mappings}\n\nFailed while processing `{failed_entity_id}`: {failure_reason}\n\nRestore from backup if the result is not acceptable.",
+      "grid_profile_unavailable": "Grid profile control is unavailable.",
+      "grid_profile_installer_required": "Grid profile control requires installer-level Enphase Activation access.",
+      "grid_profile_no_regions": "No grid profile regions are available for this site's country.",
+      "grid_mode_unavailable": "Grid Mode control is unavailable for this site.",
+      "grid_mode_blocked": "Grid Mode control is currently blocked: {reasons}."
     },
     "create_entry": {
       "migration_success": "Migration complete. Enphase Energy now owns the selected source entity IDs. Verify the Energy dashboard and Developer Tools > Statistics after the next refresh.",
       "migration_success_reload_needed": "Migration complete, but one or more integrations could not be reloaded automatically. Reload Enphase Energy and Enphase Envoy manually if needed, then verify the Energy dashboard and Developer Tools > Statistics."
+    }
+  },
+  "selector": {
+    "grid_profile_list_mode": {
+      "options": {
+        "commonly_used": "Commonly used",
+        "all_profiles": "All profiles"
+      }
+    },
+    "grid_profile_status": {
+      "options": {
+        "yes": "Yes",
+        "no": "No",
+        "unknown": "Unknown",
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "accepted": "Accepted"
+      }
+    },
+    "grid_mode": {
+      "options": {
+        "on_grid": "On Grid",
+        "off_grid": "Off Grid",
+        "unknown": "Unknown"
+      }
+    },
+    "grid_control_block_reason": {
+      "options": {
+        "disable_grid_control": "Grid control is disabled for the site.",
+        "active_download": "A system download is active.",
+        "sunlight_backup_system_check": "The Sunlight Backup system check is active.",
+        "grid_outage_check": "The grid outage check is active.",
+        "pending": "A Grid Mode change is already pending.",
+        "unknown": "An unknown blocking condition is active."
+      }
     }
   },
   "entity": {
@@ -898,6 +1132,9 @@
           },
           "metrics_available": {
             "name": "Metrics Available"
+          },
+          "endpoint_failure_details": {
+            "name": "Endpoint Failure Details"
           }
         }
       },
@@ -954,14 +1191,6 @@
           "discharge_to_grid_allowed": {
             "name": "Discharge To Grid Allowed"
           }
-        }
-      },
-      "grid_control_status": {
-        "name": "Grid Control Status",
-        "state": {
-          "ready": "Ready",
-          "blocked": "Blocked",
-          "pending": "Pending"
         }
       },
       "system_profile_status": {
@@ -1045,6 +1274,9 @@
       },
       "schedule_end": {
         "name": "Schedule End"
+      },
+      "inverter_lifetime_energy": {
+        "name": "{serial} Lifetime Energy"
       },
       "lifetime_energy": {
         "name": "Lifetime Energy",
@@ -1495,6 +1727,9 @@
       "microinverter_reporting_count": {
         "name": "Active Microinverters"
       },
+      "inverter_telemetry": {
+        "name": "{serial_number} Power"
+      },
       "microinverter_last_reported": {
         "name": "Microinverter Last Reported"
       },
@@ -1759,6 +1994,9 @@
       },
       "dry_contacts": {
         "name": "Dry Contacts"
+      },
+      "current_grid_profile": {
+        "name": "Grid Profile"
       }
     },
     "number": {
@@ -1942,6 +2180,38 @@
       "cloud_reachable": {
         "name": "Cloud Reachable"
       },
+      "active_system_events": {
+        "name": "Active System Events",
+        "state_attributes": {
+          "available": {
+            "name": "Event Service Available"
+          },
+          "active_count": {
+            "name": "Active Event Count"
+          },
+          "high_impact_count": {
+            "name": "High-impact Event Count"
+          },
+          "standing_alarm_count": {
+            "name": "Standing Alarm Count"
+          },
+          "active_events": {
+            "name": "Active Events"
+          },
+          "severity_counts": {
+            "name": "Severity Counts"
+          },
+          "device_type_counts": {
+            "name": "Device Type Counts"
+          },
+          "last_success_utc": {
+            "name": "Last Event Refresh (UTC)"
+          },
+          "using_cached_data": {
+            "name": "Using Cached Event Data"
+          }
+        }
+      },
       "connected": {
         "name": "Connectivity",
         "state_attributes": {
@@ -2093,6 +2363,9 @@
     "calendar": {
       "backup_history": {
         "name": "Backup History"
+      },
+      "system_event_history": {
+        "name": "System Event History"
       }
     },
     "select": {
@@ -2124,9 +2397,6 @@
       },
       "stop_charging": {
         "name": "Stop Charging"
-      },
-      "request_grid_toggle_otp": {
-        "name": "Request Grid Toggle OTP"
       },
       "storm_alert_opt_out": {
         "name": "Storm Alert Opt Out"
@@ -2162,6 +2432,11 @@
       },
       "charger_firmware": {
         "name": "Firmware"
+      }
+    },
+    "weather": {
+      "site_weather": {
+        "name": "Weather"
       }
     }
   },
@@ -2234,6 +2509,10 @@
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS temporarily paused",
       "description": "Heat Pump/HEMS polling for site {site_id} is paused until {backoff_until} after {failure_count} auth-like failures ({reason}). Wallbox, battery, gateway, and other data can continue. Disable the Heat Pump device group to stop HEMS polling, or use Clear HEMS Auth Backoff after Enphase recovers."
+    },
+    "active_system_event": {
+      "title": "High-impact Enphase system event active",
+      "description": "Site {site_id} has an active {severity} event affecting {device_type}, first reported at {event_date}. Check Enlighten for event details and recommended action. This repair clears automatically when Enphase reports the event resolved."
     }
   },
   "system_health": {
@@ -2274,7 +2553,21 @@
       "last_failure_description": "Last failure description",
       "phase_timings": "Phase timings",
       "session_cache_ttl_s": "Session cache TTL (s)",
-      "sites": "Sites"
+      "sites": "Sites",
+      "tariff_available": "Tariff available",
+      "tariff_service_status": "Tariff service status",
+      "tariff_last_error": "Tariff last error",
+      "tariff_failures": "Tariff failures",
+      "tariff_backoff_active": "Tariff backoff active",
+      "tariff_backoff_ends_utc": "Tariff backoff ends (UTC)",
+      "degraded_endpoint_families": "Degraded endpoint families",
+      "degraded_services": "Degraded services",
+      "firmware_catalog_last_fetch_utc": "Firmware catalog last fetch (UTC)",
+      "firmware_catalog_last_success_utc": "Firmware catalog last success (UTC)",
+      "firmware_catalog_last_error": "Firmware catalog last error",
+      "firmware_catalog_using_stale": "Firmware catalog using stale data",
+      "firmware_catalog_generated_at": "Firmware catalog generated at",
+      "firmware_catalog_source_age_seconds": "Firmware catalog source age (s)"
     }
   },
   "services": {
@@ -2395,27 +2688,21 @@
     "request_grid_toggle_otp": {
       "name": "Request Grid Toggle OTP",
       "description": "Send the one-time code required before changing site grid mode.",
-      "sections": {
-        "advanced": {
-          "name": "Advanced options"
-        }
-      },
       "fields": {
-        "site_id": {
-          "name": "Site ID",
-          "description": "Optional site identifier; detected automatically when a site device is selected."
+        "config_entry_id": {
+          "name": "Enphase config entry",
+          "description": "Select the Enphase site that should receive the one-time code."
         }
       }
     },
     "set_grid_mode": {
       "name": "Set Grid Mode",
       "description": "Change site grid mode after validating the one-time code.",
-      "sections": {
-        "advanced": {
-          "name": "Advanced options"
-        }
-      },
       "fields": {
+        "config_entry_id": {
+          "name": "Enphase config entry",
+          "description": "Select the Enphase site whose Grid Mode should change."
+        },
         "mode": {
           "name": "Grid mode",
           "description": "Select on_grid or off_grid."
@@ -2423,10 +2710,6 @@
         "otp": {
           "name": "One-time code",
           "description": "Enter the 4-digit OTP sent to your registered email and phone."
-        },
-        "site_id": {
-          "name": "Site ID",
-          "description": "Optional site identifier; detected automatically when a site device is selected."
         }
       }
     },
@@ -2762,6 +3045,111 @@
         "site_id": {
           "name": "Site ID",
           "description": "Optional site identifier; detected automatically when a site device is selected."
+        }
+      }
+    },
+    "browse_grid_profiles": {
+      "name": "Browse Grid Profiles",
+      "description": "Browse cloud Activation grid profiles available for the selected site country and region.",
+      "sections": {
+        "advanced": {
+          "name": "Advanced options"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Region code",
+          "description": "Optional country-scoped region/state code such as VIC."
+        },
+        "query": {
+          "name": "Search",
+          "description": "Optional search text matched against regions and profiles for the site country."
+        },
+        "commonly_used": {
+          "name": "Commonly used only",
+          "description": "Return the commonly used profile catalog when enabled."
+        },
+        "device_id": {
+          "name": "Site devices",
+          "description": "Select an Enphase site device to browse profiles for."
+        },
+        "site_id": {
+          "name": "Site ID",
+          "description": "Optional site identifier; detected automatically when a site device is selected."
+        },
+        "config_entry_id": {
+          "name": "Config entry ID",
+          "description": "Optional config entry identifier for the target site."
+        }
+      }
+    },
+    "refresh_grid_profiles": {
+      "name": "Refresh Grid Profiles",
+      "description": "Force refresh cloud Activation grid profile reference data and the selected region catalog.",
+      "sections": {
+        "advanced": {
+          "name": "Advanced options"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Region code",
+          "description": "Optional country-scoped region/state code such as VIC."
+        },
+        "commonly_used": {
+          "name": "Commonly used only",
+          "description": "Refresh the commonly used profile catalog when enabled."
+        },
+        "device_id": {
+          "name": "Site devices",
+          "description": "Select an Enphase site device to refresh profiles for."
+        },
+        "site_id": {
+          "name": "Site ID",
+          "description": "Optional site identifier; detected automatically when a site device is selected."
+        },
+        "config_entry_id": {
+          "name": "Config entry ID",
+          "description": "Optional config entry identifier for the target site."
+        }
+      }
+    },
+    "set_grid_profile": {
+      "name": "Set Grid Profile",
+      "description": "Apply a cloud Activation grid profile after explicit confirmation.",
+      "sections": {
+        "advanced": {
+          "name": "Advanced options"
+        }
+      },
+      "fields": {
+        "profile_id": {
+          "name": "Profile ID",
+          "description": "Cloud Activation profile ID, including the agf: prefix."
+        },
+        "confirm": {
+          "name": "Confirm apply",
+          "description": "Must be enabled to apply the selected grid profile."
+        },
+        "region_code": {
+          "name": "Region code",
+          "description": "Optional country-scoped region/state code used to validate the profile."
+        },
+        "gateway_serial": {
+          "name": "Gateway serial",
+          "description": "Optional Gateway serial when the Activation record contains multiple Gateways."
+        },
+        "device_id": {
+          "name": "Site devices",
+          "description": "Select an Enphase site device to apply the profile for."
+        },
+        "site_id": {
+          "name": "Site ID",
+          "description": "Optional site identifier; detected automatically when a site device is selected."
+        },
+        "config_entry_id": {
+          "name": "Config entry ID",
+          "description": "Optional config entry identifier for the target site."
         }
       }
     }

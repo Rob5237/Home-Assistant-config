@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from collections.abc import Callable, Iterable
+from typing import Any, cast
+
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
 from .device_types import is_dry_contact_type_key
@@ -15,12 +17,14 @@ from .serial_entity_metadata import (
     BATTERY_RETIRED_UNIQUE_SUFFIXES,
     CHARGER_SENSOR_UNIQUE_SUFFIXES,
     HISTORICAL_CHARGER_SENSOR_UNIQUE_SUFFIXES,
+    INVERTER_ENTITY_UNIQUE_SUFFIXES,
     ac_battery_entity_serial_from_unique_id,
     battery_entity_serial_from_unique_id,
     charger_entity_serial_from_unique_id,
     charger_entity_unique_id,
     charger_entity_unique_ids,
     inverter_entity_unique_id,
+    inverter_entity_serial_from_unique_id,
     site_ac_battery_entity_unique_id,
     site_ac_battery_entity_unique_ids,
     site_battery_entity_unique_id,
@@ -44,6 +48,7 @@ class EnphaseSensorRegistrySetup:
         self.known_battery_serials: set[str] = set()
         self.known_ac_battery_serials: set[str] = set()
         self.known_inverter_serials: set[str] = set()
+        self.known_inverter_telemetry_serials: set[str] = set()
         self.battery_registry_pruned = False
         self.ac_battery_registry_pruned = False
         self.inverter_registry_pruned = False
@@ -107,6 +112,48 @@ class EnphaseSensorRegistrySetup:
         """Return the unique ID for a microinverter lifetime energy sensor."""
 
         return inverter_entity_unique_id(serial)
+
+    @staticmethod
+    def inverter_telemetry_sensor_unique_id(serial: str) -> str:
+        """Return the unique ID for a microinverter telemetry sensor."""
+
+        return inverter_entity_unique_id(serial, "_telemetry")
+
+    def sync_inverter_sensor_enabled_defaults(
+        self,
+        *,
+        lifetime_energy_enabled: bool | None,
+        power_enabled: bool | None,
+    ) -> None:
+        """Apply integration options to registered microinverter sensors."""
+
+        for reg_entry in list(self._entity_registry_values()):
+            if not self._registry_entry_matches_sensor(reg_entry):
+                continue
+            unique_id = _clean_text(getattr(reg_entry, "unique_id", None))
+            if not unique_id or not unique_id.startswith(f"{DOMAIN}_inverter_"):
+                continue
+            if unique_id.endswith("_lifetime_energy"):
+                enabled = lifetime_energy_enabled
+            elif unique_id.endswith("_telemetry"):
+                enabled = power_enabled
+            else:
+                continue
+            if enabled is None:
+                continue
+            disabled_by = getattr(reg_entry, "disabled_by", None)
+            if enabled:
+                if not self._is_disabled_by_integration(disabled_by):
+                    continue
+                new_disabled_by = None
+            else:
+                if disabled_by is not None:
+                    continue
+                new_disabled_by = er.RegistryEntryDisabler.INTEGRATION
+            self._ent_reg.async_update_entity(
+                reg_entry.entity_id,
+                disabled_by=new_disabled_by,
+            )
 
     def remove_site_sensor_entity(self, key: str) -> None:
         """Remove a site-level sensor entity by setup key."""
@@ -396,7 +443,6 @@ class EnphaseSensorRegistrySetup:
         if self.inverter_registry_pruned:
             return
         unique_prefix = f"{DOMAIN}_inverter_"
-        unique_suffix = "_lifetime_energy"
         for reg_entry in list(self._entity_registry_values()):
             if not self._registry_entry_matches_sensor(reg_entry):
                 continue
@@ -404,14 +450,15 @@ class EnphaseSensorRegistrySetup:
             if not (
                 isinstance(unique_id, str)
                 and unique_id.startswith(unique_prefix)
-                and unique_id.endswith(unique_suffix)
+                and unique_id.endswith(INVERTER_ENTITY_UNIQUE_SUFFIXES)
             ):
                 continue
-            serial = unique_id[len(unique_prefix) : -len(unique_suffix)]
+            serial = inverter_entity_serial_from_unique_id(unique_id)
             if not serial or serial in current_set:
                 continue
             self._ent_reg.async_remove(reg_entry.entity_id)
             self.known_inverter_serials.discard(serial)
+            self.known_inverter_telemetry_serials.discard(serial)
         self.inverter_registry_pruned = True
 
     def remove_missing_inverter_entities(self, current_set: set[str]) -> None:
@@ -420,8 +467,12 @@ class EnphaseSensorRegistrySetup:
         self._remove_missing_serial_entities(
             self.known_inverter_serials,
             current_set,
-            lambda serial: (self.inverter_lifetime_sensor_unique_id(serial),),
+            lambda serial: (
+                self.inverter_lifetime_sensor_unique_id(serial),
+                self.inverter_telemetry_sensor_unique_id(serial),
+            ),
         )
+        self.known_inverter_telemetry_serials.intersection_update(current_set)
 
     def battery_serial_from_unique_id(self, unique_id: object) -> str | None:
         """Return a battery serial parsed from a known per-battery unique ID."""
@@ -461,7 +512,7 @@ class EnphaseSensorRegistrySetup:
         entities = getattr(self._ent_reg, "entities", None)
         values = getattr(entities, "values", None)
         if callable(values):
-            return values()
+            return cast(Iterable[Any], values())
         return ()
 
     def _registry_entry_matches_sensor(self, reg_entry: Any) -> bool:
@@ -478,17 +529,23 @@ class EnphaseSensorRegistrySetup:
             entry_config_id is not None and entry_config_id != self._config_entry_id
         )
 
+    @staticmethod
+    def _is_disabled_by_integration(disabled_by: object) -> bool:
+        if disabled_by is None:
+            return False
+        return getattr(disabled_by, "value", disabled_by) == "integration"
+
     def _async_get_sensor_entity_id(self, unique_id: str) -> str | None:
         get_entity_id = getattr(self._ent_reg, "async_get_entity_id", None)
         if not callable(get_entity_id):
             return None
-        return get_entity_id("sensor", DOMAIN, unique_id)
+        return cast(str | None, get_entity_id("sensor", DOMAIN, unique_id))
 
     def _remove_missing_serial_entities(
         self,
         known_serials: set[str],
         current_set: set[str],
-        unique_ids_for_serial,
+        unique_ids_for_serial: Callable[[str], Iterable[str]],
     ) -> None:
         """Remove entities for serials that disappeared from active discovery."""
 

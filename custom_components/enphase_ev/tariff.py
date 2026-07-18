@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import calendar
 import copy
 from dataclasses import dataclass
@@ -9,13 +10,14 @@ from datetime import date, datetime, time as dt_time, timedelta
 import logging
 import math
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import aiohttp
 from homeassistant.util import dt as dt_util
 
 from .api import InvalidPayloadError, OptionalEndpointUnavailable
 from .const import DOMAIN
+from .log_redaction import redact_text
 from .service_validation import raise_translated_service_validation
 
 if TYPE_CHECKING:
@@ -23,7 +25,8 @@ if TYPE_CHECKING:
 
 TARIFF_ENDPOINT_FAMILY = "tariff"
 TARIFF_DATED_RATES_ENDPOINT_FAMILY = "tariff_dated_rates"
-TARIFF_SUCCESS_TTL_S = 900.0
+TARIFF_SUCCESS_TTL_S = 300.0
+TARIFF_WRITE_RECONCILE_DELAYS_S = (5.0, 15.0, 30.0)
 TARIFF_BRANCH_KEYS = frozenset({"purchase", "buyback"})
 TARIFF_TYPE_IDS = frozenset({"flat", "tou", "tiered"})
 TARIFF_TYPE_KINDS = frozenset(
@@ -496,7 +499,7 @@ def _time_window_is_constrained(start_time: object, end_time: object) -> bool:
     return start is not None and end is not None and start != end
 
 
-def _tariff_rate_scope_key(attrs: dict) -> tuple[object, ...]:
+def _tariff_rate_scope_key(attrs: dict[str, object]) -> tuple[object, ...]:
     days = attrs.get("days")
     days_key: tuple[object, ...] | None = None
     if isinstance(days, list):
@@ -510,10 +513,15 @@ def _tariff_rate_scope_key(attrs: dict) -> tuple[object, ...]:
     )
 
 
+def _tariff_spec_attributes(spec: dict[str, object]) -> dict[str, object]:
+    attrs = spec.get("attributes")
+    return attrs if isinstance(attrs, dict) else {}
+
+
 def current_tariff_rate_sensor_spec(
     snapshot: TariffRateSnapshot | None,
     when: datetime,
-) -> dict | None:
+) -> dict[str, object] | None:
     """Return the unambiguous current rate spec for an Energy price sensor."""
 
     specs = tariff_rate_sensor_specs(snapshot)
@@ -525,9 +533,9 @@ def current_tariff_rate_sensor_spec(
     weekday = when.isoweekday()
     minute_of_day = when.hour * 60 + when.minute
 
-    matches: list[dict] = []
+    matches: list[dict[str, object]] = []
     for spec in specs:
-        attrs = spec.get("attributes") or {}
+        attrs = _tariff_spec_attributes(spec)
         if not _month_matches(
             month,
             attrs.get("start_month"),
@@ -554,15 +562,15 @@ def current_tariff_rate_sensor_spec(
             spec
             for spec in matches
             if _time_window_is_constrained(
-                (spec.get("attributes") or {}).get("start_time"),
-                (spec.get("attributes") or {}).get("end_time"),
+                _tariff_spec_attributes(spec).get("start_time"),
+                _tariff_spec_attributes(spec).get("end_time"),
             )
         ]
         if len(constrained_matches) == 1:
-            constrained_attrs = constrained_matches[0].get("attributes") or {}
+            constrained_attrs = _tariff_spec_attributes(constrained_matches[0])
             constrained_scope = _tariff_rate_scope_key(constrained_attrs)
             if all(
-                _tariff_rate_scope_key(spec.get("attributes") or {})
+                _tariff_rate_scope_key(_tariff_spec_attributes(spec))
                 == constrained_scope
                 for spec in matches
             ):
@@ -592,7 +600,7 @@ def next_tariff_rate_change(
         day = start_date + timedelta(days=day_offset)
         candidates.add(datetime.combine(day, dt_time.min, tzinfo))
         for spec in specs:
-            attrs = spec.get("attributes") or {}
+            attrs = _tariff_spec_attributes(spec)
             for attr in ("start_time", "end_time"):
                 minute_of_day = _time_to_minutes(attrs.get(attr))
                 if minute_of_day is None:
@@ -618,15 +626,19 @@ def next_tariff_rate_change(
     return None
 
 
-def tariff_rate_sensor_specs(snapshot: TariffRateSnapshot | None) -> tuple[dict, ...]:
+def tariff_rate_sensor_specs(
+    snapshot: TariffRateSnapshot | None,
+) -> tuple[dict[str, object], ...]:
     """Return per-rate sensor specs for period and tiered tariffs."""
 
     if snapshot is None:
         return ()
-    specs: list[dict] = []
+    specs: list[dict[str, object]] = []
     used_keys: set[str] = set()
 
-    def _append_spec(base_key: str, name: str, state: float, attrs: dict) -> None:
+    def _append_spec(
+        base_key: str, name: str, state: float, attrs: dict[str, object]
+    ) -> None:
         key = base_key
         index = 2
         while key in used_keys:
@@ -687,7 +699,10 @@ def tariff_rate_sensor_specs(snapshot: TariffRateSnapshot | None) -> tuple[dict,
                 off_peak_state,
                 {attr: value for attr, value in attrs.items() if value is not None},
             )
-        for day_index, day_group in enumerate(season.get("days", []), start=1):
+        day_groups = season.get("days")
+        if not isinstance(day_groups, list):
+            day_groups = []
+        for day_index, day_group in enumerate(day_groups, start=1):
             if not isinstance(day_group, dict):
                 continue
             day_attrs = {
@@ -744,7 +759,10 @@ def tariff_rate_sensor_specs(snapshot: TariffRateSnapshot | None) -> tuple[dict,
                     state,
                     {attr: value for attr, value in attrs.items() if value is not None},
                 )
-        for tier_index, tier in enumerate(season.get("tiers", []), start=1):
+        tiers = season.get("tiers")
+        if not isinstance(tiers, list):
+            tiers = []
+        for tier_index, tier in enumerate(tiers, start=1):
             if not isinstance(tier, dict):
                 continue
             state = _rate_value(tier.get("rate"))
@@ -785,7 +803,9 @@ def tariff_rate_sensor_specs(snapshot: TariffRateSnapshot | None) -> tuple[dict,
     return tuple(specs)
 
 
-def export_rate_sensor_specs(snapshot: TariffRateSnapshot | None) -> tuple[dict, ...]:
+def export_rate_sensor_specs(
+    snapshot: TariffRateSnapshot | None,
+) -> tuple[dict[str, object], ...]:
     """Return per-export-rate sensor specs for period and tiered tariffs."""
 
     return tariff_rate_sensor_specs(snapshot)
@@ -984,7 +1004,7 @@ def _format_write_rate(value: float) -> str:
 
 def _validate_write_rate(value: object) -> None:
     try:
-        _format_write_rate(float(value))
+        _format_write_rate(float(str(value)))
     except (TypeError, ValueError):
         _raise_tariff_validation(
             "tariff_rate_invalid",
@@ -1103,7 +1123,7 @@ def _validated_tariff_branch(value: object) -> dict[str, object]:
             "tariff_structure_invalid",
             message="Tariff structure is invalid.",
         )
-    branch = copy.deepcopy(value)
+    branch: dict[str, object] = copy.deepcopy(value)
     type_id = (_clean_text(branch.get("typeId")) or "").lower()
     type_kind = (_clean_text(branch.get("typeKind")) or "").lower()
     seasons = branch.get("seasons")
@@ -1128,7 +1148,7 @@ def _validated_tariff_payload(value: object) -> dict[str, object]:
             "tariff_structure_invalid",
             message="Tariff structure is invalid.",
         )
-    payload = copy.deepcopy(value)
+    payload: dict[str, object] = copy.deepcopy(value)
     if not any(branch in payload for branch in TARIFF_BRANCH_KEYS):
         _raise_tariff_validation(
             "tariff_structure_invalid",
@@ -1151,13 +1171,14 @@ def _raise_tariff_validation(
     *,
     placeholders: dict[str, object] | None = None,
     message: str | None = None,
-) -> None:
+) -> NoReturn:
     raise_translated_service_validation(
         translation_domain=DOMAIN,
         translation_key=key,
         translation_placeholders=placeholders,
         message=message,
     )
+    raise RuntimeError(message or key)  # pragma: no cover
 
 
 def _index_item(items: object, index: int | None) -> dict[str, object] | None:
@@ -1249,10 +1270,13 @@ def _site_local_today(coord: EnphaseCoordinator) -> date:
     if callable(site_tz):
         tz_name = site_tz()
     tzinfo = dt_util.get_time_zone(tz_name) if isinstance(tz_name, str) else None
-    return dt_util.now(tzinfo or dt_util.DEFAULT_TIME_ZONE).date()
+    today = dt_util.now(tzinfo or dt_util.DEFAULT_TIME_ZONE).date()
+    return today if isinstance(today, date) else date.today()
 
 
-def _endpoint_family_diagnostics(coord: EnphaseCoordinator, family: str) -> dict:
+def _endpoint_family_diagnostics(
+    coord: EnphaseCoordinator, family: str
+) -> dict[str, object]:
     health = coord._endpoint_family_state(family)
     return {
         "support_state": health.support_state,
@@ -1283,11 +1307,83 @@ class TariffRuntime:
 
     def __init__(self, coordinator: EnphaseCoordinator) -> None:
         self.coordinator = coordinator
+        self._post_write_reconcile_task: asyncio.Task[None] | None = None
+
+    def _rate_signature(self) -> tuple[tuple[object, ...], ...]:
+        """Return the active editable-rate shape and values."""
+
+        coord = self.coordinator
+        signature: list[tuple[object, ...]] = []
+        for branch, attr in (
+            ("purchase", "tariff_import_rate"),
+            ("buyback", "tariff_export_rate"),
+        ):
+            for spec in tariff_rate_sensor_specs(getattr(coord, attr, None)):
+                signature.append((branch, spec.get("key"), spec.get("state")))
+        return tuple(signature)
+
+    def _publish_tariff_update(self) -> None:
+        """Notify coordinator entities after an out-of-band tariff refresh."""
+
+        coord = self.coordinator
+        publish = getattr(coord, "async_set_updated_data", None)
+        if not callable(publish):
+            return
+        data = dict(coord.data) if isinstance(coord.data, dict) else {}
+        publish(data)
+
+    def _clear_post_write_reconcile_task(self, task: asyncio.Task[None]) -> None:
+        if self._post_write_reconcile_task is task:
+            self._post_write_reconcile_task = None
+
+    async def _async_reconcile_after_write(
+        self,
+        previous_signature: tuple[tuple[object, ...], ...],
+    ) -> None:
+        """Retry lagging Enphase tariff reads for less than one minute."""
+
+        for delay in TARIFF_WRITE_RECONCILE_DELAYS_S:
+            await asyncio.sleep(delay)
+            try:
+                await self.async_refresh(force=True)
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug(
+                    "Post-write tariff reconciliation failed: %s",
+                    redact_text(err, site_ids=(self.coordinator.site_id,)),
+                )
+                return
+            self._publish_tariff_update()
+            if self._rate_signature() != previous_signature:
+                return
+
+    def _schedule_post_write_reconciliation(
+        self,
+        previous_signature: tuple[tuple[object, ...], ...],
+    ) -> None:
+        """Schedule bounded read-after-write reconciliation."""
+
+        existing = self._post_write_reconcile_task
+        if existing is not None and not existing.done():
+            existing.cancel()
+        coord = self.coordinator
+        task = coord.hass.async_create_task(
+            self._async_reconcile_after_write(previous_signature),
+            name=f"{DOMAIN}_tariff_post_write_reconcile",
+        )
+        self._post_write_reconcile_task = task
+        task.add_done_callback(self._clear_post_write_reconcile_task)
+        track_task = getattr(coord, "track_entry_background_task", None)
+        if callable(track_task):
+            track_task(task)
 
     def refresh_due(self) -> bool:
         """Return whether tariff data should be refreshed this cycle."""
 
-        return self.coordinator._endpoint_family_should_run(TARIFF_ENDPOINT_FAMILY)
+        return bool(
+            self.coordinator._endpoint_family_should_run(TARIFF_ENDPOINT_FAMILY)
+        )
 
     async def async_refresh(self, *, force: bool = False) -> None:
         """Refresh tariff billing and rate snapshots."""
@@ -1316,9 +1412,13 @@ class TariffRuntime:
                 return
             raise OptionalEndpointUnavailable("Tariff data is unavailable") from err
         if billing is None and import_rate is None and export_rate is None:
-            err = OptionalEndpointUnavailable("Tariff payload did not include data")
+            unavailable_error = OptionalEndpointUnavailable(
+                "Tariff payload did not include data"
+            )
             if self._has_stale_data():
-                coord._note_endpoint_family_failure(TARIFF_ENDPOINT_FAMILY, err)
+                coord._note_endpoint_family_failure(
+                    TARIFF_ENDPOINT_FAMILY, unavailable_error
+                )
                 return
 
         refresh_time = dt_util.utcnow()
@@ -1387,13 +1487,19 @@ class TariffRuntime:
         self,
         locator: TariffRateLocator | dict[str, object],
         value: float,
-    ) -> dict:
+    ) -> dict[str, object]:
         """Update one existing tariff rate value."""
 
+        if not bool(getattr(self.coordinator, "pricing_edits_enabled", True)):
+            _raise_tariff_validation(
+                "pricing_edits_disabled",
+                message="Pricing edits are disabled in the integration options.",
+            )
         result = await self.async_update_tariff(
             rate_updates=({"locator": locator, "rate": value},)
         )
-        return result.get("tariff") or {}
+        tariff = result.get("tariff")
+        return tariff if isinstance(tariff, dict) else {}
 
     async def async_update_tariff(
         self,
@@ -1484,12 +1590,18 @@ class TariffRuntime:
                 message="Tariff billing write API is unavailable.",
             )
 
-        tariff_result: dict | None = None
-        billing_result: dict | None = None
+        previous_rate_signature = self._rate_signature()
+        tariff_result: dict[str, object] | None = None
+        billing_result: dict[str, object] | None = None
         if tariff_write_requested:
             if payload_update is not None:
                 update_payload = payload_update
             else:
+                if not callable(site_tariff):  # pragma: no cover - narrowed above
+                    _raise_tariff_validation(
+                        "tariff_rate_api_unavailable",
+                        message="Tariff write API is unavailable.",
+                    )
                 payload = await site_tariff()
                 if not isinstance(payload, dict):
                     _raise_tariff_validation(
@@ -1508,9 +1620,21 @@ class TariffRuntime:
                 located_updates.append((target, field, rate))
             for target, field, rate in located_updates:
                 target[field] = rate
+            if not callable(site_tariff_update):  # pragma: no cover - narrowed above
+                _raise_tariff_validation(
+                    "tariff_rate_api_unavailable",
+                    message="Tariff write API is unavailable.",
+                )
             tariff_result = await site_tariff_update(update_payload)
 
         if billing_update is not None:
+            if not callable(
+                site_tariff_billing_update
+            ):  # pragma: no cover - narrowed above
+                _raise_tariff_validation(
+                    "tariff_billing_api_unavailable",
+                    message="Tariff billing write API is unavailable.",
+                )
             billing_result = await site_tariff_billing_update(billing_update.payload)
 
         notifier = getattr(coord.client, "notify_tariff_change", None)
@@ -1523,7 +1647,10 @@ class TariffRuntime:
                     getattr(coord, "site_id", None),
                     err,
                 )
-        await coord.tariff_runtime.async_refresh(force=True)
+        await self.async_refresh(force=True)
+        self._publish_tariff_update()
+        if tariff_write_requested and self._rate_signature() == previous_rate_signature:
+            self._schedule_post_write_reconciliation(previous_rate_signature)
         return {"tariff": tariff_result, "billing": billing_result}
 
     def _has_stale_data(self) -> bool:
@@ -1552,12 +1679,12 @@ class TariffRuntime:
             ),
             "last_refresh_utc": (
                 last_refresh_utc.isoformat()
-                if hasattr(last_refresh_utc, "isoformat")
+                if isinstance(last_refresh_utc, datetime)
                 else None
             ),
             "rates_last_refresh_utc": (
                 rates_last_refresh_utc.isoformat()
-                if hasattr(rates_last_refresh_utc, "isoformat")
+                if isinstance(rates_last_refresh_utc, datetime)
                 else None
             ),
             "endpoint_family": _endpoint_family_diagnostics(

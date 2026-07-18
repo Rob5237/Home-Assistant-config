@@ -16,13 +16,16 @@ import hashlib
 import json
 import logging
 import re
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime, timezone
 from http import HTTPStatus
-from urllib.parse import unquote
+from time import monotonic
+from urllib.parse import unquote, urlencode
 import uuid
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Iterable
+from collections.abc import AsyncIterator, Iterator
+from typing import Any, Awaitable, Callable, Iterable, cast
 
 import aiohttp
 from yarl import URL
@@ -39,11 +42,21 @@ from .const import (
     LOGIN_URL,
     MFA_RESEND_URL,
     MFA_VALIDATE_URL,
+    SELF_TOKEN_URL,
     SITE_SEARCH_URL,
 )
 from . import api_parsers
-from .api_models import AuthTokens, ChargerInfo, SiteInfo, TextResponse
+from .api_client import auth as api_auth
+from .api_client import site_surface as api_site_surface
+from .api_client import transport as api_transport
+from .api_models import (
+    AuthTokens as AuthTokens,
+    ChargerInfo as ChargerInfo,
+    SiteInfo as SiteInfo,
+    TextResponse as TextResponse,
+)
 from .log_redaction import redact_identifier, redact_site_id, redact_text
+from .request_metrics import record_request_attempt, record_request_timings
 
 _LOGGER = logging.getLogger(__name__)
 _EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b")
@@ -61,9 +74,23 @@ _BATTERY_CONFIG_BROWSER_USER_AGENT = (
 )
 _BATTERY_CONFIG_VARIANT_PRIMARY = "official_web_primary"
 _BATTERY_CONFIG_VARIANT_LEAN = "official_web_lean"
+_BATTERY_CONFIG_VARIANT_SESSION_COOKIE = "official_web_session_cookie"
 _BATTERY_CONFIG_VARIANT_COOKIE_EAUTH = "cookie_eauth_compatible"
 _BATTERY_CONFIG_VARIANT_MIXED = "mixed_auth_compatible"
-_ENLIGHTEN_READ_CONCURRENCY_LIMIT = 2
+_ENLIGHTEN_READ_CONCURRENCY_LIMIT = 3
+_ENLIGHTEN_OPTIONAL_READ_CONCURRENCY_LIMIT = 2
+_SYSTEM_EVENTS_PAGE_SIZE = 200
+_SYSTEM_EVENTS_MAX_PAGES = 10
+_SYSTEM_ALARMS_PAGE_SIZE = 200
+_SYSTEM_ALARMS_MAX_PAGES = 10
+_LIVE_STATUS_GRID_RELAY_ENUM = {
+    0: "OPER_RELAY_UNKNOWN",
+    1: "OPER_RELAY_OPEN",
+    2: "OPER_RELAY_CLOSED",
+    3: "OPER_RELAY_OFFGRID_AC_GRID_PRESENT",
+    4: "OPER_RELAY_OFFGRID_READY_FOR_RESYNC_CMD",
+    5: "OPER_RELAY_WAITING_TO_INITIALIZE_ON_GRID",
+}
 OCPP_TRIGGER_MESSAGES = frozenset(
     {
         "BootNotification",
@@ -87,6 +114,14 @@ _OCPP_TRIGGER_MESSAGE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,63}$")
 # app. A module-level limiter keeps parallel refresh helpers from creating a
 # burst of browser-like reads during one Home Assistant update cycle.
 _enlighten_read_semaphore: asyncio.Semaphore | None = None
+_enlighten_optional_read_semaphore: asyncio.Semaphore | None = None
+_enlighten_optional_read: ContextVar[bool] = ContextVar(
+    "enphase_ev_enlighten_optional_read", default=False
+)
+_enlighten_read_limiter_bypass: ContextVar[bool] = ContextVar(
+    "enphase_ev_enlighten_read_limiter_bypass", default=False
+)
+JsonDict = dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -206,6 +241,10 @@ class OptionalEndpointUnavailable(Exception):
     """Raised when an optional endpoint is unavailable but diagnostically useful."""
 
 
+class ActivationAccessDenied(OptionalEndpointUnavailable):
+    """Raised when Activation explicitly denies installer-level access."""
+
+
 @dataclass(slots=True, frozen=True)
 class PayloadFailureSignature:
     """Structured metadata describing an invalid payload response."""
@@ -256,7 +295,7 @@ class PayloadFailureSignature:
         return f"{label} ({', '.join(detail_parts)})"
 
 
-class InvalidPayloadError(aiohttp.ClientError):
+class InvalidPayloadError(aiohttp.ClientError):  # type: ignore[misc, unused-ignore]
     """Raised when an endpoint returns malformed or non-JSON payload data."""
 
     def __init__(
@@ -663,15 +702,24 @@ def _request_label(method: object, url: object) -> str:
 
     if url_obj.path:
         path = url_obj.path
-    if url_obj.query_string:
-        path = f"{path}?{url_obj.query_string}" if path else f"?{url_obj.query_string}"
+    query_string = url_obj.query_string
+    query = getattr(url_obj, "query", None)
+    cursor_query = {
+        str(key): "[redacted]"
+        for key in query or ()
+        if str(key).strip().casefold() in {"cursor", "next"}
+    }
+    if cursor_query:
+        query_string = url_obj.update_query(cursor_query).query_string
+    if query_string:
+        path = f"{path}?{query_string}" if path else f"?{query_string}"
     if path:
         return f"{method_text} {path}"
     return method_text
 
 
 def _serialize_cookie_jar(
-    jar: aiohttp.CookieJar, urls: Iterable[str | URL]
+    jar: aiohttp.abc.AbstractCookieJar, urls: Iterable[str | URL]
 ) -> tuple[str, dict[str, str]]:
     """Return a Cookie header string and mapping extracted from the jar."""
 
@@ -925,15 +973,114 @@ def _get_enlighten_read_semaphore() -> asyncio.Semaphore:
     return _enlighten_read_semaphore
 
 
+def _get_enlighten_optional_read_semaphore() -> asyncio.Semaphore:
+    """Return the limiter that reserves capacity for core Enlighten reads."""
+
+    global _enlighten_optional_read_semaphore
+    if _enlighten_optional_read_semaphore is None:
+        _enlighten_optional_read_semaphore = asyncio.Semaphore(
+            _ENLIGHTEN_OPTIONAL_READ_CONCURRENCY_LIMIT
+        )
+    return _enlighten_optional_read_semaphore
+
+
+@contextmanager
+def enlighten_optional_read_scope() -> Iterator[None]:
+    """Mark browser-host reads in this context as optional background work."""
+
+    token = _enlighten_optional_read.set(True)
+    try:
+        yield
+    finally:
+        _enlighten_optional_read.reset(token)
+
+
+@contextmanager
+def _enlighten_reauth_read_scope() -> Iterator[None]:
+    """Let nested credential refreshes escape a limiter held by their caller."""
+
+    token = _enlighten_read_limiter_bypass.set(True)
+    try:
+        yield
+    finally:
+        _enlighten_read_limiter_bypass.reset(token)
+
+
 @asynccontextmanager
-async def _enlighten_read_request_guard(method: object, url: object):
+async def _enlighten_read_request_guard(
+    method: object, url: object
+) -> AsyncIterator[None]:
     """Limit concurrent GET/HEAD requests to the Enlighten web host."""
+
+    if _enlighten_read_limiter_bypass.get() or not _should_limit_enlighten_read_request(
+        method, url
+    ):
+        yield
+        return
+    if _enlighten_optional_read.get():
+        async with _get_enlighten_optional_read_semaphore():
+            async with _get_enlighten_read_semaphore():
+                yield
+        return
+    async with _get_enlighten_read_semaphore():
+        yield
+
+
+@asynccontextmanager
+async def _timed_enlighten_read_request_guard(
+    method: object, url: object
+) -> AsyncIterator[None]:
+    """Measure limiter queueing for one scoped client request."""
 
     if not _should_limit_enlighten_read_request(method, url):
         yield
         return
-    async with _get_enlighten_read_semaphore():
-        yield
+    started = monotonic()
+    acquired = False
+    try:
+        async with _enlighten_read_request_guard(method, url):
+            acquired = True
+            record_request_timings(queue_s=monotonic() - started)
+            yield
+    finally:
+        if not acquired:
+            record_request_timings(queue_s=monotonic() - started)
+
+
+@asynccontextmanager
+async def _timed_response_context(request_context: Any) -> AsyncIterator[Any]:
+    """Measure the wait until response headers arrive for one HTTP attempt."""
+
+    started = monotonic()
+    headers_received = False
+    try:
+        async with request_context as response:
+            headers_received = True
+            record_request_timings(network_s=monotonic() - started)
+            yield response
+    finally:
+        if not headers_received:
+            record_request_timings(network_s=monotonic() - started)
+
+
+async def _timed_response_json(response: Any) -> Any:
+    """Read and decode a JSON body while recording parsing time."""
+
+    started = monotonic()
+    try:
+        return await response.json()
+    finally:
+        record_request_timings(parsing_s=monotonic() - started)
+
+
+async def _timed_response_text(response: Any) -> str:
+    """Read a text body while recording parsing time."""
+
+    started = monotonic()
+    try:
+        return str(await response.text())
+    finally:
+        record_request_timings(parsing_s=monotonic() - started)
 
 
 def _seed_cookie_jar(session: aiohttp.ClientSession, cookies: dict[str, str]) -> None:
@@ -1162,56 +1309,21 @@ async def _request_json(
     json_data: Any | None = None,
 ) -> Any:
     """Perform an HTTP request returning JSON with timeout handling."""
-
-    req_kwargs: dict[str, Any] = {}
-    if headers is not None:
-        req_kwargs["headers"] = headers
-    if data is not None:
-        req_kwargs["data"] = data
-    if json_data is not None:
-        req_kwargs["json"] = json_data
-
-    async with _enlighten_read_request_guard(method, url):
-        async with asyncio.timeout(timeout):
-            async with session.request(
-                method, url, allow_redirects=True, **req_kwargs
-            ) as resp:
-                if resp.status >= 500:
-                    raise EnlightenAuthUnavailable(
-                        f"Server error {resp.status} at {_request_label(method, url)}"
-                    )
-                if resp.status >= 400:
-                    body_text = ""
-                    try:
-                        body_text = await resp.text()
-                    except Exception:  # noqa: BLE001 - best effort auth diagnostics
-                        body_text = ""
-                    if _is_too_many_active_sessions_response(body_text):
-                        raise EnlightenAuthTooManySessions(
-                            "Too many active Enlighten sessions"
-                        )
-                resp.raise_for_status()
-                ctype = resp.headers.get("Content-Type", "")
-                if "json" not in ctype:
-                    text = await resp.text()
-                    if _is_too_many_active_sessions_response(text):
-                        raise EnlightenAuthTooManySessions(
-                            "Too many active Enlighten sessions"
-                        )
-                    raise EnlightenAuthUnavailable(
-                        _safe_response_error_message(
-                            status=int(resp.status),
-                            reason="Unexpected non-JSON response",
-                            headers=resp.headers,
-                            body_text=text,
-                        )
-                    )
-                payload = await resp.json()
-                if _is_too_many_active_sessions_response(payload):
-                    raise EnlightenAuthTooManySessions(
-                        "Too many active Enlighten sessions"
-                    )
-                return payload
+    return await api_transport.request_json(
+        session,
+        method,
+        url,
+        timeout=timeout,
+        headers=headers,
+        data=data,
+        json_data=json_data,
+        request_guard=_enlighten_read_request_guard,
+        request_label=_request_label,
+        safe_error_message=_safe_response_error_message,
+        is_session_limit=_is_too_many_active_sessions_response,
+        unavailable_error=EnlightenAuthUnavailable,
+        session_limit_error=EnlightenAuthTooManySessions,
+    )
 
 
 async def _request_mfa_json(
@@ -1224,120 +1336,54 @@ async def _request_mfa_json(
     data: Any | None = None,
 ) -> Any:
     """Perform an MFA HTTP request with tolerant JSON parsing."""
-
-    req_kwargs: dict[str, Any] = {}
-    if headers is not None:
-        req_kwargs["headers"] = headers
-    if data is not None:
-        req_kwargs["data"] = data
-
-    async with asyncio.timeout(timeout):
-        async with session.request(
-            method, url, allow_redirects=True, **req_kwargs
-        ) as resp:
-            if resp.status >= 500:
-                raise EnlightenAuthUnavailable(
-                    f"Server error {resp.status} at {_request_label(method, url)}"
-                )
-            if resp.status in (204, 205):
-                return {}
-            if resp.status >= 400:
-                body_text = ""
-                try:
-                    body_text = await resp.text()
-                except Exception:  # noqa: BLE001 - best effort auth diagnostics
-                    body_text = ""
-                if _is_too_many_active_sessions_response(body_text):
-                    raise EnlightenAuthTooManySessions(
-                        "Too many active Enlighten sessions"
-                    )
-            resp.raise_for_status()
-            ctype = resp.headers.get("Content-Type", "")
-            if "json" in ctype:
-                payload = await resp.json()
-                if _is_too_many_active_sessions_response(payload):
-                    raise EnlightenAuthTooManySessions(
-                        "Too many active Enlighten sessions"
-                    )
-                return payload
-            text = await resp.text()
-            if _is_too_many_active_sessions_response(text):
-                raise EnlightenAuthTooManySessions("Too many active Enlighten sessions")
-            if not text.strip():
-                return {}
-            try:
-                payload = json.loads(text)
-            except json.JSONDecodeError as err:
-                raise EnlightenAuthUnavailable(
-                    _safe_response_error_message(
-                        status=int(resp.status),
-                        reason="Unexpected MFA response",
-                        headers=resp.headers,
-                        body_text=text,
-                    )
-                ) from err
-            if _is_too_many_active_sessions_response(payload):
-                raise EnlightenAuthTooManySessions("Too many active Enlighten sessions")
-            return payload
+    return await api_transport.request_mfa_json(
+        session,
+        method,
+        url,
+        timeout=timeout,
+        headers=headers,
+        data=data,
+        request_label=_request_label,
+        safe_error_message=_safe_response_error_message,
+        is_session_limit=_is_too_many_active_sessions_response,
+        unavailable_error=EnlightenAuthUnavailable,
+        session_limit_error=EnlightenAuthTooManySessions,
+    )
 
 
 def _mfa_headers(cookies: dict[str, str] | None) -> dict[str, str]:
     """Return headers for MFA endpoints with cookie/XSRF handling."""
-
-    headers = _login_headers()
-    headers["Accept"] = "application/json, text/plain, */*"
-    cookie_header = _cookie_header_from_map(cookies)
-    if cookie_header:
-        headers["Cookie"] = cookie_header
-    xsrf_token = _extract_xsrf_token(cookies)
-    if xsrf_token:
-        headers["X-CSRF-Token"] = xsrf_token
-    return headers
+    return api_auth.mfa_headers(
+        cookies,
+        base_headers=_login_headers(),
+        cookie_header=_cookie_header_from_map,
+        xsrf_token=_extract_xsrf_token,
+    )
 
 
 def _login_headers() -> dict[str, str]:
     """Return headers for the initial Enlighten login request."""
-
-    return {
-        "Accept": "*/*",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Referer": f"{BASE_URL}/",
-        "User-Agent": _ENLIGHTEN_BROWSER_USER_AGENT,
-        "X-Requested-With": "XMLHttpRequest",
-    }
+    return api_auth.login_headers(
+        base_url=BASE_URL,
+        user_agent=_ENLIGHTEN_BROWSER_USER_AGENT,
+    )
 
 
 def _login_form_headers() -> dict[str, str]:
     """Return browser-style headers for the HTML form login flow."""
-
-    return {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Origin": BASE_URL,
-        "Referer": f"{BASE_URL}/",
-        "User-Agent": _ENLIGHTEN_BROWSER_USER_AGENT,
-    }
+    return api_auth.login_form_headers(
+        base_url=BASE_URL,
+        user_agent=_ENLIGHTEN_BROWSER_USER_AGENT,
+    )
 
 
 def _extract_login_session_from_cookies(
     cookies: dict[str, str] | None,
 ) -> tuple[str | None, str | None]:
     """Extract session details from post-login cookies."""
-
-    if not cookies:
-        return None, None
-
-    session_id = (
-        cookies.get("_enlighten_4_session")
-        or cookies.get("enlighten_session")
-        or cookies.get("_enlighten_session")
-    )
-    manager_token = cookies.get("enlighten_manager_token_production")
-    if not session_id and manager_token:
-        session_id = _jwt_session_id(manager_token)
-    return (
-        str(session_id) if session_id else None,
-        str(manager_token) if manager_token else None,
+    return api_auth.login_session_from_cookies(
+        cookies,
+        jwt_session_id=_jwt_session_id,
     )
 
 
@@ -1391,7 +1437,7 @@ def _normalize_chargers(payload: Any) -> list[ChargerInfo]:
 
 async def _build_tokens_and_sites(
     session: aiohttp.ClientSession,
-    email: str,
+    _email: str,
     session_id: str | None,
     *,
     timeout: int,
@@ -1407,17 +1453,23 @@ async def _build_tokens_and_sites(
         raw_cookies=cookie_map,
     )
 
-    # Attempt to obtain a bearer/e-auth token. If not available, proceed with cookie-only mode.
+    # Obtain the bearer/e-auth token from the same session-backed route used by
+    # the Enlighten web application. If it is temporarily unavailable, retain
+    # cookie-only mode so core site discovery can still proceed.
     token_payload: Any | None = None
-    if tokens.session_id:
+    if tokens.session_id or tokens.cookie:
         try:
             token_payload = await _request_json(
                 session,
-                "POST",
-                f"{ENTREZ_URL}/tokens",
+                "GET",
+                SELF_TOKEN_URL,
                 timeout=timeout,
-                headers={"Accept": "application/json"},
-                json_data={"session_id": tokens.session_id, "email": email},
+                headers={
+                    "Accept": "application/json, text/plain, */*",
+                    "Referer": f"{BASE_URL}/",
+                    "User-Agent": _ENLIGHTEN_BROWSER_USER_AGENT,
+                    "X-Requested-With": "XMLHttpRequest",
+                },
             )
         except aiohttp.ClientResponseError as err:  # noqa: BLE001
             if err.status in (401, 403):
@@ -1447,6 +1499,15 @@ async def _build_tokens_and_sites(
                 "Token endpoint client error: %s",
                 safe_error,
             )
+
+    # Enlighten may rotate the session cookie while minting the token. Persist
+    # the post-mint cookie jar and use it for site discovery rather than the
+    # snapshot captured immediately after login.
+    cookie_header, cookie_map = _serialize_cookie_jar(
+        session.cookie_jar, (BASE_URL, ENTREZ_URL)
+    )
+    tokens.cookie = cookie_header
+    tokens.raw_cookies = cookie_map
 
     if isinstance(token_payload, dict):
         token = (
@@ -1883,7 +1944,7 @@ async def async_fetch_inverters_inventory(
     def _payload_total(payload: dict[str, object], default: int) -> int:
         raw_total = payload.get("total")
         try:
-            total = int(raw_total)
+            total = int(str(raw_total))
         except (TypeError, ValueError):
             return default
         return total if total >= 0 else default
@@ -2000,9 +2061,11 @@ class EnphaseEVClient:
         cookie: str | None,
         timeout: int = 15,
         reauth_callback: Callable[[], Awaitable[bool]] | None = None,
+        cookie_header_session: aiohttp.ClientSession | None = None,
     ):
         self._timeout = int(timeout)
         self._s = session
+        self._cookie_header_session = cookie_header_session
         self._site = site_id
         # Cache working API variant indexes per action to avoid retries once discovered
         self._start_variant_idx: int | None = None
@@ -2019,6 +2082,7 @@ class EnphaseEVClient:
         self._cookie = cookie or ""
         self._eauth = eauth or None
         self._hems_site_supported: bool | None = None
+        self._system_dashboard_summary_payload: dict[str, object] | None = None
         self._reauth_cb: Callable[[], Awaitable[bool]] | None = reauth_callback
         self._last_unauthorized_request: str | None = None
         self._request_count = 0
@@ -2037,6 +2101,14 @@ class EnphaseEVClient:
         """Register coroutine used to refresh credentials on 401."""
 
         self._reauth_cb = callback
+
+    async def async_close(self) -> None:
+        """Detach the private session while preserving Home Assistant's connector."""
+
+        session = self._cookie_header_session
+        self._cookie_header_session = None
+        if session is not None and not session.closed:
+            session.detach()
 
     @staticmethod
     def _is_hems_api_endpoint(endpoint: str | None) -> bool:
@@ -2292,6 +2364,15 @@ class EnphaseEVClient:
         headers["Referer"] = self._site_web_referer("history")
         return headers
 
+    def _homeowner_events_headers(self) -> dict[str, str]:
+        """Return browser-style headers for the homeowner event-history feed."""
+
+        headers = self._history_headers()
+        headers["Accept"] = "application/json"
+        headers["Content-Type"] = "application/json"
+        headers["X-Requested-With"] = "XMLHttpRequest"
+        return headers
+
     def _today_headers(self) -> dict[str, str]:
         """Return headers for EV today-page XHR requests."""
 
@@ -2390,7 +2471,7 @@ class EnphaseEVClient:
         self,
         modern_url: str,
         legacy_url: str,
-    ) -> dict | None:
+    ) -> JsonDict | None:
         """Fetch a system dashboard payload from the modern route with fallback."""
 
         headers = self._system_dashboard_headers()
@@ -2556,13 +2637,23 @@ class EnphaseEVClient:
             "X-CSRF-Token": None,
             "requestid": (
                 str(uuid.uuid4())
-                if variant == _BATTERY_CONFIG_VARIANT_PRIMARY
+                if variant
+                in {
+                    _BATTERY_CONFIG_VARIANT_PRIMARY,
+                    _BATTERY_CONFIG_VARIANT_SESSION_COOKIE,
+                }
                 else None
             ),
         }
         token, user_id = self._battery_config_auth_context()
         if variant == _BATTERY_CONFIG_VARIANT_PRIMARY:
             headers["e-auth-token"] = token
+        elif variant == _BATTERY_CONFIG_VARIANT_SESSION_COOKIE:
+            headers["Cookie"] = self._battery_config_cookie(
+                include_xsrf=include_xsrf,
+                preserve_existing_xsrf=True,
+            )
+            headers["e-auth-token"] = None
         else:
             headers["e-auth-token"] = None
         if user_id:
@@ -2597,6 +2688,85 @@ class EnphaseEVClient:
             headers["Referer"] = f"{BASE_URL}/"
         return headers
 
+    def _activation_reference_headers(self) -> dict[str, str | None]:
+        """Return headers for Activation reference-data calls."""
+
+        token = self._battery_config_single_auth_token()
+        return {
+            "Accept": "application/json, text/plain, */*",
+            "Cookie": self._cookie or None,
+            "enlm-token": token,
+            "Referer": f"{BASE_URL}/app/activation_ui/?system_id={self._site}",
+            "X-Requested-With": None,
+        }
+
+    def _activation_headers(self, *, write: bool = False) -> dict[str, str | None]:
+        """Return cloud Activation API headers."""
+
+        token = self._battery_config_single_auth_token()
+        headers: dict[str, str | None] = {
+            "Accept": "application/json, text/plain, */*",
+            "Authorization": f"Bearer {token}" if token else None,
+            "Cookie": self._cookie or None,
+            "Referer": f"{BASE_URL}/app/activation_ui/?system_id={self._site}",
+            "X-Requested-With": None,
+            "e-auth-token": None,
+        }
+        if write:
+            headers["Content-Type"] = "application/json"
+            headers["Origin"] = BASE_URL
+        return headers
+
+    async def _activation_payload(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str | None],
+        **kwargs: Any,
+    ) -> object:
+        """Return Activation JSON, mapping denied access to optional unavailable."""
+
+        try:
+            return await self._json(
+                method,
+                url,
+                headers=headers,
+                allow_reauth=False,
+                use_cookie_header_only=True,
+                **kwargs,
+            )
+        except EnphaseLoginWallUnauthorized as err:
+            raise ActivationAccessDenied("Activation login wall") from err
+        except Unauthorized as err:
+            raise ActivationAccessDenied("Activation access denied") from err
+        except InvalidPayloadError as err:
+            raise OptionalEndpointUnavailable("Activation payload unavailable") from err
+        except aiohttp.ClientResponseError as err:
+            if err.status in {401, 403, 404}:
+                raise ActivationAccessDenied("Activation access denied") from err
+            raise
+
+    async def _activation_json(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str | None],
+        **kwargs: Any,
+    ) -> JsonDict:
+        """Return Activation object JSON."""
+
+        result = await self._activation_payload(
+            method,
+            url,
+            headers=headers,
+            **kwargs,
+        )
+        if not isinstance(result, dict):
+            raise OptionalEndpointUnavailable("Activation payload was not an object")
+        return result
+
     def _battery_config_cookie_eauth_headers(
         self,
         *,
@@ -2630,7 +2800,12 @@ class EnphaseEVClient:
                 headers["X-XSRF-Token"] = None
         return headers
 
-    def _battery_config_cookie(self, *, include_xsrf: bool = False) -> str | None:
+    def _battery_config_cookie(
+        self,
+        *,
+        include_xsrf: bool = False,
+        preserve_existing_xsrf: bool = False,
+    ) -> str | None:
         """Return a normalized BatteryConfig cookie header value."""
 
         cookies: dict[str, str] = {}
@@ -2654,11 +2829,12 @@ class EnphaseEVClient:
             )
             cookies.update(jar_cookies)
 
-        cookies = {
-            name: value
-            for name, value in cookies.items()
-            if name.strip().lower() not in _XSRF_COOKIE_NAMES
-        }
+        if not preserve_existing_xsrf:
+            cookies = {
+                name: value
+                for name, value in cookies.items()
+                if name.strip().lower() not in _XSRF_COOKIE_NAMES
+            }
 
         if include_xsrf:
             xsrf = self._xsrf_token()
@@ -2795,8 +2971,10 @@ class EnphaseEVClient:
         """Return the ordered variants to try for a BatteryConfig family."""
 
         cached = self._battery_config_cached_variant(endpoint_family)
+        has_session_cookie = bool(self._battery_config_cookie())
         variants = [
             cached,
+            (_BATTERY_CONFIG_VARIANT_SESSION_COOKIE if has_session_cookie else None),
             _BATTERY_CONFIG_VARIANT_PRIMARY,
             _BATTERY_CONFIG_VARIANT_LEAN,
         ]
@@ -2804,7 +2982,15 @@ class EnphaseEVClient:
             variant
             for variant in dict.fromkeys(variants)
             if variant
-            in {_BATTERY_CONFIG_VARIANT_PRIMARY, _BATTERY_CONFIG_VARIANT_LEAN}
+            in {
+                _BATTERY_CONFIG_VARIANT_SESSION_COOKIE,
+                _BATTERY_CONFIG_VARIANT_PRIMARY,
+                _BATTERY_CONFIG_VARIANT_LEAN,
+            }
+            and not (
+                variant == _BATTERY_CONFIG_VARIANT_SESSION_COOKIE
+                and not has_session_cookie
+            )
         ]
 
     def _battery_config_write_attempt_cache_key(
@@ -3487,7 +3673,7 @@ class EnphaseEVClient:
         endpoint_family: str | None = None,
         bootstrap_xsrf: bool = False,
         cache_on_success: bool = False,
-    ) -> dict:
+    ) -> JsonDict:
         """Issue a BatteryConfig request using the observed first-party variants."""
 
         family = endpoint_family or self._battery_config_endpoint_family(url)
@@ -3512,6 +3698,17 @@ class EnphaseEVClient:
                         params=params,
                         debug_auth_source=variant,
                     )
+                except EnphaseLoginWallUnauthorized:
+                    if index == len(variants) - 1:
+                        raise
+                    _LOGGER.debug(
+                        "Retrying BatteryConfig request for %s with %s variant "
+                        "after login wall (cached_variant=%s)",
+                        _request_label(method, url),
+                        variants[index + 1],
+                        self._battery_config_cached_variant(family),
+                    )
+                    continue
                 except aiohttp.ClientResponseError as err:
                     if err.status == HTTPStatus.UNAUTHORIZED:
                         raise
@@ -3528,7 +3725,7 @@ class EnphaseEVClient:
                     continue
                 if cache_on_success:
                     self._cache_battery_config_variant(family, variant)
-                return result
+                return cast(JsonDict, result)
         finally:
             if bootstrap_xsrf:
                 self._bp_xsrf_token = None
@@ -3546,7 +3743,7 @@ class EnphaseEVClient:
         endpoint_family: str | None = None,
         write_intent: str = "generic",
         supports_mqtt: bool | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Issue a BatteryConfig write using endpoint-specific compatibility attempts."""
 
         family = endpoint_family or self._battery_config_endpoint_family(url)
@@ -3679,7 +3876,7 @@ class EnphaseEVClient:
                     attempt.attempt_id,
                     supports_mqtt=supports_mqtt,
                 )
-                return result
+                return cast(JsonDict, result)
         finally:
             self._bp_xsrf_token = None
 
@@ -3909,6 +4106,7 @@ class EnphaseEVClient:
                 "cookie",
                 "authorization",
                 "e-auth-token",
+                "enlm-token",
                 "x-csrf-token",
                 "x-xsrf-token",
                 "username",
@@ -4194,8 +4392,8 @@ class EnphaseEVClient:
         *,
         mark_payload_success: bool = True,
         log_invalid_payload: bool = True,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Any:
         """Perform an HTTP request returning JSON with sane header handling.
 
         Accepts optional ``headers`` in kwargs which will be merged with the
@@ -4206,6 +4404,8 @@ class EnphaseEVClient:
         as ``e-auth-token``.
         ``headers`` may also be a zero-argument callable so retries can rebuild
         auth-sensitive headers after a successful reauthentication callback.
+        ``allow_empty_success`` accepts an empty body after a successful status while
+        preserving normal JSON validation for non-empty responses.
         """
         extra_headers = kwargs.pop("headers", None)
         use_cookie_header_only = kwargs.pop("use_cookie_header_only", False)
@@ -4216,6 +4416,7 @@ class EnphaseEVClient:
             None,
         )
         allow_reauth = bool(kwargs.pop("allow_reauth", True))
+        allow_empty_success = bool(kwargs.pop("allow_empty_success", False))
         attempt = 0
         request_label = _request_label(method, url)
         safe_request_label = redact_text(
@@ -4237,14 +4438,17 @@ class EnphaseEVClient:
                     base_headers, attempt_headers
                 )
 
-            async with _enlighten_read_request_guard(method, url):
-                async with asyncio.timeout(self._timeout):
+            async with asyncio.timeout(self._timeout):
+                async with _timed_enlighten_read_request_guard(method, url):
                     async with self._request_session(
                         cookie_header_only=use_cookie_header_only
                     ) as request_session:
                         self._request_count += 1
-                        async with request_session.request(
-                            method, url, headers=base_headers, **kwargs
+                        record_request_attempt()
+                        async with _timed_response_context(
+                            request_session.request(
+                                method, url, headers=base_headers, **kwargs
+                            )
                         ) as r:
                             if r.status == 401:
                                 self._last_unauthorized_request = safe_request_label
@@ -4263,7 +4467,8 @@ class EnphaseEVClient:
                                         safe_request_label,
                                     )
                                     attempt += 1
-                                    reauth_ok = await self._reauth_cb()
+                                    with _enlighten_reauth_read_scope():
+                                        reauth_ok = await self._reauth_cb()
                                     if reauth_ok:
                                         _LOGGER.debug(
                                             "Stored-credential refresh succeeded for %s; retrying request",
@@ -4287,7 +4492,7 @@ class EnphaseEVClient:
                             if r.status >= 400:
                                 body_text: str | None = None
                                 try:
-                                    body_text = await r.text()
+                                    body_text = await _timed_response_text(r)
                                 except (
                                     Exception
                                 ):  # noqa: BLE001 - fall back to generic message
@@ -4383,26 +4588,40 @@ class EnphaseEVClient:
                                     message=message,
                                     headers=r.headers,
                                 )
-                                response_error.enphase_routing_not_found = (
-                                    r.status == 404
-                                    and self._is_routing_not_found(body_text)
+                                setattr(
+                                    response_error,
+                                    "enphase_routing_not_found",
+                                    (
+                                        r.status == 404
+                                        and self._is_routing_not_found(body_text)
+                                    ),
                                 )
-                                response_error.enphase_invalid_charge_level = (
-                                    r.status == 500
-                                    and self._is_invalid_charge_level_error(body_text)
+                                setattr(
+                                    response_error,
+                                    "enphase_invalid_charge_level",
+                                    (
+                                        r.status == 500
+                                        and self._is_invalid_charge_level_error(
+                                            body_text
+                                        )
+                                    ),
                                 )
                                 if _is_scheduler_charging_mode_endpoint(endpoint):
                                     code, display = _scheduler_error_context_from_text(
                                         body_text
                                     )
                                     if code or display:
-                                        response_error.enphase_scheduler_error = {
-                                            "code": code,
-                                            "display": display,
-                                        }
+                                        setattr(
+                                            response_error,
+                                            "enphase_scheduler_error",
+                                            {
+                                                "code": code,
+                                                "display": display,
+                                            },
+                                        )
                                 raise response_error
                             try:
-                                payload = await r.json()
+                                payload = await _timed_response_json(r)
                             except (aiohttp.ContentTypeError, ValueError) as err:
                                 status = int(getattr(r, "status", 0) or 0)
                                 content_type = ""
@@ -4415,7 +4634,7 @@ class EnphaseEVClient:
                                 ):  # noqa: BLE001 - defensive header parsing
                                     content_type = ""
                                 try:
-                                    body_text = await r.text()
+                                    body_text = await _timed_response_text(r)
                                 except Exception as text_err:  # noqa: BLE001
                                     body_text = (
                                         f"<unavailable:{text_err.__class__.__name__}>"
@@ -4432,6 +4651,10 @@ class EnphaseEVClient:
                                         content_type=content_type or None,
                                         payload=body_text,
                                     ) from err
+                                if allow_empty_success and not body_text.strip():
+                                    if mark_payload_success:
+                                        self._mark_payload_healthy(endpoint or None)
+                                    return {}
                                 failure_kind = (
                                     "content_type"
                                     if isinstance(err, aiohttp.ContentTypeError)
@@ -4446,26 +4669,38 @@ class EnphaseEVClient:
                                     payload=body_text,
                                     log_warning=log_invalid_payload,
                                 ) from err
+                            if allow_empty_success and payload is None:
+                                payload = {}
                             if mark_payload_success:
                                 self._mark_payload_healthy(endpoint or None)
                             return payload
 
     @asynccontextmanager
-    async def _request_session(self, *, cookie_header_only: bool = False):
+    async def _request_session(
+        self, *, cookie_header_only: bool = False
+    ) -> AsyncIterator[aiohttp.ClientSession]:
         """Yield the HTTP session to use for a request.
 
         Cookie-backed BatteryConfig writes need the explicit raw Cookie header to be
-        sent without any session-jar merging. A short-lived stateless session avoids
-        hidden cookie mutations from the shared client while preserving the normal
-        shared session for all other requests.
+        sent without any session-jar merging. The injected stateless session avoids
+        hidden cookie mutations from the shared client while preserving connection
+        reuse across writes.
         """
 
         if not cookie_header_only:
             yield self._s
             return
 
-        async with aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar()) as s:
-            yield s
+        session = self._cookie_header_session
+        if session is None and isinstance(
+            getattr(self._s, "cookie_jar", None), aiohttp.DummyCookieJar
+        ):
+            session = self._s
+        if session is None:
+            raise RuntimeError(
+                "Cookie-header-only requests require an injected stateless session"
+            )
+        yield session
 
     async def _text_response(
         self,
@@ -4474,7 +4709,7 @@ class EnphaseEVClient:
         *,
         expected_statuses: tuple[int, ...] | None = None,
         mark_payload_success: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> TextResponse:
         """Perform an HTTP request returning text plus response metadata."""
 
@@ -4502,20 +4737,24 @@ class EnphaseEVClient:
                     else:
                         base_headers[header_key] = header_value
 
-            async with _enlighten_read_request_guard(method, url):
-                async with asyncio.timeout(self._timeout):
-                    async with self._s.request(
-                        method, url, headers=base_headers, **kwargs
+            async with asyncio.timeout(self._timeout):
+                async with _timed_enlighten_read_request_guard(method, url):
+                    self._request_count += 1
+                    record_request_attempt()
+                    async with _timed_response_context(
+                        self._s.request(method, url, headers=base_headers, **kwargs)
                     ) as r:
                         if r.status == 401:
                             self._last_unauthorized_request = safe_request_label
                             if self._reauth_cb and attempt == 0:
                                 attempt += 1
-                                if await self._reauth_cb():
+                                with _enlighten_reauth_read_scope():
+                                    reauth_ok = await self._reauth_cb()
+                                if reauth_ok:
                                     continue
                             raise Unauthorized()
                         if expected_statuses and r.status in expected_statuses:
-                            text = await r.text()
+                            text = await _timed_response_text(r)
                             if _is_enphase_login_wall(
                                 endpoint=endpoint or None, payload=text
                             ):
@@ -4539,7 +4778,7 @@ class EnphaseEVClient:
                         if r.status >= 400:
                             body_text: str | None = None
                             try:
-                                body_text = await r.text()
+                                body_text = await _timed_response_text(r)
                             except Exception:  # noqa: BLE001
                                 body_text = None
                             message = _safe_response_error_message(
@@ -4555,7 +4794,7 @@ class EnphaseEVClient:
                                 message=message,
                                 headers=r.headers,
                             )
-                        text = await r.text()
+                        text = await _timed_response_text(r)
                         if _is_enphase_login_wall(
                             endpoint=endpoint or None, payload=text
                         ):
@@ -4584,7 +4823,7 @@ class EnphaseEVClient:
         *,
         expected_statuses: tuple[int, ...] | None = None,
         mark_payload_success: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> str:
         """Perform an HTTP request returning text only."""
 
@@ -4595,9 +4834,9 @@ class EnphaseEVClient:
             mark_payload_success=mark_payload_success,
             **kwargs,
         )
-        return response.text
+        return str(response.text)
 
-    async def status(self) -> dict:
+    async def status(self) -> JsonDict:
         url = f"{BASE_URL}/service/evse_controller/{self._site}/ev_chargers/status"
         endpoint = f"/service/evse_controller/{self._site}/ev_chargers/status"
         try:
@@ -4699,7 +4938,7 @@ class EnphaseEVClient:
         return data
 
     @staticmethod
-    def _payload_has_level(payload: dict | None) -> bool:
+    def _payload_has_level(payload: JsonDict | None) -> bool:
         """Return True when a payload explicitly includes a charging level."""
 
         if not isinstance(payload, dict):
@@ -4708,7 +4947,7 @@ class EnphaseEVClient:
 
     def _start_charging_candidates(
         self, sn: str, level: int, connector_id: int
-    ) -> list[tuple[str, str, dict | None]]:
+    ) -> list[tuple[str, str, JsonDict | None]]:
         return [
             (
                 "POST",
@@ -4760,7 +4999,7 @@ class EnphaseEVClient:
         *,
         include_level: bool | None = None,
         strict_preference: bool = False,
-    ) -> dict:
+    ) -> JsonDict:
         """Start charging or set the charging level.
 
         The Enlighten API has variations across deployments (method, path, and payload keys).
@@ -4828,7 +5067,7 @@ class EnphaseEVClient:
             # Fallback: remember last working variant for general calls
             self._start_variant_idx = idx
 
-        def _interpret_start_error(message: str) -> dict | None:
+        def _interpret_start_error(message: str) -> JsonDict | None:
             """Return a benign response when backend reports non-fatal errors."""
 
             if not message:
@@ -4908,7 +5147,7 @@ class EnphaseEVClient:
                     )
                 # Cache the working variant index for future calls
                 _record_variant(idx)
-                return result
+                return cast(JsonDict, result)
             except aiohttp.ClientResponseError as e:
                 if e.status >= 500:
                     raise
@@ -4987,7 +5226,9 @@ class EnphaseEVClient:
             "start_charging failed with all variants"
         )  # pragma: no cover
 
-    def _stop_charging_candidates(self, sn: str) -> list[tuple[str, str, dict | None]]:
+    def _stop_charging_candidates(
+        self, sn: str
+    ) -> list[tuple[str, str, JsonDict | None]]:
         return [
             (
                 "PUT",
@@ -5041,7 +5282,7 @@ class EnphaseEVClient:
             return False
         return "invalid charge level" in message.lower()
 
-    async def stop_charging(self, sn: str) -> dict:
+    async def stop_charging(self, sn: str) -> JsonDict:
         """Stop charging; try multiple endpoint variants."""
         candidates = self._stop_charging_candidates(sn)
         order = list(range(len(candidates)))
@@ -5065,7 +5306,7 @@ class EnphaseEVClient:
                         method, url, json=payload, headers=headers
                     )
                 self._stop_variant_idx = idx
-                return result
+                return cast(JsonDict, result)
             except aiohttp.ClientResponseError as e:
                 if e.status >= 500:
                     raise
@@ -5085,24 +5326,26 @@ class EnphaseEVClient:
             raise last_exc
         raise aiohttp.ClientError("stop_charging failed with all variants")
 
-    async def trigger_message(self, sn: str, requested_message: str) -> dict:
+    async def trigger_message(self, sn: str, requested_message: str) -> JsonDict:
         url = f"{BASE_URL}/service/evse_controller/{self._site}/ev_charger/{sn}/trigger_message"
         payload = {"requestedMessage": validate_ocpp_trigger_message(requested_message)}
         headers = self._today_json_headers()
         headers.update(self._control_headers())
-        return await self._json("POST", url, json=payload, headers=headers)
+        return cast(
+            JsonDict, await self._json("POST", url, json=payload, headers=headers)
+        )
 
-    async def start_live_stream(self) -> dict:
+    async def start_live_stream(self) -> JsonDict:
         url = f"{BASE_URL}/service/evse_controller/{self._site}/ev_chargers/start_live_stream"
         headers = self._today_headers()
         headers.update(self._control_headers())
-        return await self._json("GET", url, headers=headers)
+        return cast(JsonDict, await self._json("GET", url, headers=headers))
 
-    async def stop_live_stream(self) -> dict:
+    async def stop_live_stream(self) -> JsonDict:
         url = f"{BASE_URL}/service/evse_controller/{self._site}/ev_chargers/stop_live_stream"
         headers = self._today_headers()
         headers.update(self._control_headers())
-        return await self._json("GET", url, headers=headers)
+        return cast(JsonDict, await self._json("GET", url, headers=headers))
 
     async def charge_mode(self, sn: str) -> str | None:
         """Fetch the current charge mode via scheduler API.
@@ -5139,7 +5382,7 @@ class EnphaseEVClient:
 
     async def set_charge_mode(
         self, sn: str, mode: str, *, previous_mode: str | None = None
-    ) -> dict:
+    ) -> JsonDict:
         """Set the charging mode via scheduler API.
 
         PUT /service/evse_scheduler/api/v1/iqevc/charging-mode/<site>/<sn>/preference
@@ -5165,7 +5408,9 @@ class EnphaseEVClient:
             }
         payload = {"mode": normalized_mode}
         try:
-            return await self._json("PUT", url, json=payload, headers=headers)
+            return cast(
+                JsonDict, await self._json("PUT", url, json=payload, headers=headers)
+            )
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
@@ -5221,7 +5466,7 @@ class EnphaseEVClient:
             return [item for item in data if isinstance(item, dict)]
         return []
 
-    async def set_green_battery_setting(self, sn: str, *, enabled: bool) -> dict:
+    async def set_green_battery_setting(self, sn: str, *, enabled: bool) -> JsonDict:
         """Toggle green charging battery support.
 
         PUT /service/evse_scheduler/api/v1/iqevc/charging-mode/GREEN_CHARGING/<site>/<sn>/settings
@@ -5237,7 +5482,7 @@ class EnphaseEVClient:
         )
         headers = self._today_json_headers()
         headers.update(self._control_headers())
-        payload = {
+        payload: JsonDict = {
             "chargerSettingList": [
                 {
                     "chargerSettingName": GREEN_BATTERY_SETTING,
@@ -5248,21 +5493,27 @@ class EnphaseEVClient:
             ]
         }
         try:
-            return await self._json("PUT", url, json=payload, headers=headers)
+            return cast(
+                JsonDict, await self._json("PUT", url, json=payload, headers=headers)
+            )
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
             raise
 
-    async def storm_guard_alert(self) -> dict:
+    async def storm_guard_alert(self) -> JsonDict:
         """Return Storm Guard alert status for the site.
 
         GET /service/batteryConfig/api/v1/stormGuard/<site_id>/stormAlert
         """
         url = f"{BASE_URL}/service/batteryConfig/api/v1/stormGuard/{self._site}/stormAlert"
-        return await self._battery_config_request("GET", url)
+        return await self._battery_config_request(
+            "GET",
+            url,
+            endpoint_family="storm_alert",
+        )
 
-    async def opt_out_storm_alert(self, *, alert_id: str, name: str) -> dict:
+    async def opt_out_storm_alert(self, *, alert_id: str, name: str) -> JsonDict:
         """Opt out of a specific Storm Guard alert.
 
         PUT /service/batteryConfig/api/v1/stormGuard/<site_id>/stormAlert
@@ -5273,8 +5524,7 @@ class EnphaseEVClient:
         }
         """
         url = f"{BASE_URL}/service/batteryConfig/api/v1/stormGuard/{self._site}/stormAlert"
-        headers = self._battery_config_headers(include_xsrf=True)
-        payload = {
+        payload: JsonDict = {
             "stormAlerts": [
                 {
                     "id": str(alert_id),
@@ -5283,36 +5533,44 @@ class EnphaseEVClient:
                 }
             ]
         }
-        return await self._json("PUT", url, json=payload, headers=headers)
+        return await self._battery_config_write_request(
+            "PUT",
+            url,
+            json_body=payload,
+            endpoint_family="storm_alert",
+            write_intent="storm_alert_opt_out",
+        )
 
-    async def storm_guard_profile(self, *, locale: str | None = None) -> dict:
+    async def storm_guard_profile(self, *, locale: str | None = None) -> JsonDict:
         """Return Storm Guard state and EVSE settings for the site.
 
         GET /service/batteryConfig/api/v1/profile/<site_id>?source=enho&userId=<user_id>&locale=<locale>
         """
         return await self.battery_profile_details(locale=locale)
 
-    async def battery_site_settings(self) -> dict:
+    async def battery_site_settings(self) -> JsonDict:
         """Return BatteryConfig site settings and feature flags."""
 
         url = f"{BASE_URL}/service/batteryConfig/api/v1/siteSettings/{self._site}"
         params = self._battery_config_params()
         return await self._battery_config_request("GET", url, params=params)
 
-    async def site_tariff_billing_details(self) -> dict:
+    async def site_tariff_billing_details(self) -> JsonDict:
         """Return site tariff billing-cycle details."""
 
         url = (
             f"{BASE_URL}/service/tariff/tariff-ms/systems/{self._site}/billing-details"
         )
-        return await self._json("GET", url, headers=self._tariff_headers())
+        return cast(
+            JsonDict, await self._json("GET", url, headers=self._tariff_headers())
+        )
 
     async def site_tariff_billing_update(
         self,
         payload: dict[str, Any],
         *,
         request_date: date | datetime | str | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Update site tariff billing-cycle details."""
 
         if request_date is None:
@@ -5326,23 +5584,29 @@ class EnphaseEVClient:
         url = (
             f"{BASE_URL}/service/tariff/tariff-ms/systems/{self._site}/billing-details"
         )
-        return await self._json(
-            "POST",
-            url,
-            json=payload,
-            params={"date": request_date_text},
-            headers=self._tariff_headers(write=True),
+        return cast(
+            JsonDict,
+            await self._json(
+                "POST",
+                url,
+                json=payload,
+                params={"date": request_date_text},
+                headers=self._tariff_headers(write=True),
+            ),
         )
 
-    async def site_tariff(self) -> dict:
+    async def site_tariff(self) -> JsonDict:
         """Return site import/export tariff configuration."""
 
         url = f"{BASE_URL}/service/tariff/tariff-ms/systems/{self._site}/tariff"
-        return await self._json(
-            "GET",
-            url,
-            params={"include-site-details": "true"},
-            headers=self._tariff_headers(),
+        return cast(
+            JsonDict,
+            await self._json(
+                "GET",
+                url,
+                params={"include-site-details": "true"},
+                headers=self._tariff_headers(),
+            ),
         )
 
     async def site_tariff_rates(
@@ -5350,7 +5614,7 @@ class EnphaseEVClient:
         *,
         rate_type: str,
         request_date: date | datetime | str | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Return dated tariff rates for a site tariff branch."""
 
         if request_date is None:
@@ -5362,18 +5626,21 @@ class EnphaseEVClient:
         else:
             request_date_text = str(request_date)
         url = f"{BASE_URL}/service/tariff/tariff-ms/systems/{self._site}/tariffs"
-        return await self._json(
-            "GET",
-            url,
-            params={
-                "rateType": str(rate_type).upper(),
-                "date": request_date_text,
-                "includeUtility": "",
-            },
-            headers=self._tariff_headers(),
+        return cast(
+            JsonDict,
+            await self._json(
+                "GET",
+                url,
+                params={
+                    "rateType": str(rate_type).upper(),
+                    "date": request_date_text,
+                    "includeUtility": "",
+                },
+                headers=self._tariff_headers(),
+            ),
         )
 
-    async def site_tariff_bundle(self) -> tuple[dict, dict]:
+    async def site_tariff_bundle(self) -> tuple[JsonDict, JsonDict]:
         """Return billing details and tariff configuration for the site."""
 
         try:
@@ -5390,35 +5657,141 @@ class EnphaseEVClient:
             raise err.exceptions[0] from err
         return billing_task.result(), tariff_task.result()
 
-    async def site_tariff_update(self, payload: dict[str, Any]) -> dict:
+    async def site_tariff_update(self, payload: dict[str, Any]) -> JsonDict:
         """Update site import/export tariff configuration."""
 
         _token, user_id = self._battery_config_auth_context()
         url = f"{BASE_URL}/service/tariff/tariff-ms/systems/{self._site}/tariff"
         params = {"user-id": user_id} if user_id else None
-        return await self._json(
-            "PUT",
-            url,
-            json=payload,
-            params=params,
-            headers=self._tariff_headers(write=True),
+        return cast(
+            JsonDict,
+            await self._json(
+                "PUT",
+                url,
+                json=payload,
+                params=params,
+                headers=self._tariff_headers(write=True),
+            ),
         )
 
-    async def notify_tariff_change(self) -> dict:
+    async def notify_tariff_change(self) -> JsonDict:
         """Notify the EVSE scheduler service that site tariff data changed."""
 
         url = (
             f"{BASE_URL}/service/evse_scheduler/api/v1/siteConfig/"
             f"{self._site}/tariff_change"
         )
-        return await self._json(
-            "PUT",
-            url,
-            json=None,
-            headers=self._tariff_headers(write=True),
+        return cast(
+            JsonDict,
+            await self._json(
+                "PUT",
+                url,
+                json=None,
+                headers=self._tariff_headers(write=True),
+            ),
         )
 
-    async def battery_profile_details(self, *, locale: str | None = None) -> dict:
+    async def async_get_activation_reference_data(self) -> JsonDict:
+        """Return Activation country/region reference data."""
+
+        url = f"{BASE_URL}/service/activation_service/api/details/reference_data"
+        return await self._activation_json(
+            "GET",
+            url,
+            headers=self._activation_reference_headers(),
+        )
+
+    async def async_get_activation_record(self) -> JsonDict:
+        """Return the cloud Activation record for this site."""
+
+        url = (
+            f"{BASE_URL}/service/activation_backend/api/gateway/v4/"
+            f"activations/{self._site}"
+        )
+        return await self._activation_json(
+            "GET",
+            url,
+            params={"expand": "owner,host"},
+            headers=self._activation_headers(),
+        )
+
+    async def async_get_activation_device_list(self) -> JsonDict:
+        """Return Activation device inventory and current grid-profile status."""
+
+        url = (
+            f"{BASE_URL}/service/activation_backend/api/gateway/v4/"
+            f"systems/{self._site}/devices/list"
+        )
+        result = await self._activation_payload(
+            "GET",
+            url,
+            headers=self._activation_headers(),
+        )
+        if isinstance(result, dict):
+            return result
+        if isinstance(result, list):
+            return {"devices": result}
+        raise OptionalEndpointUnavailable("Activation payload was not an object")
+
+    async def async_get_grid_profiles_filtered(
+        self,
+        *,
+        country: str,
+        state: str,
+        commonly_used: bool = True,
+    ) -> JsonDict:
+        """Return grid profiles for a country/region from Activation."""
+
+        url = (
+            f"{BASE_URL}/service/activation_backend/api/gateway/v4/"
+            f"systems/{self._site}/grid_profiles_filtered"
+        )
+        return await self._activation_json(
+            "POST",
+            url,
+            json={
+                "commonly_used": bool(commonly_used),
+                "country": country,
+                "state": state,
+            },
+            headers=self._activation_headers(write=True),
+        )
+
+    async def async_apply_grid_profile(
+        self,
+        *,
+        gateway_serial: str,
+        part_num: str | None,
+        ensemble_envoy: bool,
+        profile_id: str,
+    ) -> JsonDict:
+        """Apply a cloud Activation grid profile to a Gateway."""
+
+        url = (
+            f"{BASE_URL}/service/activation_backend/api/gateway/v4/"
+            f"systems/{self._site}/envoys"
+        )
+        envoy_payload: dict[str, object] = {
+            "grid_profile_id": profile_id,
+            "serial_num": gateway_serial,
+            "ensemble_envoy": ensemble_envoy,
+        }
+        if part_num:
+            envoy_payload["part_num"] = part_num
+        result = await self._activation_payload(
+            "PUT",
+            url,
+            json=[envoy_payload],
+            headers=self._activation_headers(write=True),
+            allow_empty_success=True,
+        )
+        if isinstance(result, dict):
+            return result
+        if isinstance(result, list):
+            return {"envoys": result}
+        raise OptionalEndpointUnavailable("Activation payload was not an object")
+
+    async def battery_profile_details(self, *, locale: str | None = None) -> JsonDict:
         """Return BatteryConfig profile details for system + EVSE settings."""
 
         url = f"{BASE_URL}/service/batteryConfig/api/v1/profile/{self._site}"
@@ -5433,7 +5806,7 @@ class EnphaseEVClient:
         self._remember_battery_config_write_base("profile", result)
         return result
 
-    async def battery_settings_details(self) -> dict:
+    async def battery_settings_details(self) -> JsonDict:
         """Return BatteryConfig battery details for charge-grid and shutdown controls."""
 
         url = f"{BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site}"
@@ -5450,7 +5823,7 @@ class EnphaseEVClient:
 
     async def accept_battery_settings_disclaimer(
         self, disclaimer_type: str = "itc"
-    ) -> dict:
+    ) -> JsonDict:
         """Acknowledge the BatteryConfig charge-from-grid disclaimer."""
 
         url = (
@@ -5472,7 +5845,7 @@ class EnphaseEVClient:
         payload: dict[str, Any],
         *,
         schedule_type: str = "cfg",
-    ) -> dict:
+    ) -> JsonDict:
         """Update BatteryConfig battery detail settings using a partial payload."""
         url = f"{BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site}"
         params = self._battery_config_params(include_source=True)
@@ -5496,7 +5869,7 @@ class EnphaseEVClient:
         include_source: bool = True,
         merged_payload: bool = False,
         strip_devices: bool = False,
-    ) -> dict:
+    ) -> JsonDict:
         """Update battery settings using an explicit compatibility payload shape."""
 
         url = f"{BASE_URL}/service/batteryConfig/api/v1/batterySettings/{self._site}"
@@ -5526,7 +5899,7 @@ class EnphaseEVClient:
         battery_backup_percentage: int,
         operation_mode_sub_type: str | None = None,
         devices: list[dict[str, Any]] | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Update the site battery profile and reserve percentage."""
         url = f"{BASE_URL}/service/batteryConfig/api/v1/profile/{self._site}"
         params = self._battery_config_params(include_source=True)
@@ -5548,7 +5921,7 @@ class EnphaseEVClient:
             supports_mqtt=self._battery_config_supports_mqtt,
         )
 
-    async def cancel_battery_profile_update(self) -> dict:
+    async def cancel_battery_profile_update(self) -> JsonDict:
         """Cancel a pending site battery profile change."""
         url = f"{BASE_URL}/service/batteryConfig/api/v1/cancel/profile/{self._site}"
         params = self._battery_config_params(include_source=True)
@@ -5560,14 +5933,14 @@ class EnphaseEVClient:
             endpoint_family="profile",
         )
 
-    async def set_storm_guard(self, *, enabled: bool, evse_enabled: bool) -> dict:
+    async def set_storm_guard(self, *, enabled: bool, evse_enabled: bool) -> JsonDict:
         """Toggle Storm Guard and the EVSE charge-to-100% option.
 
         PUT /service/batteryConfig/api/v1/stormGuard/toggle/<site_id>?userId=<user_id>
         """
         url = f"{BASE_URL}/service/batteryConfig/api/v1/stormGuard/toggle/{self._site}"
         params = self._battery_config_params(include_source=True)
-        payload = {
+        payload: JsonDict = {
             "stormGuardState": "enabled" if enabled else "disabled",
             "evseStormEnabled": bool(evse_enabled),
         }
@@ -5583,7 +5956,7 @@ class EnphaseEVClient:
     # Battery schedule CRUD (newer /battery/sites/{id}/schedules API)
     # ------------------------------------------------------------------
 
-    async def battery_schedules(self) -> dict:
+    async def battery_schedules(self) -> JsonDict:
         """Return all battery schedules for the site.
 
         GET /service/batteryConfig/api/v1/battery/sites/{site_id}/schedules
@@ -5612,7 +5985,7 @@ class EnphaseEVClient:
         days: list[int],
         timezone: str = "UTC",
         is_enabled: bool | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Create a new battery schedule.
 
         POST /service/batteryConfig/api/v1/battery/sites/{site_id}/schedules
@@ -5631,7 +6004,7 @@ class EnphaseEVClient:
             f"{BASE_URL}/service/batteryConfig/api/v1/battery/sites/"
             f"{self._site}/schedules"
         )
-        payload = {
+        payload: JsonDict = {
             "timezone": timezone,
             "startTime": start_time[:5],
             "endTime": end_time[:5],
@@ -5662,7 +6035,7 @@ class EnphaseEVClient:
         timezone: str = "UTC",
         is_enabled: bool | None = None,
         is_deleted: bool | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Update an existing battery schedule in-place.
 
         PUT /service/batteryConfig/api/v1/battery/sites/{site_id}/schedules/{id}
@@ -5682,7 +6055,7 @@ class EnphaseEVClient:
             f"{BASE_URL}/service/batteryConfig/api/v1/battery/sites/"
             f"{self._site}/schedules/{schedule_id}"
         )
-        payload = {
+        payload: JsonDict = {
             "timezone": timezone,
             "startTime": start_time[:5],
             "endTime": end_time[:5],
@@ -5708,7 +6081,7 @@ class EnphaseEVClient:
         schedule_id: str | int,
         *,
         schedule_type: str = "cfg",
-    ) -> dict:
+    ) -> JsonDict:
         """Delete a battery schedule by ID.
 
         POST /service/batteryConfig/api/v1/battery/sites/{site_id}/schedules/{id}/delete
@@ -5726,7 +6099,7 @@ class EnphaseEVClient:
             endpoint_family="schedules",
         )
 
-    async def validate_battery_schedule(self, schedule_type: str = "cfg") -> dict:
+    async def validate_battery_schedule(self, schedule_type: str = "cfg") -> JsonDict:
         """Validate a battery schedule configuration.
 
         POST /service/batteryConfig/api/v1/battery/sites/{site_id}/schedules/isValid
@@ -5799,14 +6172,17 @@ class EnphaseEVClient:
         payload = [{"key": key} for key in normalized_keys]
 
         async def _retry_without_control_auth() -> dict[str, Any]:
-            retry_headers = self._today_json_headers()
+            retry_headers: dict[str, Any] = self._today_json_headers()
             retry_headers["Authorization"] = None
             retry_headers["e-auth-token"] = None
-            return await self._json(
-                "POST",
-                url,
-                json=payload,
-                headers=retry_headers,
+            return cast(
+                JsonDict,
+                await self._json(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers=retry_headers,
+                ),
             )
 
         try:
@@ -5828,7 +6204,7 @@ class EnphaseEVClient:
             return [item for item in data if isinstance(item, dict)]
         return []
 
-    async def set_app_authentication(self, sn: str, *, enabled: bool) -> dict:
+    async def set_app_authentication(self, sn: str, *, enabled: bool) -> JsonDict:
         """Enable or disable session authentication via app.
 
         PUT /service/evse_controller/api/v1/<site>/<sn>/ev_charger_config
@@ -5847,13 +6223,15 @@ class EnphaseEVClient:
             }
         ]
         try:
-            return await self._json("PUT", url, json=payload, headers=headers)
+            return cast(
+                JsonDict, await self._json("PUT", url, json=payload, headers=headers)
+            )
         except aiohttp.ClientResponseError as err:
             if is_auth_settings_unavailable_error(err.message, err.status, url):
                 raise AuthSettingsUnavailable(str(err)) from err
             raise
 
-    async def set_default_charge_level(self, sn: str, amps: int) -> dict:
+    async def set_default_charge_level(self, sn: str, amps: int) -> JsonDict:
         """Set the charger's stored default charge level.
 
         PUT /service/evse_controller/api/v1/<site>/<sn>/ev_charger_config
@@ -5874,7 +6252,7 @@ class EnphaseEVClient:
             raise
         return response if isinstance(response, dict) else {}
 
-    async def get_schedules(self, sn: str) -> dict:
+    async def get_schedules(self, sn: str) -> JsonDict:
         """Return scheduler config and slots for the charger.
 
         GET /service/evse_scheduler/api/v1/iqevc/charging-mode/SCHEDULED_CHARGING/<site>/<sn>/schedules
@@ -5901,8 +6279,8 @@ class EnphaseEVClient:
         }
 
     async def patch_schedules(
-        self, sn: str, *, server_timestamp: str, slots: list[dict]
-    ) -> dict:
+        self, sn: str, *, server_timestamp: str, slots: list[JsonDict]
+    ) -> JsonDict:
         """Patch the scheduler slots for the charger.
 
         PATCH /service/evse_scheduler/api/v1/iqevc/charging-mode/SCHEDULED_CHARGING/<site>/<sn>/schedules
@@ -5918,7 +6296,10 @@ class EnphaseEVClient:
             "data": slots,
         }
         try:
-            return await self._json("PATCH", url, json=payload, headers=headers)
+            return cast(
+                JsonDict,
+                await self._json("PATCH", url, json=payload, headers=headers),
+            )
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
@@ -5926,7 +6307,7 @@ class EnphaseEVClient:
 
     async def patch_schedule_states(
         self, sn: str, *, slot_states: dict[str, bool]
-    ) -> dict:
+    ) -> JsonDict:
         """Patch schedule slot enabled states for the charger.
 
         PATCH /service/evse_scheduler/api/v1/iqevc/charging-mode/SCHEDULED_CHARGING/<site>/<sn>/schedules
@@ -5942,13 +6323,16 @@ class EnphaseEVClient:
             for slot_id, enabled in slot_states.items()
         }
         try:
-            return await self._json("PATCH", url, json=payload, headers=headers)
+            return cast(
+                JsonDict,
+                await self._json("PATCH", url, json=payload, headers=headers),
+            )
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
             raise
 
-    async def patch_schedule(self, sn: str, slot_id: str, slot: dict) -> dict:
+    async def patch_schedule(self, sn: str, slot_id: str, slot: JsonDict) -> JsonDict:
         """Patch a single schedule slot for the charger.
 
         PATCH /service/evse_scheduler/api/v1/iqevc/charging-mode/SCHEDULED_CHARGING/<site>/<sn>/schedule/<slot_id>
@@ -5960,13 +6344,15 @@ class EnphaseEVClient:
         headers = self._today_json_headers()
         headers.update(self._control_headers())
         try:
-            return await self._json("PATCH", url, json=slot, headers=headers)
+            return cast(
+                JsonDict, await self._json("PATCH", url, json=slot, headers=headers)
+            )
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
             raise
 
-    async def create_schedule(self, sn: str, slot: dict) -> dict:
+    async def create_schedule(self, sn: str, slot: JsonDict) -> JsonDict:
         """Create a single schedule slot for the charger.
 
         POST /service/evse_scheduler/api/v1/iqevc/charging-mode/SCHEDULED_CHARGING/<site>/<sn>/schedule
@@ -5978,13 +6364,15 @@ class EnphaseEVClient:
         headers = self._today_json_headers()
         headers.update(self._control_headers())
         try:
-            return await self._json("POST", url, json=slot, headers=headers)
+            return cast(
+                JsonDict, await self._json("POST", url, json=slot, headers=headers)
+            )
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
             raise
 
-    async def delete_schedule(self, sn: str, slot_id: str) -> dict:
+    async def delete_schedule(self, sn: str, slot_id: str) -> JsonDict:
         """Delete a single schedule slot for the charger.
 
         DELETE /service/evse_scheduler/api/v1/iqevc/charging-mode/SCHEDULED_CHARGING/<site>/<sn>/schedule/<slot_id>
@@ -5996,13 +6384,13 @@ class EnphaseEVClient:
         headers = self._today_json_headers()
         headers.update(self._control_headers())
         try:
-            return await self._json("DELETE", url, headers=headers)
+            return cast(JsonDict, await self._json("DELETE", url, headers=headers))
         except aiohttp.ClientResponseError as err:
             if is_scheduler_unavailable_error(err.message, err.status, url):
                 raise SchedulerUnavailable(str(err)) from err
             raise
 
-    async def lifetime_energy(self) -> dict | None:
+    async def lifetime_energy(self) -> JsonDict | None:
         """Return lifetime energy buckets for the configured site.
 
         GET /pv/systems/<site_id>/lifetime_energy
@@ -6016,13 +6404,21 @@ class EnphaseEVClient:
             raise
         return self._normalize_lifetime_energy_payload(data)
 
+    async def weather(self, *, locale: str) -> JsonDict:
+        """Return the current weather reported for the configured site.
+
+        GET /systems/<site_id>/weather.json?locale=<locale>
+        """
+
+        return await api_site_surface.weather(self, base_url=BASE_URL, locale=locale)
+
     @classmethod
     def _normalize_latest_power_payload(
         cls, payload: object
     ) -> dict[str, object] | None:
         """Normalize app-api latest power payloads into a common shape."""
 
-        return api_parsers.normalize_latest_power_payload(payload)
+        return api_site_surface.normalize_latest_power(payload)
 
     async def latest_power(self) -> dict[str, object] | None:
         """Return the latest site power sample for the configured site.
@@ -6030,72 +6426,369 @@ class EnphaseEVClient:
         GET /app-api/<site_id>/get_latest_power
         """
 
-        url = f"{BASE_URL}/app-api/{self._site}/get_latest_power"
-        data = await self._json("GET", url, headers=self._history_headers())
-        normalized = self._normalize_latest_power_payload(data)
-        if normalized is not None:
-            return normalized
-
-        top_level_keys: list[str] = []
-        nested_keys: list[str] = []
-        payload_type = type(data).__name__
-        if isinstance(data, dict):
-            top_level_keys = sorted(str(key) for key in data.keys())
-            nested = data.get("latest_power")
-            if not isinstance(nested, dict):
-                candidate = data.get("data")
-                if isinstance(candidate, dict):
-                    nested = candidate.get("latest_power")
-                    if not isinstance(nested, dict):
-                        nested = candidate
-            if isinstance(nested, dict):
-                nested_keys = sorted(str(key) for key in nested.keys())
-
-        _LOGGER.debug(
-            "Invalid latest power payload for site %s (payload_type=%s, top_level_keys=%s, nested_keys=%s)",
-            redact_site_id(self._site),
-            payload_type,
-            top_level_keys,
-            nested_keys,
-        )
-        return None
+        return await api_site_surface.latest_power(self, base_url=BASE_URL)
 
     async def show_livestream(
         self, *, allow_reauth: bool = True
     ) -> dict[str, object] | None:
         """Return live-status/vitals capability flags when available."""
 
-        url = f"{BASE_URL}/app-api/{self._site}/show_livestream"
-        try:
-            data = await self._json(
-                "GET",
-                url,
-                headers=self._system_dashboard_headers(),
-                allow_reauth=allow_reauth,
-            )
-        except Unauthorized:
-            if not allow_reauth:
-                raise
+        return await api_site_surface.show_livestream(
+            self,
+            base_url=BASE_URL,
+            allow_reauth=allow_reauth,
+            unauthorized_error=Unauthorized,
+            invalid_payload_error=InvalidPayloadError,
+            optional_non_json=_is_optional_non_json_payload,
+        )
+
+    async def site_livestream_authorizer(
+        self,
+        serial_num: str,
+        *,
+        live_debug: bool = False,
+        allow_reauth: bool = True,
+    ) -> dict[str, object] | None:
+        """Return signed AWS IoT connection details for the site live stream."""
+
+        return await api_site_surface.livestream_authorizer(
+            self,
+            serial_num,
+            base_url=BASE_URL,
+            live_debug=live_debug,
+            allow_reauth=allow_reauth,
+            unauthorized_error=Unauthorized,
+            invalid_payload_error=InvalidPayloadError,
+            optional_non_json=_is_optional_non_json_payload,
+        )
+
+    async def site_livestream_payload(
+        self,
+        serial_num: str,
+        *,
+        live_debug: bool = False,
+        timeout_s: float = 15.0,
+        allow_reauth: bool = True,
+    ) -> dict[str, object] | None:
+        """Read and decode one MQTT payload from the signed site live stream."""
+
+        authorizer = await self.site_livestream_authorizer(
+            serial_num,
+            live_debug=live_debug,
+            allow_reauth=allow_reauth,
+        )
+        if not isinstance(authorizer, dict):
             return None
-        except InvalidPayloadError as err:
-            if _is_optional_non_json_payload(err):
+        topic_key = "live_debug_topic" if live_debug else "live_stream_topic"
+        topic = self._coerce_text(authorizer.get(topic_key))
+        endpoint = self._coerce_text(authorizer.get("aws_iot_endpoint"))
+        username = self._site_livestream_mqtt_username(authorizer)
+        if topic is None or endpoint is None or username is None:
+            return None
+        payload = await self._read_mqtt_websocket_payload(
+            endpoint,
+            topic,
+            username,
+            timeout_s=timeout_s,
+        )
+        decoded = self._decode_site_livestream_payload(payload)
+        return decoded if isinstance(decoded, dict) else None
+
+    @staticmethod
+    def _coerce_text(value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def _site_livestream_mqtt_username(
+        self, authorizer: dict[str, object]
+    ) -> str | None:
+        authorizer_name = self._coerce_text(authorizer.get("aws_authorizer"))
+        token_key = self._coerce_text(authorizer.get("aws_token_key"))
+        token_value = self._coerce_text(authorizer.get("aws_token_value"))
+        digest = self._coerce_text(authorizer.get("aws_digest"))
+        if (
+            authorizer_name is None
+            or token_key is None
+            or token_value is None
+            or digest is None
+        ):
+            return None
+        return "?" + urlencode(
+            {
+                "x-amz-customauthorizer-name": authorizer_name,
+                token_key: token_value,
+                "site-id": str(self._site),
+                "x-amz-customauthorizer-signature": digest,
+                "env": "production",
+            }
+        )
+
+    async def _read_mqtt_websocket_payload(
+        self,
+        endpoint: str,
+        topic: str,
+        username: str,
+        *,
+        timeout_s: float,
+    ) -> bytes:
+        ws_url = f"wss://{endpoint}/mqtt"
+        client_id = f"ha-enphase-ev-{uuid.uuid4().hex[:20]}"
+        deadline = asyncio.get_running_loop().time() + timeout_s
+        ws_connect = cast(Callable[..., Any], self._s.ws_connect)
+        async with ws_connect(
+            ws_url,
+            protocols=("mqtt",),
+            headers={"Origin": BASE_URL},
+            timeout=self._mqtt_remaining_timeout(deadline),
+        ) as ws:
+            await ws.send_bytes(self._mqtt_connect_packet(client_id, username))
+            _, connack_payload = await self._wait_for_mqtt_packet(
+                ws, {0x20}, deadline=deadline
+            )
+            self._validate_mqtt_connack(connack_payload)
+            await ws.send_bytes(self._mqtt_subscribe_packet(topic))
+            _, suback_payload = await self._wait_for_mqtt_packet(
+                ws, {0x90}, deadline=deadline
+            )
+            self._validate_mqtt_suback(suback_payload)
+            packet_type, payload = await self._wait_for_mqtt_packet(
+                ws, {0x30}, deadline=deadline
+            )
+            return self._mqtt_publish_payload(packet_type, payload)
+
+    @staticmethod
+    def _mqtt_remaining_timeout(deadline: float) -> float:
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise asyncio.TimeoutError
+        return remaining
+
+    @staticmethod
+    def _mqtt_string(value: str) -> bytes:
+        data = value.encode()
+        return len(data).to_bytes(2, "big") + data
+
+    @staticmethod
+    def _mqtt_remaining_length(length: int) -> bytes:
+        encoded = bytearray()
+        while True:
+            digit = length % 128
+            length //= 128
+            if length > 0:
+                digit |= 0x80
+            encoded.append(digit)
+            if length == 0:
+                return bytes(encoded)
+
+    @classmethod
+    def _mqtt_packet(cls, packet_type: int, payload: bytes) -> bytes:
+        return bytes([packet_type]) + cls._mqtt_remaining_length(len(payload)) + payload
+
+    @classmethod
+    def _mqtt_connect_packet(cls, client_id: str, username: str) -> bytes:
+        variable_header = (
+            cls._mqtt_string("MQTT")
+            + b"\x04"  # MQTT 3.1.1
+            + b"\x82"  # username + clean session
+            + (30).to_bytes(2, "big")
+        )
+        payload = cls._mqtt_string(client_id) + cls._mqtt_string(username)
+        return cls._mqtt_packet(0x10, variable_header + payload)
+
+    @classmethod
+    def _mqtt_subscribe_packet(cls, topic: str) -> bytes:
+        payload = (1).to_bytes(2, "big") + cls._mqtt_string(topic) + b"\x00"
+        return cls._mqtt_packet(0x82, payload)
+
+    @staticmethod
+    def _validate_mqtt_connack(payload: bytes) -> None:
+        if len(payload) < 2:
+            raise aiohttp.ClientConnectionError("MQTT CONNACK payload was incomplete")
+        return_code = payload[1]
+        if return_code:
+            raise aiohttp.ClientConnectionError(
+                f"MQTT CONNECT was rejected with return code {return_code}"
+            )
+
+    @staticmethod
+    def _validate_mqtt_suback(payload: bytes) -> None:
+        if len(payload) < 3:
+            raise aiohttp.ClientConnectionError("MQTT SUBACK payload was incomplete")
+        granted_qos = payload[2:]
+        if not granted_qos or any(qos == 0x80 for qos in granted_qos):
+            raise aiohttp.ClientConnectionError("MQTT subscription was rejected")
+
+    @classmethod
+    def _mqtt_packets(cls, data: bytes) -> Iterable[tuple[int, bytes]]:
+        offset = 0
+        data_len = len(data)
+        while offset + 2 <= data_len:
+            packet_type = data[offset]
+            offset += 1
+            multiplier = 1
+            remaining = 0
+            while offset < data_len:
+                digit = data[offset]
+                offset += 1
+                remaining += (digit & 127) * multiplier
+                if (digit & 128) == 0:
+                    break
+                multiplier *= 128
+            end = offset + remaining
+            if end > data_len:
+                return
+            yield packet_type, data[offset:end]
+            offset = end
+
+    @classmethod
+    async def _wait_for_mqtt_packet(
+        cls,
+        ws: aiohttp.ClientWebSocketResponse,
+        packet_prefixes: set[int],
+        *,
+        deadline: float,
+    ) -> tuple[int, bytes]:
+        while True:
+            msg = await ws.receive(timeout=cls._mqtt_remaining_timeout(deadline))
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                for packet_type, payload in cls._mqtt_packets(msg.data):
+                    if packet_type & 0xF0 in packet_prefixes:
+                        return packet_type, payload
+            elif msg.type in (
+                aiohttp.WSMsgType.CLOSED,
+                aiohttp.WSMsgType.CLOSE,
+                aiohttp.WSMsgType.ERROR,
+            ):
+                raise aiohttp.ClientConnectionError("MQTT WebSocket closed")
+
+    @staticmethod
+    def _mqtt_publish_payload(packet_type: int, payload: bytes) -> bytes:
+        if len(payload) < 2:
+            return b""
+        topic_len = int.from_bytes(payload[:2], "big")
+        offset = 2 + topic_len
+        qos = (packet_type & 0x06) >> 1
+        if qos:
+            offset += 2
+        return payload[offset:]
+
+    @staticmethod
+    def _decode_json_mqtt_payload(payload: bytes) -> object | None:
+        text = payload.decode("utf-8", "ignore").strip(" \t\r\n\0")
+        if not text:
+            return None
+        try:
+            return cast(object, json.loads(text))
+        except ValueError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start == -1 or end <= start:
                 return None
-            raise
-        except aiohttp.ClientResponseError as err:
-            if err.status in (401, 403, 404):
-                if not allow_reauth and err.status in (401, 403):
-                    raise
+            try:
+                return cast(object, json.loads(text[start : end + 1]))
+            except ValueError:
                 return None
-            raise
-        return data if isinstance(data, dict) else None
+
+    @classmethod
+    def _decode_site_livestream_payload(
+        cls, payload: bytes
+    ) -> dict[str, object] | None:
+        decoded = cls._decode_json_mqtt_payload(payload)
+        if isinstance(decoded, dict):
+            return decoded
+        grid_relay = cls._decode_live_status_grid_relay(payload)
+        if grid_relay is None:
+            return None
+        return {"meters": {"gridRelay": grid_relay}}
+
+    @staticmethod
+    def _protobuf_varint(data: bytes, offset: int) -> tuple[int, int] | None:
+        value = 0
+        for shift in range(0, 70, 7):
+            if offset >= len(data):
+                return None
+            byte = data[offset]
+            offset += 1
+            value |= (byte & 0x7F) << shift
+            if not byte & 0x80:
+                return value, offset
+        return None
+
+    @classmethod
+    def _protobuf_field(
+        cls,
+        data: bytes,
+        field_number: int,
+        wire_type: int,
+    ) -> int | bytes | None:
+        offset = 0
+        field_value: int | bytes
+        while offset < len(data):
+            key_result = cls._protobuf_varint(data, offset)
+            if key_result is None:
+                return None
+            key, offset = key_result
+            current_field = key >> 3
+            current_wire = key & 0x07
+            if current_field == 0:
+                return None
+
+            if current_wire == 0:
+                value_result = cls._protobuf_varint(data, offset)
+                if value_result is None:
+                    return None
+                field_value, offset = value_result
+            elif current_wire == 1:
+                end = offset + 8
+                if end > len(data):
+                    return None
+                field_value = data[offset:end]
+                offset = end
+            elif current_wire == 2:
+                length_result = cls._protobuf_varint(data, offset)
+                if length_result is None:
+                    return None
+                length, offset = length_result
+                end = offset + length
+                if end > len(data):
+                    return None
+                field_value = data[offset:end]
+                offset = end
+            elif current_wire == 5:
+                end = offset + 4
+                if end > len(data):
+                    return None
+                field_value = data[offset:end]
+                offset = end
+            else:
+                return None
+
+            if current_field == field_number and current_wire == wire_type:
+                return field_value
+        return None
+
+    @classmethod
+    def _decode_live_status_grid_relay(cls, payload: bytes) -> str | None:
+        # DataMsg.meters is field 3; MeterSummaryData.grid_relay is field 5.
+        meters = cls._protobuf_field(payload, 3, 2)
+        if not isinstance(meters, bytes):
+            return None
+        grid_relay = cls._protobuf_field(meters, 5, 0)
+        if not isinstance(grid_relay, int):
+            return None
+        return _LIVE_STATUS_GRID_RELAY_ENUM.get(grid_relay)
 
     @staticmethod
     def _normalize_evse_timeseries_serial(value: object) -> str | None:
-        return api_parsers.normalize_evse_timeseries_serial(value)
+        serial = api_parsers.normalize_evse_timeseries_serial(value)
+        return str(serial) if serial is not None else None
 
     @staticmethod
     def _parse_evse_timeseries_date_key(value: object) -> str | None:
-        return api_parsers.parse_evse_timeseries_date_key(value)
+        date_key = api_parsers.parse_evse_timeseries_date_key(value)
+        return str(date_key) if date_key is not None else None
 
     @classmethod
     def _coerce_evse_timeseries_energy(
@@ -6255,12 +6948,14 @@ class EnphaseEVClient:
         return api_parsers.coerce_non_boolean_number(value)
 
     @classmethod
-    def _normalize_lifetime_energy_payload(cls, payload: object) -> dict | None:
+    def _normalize_lifetime_energy_payload(cls, payload: object) -> JsonDict | None:
         """Normalize site/HEMS lifetime-energy payloads into a common shape."""
 
-        return api_parsers.normalize_lifetime_energy_payload(payload)
+        return cast(
+            JsonDict | None, api_parsers.normalize_lifetime_energy_payload(payload)
+        )
 
-    async def hems_consumption_lifetime(self) -> dict | None:
+    async def hems_consumption_lifetime(self) -> JsonDict | None:
         """Return HEMS lifetime consumption buckets when available.
 
         GET /systems/<site_id>/hems_consumption_lifetime
@@ -6315,19 +7010,25 @@ class EnphaseEVClient:
     @staticmethod
     def _clean_optional_text(value: object) -> str | None:
         """Return a trimmed string value when present."""
-        return api_parsers.clean_optional_text(value)
+        text = api_parsers.clean_optional_text(value)
+        return str(text) if text is not None else None
 
     @classmethod
     def _heatpump_sg_ready_mode_details(cls, value: object) -> dict[str, object]:
         """Map raw HEMS SG Ready mode labels to app-facing semantics."""
 
-        return api_parsers.heatpump_sg_ready_mode_details(value)
+        return cast(
+            dict[str, object], api_parsers.heatpump_sg_ready_mode_details(value)
+        )
 
     @classmethod
-    def _normalize_hems_heatpump_state_payload(cls, payload: object) -> dict | None:
+    def _normalize_hems_heatpump_state_payload(cls, payload: object) -> JsonDict | None:
         """Normalize HEMS heat-pump runtime state payloads."""
 
-        return api_parsers.normalize_hems_heatpump_state_payload(payload)
+        return cast(
+            JsonDict | None,
+            api_parsers.normalize_hems_heatpump_state_payload(payload),
+        )
 
     @classmethod
     def _normalize_hems_daily_consumption_entry(
@@ -6338,20 +7039,27 @@ class EnphaseEVClient:
         return api_parsers.normalize_hems_daily_consumption_entry(payload)
 
     @classmethod
-    def _normalize_hems_energy_consumption_payload(cls, payload: object) -> dict | None:
+    def _normalize_hems_energy_consumption_payload(
+        cls, payload: object
+    ) -> JsonDict | None:
         """Normalize HEMS daily energy-consumption payloads."""
 
-        return api_parsers.normalize_hems_energy_consumption_payload(payload)
+        return cast(
+            JsonDict | None,
+            api_parsers.normalize_hems_energy_consumption_payload(payload),
+        )
 
     @classmethod
-    def _normalize_pv_system_today_payload(cls, payload: object) -> dict | None:
+    def _normalize_pv_system_today_payload(cls, payload: object) -> JsonDict | None:
         """Normalize site-today payloads used by heat-pump daily totals."""
 
-        return api_parsers.normalize_pv_system_today_payload(payload)
+        return cast(
+            JsonDict | None, api_parsers.normalize_pv_system_today_payload(payload)
+        )
 
     async def hems_heatpump_state(
         self, device_uid: str, *, timezone: str | None = None
-    ) -> dict | None:
+    ) -> JsonDict | None:
         """Return HEMS heat-pump runtime state when available."""
 
         device_uid = str(device_uid or "").strip()
@@ -6412,7 +7120,7 @@ class EnphaseEVClient:
         end_at: str,
         timezone: str,
         step: str = "P1D",
-    ) -> dict | None:
+    ) -> JsonDict | None:
         """Return HEMS daily device energy-consumption buckets when available."""
 
         url = str(
@@ -6470,7 +7178,7 @@ class EnphaseEVClient:
             raise
         return self._normalize_hems_energy_consumption_payload(data)
 
-    async def pv_system_today(self, *, allow_reauth: bool = True) -> dict | None:
+    async def pv_system_today(self, *, allow_reauth: bool = True) -> JsonDict | None:
         """Return the site today payload when available."""
 
         url = f"{BASE_URL}/pv/systems/{self._site}/today"
@@ -6511,7 +7219,9 @@ class EnphaseEVClient:
             raise
         return self._normalize_pv_system_today_payload(data)
 
-    async def heat_pump_events_json(self, device_uid: str) -> dict | list | None:
+    async def heat_pump_events_json(
+        self, device_uid: str
+    ) -> JsonDict | list[Any] | None:
         """Return per-device HEMS heat-pump events payload when available."""
 
         if not str(device_uid or "").strip():
@@ -6565,7 +7275,7 @@ class EnphaseEVClient:
             return data
         return None
 
-    async def iq_er_events_json(self, device_uid: str) -> dict | list | None:
+    async def iq_er_events_json(self, device_uid: str) -> JsonDict | list[Any] | None:
         """Return per-device HEMS IQ Energy Router events payload when available."""
 
         if not str(device_uid or "").strip():
@@ -6619,7 +7329,7 @@ class EnphaseEVClient:
             return data
         return None
 
-    async def summary_v2(self) -> list[dict] | None:
+    async def summary_v2(self) -> list[JsonDict] | None:
         """Fetch charger summary v2 list.
 
         GET /service/evse_controller/api/v2/<site_id>/ev_chargers/summary?filter_retired=true
@@ -6633,7 +7343,8 @@ class EnphaseEVClient:
                 raise OptionalEndpointUnavailable(err.summary) from err
             raise
         try:
-            return data.get("data") or []
+            rows = data.get("data")
+            return cast(list[JsonDict], rows) if isinstance(rows, list) else []
         except Exception:
             return None
 
@@ -6682,7 +7393,9 @@ class EnphaseEVClient:
             payload=data,
         )
 
-    async def evse_feature_flags(self, *, country: str | None = None) -> dict | None:
+    async def evse_feature_flags(
+        self, *, country: str | None = None
+    ) -> JsonDict | None:
         """Return EVSE feature flags and UI gating details for the site.
 
         GET /service/evse_management/api/v1/config/feature-flags?site_id=<site_id>[&country=<country>]
@@ -6723,7 +7436,7 @@ class EnphaseEVClient:
             raise
         return data if isinstance(data, dict) else None
 
-    async def devices_inventory(self) -> dict:
+    async def devices_inventory(self) -> JsonDict:
         """Return site device inventory grouped by hardware type.
 
         GET /app-api/<site_id>/devices.json
@@ -6734,7 +7447,22 @@ class EnphaseEVClient:
             return data
         return {}
 
-    async def devices_tree(self) -> dict | None:
+    async def phase_map_multiple_envoy(self) -> JsonDict | None:
+        """Return per-gateway phase and topology metadata for the site.
+
+        GET /app-api/<site_id>/phase_map_multiple_envoy
+        """
+
+        url = f"{BASE_URL}/app-api/{self._site}/phase_map_multiple_envoy"
+        try:
+            data = await self._json("GET", url, headers=self._history_headers())
+        except InvalidPayloadError as err:
+            if _is_optional_non_json_payload(err) or _is_optional_html_payload(err):
+                raise OptionalEndpointUnavailable(err.summary) from err
+            raise
+        return data if isinstance(data, dict) else None
+
+    async def devices_tree(self) -> JsonDict | None:
         """Return the system dashboard device hierarchy when available.
 
         GET /service/system_dashboard/api_internal/dashboard/sites/<site_id>/devices-tree
@@ -6750,7 +7478,7 @@ class EnphaseEVClient:
 
     async def system_dashboard_summary(
         self, *, allow_reauth: bool = True
-    ) -> dict | None:
+    ) -> JsonDict | None:
         """Return the system dashboard capability summary when available.
 
         GET /service/system_dashboard/api_internal/cs/sites/<site_id>/summary
@@ -6784,13 +7512,170 @@ class EnphaseEVClient:
         if not isinstance(data, dict):
             return None
 
+        self._system_dashboard_summary_payload = dict(data)
         is_hems = data.get("is_hems")
         if isinstance(is_hems, bool):
             self._hems_site_supported = is_hems
 
         return data
 
-    async def devices_details(self, type_key: str) -> dict | None:
+    async def system_dashboard_events(self) -> JsonDict | None:
+        """Return current System Dashboard event rows and lookup catalogs.
+
+        GET /service/system_dashboard/api_internal/cs/sites/<site_id>/events
+        """
+
+        base_url = URL(
+            f"{BASE_URL}/service/system_dashboard/api_internal/cs/sites/"
+            f"{self._site}/events"
+        )
+        query = {
+            "range": "today",
+            "cassandra_toggle": "false",
+            "filter_columns": (
+                "serial_number,device_type,event_date,cleared_date,"
+                "event_type,event_state,details,updated_at,alarm_id"
+            ),
+            "serial_numbers": "",
+            "type": "table",
+            "event_state": "default",
+            "per_page": str(_SYSTEM_EVENTS_PAGE_SIZE),
+        }
+        merged: JsonDict | None = None
+        merged_events: list[object] = []
+        last_page_full = False
+        for page in range(1, _SYSTEM_EVENTS_MAX_PAGES + 1):
+            url = str(base_url.update_query({**query, "page": str(page)}))
+            try:
+                data = await self._json(
+                    "GET",
+                    url,
+                    headers=self._system_dashboard_headers(),
+                )
+            except Exception as err:  # noqa: BLE001
+                if self._system_dashboard_is_optional_error(err):
+                    return None
+                raise
+            if not isinstance(data, dict):
+                return None
+            events = data.get("events")
+            if not isinstance(events, list):
+                return None
+            if merged is None:
+                merged = dict(data)
+            else:
+                for key in ("event_types", "event_states", "event_severities"):
+                    if key not in merged and key in data:
+                        merged[key] = data[key]
+            merged_events.extend(events)
+            last_page_full = len(events) >= _SYSTEM_EVENTS_PAGE_SIZE
+            if not last_page_full:
+                break
+        if merged is None:  # pragma: no cover - loop always executes
+            return None
+        merged["events"] = merged_events
+        merged["_enphase_ev_truncated"] = (
+            page == _SYSTEM_EVENTS_MAX_PAGES and last_page_full
+        )
+        return merged
+
+    async def homeowner_events_page(
+        self,
+        *,
+        next_cursor: str = "start",
+        page_size: int = 200,
+        locale: str = "en",
+    ) -> JsonDict | None:
+        """Return one cursor-paginated homeowner event-history page.
+
+        GET /service/events-platform-service/v1.0/<site_id>/events/homeowner
+        """
+
+        url = str(
+            URL(
+                f"{BASE_URL}/service/events-platform-service/v1.0/"
+                f"{self._site}/events/homeowner"
+            ).update_query(
+                {
+                    "next": str(next_cursor or "start"),
+                    "page_size": str(max(1, min(int(page_size), 200))),
+                    "locale": str(locale or "en"),
+                }
+            )
+        )
+        try:
+            data = await self._json(
+                "GET",
+                url,
+                headers=self._homeowner_events_headers(),
+            )
+        except Exception as err:  # noqa: BLE001
+            if self._system_dashboard_is_optional_error(err) or isinstance(
+                err, InvalidPayloadError
+            ):
+                return None
+            raise
+        if not isinstance(data, dict) or not isinstance(data.get("events"), list):
+            return None
+        cursor = data.get("next")
+        if cursor is not None and (
+            isinstance(cursor, (dict, list, tuple, set, bool))
+            or not str(cursor).strip()
+        ):
+            return None
+        return data
+
+    async def system_dashboard_standing_alarms(self) -> JsonDict | None:
+        """Return current System Dashboard standing alarms.
+
+        GET /service/system_dashboard/api_internal/dashboard/sites/<site_id>/alarms
+        """
+
+        base_url = URL(
+            f"{BASE_URL}/service/system_dashboard/api_internal/dashboard/sites/"
+            f"{self._site}/alarms"
+        )
+        query = {
+            "range": "today",
+            "filter_columns": ("id,severity,type,serial_num,description,first_set"),
+            "type": "table",
+            "per_page": str(_SYSTEM_ALARMS_PAGE_SIZE),
+        }
+        merged: JsonDict | None = None
+        merged_alarms: list[object] = []
+        last_page_full = False
+        for page in range(1, _SYSTEM_ALARMS_MAX_PAGES + 1):
+            url = str(base_url.update_query({**query, "page": str(page)}))
+            try:
+                data = await self._json(
+                    "GET",
+                    url,
+                    headers=self._system_dashboard_headers(),
+                )
+            except Exception as err:  # noqa: BLE001
+                if self._system_dashboard_is_optional_error(err):
+                    return None
+                raise
+            if not isinstance(data, dict):
+                return None
+            alarms = data.get("alarms")
+            if not isinstance(alarms, list):
+                return None
+            if merged is None:
+                merged = dict(data)
+            merged_alarms.extend(alarms)
+            last_page_full = len(alarms) >= _SYSTEM_ALARMS_PAGE_SIZE
+            if not last_page_full:
+                break
+        if merged is None:  # pragma: no cover - loop always executes
+            return None
+        merged["alarms"] = merged_alarms
+        merged["_enphase_ev_truncated"] = (
+            page == _SYSTEM_ALARMS_MAX_PAGES and last_page_full
+        )
+        return merged
+
+    async def devices_details(self, type_key: str) -> JsonDict | None:
         """Return system dashboard per-type device details when available.
 
         GET /service/system_dashboard/api_internal/dashboard/sites/<site_id>/devices_details?type=<observed_type>
@@ -6812,7 +7697,124 @@ class EnphaseEVClient:
         )
         return await self._system_dashboard_get(modern_url, legacy_url)
 
-    async def hems_devices(self, *, refresh_data: bool = False) -> dict | None:
+    async def system_dashboard_master_data(self) -> JsonDict | None:
+        """Return the system-dashboard device and parameter catalogs.
+
+        GET /service/system_dashboard/api_internal/cs/sites/<site_id>/data/master-data
+        """
+
+        url = (
+            f"{BASE_URL}/service/system_dashboard/api_internal/cs/sites/"
+            f"{self._site}/data/master-data"
+        )
+        try:
+            data = await self._json(
+                "GET", url, headers=self._system_dashboard_headers()
+            )
+        except Exception as err:  # noqa: BLE001
+            if self._system_dashboard_is_optional_error(err):
+                return None
+            raise
+        return data if isinstance(data, dict) else None
+
+    async def system_dashboard_envoy_inverters(
+        self, gateway_serial: str
+    ) -> JsonDict | None:
+        """Return flattened microinverter inventory for one gateway."""
+
+        serial = str(gateway_serial).strip()
+        if not serial:
+            return None
+        url = str(
+            URL(
+                f"{BASE_URL}/service/system_dashboard/api_internal/dashboard/sites/"
+                f"{self._site}/envoy_inverters"
+            ).update_query({"serial_number": serial})
+        )
+        try:
+            data = await self._json(
+                "GET", url, headers=self._system_dashboard_headers()
+            )
+        except Exception as err:  # noqa: BLE001
+            if self._system_dashboard_is_optional_error(err):
+                return None
+            raise
+        return data if isinstance(data, dict) else None
+
+    async def system_dashboard_data_columns(
+        self, gateway_serial: str
+    ) -> JsonDict | None:
+        """Return device-level parameter column metadata for one gateway."""
+
+        serial = str(gateway_serial).strip()
+        if not serial:
+            return None
+        url = str(
+            URL(
+                f"{BASE_URL}/service/system_dashboard/api_internal/cs/sites/"
+                f"{self._site}/data/columns"
+            ).update_query({"serial_num": serial, "type": "device_level"})
+        )
+        try:
+            data = await self._json(
+                "GET", url, headers=self._system_dashboard_headers()
+            )
+        except Exception as err:  # noqa: BLE001
+            if self._system_dashboard_is_optional_error(err):
+                return None
+            raise
+        return data if isinstance(data, dict) else None
+
+    async def system_dashboard_parameter_view(
+        self,
+        serial_numbers: list[str] | tuple[str, ...],
+        parameter_id: str,
+        *,
+        per_page: int = 500,
+        page: int = 1,
+        range_name: str = "today",
+        start_date: str = "",
+        end_date: str = "",
+        sort_by_date: str = "desc",
+    ) -> JsonDict | None:
+        """Return one parameter for many devices in a single dashboard request."""
+
+        serials = tuple(
+            dict.fromkeys(
+                str(serial).strip() for serial in serial_numbers if str(serial).strip()
+            )
+        )
+        parameter = str(parameter_id).strip()
+        if not serials or not parameter:
+            return None
+        url = str(
+            URL(
+                f"{BASE_URL}/service/system_dashboard/api_internal/cs/sites/"
+                f"{self._site}/data/parameter-view"
+            ).update_query(
+                {
+                    "serial_numbers": ",".join(serials),
+                    "per_page": max(1, int(per_page)),
+                    "page": max(1, int(page)),
+                    "range": str(range_name),
+                    "parameter_id": parameter,
+                    "start_date": str(start_date),
+                    "end_date": str(end_date),
+                    "sort_by_date": str(sort_by_date),
+                }
+            )
+        )
+        try:
+            data = await self._json(
+                "GET", url, headers=self._system_dashboard_headers()
+            )
+        except Exception as err:  # noqa: BLE001
+            if self._system_dashboard_is_optional_error(err):
+                return None
+            raise
+        return data if isinstance(data, dict) else None
+
+    async def hems_devices(self, *, refresh_data: bool = False) -> JsonDict | None:
         """Return dedicated HEMS device inventory when available.
 
         GET https://hems-integration.enphaseenergy.com/api/v1/hems/<site_id>/hems-devices
@@ -6866,7 +7868,7 @@ class EnphaseEVClient:
             raise
         return data if isinstance(data, dict) else None
 
-    async def grid_control_check(self) -> dict:
+    async def grid_control_check(self) -> JsonDict:
         """Return site-level grid control eligibility guard flags.
 
         GET /app-api/<site_id>/grid_control_check.json
@@ -6878,7 +7880,7 @@ class EnphaseEVClient:
             return data
         return {}
 
-    async def off_grid_due_to_grid_outage(self) -> dict:
+    async def off_grid_due_to_grid_outage(self) -> JsonDict:
         """Return live grid-outage/off-grid context for the site.
 
         GET /app-api/<site_id>/off_grid_due_to_grid_outage
@@ -6890,7 +7892,7 @@ class EnphaseEVClient:
             return data
         return {}
 
-    async def request_grid_toggle_otp(self) -> dict:
+    async def request_grid_toggle_otp(self) -> JsonDict:
         """Request OTP delivery for a site grid-mode toggle.
 
         GET /app-api/<site_id>/grid_toggle_otp.json
@@ -6919,7 +7921,7 @@ class EnphaseEVClient:
             return False
         return data.get("valid") is True
 
-    async def set_grid_state(self, envoy_serial_number: str, state: int) -> dict:
+    async def set_grid_state(self, envoy_serial_number: str, state: int) -> JsonDict:
         """Submit a grid relay state-change request.
 
         POST /pv/settings/grid_state.json
@@ -6942,7 +7944,7 @@ class EnphaseEVClient:
         envoy_serial_number: str,
         old_state: str,
         new_state: str,
-    ) -> dict:
+    ) -> JsonDict:
         """Write grid relay transition audit metadata.
 
         POST /pv/settings/log_grid_change.json
@@ -6961,7 +7963,7 @@ class EnphaseEVClient:
             return data
         return {}
 
-    async def battery_backup_history(self) -> dict:
+    async def battery_backup_history(self) -> JsonDict:
         """Return battery backup outage history for the site.
 
         GET /app-api/<site_id>/battery_backup_history.json
@@ -6973,7 +7975,7 @@ class EnphaseEVClient:
             return data
         return {}
 
-    async def battery_status(self) -> dict:
+    async def battery_status(self) -> JsonDict:
         """Return battery status payload used by the Enlighten battery card.
 
         GET /pv/settings/<site_id>/battery_status.json
@@ -7065,7 +8067,7 @@ class EnphaseEVClient:
             expected_statuses=(302,),
         )
 
-    async def dry_contacts_settings(self) -> dict:
+    async def dry_contacts_settings(self) -> JsonDict:
         """Return dry-contact settings payload used by site settings views.
 
         GET /pv/settings/<site_id>/dry_contacts
@@ -7083,7 +8085,7 @@ class EnphaseEVClient:
         limit: int = 1000,
         offset: int = 0,
         search: str = "",
-    ) -> dict:
+    ) -> JsonDict:
         """Return site inverter inventory used by legacy microinverter views.
 
         GET /app-api/<site_id>/inverters.json
@@ -7126,7 +8128,7 @@ class EnphaseEVClient:
         *,
         start_date: str,
         end_date: str,
-    ) -> dict:
+    ) -> JsonDict:
         """Return inverter production totals for a date range.
 
         GET /systems/<site_id>/inverter_data_x/energy.json?start_date=...&end_date=...
@@ -7160,7 +8162,7 @@ class EnphaseEVClient:
         *,
         request_id: str | None = None,
         username: str | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Fetch session history filter criteria for a site."""
 
         request_id = request_id or str(uuid.uuid4())
@@ -7173,7 +8175,7 @@ class EnphaseEVClient:
             f"{BASE_URL}/service/enho_historical_events_ms/{self._site}/filter_criteria"
         ).with_query(query)
         headers = self._session_history_headers(request_id, username)
-        return await self._json("GET", str(url), headers=headers)
+        return cast(JsonDict, await self._json("GET", str(url), headers=headers))
 
     async def session_history(
         self,
@@ -7186,7 +8188,7 @@ class EnphaseEVClient:
         timezone: str | None = None,
         request_id: str | None = None,
         username: str | None = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Fetch charging sessions for a charger between the provided dates.
 
         POST /service/enho_historical_events_ms/<site_id>/sessions/<sn>/history
@@ -7209,7 +8211,9 @@ class EnphaseEVClient:
             payload["params"]["timezone"] = timezone
         headers = self._session_history_headers(request_id, username)
         try:
-            return await self._json("POST", url, json=payload, headers=headers)
+            return cast(
+                JsonDict, await self._json("POST", url, json=payload, headers=headers)
+            )
         except aiohttp.ClientResponseError as err:
             if is_session_history_unavailable_error(err.message, err.status, url):
                 raise SessionHistoryUnavailable(str(err)) from err

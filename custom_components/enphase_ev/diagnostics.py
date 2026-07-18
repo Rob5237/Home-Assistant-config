@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
@@ -27,6 +27,8 @@ TO_REDACT = [
     "session_auth_identifier",
     "session_auth_token",
     "enlighten_manager_token_production",
+    "enlm-token",
+    "authorization",
     "password",
     CONF_EMAIL,
 ]
@@ -45,6 +47,10 @@ DIAGNOSTIC_IDENTIFIER_KEYS = [
     "serialNumber",
     "serialNum",
     "sn",
+    "part_num",
+    "partNum",
+    "profile_id",
+    "grid_profile_id",
     "name",
     "device_name",
     "hostname",
@@ -173,7 +179,7 @@ def _redact_diagnostics_payload(
     """Return a redacted diagnostics payload safe for external sharing."""
 
     redacted = async_redact_data(payload, DIAGNOSTICS_REDACT_KEYS)
-    return _redact_embedded_diagnostics_text(redacted, site_ids)
+    return cast(dict[str, Any], _redact_embedded_diagnostics_text(redacted, site_ids))
 
 
 def _text(value: Any) -> str | None:
@@ -444,7 +450,8 @@ async def async_get_config_entry_diagnostics(
     }
 
     try:
-        coord = get_runtime_data(entry).coordinator
+        runtime_data = get_runtime_data(entry)
+        coord = runtime_data.coordinator
     except RuntimeError:
         return _redact_diagnostics_payload(diag, site_ids=site_ids)
 
@@ -525,6 +532,15 @@ async def async_get_config_entry_diagnostics(
     except DIAGNOSTIC_CAPTURE_ERRORS:
         heatpump_runtime = {}
 
+    current_power: dict[str, object] = {}
+    current_power_runtime = getattr(coord, "current_power_runtime", None)
+    current_power_diagnostics = getattr(current_power_runtime, "diagnostics", None)
+    if callable(current_power_diagnostics):
+        try:
+            current_power = current_power_diagnostics()
+        except DIAGNOSTIC_CAPTURE_ERRORS:
+            current_power = {}
+
     try:
         scheduler = coord.scheduler_diagnostics()
     except DIAGNOSTIC_CAPTURE_ERRORS:
@@ -538,6 +554,36 @@ async def async_get_config_entry_diagnostics(
             tariff = tariff_diagnostics()
         except DIAGNOSTIC_CAPTURE_ERRORS:
             tariff = {}
+
+    system_events: dict[str, Any] = {}
+    system_events_runtime = getattr(coord, "system_events_runtime", None)
+    system_events_diagnostics = getattr(system_events_runtime, "diagnostics", None)
+    if callable(system_events_diagnostics):
+        try:
+            system_events = system_events_diagnostics()
+        except DIAGNOSTIC_CAPTURE_ERRORS:
+            system_events = {}
+
+    system_event_history: dict[str, Any] = {}
+    system_event_history_diagnostics = getattr(
+        system_events_runtime,
+        "history_diagnostics",
+        None,
+    )
+    if callable(system_event_history_diagnostics):
+        try:
+            system_event_history = system_event_history_diagnostics()
+        except DIAGNOSTIC_CAPTURE_ERRORS:
+            system_event_history = {}
+
+    grid_profile: dict[str, Any] = {}
+    grid_profile_runtime = getattr(coord, "grid_profile_runtime", None)
+    grid_profile_diagnostics = getattr(grid_profile_runtime, "diagnostics", None)
+    if callable(grid_profile_diagnostics):
+        try:
+            grid_profile = grid_profile_diagnostics()
+        except DIAGNOSTIC_CAPTURE_ERRORS:
+            grid_profile = {}
 
     firmware_catalog: dict[str, Any] = {}
     firmware_catalog_manager = getattr(coord, "firmware_catalog_manager", None)
@@ -570,11 +616,27 @@ async def async_get_config_entry_diagnostics(
         "inverters": inverters,
         "payload_health": payload_health,
         "system_dashboard": system_dashboard,
+        "system_events": system_events,
+        "system_event_history": system_event_history,
         "heatpump_runtime": heatpump_runtime,
+        "current_power": current_power,
         "scheduler": scheduler,
         "tariff": tariff,
+        "grid_profile": grid_profile,
         "firmware_catalog": firmware_catalog or None,
     }
+
+    weather_coordinator = runtime_data.weather_coordinator
+    if weather_coordinator is None:
+        diag["coordinator"]["weather"] = {
+            "role": "child_coordinator",
+            "discovery_state": "disabled",
+        }
+    else:
+        try:
+            diag["coordinator"]["weather"] = weather_coordinator.diagnostics()
+        except DIAGNOSTIC_CAPTURE_ERRORS:
+            diag["coordinator"]["weather"] = None
 
     schedule_sync = getattr(coord, "schedule_sync", None)
     if schedule_sync is not None and hasattr(schedule_sync, "diagnostics"):
@@ -637,7 +699,11 @@ async def async_get_config_entry_diagnostics(
     return _redact_diagnostics_payload(diag, site_ids=site_ids)
 
 
-async def async_get_device_diagnostics(hass, entry, device):
+async def async_get_device_diagnostics(
+    hass: HomeAssistant,
+    entry: EnphaseConfigEntry,
+    device: dr.DeviceEntry,
+) -> dict[str, Any]:
     """Return diagnostics for a device."""
     site_ids = _normalize_site_ids([entry.data.get(CONF_SITE_ID)])
     dev_reg = dr.async_get(hass)
@@ -707,7 +773,7 @@ async def async_get_device_diagnostics(hass, entry, device):
             else:
                 safe_devices = []
             try:
-                gateway_count = int(payload.get("count", 0) or 0)
+                gateway_count = int(cast(Any, payload.get("count", 0) or 0))
             except (TypeError, ValueError):
                 gateway_count = 0
             payload["gateway_summary"] = _gateway_summary(safe_devices, gateway_count)

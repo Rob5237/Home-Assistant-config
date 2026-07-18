@@ -18,10 +18,19 @@ from .api import (
     EnphaseLoginWallUnauthorized,
     InvalidPayloadError,
     OptionalEndpointUnavailable,
+    enlighten_optional_read_scope,
 )
 from .const import DOMAIN, DEFAULT_CHARGE_LEVEL_SETTING, PHASE_SWITCH_CONFIG_SETTING
 from .log_redaction import redact_site_id, redact_text
-from .refresh_plan import BoundRefreshCall, RefreshPlan, bind_refresh_plan, warmup_plan
+from .refresh_plan import (
+    STARTUP_CURRENT_POWER_PLAN,
+    STARTUP_POWER_PLAN,
+    BoundRefreshCall,
+    RefreshPlan,
+    bind_refresh_plan,
+    warmup_plan,
+)
+from .request_metrics import request_metrics_scope
 
 if TYPE_CHECKING:
     from .coordinator import EnphaseCoordinator
@@ -50,6 +59,9 @@ class RefreshRunner:
 
     def _warmup_site_state_available(self) -> bool:
         coordinator = self._coordinator
+        system_events = getattr(coordinator, "system_events_runtime", None)
+        if bool(getattr(system_events, "available", False)):
+            return True
         energy = getattr(coordinator, "energy", None)
         site_energy = (
             getattr(energy, "site_energy", None)
@@ -57,6 +69,8 @@ class RefreshRunner:
             else getattr(coordinator, "site_energy", None)
         )
         if isinstance(site_energy, dict) and site_energy:
+            return True
+        if getattr(coordinator, "_current_power_consumption_w", None) is not None:
             return True
         return any(
             getattr(coordinator, attr, None) is not None
@@ -79,9 +93,10 @@ class RefreshRunner:
     ) -> tuple[str, float | None]:
         started = time.monotonic()
         try:
-            result = callback_factory()
-            if inspect.isawaitable(result):
-                await result
+            with enlighten_optional_read_scope():
+                result = callback_factory()
+                if inspect.isawaitable(result):
+                    await result
         except asyncio.CancelledError:
             raise
         except EnphaseLoginWallUnauthorized as err:
@@ -225,6 +240,7 @@ class RefreshRunner:
         ordered_calls: tuple[BoundRefreshCall, ...] = (),
         stage_key: str | None = None,
         defer_topology: bool = False,
+        deadline_s: float | None = None,
     ) -> None:
         if not parallel_calls and not ordered_calls:
             if stage_key is not None:
@@ -234,8 +250,7 @@ class RefreshRunner:
         if defer_topology:
             self._coordinator._begin_topology_refresh_batch()
 
-        group_started = time.monotonic()
-        try:
+        async def _async_run_stage() -> None:
             if parallel_calls:
                 await self.async_run_refresh_calls(
                     phase_timings,
@@ -246,6 +261,24 @@ class RefreshRunner:
                     phase_timings,
                     calls=ordered_calls,
                 )
+
+        group_started = time.monotonic()
+        try:
+            if deadline_s is None:
+                await _async_run_stage()
+            else:
+                try:
+                    async with asyncio.timeout(deadline_s):
+                        await _async_run_stage()
+                except TimeoutError:
+                    timeout_key = f"{stage_key or 'stage'}_deadline_exceeded"
+                    phase_timings[timeout_key] = 1.0
+                    _LOGGER.debug(
+                        "Stopped optional %s refresh stage for site %s after %.1f seconds",
+                        stage_key or "unnamed",
+                        redact_site_id(self._coordinator.site_id),
+                        deadline_s,
+                    )
         finally:
             if defer_topology:
                 self._coordinator._end_topology_refresh_batch()
@@ -267,9 +300,73 @@ class RefreshRunner:
                 defer_topology=stage.defer_topology,
                 parallel_calls=stage.parallel_calls,
                 ordered_calls=stage.ordered_calls,
+                deadline_s=stage.deadline_s,
             )
 
     async def async_startup_warmup_runner(self) -> None:
+        with request_metrics_scope("startup_warmup") as request_metrics:
+            await self._async_startup_warmup_runner_impl()
+        coordinator = self._coordinator
+        timings = dict(getattr(coordinator, "_warmup_phase_timings", {}) or {})
+        timings.update(request_metrics.phase_timings())
+        timings["cloud_calls"] = float(request_metrics.attempts)
+        coordinator._warmup_phase_timings = timings
+
+    async def async_refresh_evse_summary_for_warmup(
+        self,
+        *,
+        working_data: dict[str, dict[str, object]],
+    ) -> None:
+        """Fetch and apply optional EVSE summary data after entry setup."""
+
+        coordinator = self._coordinator
+        summary = await coordinator.summary.async_fetch(force=True)
+        coordinator.apply_warmup_evse_summary(summary, working_data)
+
+    def _record_setup_milestone(self, key: str) -> None:
+        coordinator = self._coordinator
+        started = getattr(coordinator, "_setup_started_mono", None)
+        if not isinstance(started, (int, float)):
+            return
+        milestones = dict(getattr(coordinator, "_setup_milestones", {}) or {})
+        milestones[key] = round(max(0.0, time.monotonic() - float(started)), 3)
+        coordinator._setup_milestones = milestones
+
+    async def _async_startup_power_runner_impl(self) -> None:
+        coordinator = self._coordinator
+        timings: dict[str, float] = {}
+        plan = (
+            STARTUP_POWER_PLAN
+            if coordinator._evse_status_refresh_enabled()
+            else STARTUP_CURRENT_POWER_PLAN
+        )
+        with request_metrics_scope("startup_power") as request_metrics:
+            await self.async_run_refresh_plan(timings, plan=plan)
+        timings.update(request_metrics.phase_timings())
+        timings["cloud_calls"] = float(request_metrics.attempts)
+        coordinator._startup_power_phase_timings = timings
+        self._record_setup_milestone("power_ready")
+
+    async def async_start_startup_power(self) -> None:
+        """Start the absolute startup power budget before the core refresh."""
+
+        coordinator = self._coordinator
+        task = getattr(coordinator, "_startup_power_task", None)
+        if task is not None:
+            return
+        try:
+            task = coordinator.hass.async_create_background_task(
+                self._async_startup_power_runner_impl(),
+                name=f"{DOMAIN}_startup_power",
+            )
+        except TypeError:
+            task = coordinator.hass.async_create_background_task(
+                self._async_startup_power_runner_impl()
+            )
+        coordinator._startup_power_task = task
+        coordinator.track_entry_background_task(task)
+
+    async def _async_startup_warmup_runner_impl(self) -> None:
         coordinator = self._coordinator
         warmup_timings: dict[str, float] = {}
         coordinator._warmup_in_progress = True
@@ -280,12 +377,31 @@ class RefreshRunner:
             else {}
         )
         try:
-            await self.async_run_refresh_plan(
-                warmup_timings,
-                plan=warmup_plan(warmup_data),
+            await self.async_start_startup_power()
+            power_task = getattr(coordinator, "_startup_power_task", None)
+            if power_task is not None:
+                try:
+                    await power_task
+                except asyncio.CancelledError:
+                    raise
+                except Exception as err:  # noqa: BLE001
+                    coordinator._warmup_last_error = (
+                        redact_text(err, site_ids=(coordinator.site_id,))
+                        or err.__class__.__name__
+                    )
+            warmup_timings.update(
+                dict(getattr(coordinator, "_startup_power_phase_timings", {}) or {})
             )
             if warmup_data or self._warmup_site_state_available():
                 coordinator.async_set_updated_data(warmup_data)
+            plan = warmup_plan(warmup_data, owner=coordinator)
+            for stage in plan.stages:
+                await self.async_run_refresh_plan(
+                    warmup_timings,
+                    plan=RefreshPlan(stages=(stage,)),
+                )
+                if warmup_data or self._warmup_site_state_available():
+                    coordinator.async_set_updated_data(warmup_data)
         except asyncio.CancelledError:
             raise
         except Exception as err:  # noqa: BLE001
@@ -302,6 +418,7 @@ class RefreshRunner:
         finally:
             coordinator._warmup_in_progress = False
             coordinator._warmup_phase_timings = warmup_timings
+            self._record_setup_milestone("warmup_complete")
             coordinator.discovery_snapshot.schedule_save()
 
     async def async_start_startup_warmup(self) -> None:
@@ -309,12 +426,12 @@ class RefreshRunner:
         if coordinator._warmup_task is not None and not coordinator._warmup_task.done():
             return
         try:
-            coordinator._warmup_task = coordinator.hass.async_create_task(
+            coordinator._warmup_task = coordinator.hass.async_create_background_task(
                 self.async_startup_warmup_runner(),
                 name=f"{DOMAIN}_warmup_site",
             )
         except TypeError:
-            coordinator._warmup_task = coordinator.hass.async_create_task(
+            coordinator._warmup_task = coordinator.hass.async_create_background_task(
                 self.async_startup_warmup_runner()
             )
 

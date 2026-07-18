@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date
-from typing import TYPE_CHECKING
+from collections.abc import Awaitable, Callable
+from datetime import date, time
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 
 import aiohttp
 import voluptuous as vol
@@ -15,6 +16,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import service as ha_service
 from homeassistant.helpers import target as ha_target
+from homeassistant.helpers.service import async_register_admin_service
 
 from .api import (
     OCPP_TRIGGER_MESSAGES,
@@ -22,6 +24,7 @@ from .api import (
     validate_ocpp_trigger_message,
 )
 from .battery_schedule_editor import (
+    BatteryScheduleRecord,
     battery_schedule_inventory,
     battery_schedule_overlap_message,
     battery_schedule_overlap_placeholders,
@@ -36,6 +39,7 @@ from .const import (
 from .device_types import parse_type_identifier
 from .log_redaction import redact_site_id
 from .parsing_helpers import coerce_optional_bool
+from .grid_profile_runtime import SUPPORT_DENIED, GridProfileRuntime
 from .runtime_data import EnphaseRuntimeData, iter_coordinators
 from .service_validation import raise_translated_service_validation
 
@@ -61,13 +65,18 @@ REGISTERED_SERVICES = (
     "validate_schedule",
     "update_cfg_schedule",
     "update_tariff",
+    "browse_grid_profiles",
+    "refresh_grid_profiles",
+    "set_grid_profile",
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def async_setup_services(
-    hass: HomeAssistant, *, supports_response: object = SupportsResponse
+    hass: HomeAssistant,
+    *,
+    supports_response: type[SupportsResponse] = SupportsResponse,
 ) -> None:
     """Register integration services once."""
 
@@ -87,43 +96,46 @@ def async_setup_services(
         *,
         placeholders: dict[str, object] | None = None,
         message: str | None = None,
-    ) -> None:
+    ) -> NoReturn:
         raise_translated_service_validation(
             translation_domain=DOMAIN,
             translation_key=key,
             translation_placeholders=placeholders,
             message=message,
         )
+        raise AssertionError("unreachable")  # pragma: no cover
 
-    def _serial_from_device(dev) -> str | None:
+    def _serial_from_device(dev: dr.DeviceEntry) -> str | None:
         for domain, sn in dev.identifiers:
             if domain == DOMAIN:
                 if sn.startswith("site:"):
                     continue
                 if sn.startswith("type:"):
                     continue
-                return sn
+                return str(sn)
         return None
 
-    def _site_id_from_device(dev_reg, dev) -> str | None:
+    def _site_id_from_device(
+        dev_reg: dr.DeviceRegistry, dev: dr.DeviceEntry
+    ) -> str | None:
         for domain, identifier in dev.identifiers:
             if domain == DOMAIN and identifier.startswith("site:"):
-                return identifier.partition(":")[2]
+                return str(identifier.partition(":")[2])
             if domain == DOMAIN and identifier.startswith("type:"):
                 parsed = parse_type_identifier(identifier)
                 if parsed:
-                    return parsed[0]
+                    return str(parsed[0])
         via = dev.via_device_id
         if via:
             parent = dev_reg.async_get(via)
             if parent:
                 for domain, identifier in parent.identifiers:
                     if domain == DOMAIN and identifier.startswith("site:"):
-                        return identifier.partition(":")[2]
+                        return str(identifier.partition(":")[2])
                     if domain == DOMAIN and identifier.startswith("type:"):
                         parsed = parse_type_identifier(identifier)
                         if parsed:
-                            return parsed[0]
+                            return str(parsed[0])
         return None
 
     async def _resolve_site_id(device_id: str) -> str | None:
@@ -156,7 +168,7 @@ def async_setup_services(
         data = coord.data if isinstance(getattr(coord, "data", None), dict) else {}
         return bool(not serials and not data and sn)
 
-    def _device_config_entry_ids(device) -> list[str]:
+    def _device_config_entry_ids(device: dr.DeviceEntry) -> list[str]:
         entry_ids: list[str] = []
         config_entries = getattr(device, "config_entries", None)
         if config_entries:
@@ -166,7 +178,9 @@ def async_setup_services(
             entry_ids.append(str(config_entry_id))
         return list(dict.fromkeys(entry_ids))
 
-    def _config_entry_ids_for_device(dev_reg, dev) -> list[str]:
+    def _config_entry_ids_for_device(
+        dev_reg: dr.DeviceRegistry, dev: dr.DeviceEntry
+    ) -> list[str]:
         entry_ids = _device_config_entry_ids(dev)
         if entry_ids:
             return entry_ids
@@ -259,23 +273,24 @@ def async_setup_services(
         return None
 
     DEVICE_ID_LIST = vol.All(cv.ensure_list, [cv.string])
-    ENTRY_SCHEMA = {vol.Optional("config_entry_id"): cv.string}
+    ENTRY_SCHEMA: dict[object, object] = {vol.Optional("config_entry_id"): cv.string}
 
     def _validate_trigger_message(value: object) -> str:
         try:
-            return validate_ocpp_trigger_message(value)
+            return str(validate_ocpp_trigger_message(value))
         except ValueError as err:
             raise vol.Invalid(str(err)) from err
 
     def _service_trigger_message(value: object) -> str:
         try:
-            return validate_ocpp_trigger_message(value)
+            return str(validate_ocpp_trigger_message(value))
         except ValueError as err:
             _raise_service_validation(
                 "trigger_message_invalid",
                 placeholders={"messages": ", ".join(sorted(OCPP_TRIGGER_MESSAGES))},
                 message=str(err),
             )
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def _confirm_trigger_message(message: str, confirmed: object) -> None:
         if message not in OCPP_TRIGGER_MESSAGES_REQUIRING_CONFIRMATION:
@@ -309,13 +324,10 @@ def async_setup_services(
             vol.Optional("confirm_advanced", default=False): cv.boolean,
         }
     )
-    REQUEST_GRID_OTP_SCHEMA = vol.Schema(
-        {vol.Optional("device_id"): DEVICE_ID_LIST, vol.Optional("site_id"): cv.string}
-    )
+    REQUEST_GRID_OTP_SCHEMA = vol.Schema({vol.Required("config_entry_id"): cv.string})
     SET_GRID_MODE_SCHEMA = vol.Schema(
         {
-            vol.Optional("device_id"): DEVICE_ID_LIST,
-            vol.Optional("site_id"): cv.string,
+            vol.Required("config_entry_id"): cv.string,
             vol.Required("mode"): vol.In(("on_grid", "off_grid")),
             vol.Required("otp"): cv.string,
         }
@@ -329,6 +341,36 @@ def async_setup_services(
             vol.Optional("device_id"): DEVICE_ID_LIST,
             vol.Optional("site_id"): cv.string,
             vol.Optional("config_entry_id"): cv.string,
+        }
+    )
+    BROWSE_GRID_PROFILES_SCHEMA = vol.Schema(
+        {
+            **ENTRY_SCHEMA,
+            vol.Optional("device_id"): DEVICE_ID_LIST,
+            vol.Optional("site_id"): cv.string,
+            vol.Optional("region_code"): cv.string,
+            vol.Optional("query"): cv.string,
+            vol.Optional("commonly_used", default=True): cv.boolean,
+        }
+    )
+    REFRESH_GRID_PROFILES_SCHEMA = vol.Schema(
+        {
+            **ENTRY_SCHEMA,
+            vol.Optional("device_id"): DEVICE_ID_LIST,
+            vol.Optional("site_id"): cv.string,
+            vol.Optional("region_code"): cv.string,
+            vol.Optional("commonly_used", default=True): cv.boolean,
+        }
+    )
+    SET_GRID_PROFILE_SCHEMA = vol.Schema(
+        {
+            **ENTRY_SCHEMA,
+            vol.Optional("device_id"): DEVICE_ID_LIST,
+            vol.Optional("site_id"): cv.string,
+            vol.Optional("region_code"): cv.string,
+            vol.Optional("gateway_serial"): cv.string,
+            vol.Required("profile_id"): cv.string,
+            vol.Required("confirm"): cv.boolean,
         }
     )
     ADD_SCHEDULE_SCHEMA = vol.Schema(
@@ -397,8 +439,8 @@ def async_setup_services(
     def _validate_schedule_fields(
         *,
         schedule_type: str,
-        start_time,
-        end_time,
+        start_time: time,
+        end_time: time,
         days: list[int],
         limit: int,
     ) -> tuple[str, str]:
@@ -471,12 +513,14 @@ def async_setup_services(
             )
         if valid is not None and "valid" not in result:
             return {**result, "valid": bool(valid)}
-        return result
+        return cast(dict[str, object], result)
 
     def _known_schedule_ids(coord: EnphaseCoordinator) -> set[str]:
         return {schedule.schedule_id for schedule in battery_schedule_inventory(coord)}
 
-    def _schedule_inventory_by_id(coord: EnphaseCoordinator) -> dict[str, object]:
+    def _schedule_inventory_by_id(
+        coord: EnphaseCoordinator,
+    ) -> dict[str, BatteryScheduleRecord]:
         return {
             schedule.schedule_id: schedule
             for schedule in battery_schedule_inventory(coord)
@@ -486,7 +530,7 @@ def async_setup_services(
         coord: EnphaseCoordinator,
         schedule_type: str,
         deleted_schedule_ids: set[str],
-    ) -> object | None:
+    ) -> BatteryScheduleRecord | None:
         normalized_schedule_type = str(schedule_type).lower()
         selected_schedule_id = getattr(
             coord, f"_battery_{normalized_schedule_type}_schedule_id", None
@@ -511,7 +555,7 @@ def async_setup_services(
     def _apply_schedule_for_update(
         coord: EnphaseCoordinator,
         *,
-        schedule_inventory: dict[str, object],
+        schedule_inventory: dict[str, BatteryScheduleRecord],
         schedule_id: str,
         schedule_type: str,
         start_time: str,
@@ -555,13 +599,13 @@ def async_setup_services(
             raise_translated_service_validation(
                 translation_domain=DOMAIN,
                 translation_key="battery_schedule_overlap",
-                translation_placeholders=battery_schedule_overlap_placeholders(
-                    overlapping, hass=hass
+                translation_placeholders=dict(
+                    battery_schedule_overlap_placeholders(overlapping, hass=hass)
                 ),
                 message=battery_schedule_overlap_message(overlapping, hass=hass),
             )
 
-    def _validate_cfg_schedule(data: dict) -> dict:
+    def _validate_cfg_schedule(data: dict[str, object]) -> dict[str, object]:
         if not any(k in data for k in ("start_time", "end_time", "limit")):
             raise vol.Invalid(
                 "At least one of start_time, end_time, or limit must be provided"
@@ -603,7 +647,7 @@ def async_setup_services(
             raise vol.Invalid("billing_start_date must be a valid ISO date") from err
         return text
 
-    def _validate_update_tariff(data: dict) -> dict:
+    def _validate_update_tariff(data: dict[str, object]) -> dict[str, object]:
         rates = data.get("rates") or []
         has_rates = bool(rates) or bool(FRIENDLY_RATE_VALUE_FIELDS.intersection(data))
         provided_billing = TARIFF_BILLING_FIELDS.intersection(data)
@@ -626,7 +670,7 @@ def async_setup_services(
             raise vol.Invalid("Provide all billing fields")
         if provided_billing:
             frequency = data["billing_frequency"]
-            interval = data["billing_interval_value"]
+            interval = int(str(data["billing_interval_value"]))
             maximum = 24 if frequency == "MONTH" else 100
             if interval > maximum:
                 raise vol.Invalid(
@@ -703,9 +747,9 @@ def async_setup_services(
     def _extract_device_ids(call: ServiceCall) -> list[str]:
         device_ids: set[str] = set()
         try:
-            device_ids |= set(
-                ha_service.async_extract_referenced_device_ids(hass, call)
-            )
+            extractor = getattr(ha_service, "async_extract_referenced_device_ids", None)
+            if callable(extractor):
+                device_ids |= {str(value) for value in extractor(hass, call)}
         except Exception:
             pass
         data_ids = call.data.get("device_id")
@@ -825,6 +869,7 @@ def async_setup_services(
                 placeholders={"entity_id": entity_id},
                 message=f"Entity is not an Enphase tariff rate entity: {entity_id}",
             )
+        assert coord is not None
         state = hass.states.get(entity_id)
         locator = None if state is None else state.attributes.get("tariff_locator")
         if not isinstance(locator, dict):
@@ -832,6 +877,7 @@ def async_setup_services(
                 "tariff_rate_target_invalid",
                 message="Tariff rate target is invalid.",
             )
+        assert isinstance(locator, dict)
         if branch is not None and locator.get("branch") != branch:
             _raise_service_validation(
                 "tariff_rate_entity_invalid",
@@ -842,7 +888,7 @@ def async_setup_services(
 
     def _format_tariff_rate(value: object) -> str:
         try:
-            rate = float(value)
+            rate = float(str(value))
         except (TypeError, ValueError):
             _raise_service_validation(
                 "tariff_rate_invalid",
@@ -948,15 +994,15 @@ def async_setup_services(
                     message="Tariff structure is invalid.",
                 )
             season_key = _season_key(row)
-            season = seasons.setdefault(
-                season_key,
-                {
+            season = seasons.get(season_key)
+            if season is None:
+                season = {
                     "id": season_key[0],
                     "startMonth": str(season_key[1]),
                     "endMonth": str(season_key[2]),
                     "days": [],
-                },
-            )
+                }
+                seasons[season_key] = season
             groups = day_groups.setdefault(season_key, {})
             day_group_id = str(
                 row.get("day_group_id") or row.get("day_group") or "week"
@@ -970,9 +1016,13 @@ def async_setup_services(
                     "updatedValue": "",
                 }
                 groups[day_group_id] = day_group
-                season["days"].append(day_group)
+                days_value = season["days"]
+                assert isinstance(days_value, list)
+                days_value.append(day_group)
             period_id = str(row.get("period_id") or row.get("id") or f"period-{index}")
-            day_group["periods"].append(
+            periods_value = day_group["periods"]
+            assert isinstance(periods_value, list)
+            periods_value.append(
                 {
                     "id": period_id,
                     "type": str(
@@ -1002,9 +1052,9 @@ def async_setup_services(
                     message="Tariff structure is invalid.",
                 )
             season_key = _season_key(row)
-            season = seasons.setdefault(
-                season_key,
-                {
+            season = seasons.get(season_key)
+            if season is None:
+                season = {
                     "id": season_key[0],
                     "startMonth": str(season_key[1]),
                     "endMonth": str(season_key[2]),
@@ -1015,10 +1065,12 @@ def async_setup_services(
                         )
                     ),
                     "tiers": [],
-                },
-            )
+                }
+                seasons[season_key] = season
             end_value = row.get("end_value", row.get("endValue", -1))
-            season["tiers"].append(
+            tiers_value = season["tiers"]
+            assert isinstance(tiers_value, list)
+            tiers_value.append(
                 {
                     "id": str(row.get("tier_id") or row.get("id") or f"tier-{index}"),
                     "rate": _format_tariff_rate(row.get("rate")),
@@ -1055,12 +1107,18 @@ def async_setup_services(
         if export:
             branch["exportPlan"] = str(data.get("export_plan", "netFit"))
         if tariff_type == "tiered":
+            raw_tiers = data.get(f"{prefix}_tiers")
+            tier_rows = raw_tiers if isinstance(raw_tiers, list) else []
             branch["seasons"] = _guided_tiered_seasons(
-                list(data.get(f"{prefix}_tiers") or []),
+                cast(list[dict[str, object]], tier_rows),
                 data.get(f"{prefix}_off_peak_rate"),
             )
         else:
-            periods = list(data.get(f"{prefix}_periods") or [])
+            raw_periods = data.get(f"{prefix}_periods")
+            periods = cast(
+                list[dict[str, object]],
+                raw_periods if isinstance(raw_periods, list) else [],
+            )
             if not periods and tariff_type == "flat":
                 flat_rate = data.get(f"{prefix}_flat_rate")
                 if flat_rate is None:
@@ -1120,6 +1178,84 @@ def async_setup_services(
         coord = await _resolve_single_site_coordinator(call)
         await coord.async_request_refresh()
 
+    def _require_grid_profile_installer(runtime: object) -> None:
+        if getattr(runtime, "installer_access_confirmed", False):
+            return
+        if getattr(runtime, "support_state", None) != SUPPORT_DENIED:
+            _raise_service_validation(
+                "grid_profile_unavailable",
+                message="Grid profile control is unavailable.",
+            )
+        _raise_service_validation(
+            "grid_profile_installer_required",
+            message=(
+                "Grid profile control requires installer-level Enphase "
+                "Activation access."
+            ),
+        )
+
+    async def _svc_browse_grid_profiles(call: ServiceCall) -> dict[str, object]:
+        coord = await _resolve_single_site_coordinator(call)
+        runtime = cast(GridProfileRuntime, coord.grid_profile_runtime)
+        await runtime.async_refresh(force=False, load_profiles=False)
+        _require_grid_profile_installer(runtime)
+        await runtime.async_load_profiles(
+            region_code=call.data.get("region_code"),
+            commonly_used=call.data.get("commonly_used", True),
+            force=False,
+        )
+        _require_grid_profile_installer(runtime)
+        return runtime.browse_dict(
+            region_code=call.data.get("region_code"),
+            query=call.data.get("query"),
+            commonly_used=call.data.get("commonly_used", True),
+        )
+
+    async def _svc_refresh_grid_profiles(call: ServiceCall) -> dict[str, object]:
+        coord = await _resolve_single_site_coordinator(call)
+        runtime = cast(GridProfileRuntime, coord.grid_profile_runtime)
+        await runtime.async_refresh(force=True, load_profiles=False)
+        _require_grid_profile_installer(runtime)
+        await runtime.async_load_profiles(
+            region_code=call.data.get("region_code"),
+            commonly_used=call.data.get("commonly_used", True),
+            force=True,
+        )
+        _require_grid_profile_installer(runtime)
+        return runtime.browse_dict(
+            region_code=call.data.get("region_code"),
+            commonly_used=call.data.get("commonly_used", True),
+        )
+
+    async def _svc_set_grid_profile(call: ServiceCall) -> dict[str, object]:
+        if not call.data.get("confirm"):
+            _raise_service_validation(
+                "grid_profile_confirmation_required",
+                message="Confirmation is required to apply a grid profile.",
+            )
+        coord = await _resolve_single_site_coordinator(call)
+        runtime = cast(GridProfileRuntime, coord.grid_profile_runtime)
+        await runtime.async_refresh(force=False, load_profiles=False)
+        _require_grid_profile_installer(runtime)
+        region_code = call.data.get("region_code")
+        if region_code:
+            await runtime.async_load_profiles(
+                region_code=region_code,
+                commonly_used=True,
+                force=False,
+            )
+            if runtime.profile_for_id(call.data["profile_id"]) is None:
+                await runtime.async_load_profiles(
+                    region_code=region_code,
+                    commonly_used=False,
+                    force=False,
+                )
+        return await runtime.async_apply_grid_profile(
+            call.data["profile_id"],
+            region_code=region_code,
+            gateway_serial=call.data.get("gateway_serial"),
+        )
+
     async def _svc_start(call: ServiceCall) -> None:
         connector_id = int(call.data.get("connector_id", 1))
         for _device_id, sn, coord in await _resolve_charger_targets(call):
@@ -1132,7 +1268,7 @@ def async_setup_services(
         for _device_id, sn, coord in await _resolve_charger_targets(call):
             await coord.async_stop_charging(sn)
 
-    async def _svc_trigger(call: ServiceCall) -> dict[str, object]:
+    async def _svc_trigger(call: ServiceCall) -> dict[str, Any]:
         message = _service_trigger_message(call.data["requested_message"])
         _confirm_trigger_message(message, call.data.get("confirm_advanced", False))
         results: list[dict[str, object]] = []
@@ -1149,12 +1285,22 @@ def async_setup_services(
         return {"results": results}
 
     async def _svc_request_grid_otp(call: ServiceCall) -> None:
-        coord = await _resolve_single_site_coordinator(call)
+        coord = _get_coordinator_for_entry_id(call.data["config_entry_id"])
+        if coord is None:
+            _raise_service_validation(
+                "grid_control_unavailable",
+                message="Grid control is unavailable for this config entry.",
+            )
         await coord.async_request_grid_toggle_otp()
         await coord.async_request_refresh()
 
     async def _svc_set_grid_mode(call: ServiceCall) -> None:
-        coord = await _resolve_single_site_coordinator(call)
+        coord = _get_coordinator_for_entry_id(call.data["config_entry_id"])
+        if coord is None:
+            _raise_service_validation(
+                "grid_control_unavailable",
+                message="Grid control is unavailable for this config entry.",
+            )
         await coord.async_set_grid_mode(call.data["mode"], call.data["otp"])
 
     async def _svc_clear_issue(call: ServiceCall) -> None:
@@ -1179,11 +1325,11 @@ def async_setup_services(
         for issue_id in issue_ids:
             ir.async_delete_issue(hass, DOMAIN, issue_id)
 
-    async def _svc_clear_hems_auth_backoff(call: ServiceCall) -> dict[str, object]:
+    async def _svc_clear_hems_auth_backoff(call: ServiceCall) -> dict[str, Any]:
         coord = await _resolve_single_site_coordinator(call)
         return await coord.async_clear_hems_auth_backoff()
 
-    async def _svc_try_reauth_now(call: ServiceCall) -> dict[str, object]:
+    async def _svc_try_reauth_now(call: ServiceCall) -> dict[str, Any]:
         coord = await _resolve_single_site_coordinator(call)
         site_id = str(getattr(coord, "site_id", ""))
         has_stored_credentials = bool(
@@ -1433,6 +1579,7 @@ def async_setup_services(
                 "battery_schedule_api_unavailable",
                 message="Battery schedule API is unavailable.",
             )
+        delete_schedule = cast(Callable[..., Awaitable[object]], deleter)
         schedule_inventory = _schedule_inventory_by_id(coord)
         requested_schedule_type = call.data.get("schedule_type")
         deleted_schedule_ids_by_family: dict[str, set[str]] = {}
@@ -1448,7 +1595,7 @@ def async_setup_services(
                 )
             )
             try:
-                await deleter(schedule_id, schedule_type=schedule_type)
+                await delete_schedule(schedule_id, schedule_type=schedule_type)
             except aiohttp.ClientResponseError as err:
                 coord.battery_runtime.raise_schedule_update_validation_error(err)
                 raise
@@ -1479,7 +1626,7 @@ def async_setup_services(
             )
         await coord.async_request_refresh()
 
-    async def _svc_validate_schedule(call: ServiceCall) -> dict[str, object]:
+    async def _svc_validate_schedule(call: ServiceCall) -> dict[str, Any]:
         coord = await _resolve_single_site_coordinator(call)
         if not coord.battery_write_access_confirmed:
             _raise_service_validation(
@@ -1616,47 +1763,79 @@ def async_setup_services(
     hass.services.async_register(
         DOMAIN, "force_refresh", _svc_force_refresh, schema=FORCE_REFRESH_SCHEMA
     )
+    grid_profile_browse_kwargs: dict[str, object] = {
+        "schema": BROWSE_GRID_PROFILES_SCHEMA,
+        "supports_response": supports_response.OPTIONAL,
+    }
+    hass.services.async_register(
+        DOMAIN,
+        "browse_grid_profiles",
+        _svc_browse_grid_profiles,
+        **grid_profile_browse_kwargs,
+    )
+    grid_profile_refresh_kwargs: dict[str, object] = {
+        "schema": REFRESH_GRID_PROFILES_SCHEMA,
+        "supports_response": supports_response.OPTIONAL,
+    }
+    hass.services.async_register(
+        DOMAIN,
+        "refresh_grid_profiles",
+        _svc_refresh_grid_profiles,
+        **grid_profile_refresh_kwargs,
+    )
+    grid_profile_set_kwargs: dict[str, object] = {
+        "schema": SET_GRID_PROFILE_SCHEMA,
+        "supports_response": supports_response.OPTIONAL,
+    }
+    hass.services.async_register(
+        DOMAIN,
+        "set_grid_profile",
+        _svc_set_grid_profile,
+        **grid_profile_set_kwargs,
+    )
     hass.services.async_register(
         DOMAIN, "start_charging", _svc_start, schema=START_SCHEMA
     )
     hass.services.async_register(DOMAIN, "stop_charging", _svc_stop, schema=STOP_SCHEMA)
 
-    trigger_register_kwargs: dict[str, object] = {
-        "schema": TRIGGER_SCHEMA,
-        "supports_response": supports_response.OPTIONAL,
-    }
     hass.services.async_register(
-        DOMAIN, "trigger_message", _svc_trigger, **trigger_register_kwargs
+        DOMAIN,
+        "trigger_message",
+        _svc_trigger,
+        schema=TRIGGER_SCHEMA,
+        supports_response=supports_response.OPTIONAL,
     )
 
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         "request_grid_toggle_otp",
         _svc_request_grid_otp,
-        schema=REQUEST_GRID_OTP_SCHEMA,
+        REQUEST_GRID_OTP_SCHEMA,
     )
-    hass.services.async_register(
-        DOMAIN, "set_grid_mode", _svc_set_grid_mode, schema=SET_GRID_MODE_SCHEMA
+    async_register_admin_service(
+        hass,
+        DOMAIN,
+        "set_grid_mode",
+        _svc_set_grid_mode,
+        SET_GRID_MODE_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN, "clear_reauth_issue", _svc_clear_issue, schema=CLEAR_SCHEMA
     )
-    try_reauth_register_kwargs: dict[str, object] = {
-        "schema": CLEAR_SCHEMA,
-        "supports_response": supports_response.OPTIONAL,
-    }
     hass.services.async_register(
-        DOMAIN, "try_reauth_now", _svc_try_reauth_now, **try_reauth_register_kwargs
+        DOMAIN,
+        "try_reauth_now",
+        _svc_try_reauth_now,
+        schema=CLEAR_SCHEMA,
+        supports_response=supports_response.OPTIONAL,
     )
-    clear_hems_auth_backoff_register_kwargs: dict[str, object] = {
-        "schema": CLEAR_SCHEMA,
-        "supports_response": supports_response.OPTIONAL,
-    }
     hass.services.async_register(
         DOMAIN,
         "clear_hems_auth_backoff",
         _svc_clear_hems_auth_backoff,
-        **clear_hems_auth_backoff_register_kwargs,
+        schema=CLEAR_SCHEMA,
+        supports_response=supports_response.OPTIONAL,
     )
     hass.services.async_register(DOMAIN, "start_live_stream", _svc_start_stream)
     hass.services.async_register(DOMAIN, "stop_live_stream", _svc_stop_stream)
@@ -1672,12 +1851,12 @@ def async_setup_services(
     hass.services.async_register(
         DOMAIN, "delete_schedule", _svc_delete_schedule, schema=DELETE_SCHEDULE_SCHEMA
     )
-    validate_register_kwargs: dict[str, object] = {
-        "schema": VALIDATE_SCHEDULE_SCHEMA,
-        "supports_response": supports_response.OPTIONAL,
-    }
     hass.services.async_register(
-        DOMAIN, "validate_schedule", _svc_validate_schedule, **validate_register_kwargs
+        DOMAIN,
+        "validate_schedule",
+        _svc_validate_schedule,
+        schema=VALIDATE_SCHEDULE_SCHEMA,
+        supports_response=supports_response.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN,

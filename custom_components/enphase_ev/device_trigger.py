@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
+
+import voluptuous as vol
+
+from homeassistant.components.device_automation import DEVICE_TRIGGER_BASE_SCHEMA
 
 try:
     from homeassistant.components.automation.triggers import state as state_trigger
 except ModuleNotFoundError:
     from homeassistant.components.homeassistant.triggers import state as state_trigger
-from homeassistant.const import STATE_OFF, STATE_ON
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.const import CONF_ENTITY_ID, CONF_TYPE, STATE_OFF, STATE_ON
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import DOMAIN
 
@@ -19,6 +25,13 @@ TRIGGER_MAP: dict[str, dict[str, Any]] = {
     "plugged_in": {"tkey": "plugged_in", "to": STATE_ON},
     "unplugged": {"tkey": "plugged_in", "to": STATE_OFF},
 }
+
+TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
+    {
+        vol.Required(CONF_TYPE): vol.In(TRIGGER_MAP),
+        vol.Optional(CONF_ENTITY_ID): cv.entity_id_or_uuid,
+    }
+)
 
 
 async def async_get_triggers(
@@ -54,17 +67,16 @@ async def async_get_triggers(
 async def async_attach_trigger(
     hass: HomeAssistant,
     config: dict[str, Any],
-    action,
+    action: Callable[[dict[str, Any]], Awaitable[None]],
     automation_info: dict[str, Any],
-):
+) -> CALLBACK_TYPE:
     """Attach a state trigger for the selected device trigger type."""
     ent_reg = er.async_get(hass)
     device_id = config["device_id"]
-    trig_type = config.get("type")
-    meta = TRIGGER_MAP.get(str(trig_type))
+    trig_type = config[CONF_TYPE]
+    meta = TRIGGER_MAP.get(trig_type)
     if not meta:
-        # No-op for unknown type
-        return lambda: None
+        raise HomeAssistantError(f"Unhandled trigger type {trig_type}")
     # Find matching entity again in case it changed
     entity_id = None
     for ent in er.async_entries_for_device(ent_reg, device_id):
@@ -82,6 +94,9 @@ async def async_attach_trigger(
     if meta.get("from"):
         state_cfg["from"] = meta["from"]
 
-    return await state_trigger.async_attach_trigger(
-        hass, state_cfg, action, automation_info, platform_type="device"
+    return cast(
+        CALLBACK_TYPE,
+        await state_trigger.async_attach_trigger(
+            hass, state_cfg, action, automation_info, platform_type="device"
+        ),
     )

@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time as _time
+from typing import TYPE_CHECKING, Any, Coroutine, cast
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntryState, OperationNotAllowed
 from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.helpers import (
@@ -13,6 +16,7 @@ from homeassistant.helpers import (
     device_registry as dr,
     entity_registry as er,
 )
+from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .const import CONF_INCLUDE_INVERTERS, CONF_SELECTED_TYPE_KEYS, DOMAIN
 from .device_info_helpers import (
@@ -34,6 +38,7 @@ from .entity_cleanup import (
     is_owned_entity,
     iter_device_registry_entries,
     iter_entity_registry_entries,
+    prune_managed_entities,
 )
 from .log_redaction import redact_identifier, redact_site_id, redact_text
 from .runtime_data import EnphaseConfigEntry, EnphaseRuntimeData, get_runtime_data
@@ -54,13 +59,16 @@ from .serial_entity_metadata import (
     inverter_entity_serial_from_unique_id,
 )
 
+if TYPE_CHECKING:  # pragma: no cover
+    from .coordinator import EnphaseCoordinator
+
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 def async_setup_services(
-    hass: HomeAssistant, *, supports_response: object = SupportsResponse
+    hass: HomeAssistant, *, supports_response: type[Any] = SupportsResponse
 ) -> None:
     """Register integration services without importing service schemas at module load."""
 
@@ -87,6 +95,7 @@ PLATFORMS: list[str] = [
     "time",
     "calendar",
     "update",
+    "weather",
 ]
 
 _LEGACY_GATEWAY_TYPE_KEYS: tuple[str, ...] = ("meter", "enpower")
@@ -122,8 +131,9 @@ _LEGACY_CLOUD_ENTITY_SUFFIX_ALIASES_BY_DOMAIN: dict[str, tuple[str, ...]] = {
         "cloud_last_error_code",
     ),
 }
-_STARTUP_MIGRATION_VERSION = 5
+_STARTUP_MIGRATION_VERSION = 6
 _STARTUP_MIGRATION_VERSION_KEY = "startup_migration_version"
+_LEGACY_GRID_TOGGLE_OPTION = "grid_toggle_enabled"
 
 _TYPE_DEVICE_KEYS_WITH_DIRECT_CHILD_DEVICES: tuple[str, ...] = ("iqevse",)
 
@@ -180,6 +190,47 @@ def _migrate_selected_type_keys(entry: EnphaseConfigEntry) -> dict[str, object] 
     return updated
 
 
+def _remove_retired_grid_control_entities(
+    hass: HomeAssistant, entry: EnphaseConfigEntry
+) -> None:
+    """Remove Grid Mode control entities retired in config-entry minor version 2."""
+
+    site_id = str(entry.data.get("site_id", "") or "").strip()
+    if not site_id:
+        return
+    ent_reg = er.async_get(hass)
+    for domain, suffix in (
+        ("button", "request_grid_toggle_otp"),
+        ("sensor", "grid_control_status"),
+    ):
+        entity_id = find_entity_id_by_unique_id(
+            ent_reg,
+            domain,
+            f"{DOMAIN}_site_{site_id}_{suffix}",
+            entry_id=entry.entry_id,
+        )
+        if entity_id is not None:
+            ent_reg.async_remove(entity_id)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> bool:
+    """Migrate Enphase config entries to the latest schema."""
+
+    if entry.version != 1:
+        return False
+    if entry.minor_version < 2:
+        options = dict(entry.options)
+        options.pop(_LEGACY_GRID_TOGGLE_OPTION, None)
+        _remove_retired_grid_control_entities(hass, entry)
+        hass.config_entries.async_update_entry(
+            entry,
+            options=options,
+            version=1,
+            minor_version=2,
+        )
+    return True
+
+
 def _is_disabled_by_integration(disabled_by: object) -> bool:
     if disabled_by is None:
         return False
@@ -224,7 +275,10 @@ async def _async_unload_platforms_safe(
 
     async def _unload_platform(platform: str) -> bool:
         try:
-            return await hass.config_entries.async_forward_entry_unload(entry, platform)
+            return cast(
+                bool,
+                await hass.config_entries.async_forward_entry_unload(entry, platform),
+            )
         except ValueError as err:
             if str(err) != "Config entry was never loaded!":
                 raise
@@ -240,7 +294,7 @@ async def _async_unload_platforms_safe(
     )
 
 
-async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, _config: dict[str, Any]) -> bool:
     """Set up the integration domain and register services."""
 
     async_setup_services(hass, supports_response=SupportsResponse)
@@ -248,7 +302,10 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
 
 
 def _sync_type_devices(
-    entry: EnphaseConfigEntry, coord, dev_reg, site_id: object
+    entry: EnphaseConfigEntry,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
+    site_id: object,
 ) -> dict[str, object]:
     """Create or update type devices from coordinator inventory."""
 
@@ -359,8 +416,8 @@ def _inventory_type_device_sw_version_for_registry(
 
 def _sync_charger_devices(
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
     type_devices: dict[str, object],
 ) -> None:
@@ -482,7 +539,7 @@ def _serial_entity_group_from_unique_id(
 def _prune_inactive_serial_entities(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    coord,
+    coord: EnphaseCoordinator,
     site_id: object,
 ) -> int:
     """Remove owned serial-backed entities no longer present in active discovery."""
@@ -548,8 +605,8 @@ def _prune_inactive_serial_entities(
 def _remove_empty_inactive_serial_devices(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
 ) -> int:
     """Remove empty serial devices no longer present in active inventory."""
@@ -638,20 +695,23 @@ def _remove_empty_inactive_serial_devices(
 
 def _sync_registry_devices(
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
     *,
     hass: HomeAssistant | None = None,
+    cleanup: bool = True,
 ) -> None:
     type_devices = _sync_type_devices(entry, coord, dev_reg, site_id)
     _sync_charger_devices(entry, coord, dev_reg, site_id, type_devices)
-    if hass is not None:
+    if hass is not None and cleanup:
         _prune_inactive_serial_entities(hass, entry, coord, site_id)
         _remove_empty_inactive_serial_devices(hass, entry, coord, dev_reg, site_id)
 
 
-def _registry_type_metadata_signature(coord) -> tuple[tuple[object, ...], ...]:
+def _registry_type_metadata_signature(
+    coord: EnphaseCoordinator,
+) -> tuple[tuple[object, ...], ...]:
     inventory_view = coord.inventory_view
 
     type_keys = list(inventory_view.iter_type_keys())
@@ -684,7 +744,9 @@ def _registry_type_metadata_signature(coord) -> tuple[tuple[object, ...], ...]:
     return tuple(signature)
 
 
-def _registry_charger_metadata_signature(coord) -> tuple[tuple[object, ...], ...]:
+def _registry_charger_metadata_signature(
+    coord: EnphaseCoordinator,
+) -> tuple[tuple[object, ...], ...]:
     iter_serials = getattr(coord, "iter_serials", None)
     serials = list(iter_serials()) if callable(iter_serials) else []
     data_source = coord.data if isinstance(getattr(coord, "data", None), dict) else {}
@@ -713,7 +775,9 @@ def _registry_charger_metadata_signature(coord) -> tuple[tuple[object, ...], ...
     return tuple(signature)
 
 
-def _registry_metadata_signature(coord) -> tuple[tuple[object, ...], ...]:
+def _registry_metadata_signature(
+    coord: EnphaseCoordinator,
+) -> tuple[tuple[object, ...], ...]:
     return (
         ("types", *_registry_type_metadata_signature(coord)),
         ("chargers", *_registry_charger_metadata_signature(coord)),
@@ -721,7 +785,7 @@ def _registry_metadata_signature(coord) -> tuple[tuple[object, ...], ...]:
 
 
 def _remove_legacy_inventory_entities(
-    ent_reg, site_id: str, *, entry_id: str | None
+    ent_reg: er.EntityRegistry, site_id: str, *, entry_id: str | None
 ) -> int:
     unique_ids = {
         f"{DOMAIN}_site_{site_id}_type_meter_inventory",
@@ -883,8 +947,8 @@ def _migrate_cloud_entity_unique_ids(
 def _migrate_cloud_entities_to_cloud_device(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
 ) -> None:
     if er is None:
@@ -1002,20 +1066,22 @@ def _migrate_cloud_entities_to_cloud_device(
         entity_id = getattr(reg_entry, "entity_id", None)
         if not entity_id:
             continue
-        domain = getattr(reg_entry, "domain", None)
-        if domain is None and isinstance(entity_id, str):
-            domain = entity_id.partition(".")[0]
-        if domain not in all_cloud_suffixes_by_domain:
+        entry_domain = getattr(reg_entry, "domain", None)
+        if entry_domain is None and isinstance(entity_id, str):
+            entry_domain = entity_id.partition(".")[0]
+        if entry_domain not in all_cloud_suffixes_by_domain:
             continue
-        unique_id = getattr(reg_entry, "unique_id", None)
-        if not isinstance(unique_id, str) or not unique_id:
+        entry_unique_id = getattr(reg_entry, "unique_id", None)
+        if not isinstance(entry_unique_id, str) or not entry_unique_id:
             continue
-        if "_site_" in unique_id and site_marker not in unique_id:
+        if "_site_" in entry_unique_id and site_marker not in entry_unique_id:
             continue
-        suffix = _match_cloud_suffix(unique_id, all_cloud_suffixes_by_domain[domain])
-        if suffix is None:
+        matched_suffix = _match_cloud_suffix(
+            entry_unique_id, all_cloud_suffixes_by_domain[entry_domain]
+        )
+        if matched_suffix is None:
             continue
-        should_enable = suffix in _SITE_ENERGY_ENTITY_UNIQUE_ID_SUFFIXES
+        should_enable = matched_suffix in _SITE_ENERGY_ENTITY_UNIQUE_ID_SUFFIXES
         _move_entity_to_cloud_device(entity_id, should_enable=should_enable)
 
     if moved:
@@ -1035,8 +1101,8 @@ def _migrate_cloud_entities_to_cloud_device(
 def _migrate_legacy_gateway_type_devices(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
 ) -> None:
     if er is None:
@@ -1181,8 +1247,8 @@ def _is_legacy_site_device(device: object, legacy_site_ident: tuple[str, str]) -
 def _remove_legacy_site_device(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
 ) -> None:
     """Remove the legacy Enphase Site placeholder device."""
@@ -1338,7 +1404,7 @@ def _migrate_orphaned_update_entities_to_type_devices(
 def _remove_evse_type_device_and_entities(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    dev_reg,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
 ) -> None:
     if er is None:
@@ -1418,8 +1484,8 @@ def _remove_evse_type_device_and_entities(
 def _complete_startup_migrations_if_ready(
     hass: HomeAssistant,
     entry: EnphaseConfigEntry,
-    coord,
-    dev_reg,
+    coord: EnphaseCoordinator,
+    dev_reg: dr.DeviceRegistry,
     site_id: object,
 ) -> None:
     if _startup_migration_version(entry) >= _STARTUP_MIGRATION_VERSION:
@@ -1433,33 +1499,104 @@ def _complete_startup_migrations_if_ready(
     except Exception:  # noqa: BLE001
         return
     _migrate_cloud_entity_unique_ids(hass, entry, site_id)
+    _remove_legacy_site_device(hass, entry, coord, dev_reg, site_id)
     _migrate_legacy_gateway_type_devices(hass, entry, coord, dev_reg, site_id)
     _migrate_orphaned_update_entities_to_type_devices(hass, entry, site_id)
     _remove_evse_type_device_and_entities(hass, entry, dev_reg, site_id)
     _migrate_cloud_entities_to_cloud_device(hass, entry, coord, dev_reg, site_id)
+    _remove_retired_grid_profile_device_entities(hass, entry, site_id)
     runtime_data = getattr(entry, "runtime_data", None)
-    suppress_reload = isinstance(runtime_data, EnphaseRuntimeData)
-    if isinstance(runtime_data, EnphaseRuntimeData):
-        runtime_data.reload_suppression_count += 1
+    typed_runtime_data = (
+        runtime_data if isinstance(runtime_data, EnphaseRuntimeData) else None
+    )
+    if typed_runtime_data is not None:
+        typed_runtime_data.reload_suppression_count += 1
     migrated_data = dict(entry.data)
     migrated_data[_STARTUP_MIGRATION_VERSION_KEY] = _STARTUP_MIGRATION_VERSION
     try:
         changed = hass.config_entries.async_update_entry(entry, data=migrated_data)
     except Exception:
-        if suppress_reload:
-            runtime_data.reload_suppression_count = max(
+        if typed_runtime_data is not None:
+            typed_runtime_data.reload_suppression_count = max(
                 0,
-                runtime_data.reload_suppression_count - 1,
+                typed_runtime_data.reload_suppression_count - 1,
             )
         raise
-    if suppress_reload and not changed:
-        runtime_data.reload_suppression_count = max(
+    if typed_runtime_data is not None and not changed:
+        typed_runtime_data.reload_suppression_count = max(
             0,
-            runtime_data.reload_suppression_count - 1,
+            typed_runtime_data.reload_suppression_count - 1,
         )
 
 
+def _remove_retired_grid_profile_device_entities(
+    hass: HomeAssistant,
+    entry: EnphaseConfigEntry,
+    site_id: object,
+) -> None:
+    """Remove grid-profile controls retired from the device page."""
+
+    site_id_text = str(site_id or "").strip()
+    if not site_id_text:
+        return
+    ent_reg = er.async_get(hass)
+    sensor_current_unique_id = f"{DOMAIN}_site_{site_id_text}_current_grid_profile"
+    current_entity_id = find_entity_id_by_unique_id(
+        ent_reg,
+        "sensor",
+        sensor_current_unique_id,
+        entry_id=entry.entry_id,
+    )
+    if current_entity_id:
+        try:
+            ent_reg.async_update_entity(current_entity_id, entity_category=None)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug(
+                "Failed clearing Grid Profile entity category for site %s: %s",
+                redact_site_id(site_id_text),
+                redact_text(err, site_ids=(site_id_text,)),
+            )
+    prune_managed_entities(
+        ent_reg,
+        entry.entry_id,
+        domain="sensor",
+        active_unique_ids={sensor_current_unique_id},
+        is_managed=lambda unique_id: unique_id
+        in {
+            f"{DOMAIN}_site_{site_id_text}_grid_profile_status",
+            sensor_current_unique_id,
+            f"{DOMAIN}_site_{site_id_text}_requested_grid_profile",
+        },
+    )
+    prune_managed_entities(
+        ent_reg,
+        entry.entry_id,
+        domain="button",
+        active_unique_ids=set(),
+        is_managed=lambda unique_id: unique_id
+        == f"{DOMAIN}_site_{site_id_text}_apply_staged_grid_profile",
+    )
+    prune_managed_entities(
+        ent_reg,
+        entry.entry_id,
+        domain="select",
+        active_unique_ids=set(),
+        is_managed=lambda unique_id: unique_id
+        in {
+            f"{DOMAIN}_site_{site_id_text}_grid_profile_region",
+            f"{DOMAIN}_site_{site_id_text}_grid_profile_list_mode",
+            f"{DOMAIN}_site_{site_id_text}_grid_profile_staged_profile",
+        },
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> bool:
+    setup_started = _time.monotonic()
+    setup_timings: dict[str, float] = {}
+
+    def _record_phase(key: str, started: float) -> None:
+        setup_timings[key] = round(max(0.0, _time.monotonic() - started), 3)
+
     migrated_data = _migrate_selected_type_keys(entry)
     if migrated_data is not None:
         hass.config_entries.async_update_entry(entry, data=migrated_data)
@@ -1482,11 +1619,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> b
     from .evse_schedule_editor import EvseScheduleEditorManager
     from .evse_firmware import EvseFirmwareDetailsManager
     from .firmware_catalog import FirmwareCatalogManager
+    from .gateway_software_update import GatewaySoftwareUpdateManager
     from .labels import async_prime_label_translations
 
-    coord = EnphaseCoordinator(hass, entry.data, config_entry=entry)
+    coordinator_started = _time.monotonic()
+    coord = EnphaseCoordinator(
+        hass,
+        entry.data,
+        config_entry=entry,
+        cookie_header_session=async_create_clientsession(
+            hass,
+            auto_cleanup=True,
+            cookie_jar=aiohttp.DummyCookieJar(),
+        ),
+    )
     firmware_catalog = FirmwareCatalogManager(hass)
     evse_firmware_details = EvseFirmwareDetailsManager(lambda: coord.client)
+    gateway_software_update = GatewaySoftwareUpdateManager(
+        lambda: coord.client,
+        lambda: coord.inventory_view.type_device_serial_number("envoy"),
+    )
     battery_schedule_editor = BatteryScheduleEditorManager(coord)
     evse_schedule_editor = EvseScheduleEditorManager(coord)
     setattr(coord, "firmware_catalog_manager", firmware_catalog)
@@ -1495,27 +1647,100 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> b
         coordinator=coord,
         firmware_catalog=firmware_catalog,
         evse_firmware_details=evse_firmware_details,
+        gateway_software_update=gateway_software_update,
         battery_schedule_editor=battery_schedule_editor,
         evse_schedule_editor=evse_schedule_editor,
     )
-    discovery_snapshot = getattr(coord, "discovery_snapshot", None)
-    restore_discovery_state = getattr(discovery_snapshot, "async_restore_state", None)
-    if callable(restore_discovery_state):
-        await restore_discovery_state()
-    await async_prime_label_translations(hass)
-    await coord.async_config_entry_first_refresh()
+    _record_phase("coordinator_init_s", coordinator_started)
+    setup_milestones: dict[str, float] = {}
+    begin_setup_tracking = getattr(coord, "begin_setup_tracking", None)
+    if callable(begin_setup_tracking):
+        begin_setup_tracking(setup_started, setup_timings, setup_milestones)
+    else:
+        # Compatibility for lightweight coordinators supplied by downstream tests.
+        coord._setup_started_mono = setup_started
+        coord._setup_phase_timings = setup_timings
+        coord._setup_milestones = setup_milestones
+
+    async def _prime_labels() -> None:
+        started = _time.monotonic()
+        try:
+            await async_prime_label_translations(hass)
+        finally:
+            _record_phase("translations_s", started)
+
+    async def _prime_version() -> None:
+        started = _time.monotonic()
+        try:
+            await async_prime_integration_version(hass)
+        finally:
+            _record_phase("integration_version_s", started)
+
+    label_task = asyncio.create_task(
+        _prime_labels(), name=f"{DOMAIN}_startup_translations"
+    )
+    version_task = asyncio.create_task(
+        _prime_version(), name=f"{DOMAIN}_startup_version"
+    )
+    try:
+        bootstrap_first_refresh = getattr(coord, "async_bootstrap_first_refresh", None)
+        if callable(bootstrap_first_refresh):
+            await bootstrap_first_refresh()
+        else:
+            # Compatibility for lightweight coordinators supplied by downstream tests.
+            discovery_snapshot = getattr(coord, "discovery_snapshot", None)
+            restore_discovery_state = getattr(
+                discovery_snapshot, "async_restore_state", None
+            )
+            snapshot_started = _time.monotonic()
+            if callable(restore_discovery_state):
+                await restore_discovery_state()
+            _record_phase("snapshot_restore_s", snapshot_started)
+
+            refresh_runner = getattr(coord, "refresh_runner", None)
+            start_power = getattr(refresh_runner, "async_start_startup_power", None)
+            if callable(start_power):
+                await start_power()
+
+            first_refresh_started = _time.monotonic()
+            await coord.async_config_entry_first_refresh()
+            _record_phase("first_refresh_s", first_refresh_started)
+        mark_setup_milestone = getattr(coord, "mark_setup_milestone", None)
+        if callable(mark_setup_milestone):
+            mark_setup_milestone("core_ready")
+        else:
+            setup_milestones["core_ready"] = round(_time.monotonic() - setup_started, 3)
+        await asyncio.gather(label_task, version_task)
+    except BaseException:
+        for task in (label_task, version_task):
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(label_task, version_task, return_exceptions=True)
+        cancel_startup_power = getattr(coord, "async_cancel_startup_power", None)
+        if callable(cancel_startup_power):
+            await cancel_startup_power()
+        else:  # pragma: no cover - lightweight downstream coordinator compatibility
+            startup_power_task = getattr(coord, "_startup_power_task", None)
+            if (
+                isinstance(startup_power_task, asyncio.Future)
+                and not startup_power_task.done()
+            ):
+                startup_power_task.cancel()
+                await asyncio.gather(startup_power_task, return_exceptions=True)
+        raise
+
+    editor_sync_started = _time.monotonic()
     battery_schedule_editor.sync_from_coordinator()
     evse_schedule_editor.sync_from_coordinator()
-    await async_prime_integration_version(hass)
+    _record_phase("editor_sync_s", editor_sync_started)
 
     site_id = entry.data.get("site_id")
     dev_reg = dr.async_get(hass)
-    _sync_registry_devices(entry, coord, dev_reg, site_id, hass=hass)
-    _remove_legacy_site_device(hass, entry, coord, dev_reg, site_id)
-    _remove_evse_type_device_and_entities(hass, entry, dev_reg, site_id)
-    _migrate_orphaned_update_entities_to_type_devices(hass, entry, site_id)
+    registry_started = _time.monotonic()
+    _sync_registry_devices(entry, coord, dev_reg, site_id, hass=hass, cleanup=False)
     _complete_startup_migrations_if_ready(hass, entry, coord, dev_reg, site_id)
     last_registry_signature = _registry_metadata_signature(coord)
+    _record_phase("registry_reconcile_s", registry_started)
 
     def _sync_registry_on_update() -> None:
         nonlocal last_registry_signature
@@ -1524,15 +1749,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> b
             current_signature = _registry_metadata_signature(coord)
             if current_signature != last_registry_signature:
                 _sync_registry_devices(entry, coord, dev_reg, site_id, hass=hass)
-                _remove_evse_type_device_and_entities(hass, entry, dev_reg, site_id)
-                _migrate_orphaned_update_entities_to_type_devices(hass, entry, site_id)
                 last_registry_signature = current_signature
             else:
                 _prune_inactive_serial_entities(hass, entry, coord, site_id)
                 _remove_empty_inactive_serial_devices(
                     hass, entry, coord, dev_reg, site_id
                 )
-            _remove_legacy_site_device(hass, entry, coord, dev_reg, site_id)
             _complete_startup_migrations_if_ready(hass, entry, coord, dev_reg, site_id)
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug(
@@ -1553,7 +1775,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> b
         entry.async_on_unload(
             add_state_listener(evse_schedule_editor.sync_from_coordinator)
         )
-        entry.async_on_unload(add_state_listener(_sync_registry_on_update))
 
     schedule_sync = getattr(coord, "schedule_sync", None)
     if schedule_sync is not None and hasattr(schedule_sync, "async_add_listener"):
@@ -1561,22 +1782,52 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> b
             schedule_sync.async_add_listener(evse_schedule_editor.sync_from_coordinator)
         )
 
-    def _schedule_background_task(coro, name: str) -> None:
+    def _schedule_background_task(coro: Coroutine[Any, Any, Any], name: str) -> None:
         entry_create_background = getattr(entry, "async_create_background_task", None)
         hass_create_background = getattr(hass, "async_create_background_task", None)
-        if callable(entry_create_background):
-            entry_create_background(hass, coro, name)
-        elif callable(hass_create_background):
-            hass_create_background(coro, name)
+        if callable(hass_create_background):
+            task = hass_create_background(coro, name)
+        elif callable(entry_create_background):
+            task = entry_create_background(hass, coro, name)
         else:
-            hass.async_create_task(coro, name=name)
+            task = hass.async_create_task(coro, name=name)
+        track_background_task = getattr(coord, "track_entry_background_task", None)
+        if callable(track_background_task):
+            track_background_task(task)
 
+    platform_started = _time.monotonic()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _prune_inactive_serial_entities(hass, entry, coord, site_id)
-    _remove_empty_inactive_serial_devices(hass, entry, coord, dev_reg, site_id)
-
+    _record_phase("platform_forward_s", platform_started)
+    mark_setup_milestone = getattr(coord, "mark_setup_milestone", None)
+    if callable(mark_setup_milestone):
+        mark_setup_milestone("entities_forwarded")
+    else:
+        setup_milestones["entities_forwarded"] = round(
+            _time.monotonic() - setup_started, 3
+        )
     # Start background work only after entities have been forwarded so restored
     # topology can create entities first and warmup can fill in live state later.
+    # Schedule warmup first so the bounded startup power stage gets priority over
+    # other optional background work competing for the shared read limiter.
+    startup_warmup = getattr(coord, "async_start_startup_warmup", None)
+    if not callable(startup_warmup):
+        refresh_runner = getattr(coord, "refresh_runner", None)
+        startup_warmup = getattr(refresh_runner, "async_start_startup_warmup", None)
+    if callable(startup_warmup):
+        _schedule_background_task(
+            startup_warmup(),
+            f"{DOMAIN}_startup_warmup",
+        )
+
+    grid_profile_startup_probe = getattr(
+        coord, "async_refresh_grid_profile_metadata", None
+    )
+    if callable(grid_profile_startup_probe):
+        _schedule_background_task(
+            grid_profile_startup_probe(force=True),
+            f"{DOMAIN}_grid_profile_startup_probe",
+        )
+
     schedule_sync = getattr(coord, "schedule_sync", None)
     if schedule_sync is not None and hasattr(schedule_sync, "async_start"):
         _schedule_background_task(
@@ -1584,29 +1835,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> b
             f"{DOMAIN}_schedule_sync_start",
         )
 
-    refresh_runner = getattr(coord, "refresh_runner", None)
-    startup_warmup = getattr(refresh_runner, "async_start_startup_warmup", None)
-    if callable(startup_warmup):
-        _schedule_background_task(
-            startup_warmup(),
-            f"{DOMAIN}_startup_warmup",
-        )
-
+    total_setup_seconds = _time.monotonic() - setup_started
+    finish_setup_tracking = getattr(coord, "finish_setup_tracking", None)
+    if callable(finish_setup_tracking):
+        finish_setup_tracking(total_setup_seconds)
+    else:
+        setup_timings["total_s"] = round(total_setup_seconds, 3)
+        coord._setup_phase_timings = dict(setup_timings)
+        setup_milestones["setup_complete"] = setup_timings["total_s"]
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: EnphaseConfigEntry) -> bool:
     coord = None
+    runtime_data = None
     try:
-        coord = get_runtime_data(entry).coordinator
+        runtime_data = get_runtime_data(entry)
+        coord = runtime_data.coordinator
     except RuntimeError:
         pass
     unload_ok = await _async_unload_platforms_safe(hass, entry)
     if unload_ok:
+        if runtime_data is not None:
+            await runtime_data.async_stop_weather()
         if coord is not None and hasattr(coord, "schedule_sync"):
             await coord.schedule_sync.async_stop()
-        if coord is not None and hasattr(coord, "cleanup_runtime_state"):
+        async_cleanup_runtime_state = getattr(
+            coord, "async_cleanup_runtime_state", None
+        )
+        if callable(async_cleanup_runtime_state):
+            await async_cleanup_runtime_state()
+        elif coord is not None and hasattr(coord, "cleanup_runtime_state"):
             coord.cleanup_runtime_state()
+        if coord is not None and hasattr(coord, "async_close"):
+            await coord.async_close()
         entry.runtime_data = None
         loaded_state = getattr(ConfigEntryState, "LOADED", None)
         has_loaded_entries = any(

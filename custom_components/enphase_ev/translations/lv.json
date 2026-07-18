@@ -95,7 +95,7 @@
       "message": "Režģa vadība šai vietnei nav pieejama."
     },
     "grid_control_blocked": {
-      "message": "Režģa vadība pašlaik ir bloķēta: {reasons}."
+      "message": "Tīkla vadība pašlaik ir bloķēta."
     },
     "grid_mode_invalid": {
       "message": "Režģa režīmam jābūt on_grid vai off_grid."
@@ -412,6 +412,9 @@
     "tariff_rate_api_unavailable": {
       "message": "Tarifu rakstīšanas API nav pieejama."
     },
+    "pricing_edits_disabled": {
+      "message": "Cenu rediģēšana integrācijas opcijās ir atspējota."
+    },
     "tariff_rate_entity_required": {
       "message": "Atlasiet tieši vienu tarifa likmes entītiju."
     },
@@ -456,6 +459,27 @@
     },
     "firmware_advisory_only": {
       "message": "Aparātprogrammatūras atjauninājumi ir tikai informatīvi."
+    },
+    "grid_profile_installer_required": {
+      "message": "Tīkla profila vadībai nepieciešama Enphase Activation uzstādītāja piekļuve."
+    },
+    "grid_profile_profile_invalid": {
+      "message": "Atlasītais tīkla profils nav pieejams šīs vietnes valstij un reģionam."
+    },
+    "grid_profile_gateway_required": {
+      "message": "Lai lietotu tīkla profilu, ir nepieciešams Cloud Activation Gateway ieraksts."
+    },
+    "grid_profile_apply_failed": {
+      "message": "Tīkla profila lietošana neizdevās."
+    },
+    "grid_profile_confirmation_required": {
+      "message": "Lai lietotu tīkla profilu, nepieciešams apstiprinājums."
+    },
+    "grid_profile_region_invalid": {
+      "message": "Atlasītais tīkla profila reģions nav pieejams."
+    },
+    "grid_profile_unavailable": {
+      "message": "Tīkla profila vadība nav pieejama."
     }
   },
   "options": {
@@ -464,12 +488,20 @@
         "title": "Enphase Energy opcijas",
         "description": "Izvēlieties, ko darīt ar šo integrācijas ierakstu.",
         "menu_options": {
-          "settings": "Iestatījumi",
-          "migrate_envoy": "Migrēt Envoy vēsturi"
+          "settings": "Aptauja",
+          "devices": "Izvēlieties ierīces",
+          "repair_notifications": "Paziņojumi",
+          "authentication_settings": "Autentifikācija",
+          "migrate_envoy": "Migrēt Envoy vēsturi",
+          "advanced": "Papildu"
         },
         "menu_option_descriptions": {
           "settings": "Pielāgojiet aptauju un darbību.",
-          "migrate_envoy": "Pārņemiet izvēlētos Enphase Envoy enerģijas entītiju ID, lai Home Assistant Energy vēsture turpinātos šajā integrācijā."
+          "devices": "Izvēlieties, kuras ierīču grupas pievienot. Visām izvēlēm ir vienāds aptaujas intervāls.",
+          "repair_notifications": "Pārvaldīt Home Assistant labošanas paziņojumus.",
+          "authentication_settings": "Palaidiet pieteikšanās plūsmu, lai atjaunotu datus, nenoņemot integrāciju.",
+          "migrate_envoy": "Pārņemiet izvēlētos Enphase Envoy enerģijas entītiju ID, lai Home Assistant Energy vēsture turpinātos šajā integrācijā.",
+          "advanced": "Izvēles tīkla režīma vadība un tikai uzstādītājam paredzēta tīkla profila vadība."
         },
         "data": {
           "type_envoy": "Vārteja",
@@ -480,15 +512,16 @@
           "slow_poll_interval": "Lēns aptaujas intervāls (s)",
           "fast_while_streaming": "Dod priekšroku ātrai aptaujai, kad mākoņa straume aktīva",
           "api_timeout": "API noildze (s)",
-          "nominal_voltage": "Nominālais spriegums (V)",
+          "nominal_voltage": "EV lādētāja nominālais spriegums (V)",
           "session_history_interval": "Sesijas vēstures intervāls (min)",
           "schedule_sync_enabled": "Iespējot plānotāja atbalstu",
-          "reauth": "Sākt atkārtotu autentifikāciju",
-          "forget_password": "Aizmirst saglabāto paroli",
           "type_heatpump": "Siltumsūknis",
           "type_ac_battery": "AC baterija",
           "battery_schedules_enabled": "Iespējot akumulatora plānotāju",
-          "degraded_service_repair_issues": "Iespējot degradētu pakalpojumu labojumus"
+          "degraded_service_repair_issues": "Iespējot degradētu pakalpojumu labojumus",
+          "weather_enabled": "Iespējot laikapstākļus",
+          "microinverter_lifetime_energy_enabled": "Iespējot mikroinvertoru kopējo enerģiju",
+          "microinverter_power_enabled": "Iespējot mikroinvertoru jaudu"
         },
         "data_description": {
           "type_envoy": "Ietver vārtejas savienojamības un skaitītāju diagnostiku.",
@@ -499,57 +532,140 @@
           "slow_poll_interval": "Intervāls, ko izmantot dīkstāvē.",
           "fast_while_streaming": "Ja iespējots, ātra aptauja aktīvas mākoņa straumes laikā.",
           "api_timeout": "Sekundes līdz API pieprasījumu noildzei.",
-          "nominal_voltage": "Rezerves spriegums lādētāja jaudas novērtējumam.",
+          "nominal_voltage": "Tipisks maiņstrāvas padeves spriegums jaudas novērtēšanai, ja aktuālais spriegums nav pieejams.",
           "session_history_interval": "Minūtes starp mākoņa sesiju vēstures pieprasījumiem.",
-          "schedule_sync_enabled": "Pārvaldīt Enphase grafiku pārvaldību",
-          "reauth": "Palaidiet pieteikšanās plūsmu, lai atjaunotu datus, nenoņemot integrāciju.",
-          "forget_password": "Noņem saglabāto paroli. Automātiska atjaunošana vairs netiks mēģināta.",
           "type_heatpump": "Ietver siltumsūkņa statusa, diagnostikas un patēriņa sensorus.",
           "type_ac_battery": "Ietver AC baterijas sensorus un miega režīma vadīklas, kad tās ir pieejamas.",
-          "battery_schedules_enabled": "Pārvaldīt IQ akumulatora grafikus",
-          "degraded_service_repair_issues": "Izveido Repairs problēmas, kad izvēles Enphase pakalpojumi darbojas pasliktināti."
+          "degraded_service_repair_issues": "Izveido Repairs problēmas, kad izvēles Enphase pakalpojumi darbojas pasliktināti.",
+          "weather_enabled": "Iegūst pašreizējos vietas laikapstākļus no Enphase un izveido laikapstākļu entītiju tikai tad, ja galapunkts ir pieejams.",
+          "microinverter_lifetime_energy_enabled": "Iespējo visus katra mikroinvertora kopējās enerģijas sensorus.",
+          "microinverter_power_enabled": "Iespējo visus katra mikroinvertora jaudas sensorus, kad ir pieejama uzstādītāja telemetrija."
         }
       },
       "settings": {
-        "title": "Enphase Energy opcijas",
+        "title": "Aptauja",
         "description": "Pielāgot aptauju un uzvedību.",
         "data": {
-          "type_envoy": "Vārteja",
-          "type_encharge": "Akumulators",
-          "type_iqevse": "Lādētāji",
-          "type_microinverter": "Mikroinvertori",
           "fast_poll_interval": "Ātrs aptaujas intervāls (s)",
           "slow_poll_interval": "Lēns aptaujas intervāls (s)",
           "fast_while_streaming": "Dod priekšroku ātrai aptaujai, kad mākoņa straume aktīva",
           "api_timeout": "API noildze (s)",
-          "nominal_voltage": "Nominālais spriegums (V)",
           "session_history_interval": "Sesijas vēstures intervāls (min)",
-          "schedule_sync_enabled": "Iespējot plānotāja atbalstu",
-          "reauth": "Sākt atkārtotu autentifikāciju",
-          "forget_password": "Aizmirst saglabāto paroli",
-          "type_heatpump": "Siltumsūknis",
-          "type_ac_battery": "AC baterija",
-          "battery_schedules_enabled": "Iespējot akumulatora plānotāju",
           "degraded_service_repair_issues": "Iespējot degradētu pakalpojumu labojumus"
         },
         "data_description": {
-          "type_envoy": "Ietver vārtejas savienojamības un skaitītāju diagnostiku.",
-          "type_encharge": "Ietver akumulatoru statusu un vadības entītijas, kad pieejamas.",
-          "type_iqevse": "Ietver EV lādētāju entītijas un vadību.",
-          "type_microinverter": "Ietver mikroinvertoru savienojamības, aktīvā skaita un mūža ražošanas sensorus.",
           "fast_poll_interval": "Intervāls, ko izmantot uzlādes vai straumēšanas laikā.",
           "slow_poll_interval": "Intervāls, ko izmantot dīkstāvē.",
           "fast_while_streaming": "Ja iespējots, ātra aptauja aktīvas mākoņa straumes laikā.",
           "api_timeout": "Sekundes līdz API pieprasījumu noildzei.",
-          "nominal_voltage": "Rezerves spriegums lādētāja jaudas novērtējumam.",
           "session_history_interval": "Minūtes starp mākoņa sesiju vēstures pieprasījumiem.",
-          "schedule_sync_enabled": "Pārvaldīt Enphase grafiku pārvaldību",
-          "reauth": "Palaidiet pieteikšanās plūsmu, lai atjaunotu datus, nenoņemot integrāciju.",
-          "forget_password": "Noņem saglabāto paroli. Automātiska atjaunošana vairs netiks mēģināta.",
-          "type_heatpump": "Ietver siltumsūkņa statusa, diagnostikas un patēriņa sensorus.",
-          "type_ac_battery": "Ietver AC baterijas sensorus un miega režīma vadīklas, kad tās ir pieejamas.",
-          "battery_schedules_enabled": "Pārvaldīt IQ akumulatora grafikus",
           "degraded_service_repair_issues": "Izveido Repairs problēmas, kad izvēles Enphase pakalpojumi darbojas pasliktināti."
+        }
+      },
+      "devices": {
+        "title": "Izvēlieties ierīces",
+        "description": "Izvēlieties, kuras ierīču grupas pievienot. Visām izvēlēm ir vienāds aptaujas intervāls.",
+        "sections": {
+          "devices": {
+            "name": "Izvēlieties ierīces",
+            "data": {
+              "type_envoy": "Vārteja",
+              "type_encharge": "Akumulators",
+              "type_ac_battery": "AC baterija",
+              "type_iqevse": "Lādētāji",
+              "type_heatpump": "Siltumsūknis",
+              "type_microinverter": "Mikroinvertori"
+            },
+            "data_description": {
+              "type_envoy": "Ietver vārtejas savienojamības un skaitītāju diagnostiku.",
+              "type_encharge": "Ietver akumulatoru statusu un vadības entītijas, kad pieejamas.",
+              "type_ac_battery": "Ietver AC baterijas sensorus un miega režīma vadīklas, kad tās ir pieejamas.",
+              "type_iqevse": "Ietver EV lādētāju entītijas un vadību.",
+              "type_heatpump": "Ietver siltumsūkņa statusa, diagnostikas un patēriņa sensorus.",
+              "type_microinverter": "Ietver mikroinvertoru savienojamības, aktīvā skaita un mūža ražošanas sensorus."
+            }
+          },
+          "device_features": {
+            "name": "Ierīču funkcijas",
+            "data": {
+              "schedule_sync_enabled": "Iespējot plānotāja atbalstu",
+              "battery_schedules_enabled": "Iespējot akumulatora plānotāju",
+              "system_event_repair_issues": "Iespējot sistēmas notikumu labošanas paziņojumus",
+              "pricing_edits_enabled": "Iespējot cenu rediģēšanu",
+              "weather_enabled": "Iespējot laikapstākļus",
+              "nominal_voltage": "EV lādētāja nominālais spriegums (V)",
+              "microinverter_lifetime_energy_enabled": "Iespējot mikroinvertoru kopējo enerģiju",
+              "microinverter_power_enabled": "Iespējot mikroinvertoru jaudu"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Izveido Home Assistant labojumus aktīviem Enphase pastāvīgajiem trauksmes signāliem. Pēc noklusējuma izslēgts.",
+              "pricing_edits_enabled": "Pārvaldīt IQ Gateway elektroenerģijas tarifus",
+              "weather_enabled": "Iegūst pašreizējos vietas laikapstākļus no Enphase un izveido laikapstākļu entītiju tikai tad, ja galapunkts ir pieejams.",
+              "nominal_voltage": "Tipisks maiņstrāvas padeves spriegums jaudas novērtēšanai, ja aktuālais spriegums nav pieejams.",
+              "schedule_sync_enabled": "Pārvaldiet IQ EV Charger grafikus.",
+              "battery_schedules_enabled": "Pārvaldiet IQ Battery grafikus.",
+              "microinverter_lifetime_energy_enabled": "Iespējo visus katra mikroinvertora kopējās enerģijas sensorus.",
+              "microinverter_power_enabled": "Iespējo visus katra mikroinvertora jaudas sensorus, kad ir pieejama uzstādītāja telemetrija."
+            }
+          }
+        },
+        "data": {
+          "devices": "Izvēlieties ierīces",
+          "device_features": "Ierīču funkcijas",
+          "type_envoy": "Vārteja",
+          "type_encharge": "Akumulators",
+          "type_ac_battery": "AC baterija",
+          "type_iqevse": "Lādētāji",
+          "type_heatpump": "Siltumsūknis",
+          "type_microinverter": "Mikroinvertori",
+          "schedule_sync_enabled": "Iespējot plānotāja atbalstu",
+          "battery_schedules_enabled": "Iespējot akumulatora plānotāju",
+          "system_event_repair_issues": "Iespējot sistēmas notikumu labošanas paziņojumus",
+          "pricing_edits_enabled": "Iespējot cenu rediģēšanu",
+          "weather_enabled": "Iespējot laikapstākļus",
+          "nominal_voltage": "EV lādētāja nominālais spriegums (V)",
+          "microinverter_lifetime_energy_enabled": "Iespējot mikroinvertoru kopējo enerģiju",
+          "microinverter_power_enabled": "Iespējot mikroinvertoru jaudu"
+        },
+        "data_description": {
+          "type_envoy": "Ietver vārtejas savienojamības un skaitītāju diagnostiku.",
+          "type_encharge": "Ietver akumulatoru statusu un vadības entītijas, kad pieejamas.",
+          "type_ac_battery": "Ietver AC baterijas sensorus un miega režīma vadīklas, kad tās ir pieejamas.",
+          "type_iqevse": "Ietver EV lādētāju entītijas un vadību.",
+          "type_heatpump": "Ietver siltumsūkņa statusa, diagnostikas un patēriņa sensorus.",
+          "type_microinverter": "Ietver mikroinvertoru savienojamības, aktīvā skaita un mūža ražošanas sensorus.",
+          "system_event_repair_issues": "Izveido Home Assistant labojumus aktīviem Enphase pastāvīgajiem trauksmes signāliem. Pēc noklusējuma izslēgts.",
+          "pricing_edits_enabled": "Pārvaldīt IQ Gateway elektroenerģijas tarifus",
+          "weather_enabled": "Iegūst pašreizējos vietas laikapstākļus no Enphase un izveido laikapstākļu entītiju tikai tad, ja galapunkts ir pieejams.",
+          "nominal_voltage": "Tipisks maiņstrāvas padeves spriegums jaudas novērtēšanai, ja aktuālais spriegums nav pieejams.",
+          "schedule_sync_enabled": "Pārvaldiet IQ EV Charger grafikus.",
+          "battery_schedules_enabled": "Pārvaldiet IQ Battery grafikus.",
+          "microinverter_lifetime_energy_enabled": "Iespējo visus katra mikroinvertora kopējās enerģijas sensorus.",
+          "microinverter_power_enabled": "Iespējo visus katra mikroinvertora jaudas sensorus, kad ir pieejama uzstādītāja telemetrija."
+        }
+      },
+      "repair_notifications": {
+        "title": "Paziņojumi",
+        "description": "Izvēlieties, kuri Enphase apstākļi izveido Home Assistant labojumus.",
+        "data": {
+          "degraded_service_repair_issues": "Iespējot degradētu pakalpojumu labojumus",
+          "system_event_repair_issues": "Iespējot sistēmas notikumu labošanas paziņojumus"
+        },
+        "data_description": {
+          "degraded_service_repair_issues": "Izveido Repairs problēmas, kad izvēles Enphase pakalpojumi darbojas pasliktināti.",
+          "system_event_repair_issues": "Izveido Home Assistant labojumus aktīviem Enphase pastāvīgajiem trauksmes signāliem. Pēc noklusējuma izslēgts."
+        }
+      },
+      "authentication_settings": {
+        "title": "Autentifikācija",
+        "description": "Palaidiet pieteikšanās plūsmu, lai atjaunotu datus, nenoņemot integrāciju.",
+        "data": {
+          "reauth": "Sākt atkārtotu autentifikāciju",
+          "forget_password": "Aizmirst saglabāto paroli"
+        },
+        "data_description": {
+          "reauth": "Palaidiet pieteikšanās plūsmu, lai atjaunotu datus, nenoņemot integrāciju.",
+          "forget_password": "Noņem saglabāto paroli. Automātiska atjaunošana vairs netiks mēģināta."
         }
       },
       "migrate_envoy_source": {
@@ -578,12 +694,12 @@
           "battery_discharge": "Akumulatora izlāde"
         },
         "data_description": {
-          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
-          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
-          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
-          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
-          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
-          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+          "solar_production": "Piešķiriet kumulatīvo kopvērtību sensoram Vietnes saules ražošana. Neizvēlieties dienas enerģiju vai momentāno jaudu.",
+          "consumption": "Piešķiriet kumulatīvo kopvērtību sensoram Vietnes patēriņš. Neizvēlieties dienas enerģiju vai momentāno jaudu.",
+          "grid_import": "Piešķiriet kumulatīvo kopvērtību sensoram Vietnes tīkla imports. Neizvēlieties dienas enerģiju vai momentāno jaudu.",
+          "grid_export": "Piešķiriet kumulatīvo kopvērtību sensoram Vietnes tīkla eksports. Neizvēlieties dienas enerģiju vai momentāno jaudu.",
+          "battery_charge": "Piešķiriet kumulatīvo kopvērtību sensoram Vietnes akumulatora uzlāde. Neizvēlieties dienas enerģiju vai momentāno jaudu.",
+          "battery_discharge": "Piešķiriet kumulatīvo kopvērtību sensoram Vietnes akumulatora izlāde. Neizvēlieties dienas enerģiju vai momentāno jaudu."
         }
       },
       "migrate_envoy_confirm": {
@@ -593,6 +709,67 @@
           "confirm_reassign": "Es saprotu, ka atlasītie avota entītiju ID tiks pārdalīti",
           "disable_archived_envoy_sensors": "Atspējot arhivētos avota sensorus pēc migrācijas"
         }
+      },
+      "advanced": {
+        "title": "Papildu",
+        "description": "Uzstādītāja un apkopes darbības.",
+        "menu_options": {
+          "grid_toggle": "Tīkla režīms",
+          "grid_profile": "Tīkla profila vadība"
+        },
+        "menu_option_descriptions": {
+          "grid_toggle": "Konfigurēt manuālo tīkla režīma vadību.",
+          "grid_profile": "Pārlūkot un lietot tikai uzstādītājiem paredzētus Activation tīkla profilus."
+        }
+      },
+      "grid_toggle": {
+        "title": "Tīkla režīms",
+        "description": "Pašreizējais režģa režīms: **{current_mode}**.\n\nRežģa režīma maiņa ir jutīga pret drošību. Izvēlieties pieprasīto režīmu, lai nosūtītu vienreizēju kodu uz reģistrēto e-pastu un tālruni.",
+        "data": {
+          "mode": "Pieprasītais režģa režīms"
+        }
+      },
+      "grid_profile": {
+        "title": "Tīkla profila vadība",
+        "description": "Filtrē Activation tīkla profilu katalogu šīs vietas valstij.\n\nBRĪDINĀJUMS: NEPAREIZA TĪKLA PROFILA LIETOŠANA VAR IZRAISĪT SISTĒMAS DARBĪBAS TRAUCĒJUMUS.",
+        "data": {
+          "grid_profile_region": "Reģions",
+          "grid_profile_commonly_used": "Profilu saraksts"
+        },
+        "data_description": {
+          "grid_profile_region": "Pieejami tikai vietas valstij atbilstošie reģioni.",
+          "grid_profile_commonly_used": "Izvēlieties bieži lietotos profilus vai visus profilus atlasītajam reģionam."
+        }
+      },
+      "grid_profile_select": {
+        "title": "Atlasīt tīkla profilu",
+        "description": "Izvēlieties profilu sagatavošanai. Nekas netiks lietots līdz apstiprinājumam.",
+        "data": {
+          "grid_profile_id": "Tīkla profils"
+        }
+      },
+      "grid_profile_confirm": {
+        "title": "Apstiprināt tīkla profilu",
+        "description": "Pašreizējais profils: **{current_profile}**\n\nAtlasītais profils: **{selected_profile}**\n\nProfila ID: **{selected_profile_id}**\n\nPEL Enhanced: **{selected_profile_pel}**\n\nSaderīgs ar 277 V: **{selected_profile_277v}**\n\nValsts: **{country}**\n\nReģions: **{region}**\n\nMākoņa lietošanas statuss: **{apply_status}**.",
+        "data": {
+          "confirm_apply": "Lietot atlasīto tīkla profilu"
+        }
+      },
+      "grid_profile_applied": {
+        "title": "Tīkla profila atjauninājums pieņemts",
+        "description": "Enphase pieņēma tīkla profila atjauninājumu profilam **{selected_profile}**.\n\nPieprasītā profila ID: **{requested_profile_id}**\n\nMākoņa statuss: **{cloud_apply_status}**\n\nVar paiet līdz **5 minūtēm**, līdz jaunais profils tiek rādīts kā pašreizējais, kamēr mākonis un Gateway pabeidz apstrādi. Grid Profile sensors tiks atjaunināts, kad Activation ieraksts ziņos par jauno pašreizējo profilu."
+      },
+      "grid_toggle_otp": {
+        "title": "Apstipriniet režģa režīma maiņu",
+        "description": "Pašreizējais režģa režīms: **{current_mode}**.\n\nPieprasītais režģa režīms: **{target_mode}**.\n\nIevadiet 4 ciparu vienreizējo kodu un apstipriniet ar drošību saistītās izmaiņas.",
+        "data": {
+          "otp": "Vienreizējs kods",
+          "confirm": "Apstipriniet režģa režīma maiņu"
+        }
+      },
+      "grid_toggle_applied": {
+        "title": "Režģa režīma izmaiņas pieņemtas",
+        "description": "Enphase pieņēma pieprasījumu mainīt režģa režīmu uz **{target_mode}**.\n\nFiziskais relejs joprojām var mainīties. Izmantojiet tīkla režīma sensoru, lai novērotu iegūto stāvokli."
       }
     },
     "error": {
@@ -602,16 +779,73 @@
       "migration_no_selection": "Atlasiet vismaz vienu saderīgu enerģijas sensoru migrācijai.",
       "migration_duplicate_selection": "Vienu un to pašu avota entītiju nevar izmantot vairāk nekā vienu reizi.",
       "envoy_entry_loaded": "Envoy integrāciju migrācijai nevarēja īslaicīgi izlādēt.",
-      "incompatible_energy_total": "Atlasītās entītijas nav saderīgi kumulatīvie enerģijas kopsummu sensori."
+      "incompatible_energy_total": "Atlasītās entītijas nav saderīgi kumulatīvie enerģijas kopsummu sensori.",
+      "grid_profile_unavailable": "Tīkla profila vadība nav pieejama.",
+      "grid_profile_installer_required": "Tīkla profila vadībai nepieciešama uzstādītāja piekļuve Enphase Activation.",
+      "grid_profile_no_regions": "Šīs vietas valstij nav pieejami tīkla profila reģioni.",
+      "grid_profile_no_profiles": "Neviens tīkla profils neatbilst atlasītajiem filtriem.",
+      "grid_profile_region_invalid": "Atlasītais tīkla profila reģions nav pieejams.",
+      "grid_profile_profile_invalid": "Atlasītais tīkla profils nav pieejams šīs vietas valstij un reģionam.",
+      "grid_profile_gateway_required": "Tīkla profila lietošanai nepieciešams mākoņa Activation Gateway ieraksts.",
+      "grid_profile_apply_failed": "Tīkla profila lietošana neizdevās.",
+      "grid_mode_invalid": "Atlasiet On Grid vai Off Grid.",
+      "grid_mode_already_active": "Vietne jau atrodas atlasītajā režģa režīmā.",
+      "grid_mode_confirm_required": "Pirms turpināt, apstipriniet režģa režīma maiņu.",
+      "grid_control_unavailable": "Režģa vadība šai vietnei nav pieejama.",
+      "grid_control_blocked": "Tīkla vadība pašlaik ir bloķēta.",
+      "grid_otp_required": "Ievadiet vienreizējo kodu.",
+      "grid_otp_invalid_format": "Vienreizējam kodam jābūt precīzi četriem cipariem.",
+      "grid_otp_invalid": "Vienreizējais kods nav derīgs vai beidzies derīguma termiņš.",
+      "grid_envoy_serial_missing": "Šīs vietnes vārteju nevarēja noteikt."
     },
     "abort": {
       "migration_no_envoy_sources": "Migrācijai nav pieejami Enphase Envoy enerģijas sensori.",
       "migration_no_targets": "Migrācijai nav pieejami saderīgi Enphase Energy sensori.",
-      "migration_partial_failure": "Migrācija apstājās pēc daļējas pabeigšanas.\n\nPabeigtās sasaistes:\n{completed_mappings}\n\nKļūda, apstrādājot `{failed_entity_id}`: {failure_reason}\n\nJa rezultāts nav pieņemams, atjaunojiet no dublējuma."
+      "migration_partial_failure": "Migrācija apstājās pēc daļējas pabeigšanas.\n\nPabeigtās sasaistes:\n{completed_mappings}\n\nKļūda, apstrādājot `{failed_entity_id}`: {failure_reason}\n\nJa rezultāts nav pieņemams, atjaunojiet no dublējuma.",
+      "grid_profile_unavailable": "Tīkla profila vadība nav pieejama.",
+      "grid_profile_installer_required": "Tīkla profila vadībai nepieciešama uzstādītāja piekļuve Enphase Activation.",
+      "grid_profile_no_regions": "Šīs vietas valstij nav pieejami tīkla profila reģioni.",
+      "grid_mode_unavailable": "Režģa režīma vadība šai vietnei nav pieejama.",
+      "grid_mode_blocked": "Režģa režīma vadība pašlaik ir bloķēta: {reasons}."
     },
     "create_entry": {
       "migration_success": "Migrācija pabeigta. Enphase Energy tagad izmanto atlasītos avota entītiju ID. Pēc nākamās atjaunināšanas pārbaudiet Energy informācijas paneli un Developer Tools > Statistics.",
       "migration_success_reload_needed": "Migrācija ir pabeigta, bet vienu vai vairākas integrācijas nevarēja automātiski pārlādēt. Ja nepieciešams, manuāli pārlādējiet Enphase Energy un Enphase Envoy, pēc tam pārbaudiet Energy informācijas paneli un Developer Tools > Statistics."
+    }
+  },
+  "selector": {
+    "grid_profile_list_mode": {
+      "options": {
+        "commonly_used": "Biežāk izmantotie",
+        "all_profiles": "Visi profili"
+      }
+    },
+    "grid_profile_status": {
+      "options": {
+        "yes": "Jā",
+        "no": "Nē",
+        "unknown": "Nezināms",
+        "available": "Pieejams",
+        "unavailable": "Nav pieejams",
+        "accepted": "Pieņemts"
+      }
+    },
+    "grid_mode": {
+      "options": {
+        "on_grid": "Uz režģa",
+        "off_grid": "Izslēgts no režģa",
+        "unknown": "Nezināms"
+      }
+    },
+    "grid_control_block_reason": {
+      "options": {
+        "disable_grid_control": "Tīkla vadība objektam ir atspējota.",
+        "active_download": "Notiek sistēmas lejupielāde.",
+        "sunlight_backup_system_check": "Sunlight Backup sistēmas pārbaude ir aktīva.",
+        "grid_outage_check": "Elektrotīkla pārtraukuma pārbaude ir aktīva.",
+        "pending": "Tīkla režīma maiņa jau gaida izpildi.",
+        "unknown": "Ir aktīvs nezināms bloķēšanas nosacījums."
+      }
     }
   },
   "entity": {
@@ -895,6 +1129,9 @@
           },
           "metrics_available": {
             "name": "Metrikas pieejamas"
+          },
+          "endpoint_failure_details": {
+            "name": "Galapunktu kļūmju informācija"
           }
         }
       },
@@ -929,6 +1166,9 @@
       },
       "schedule_end": {
         "name": "Grafika beigas"
+      },
+      "inverter_lifetime_energy": {
+        "name": "{serial} Mūža enerģija"
       },
       "lifetime_energy": {
         "name": "Mūža enerģija",
@@ -1179,16 +1419,8 @@
           "active": "Aktīvs"
         }
       },
-      "grid_control_status": {
-        "name": "Tīkla vadības statuss",
-        "state": {
-          "ready": "Gatavs",
-          "blocked": "Bloķēts",
-          "pending": "Gaida"
-        }
-      },
       "grid_mode": {
-        "name": "Režģa režīms",
+        "name": "Tīkla režīms",
         "state": {
           "on_grid": "Uz režģa",
           "off_grid": "Izslēgts no režģa",
@@ -1456,6 +1688,9 @@
       "microinverter_reporting_count": {
         "name": "Aktīvie mikroinvertori"
       },
+      "inverter_telemetry": {
+        "name": "{serial_number} jauda"
+      },
       "microinverter_last_reported": {
         "name": "Pēdējais mikroinvertoru ziņojums"
       },
@@ -1558,9 +1793,9 @@
       "ac_battery_overall_status": {
         "name": "AC baterijas kopējais statuss",
         "state": {
-          "charging": "Uzlāde",
-          "discharging": "Izlāde",
-          "idle": "Dīkstāve",
+          "normal": "Normāls",
+          "warning": "Brīdinājums",
+          "error": "Kļūda",
           "unknown": "Nezināms"
         }
       },
@@ -1576,9 +1811,9 @@
       "ac_battery_storage_status": {
         "name": "{serial} statuss",
         "state": {
-          "charging": "Uzlāde",
-          "discharging": "Izlāde",
-          "idle": "Dīkstāve",
+          "normal": "Normāls",
+          "warning": "Brīdinājums",
+          "error": "Kļūda",
           "unknown": "Nezināms"
         }
       },
@@ -1759,6 +1994,9 @@
       },
       "dry_contacts": {
         "name": "Sausie kontakti"
+      },
+      "current_grid_profile": {
+        "name": "Tīkla profils"
       }
     },
     "number": {
@@ -1952,6 +2190,38 @@
             "name": "IP adrese"
           }
         }
+      },
+      "active_system_events": {
+        "name": "Aktīvi sistēmas notikumi",
+        "state_attributes": {
+          "available": {
+            "name": "Notikumu pakalpojums pieejams"
+          },
+          "active_count": {
+            "name": "Aktīvo notikumu skaits"
+          },
+          "high_impact_count": {
+            "name": "Augstas ietekmes notikumu skaits"
+          },
+          "standing_alarm_count": {
+            "name": "Aktīvo trauksmju skaits"
+          },
+          "active_events": {
+            "name": "Aktīvie notikumi"
+          },
+          "severity_counts": {
+            "name": "Skaits pēc nopietnības"
+          },
+          "device_type_counts": {
+            "name": "Skaits pēc ierīces tipa"
+          },
+          "last_success_utc": {
+            "name": "Pēdējā notikumu atsvaidzināšana (UTC)"
+          },
+          "using_cached_data": {
+            "name": "Tiek izmantoti kešatmiņā saglabāti notikumu dati"
+          }
+        }
       }
     },
     "switch": {
@@ -2082,9 +2352,6 @@
       "cancel_pending_profile_change": {
         "name": "Atcelt gaidošo profila maiņu"
       },
-      "request_grid_toggle_otp": {
-        "name": "Pieprasīt režģa pārslēgšanu OTP"
-      },
       "storm_alert_opt_out": {
         "name": "Atteikties no vētras brīdinājuma"
       },
@@ -2154,6 +2421,9 @@
     "calendar": {
       "backup_history": {
         "name": "Rezerves barošanas vēsture"
+      },
+      "system_event_history": {
+        "name": "Sistēmas notikumu vēsture"
       }
     },
     "update": {
@@ -2162,6 +2432,11 @@
       },
       "charger_firmware": {
         "name": "Programmaparatūra"
+      }
+    },
+    "weather": {
+      "site_weather": {
+        "name": "Laikapstākļi"
       }
     }
   },
@@ -2188,7 +2463,7 @@
       "description": "Vietnei {site_id} nepieciešamas atjauninātas sesijas galvenes. Lūdzu, autentificējieties atkārtoti."
     },
     "auth_blocked": {
-      "title": "Enphase Energy authentication temporarily blocked",
+      "title": "Enphase Energy autentifikācija ir īslaicīgi bloķēta",
       "description": "Šķiet, ka Enphase īslaicīgi bloķē vietnes {site_id} autentifikāciju. Automātiskie mēģinājumi ir apturēti līdz {blocked_until}. Veiksmīga manuāla atkārtota autentifikācija var noņemt bloķēšanu agrāk."
     },
     "too_many_active_sessions": {
@@ -2234,6 +2509,10 @@
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS īslaicīgi apturēts",
       "description": "Heat Pump/HEMS aptauja vietnei {site_id} ir apturēta līdz {backoff_until} pēc {failure_count} autentifikācijai līdzīgām kļūdām ({reason}). Wallbox, akumulators, vārteja un citi dati var turpināties. Atspējojiet Heat Pump ierīču grupu vai izmantojiet Clear HEMS Auth Backoff pēc Enphase atjaunošanās."
+    },
+    "active_system_event": {
+      "title": "Aktīvs augstas ietekmes Enphase sistēmas notikums",
+      "description": "Vietnē {site_id} ir aktīvs {severity} notikums, kas ietekmē {device_type} un pirmoreiz ziņots {event_date}. Informāciju un ieteicamo rīcību skatiet Enlighten. Šis labojums tiek automātiski noņemts, kad Enphase ziņo, ka notikums ir atrisināts."
     }
   },
   "system_health": {
@@ -2274,7 +2553,21 @@
       "site_energy_last_error": "Vietnes enerģijas pēdējā kļūda",
       "site_energy_failures": "Vietnes energoapgādes traucējumi",
       "site_energy_backoff_active": "Vietnes enerģijas atcelšana ir aktīva",
-      "site_energy_backoff_ends_utc": "Vietnes enerģijas atcelšanas beigas (UTC)"
+      "site_energy_backoff_ends_utc": "Vietnes enerģijas atcelšanas beigas (UTC)",
+      "tariff_available": "Tarifs pieejams",
+      "tariff_service_status": "Tarifu pakalpojuma statuss",
+      "tariff_last_error": "Pēdējā tarifa kļūda",
+      "tariff_failures": "Tarifa kļūmes",
+      "tariff_backoff_active": "Tarifa nogaidīšana aktīva",
+      "tariff_backoff_ends_utc": "Tarifa nogaidīšana beidzas (UTC)",
+      "degraded_endpoint_families": "Traucētu galapunktu saimes",
+      "degraded_services": "Traucēti pakalpojumi",
+      "firmware_catalog_last_fetch_utc": "Programmaparatūras kataloga pēdējā izgūšana (UTC)",
+      "firmware_catalog_last_success_utc": "Programmaparatūras kataloga pēdējā veiksmīgā izgūšana (UTC)",
+      "firmware_catalog_last_error": "Programmaparatūras kataloga pēdējā kļūda",
+      "firmware_catalog_using_stale": "Programmaparatūras katalogs izmanto novecojušus datus",
+      "firmware_catalog_generated_at": "Programmaparatūras katalogs ģenerēts",
+      "firmware_catalog_source_age_seconds": "Programmaparatūras kataloga avota vecums (s)"
     }
   },
   "services": {
@@ -2381,26 +2674,16 @@
     "request_grid_toggle_otp": {
       "name": "Pieprasīt režģa pārslēgšanu OTP",
       "description": "Pirms vietnes režģa režīma maiņas nosūtiet vienreizējo kodu.",
-      "sections": {
-        "advanced": {
-          "name": "Papildu opcijas"
-        }
-      },
       "fields": {
-        "site_id": {
-          "name": "Vietnes ID",
-          "description": "Izvēles vietnes identifikators; tiek noteikts automātiski, kad izvēlēta vietnes ierīce."
+        "config_entry_id": {
+          "name": "Enphase konfigurācijas ievade",
+          "description": "Atlasiet Enphase vietni, kurai jāsaņem vienreizējais kods."
         }
       }
     },
     "set_grid_mode": {
       "name": "Iestatiet režģa režīmu",
       "description": "Mainiet vietnes režģa režīmu pēc vienreizējā koda apstiprināšanas.",
-      "sections": {
-        "advanced": {
-          "name": "Papildu opcijas"
-        }
-      },
       "fields": {
         "mode": {
           "name": "Režģa režīms",
@@ -2410,9 +2693,9 @@
           "name": "Vienreizējs kods",
           "description": "Ievadiet 4 ciparu OTP, kas nosūtīts uz jūsu reģistrēto e-pastu un tālruni."
         },
-        "site_id": {
-          "name": "Vietnes ID",
-          "description": "Izvēles vietnes identifikators; tiek noteikts automātiski, kad izvēlēta vietnes ierīce."
+        "config_entry_id": {
+          "name": "Enphase konfigurācijas ievade",
+          "description": "Atlasiet Enphase vietni, kuras režģa režīms ir jāmaina."
         }
       }
     },
@@ -2762,6 +3045,111 @@
         "site_id": {
           "name": "Vietnes ID",
           "description": "Neobligāts vietnes identifikators; tiek noteikts automātiski, izvēloties ierīci."
+        }
+      }
+    },
+    "browse_grid_profiles": {
+      "name": "Pārlūkot tīkla profilus",
+      "description": "Pārlūkojiet Cloud Activation tīkla profilus, kas pieejami atlasītās vietnes valstij un reģionam.",
+      "sections": {
+        "advanced": {
+          "name": "Täiendavad valikud"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Reģiona kods",
+          "description": "Neobligāts reģiona vai štata kods, piemēram, VIC."
+        },
+        "commonly_used": {
+          "name": "Tikai bieži izmantotie",
+          "description": "Ja iespējots, atgriež bieži izmantoto profilu katalogu."
+        },
+        "device_id": {
+          "name": "Vietnes ierīces",
+          "description": "Atlasiet vietnes Enphase ierīci."
+        },
+        "site_id": {
+          "name": "Vietnes ID",
+          "description": "Neobligāts vietnes identifikators; tiek automātiski noteikts, atlasot ierīci."
+        },
+        "config_entry_id": {
+          "name": "Konfigurācijas ieraksta ID",
+          "description": "Neobligāts mērķa vietnes konfigurācijas ieraksta identifikators."
+        },
+        "query": {
+          "name": "Meklēt",
+          "description": "Neobligāts meklēšanas teksts vietnes valsts reģioniem un profiliem."
+        }
+      }
+    },
+    "refresh_grid_profiles": {
+      "name": "Atjaunināt tīkla profilus",
+      "description": "Atjauniniet Cloud Activation tīkla profilu atsauces datus un atlasītā reģiona katalogu.",
+      "sections": {
+        "advanced": {
+          "name": "Täiendavad valikud"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Reģiona kods",
+          "description": "Neobligāts reģiona vai štata kods, piemēram, VIC."
+        },
+        "commonly_used": {
+          "name": "Tikai bieži izmantotie",
+          "description": "Ja iespējots, atgriež bieži izmantoto profilu katalogu."
+        },
+        "device_id": {
+          "name": "Vietnes ierīces",
+          "description": "Atlasiet vietnes Enphase ierīci."
+        },
+        "site_id": {
+          "name": "Vietnes ID",
+          "description": "Neobligāts vietnes identifikators; tiek automātiski noteikts, atlasot ierīci."
+        },
+        "config_entry_id": {
+          "name": "Konfigurācijas ieraksta ID",
+          "description": "Neobligāts mērķa vietnes konfigurācijas ieraksta identifikators."
+        }
+      }
+    },
+    "set_grid_profile": {
+      "name": "Iestatīt tīkla profilu",
+      "description": "Lietojiet Cloud Activation tīkla profilu pēc nepārprotamas apstiprināšanas.",
+      "sections": {
+        "advanced": {
+          "name": "Täiendavad valikud"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Reģiona kods",
+          "description": "Neobligāts reģiona vai štata kods, piemēram, VIC."
+        },
+        "device_id": {
+          "name": "Vietnes ierīces",
+          "description": "Atlasiet vietnes Enphase ierīci."
+        },
+        "site_id": {
+          "name": "Vietnes ID",
+          "description": "Neobligāts vietnes identifikators; tiek automātiski noteikts, atlasot ierīci."
+        },
+        "config_entry_id": {
+          "name": "Konfigurācijas ieraksta ID",
+          "description": "Neobligāts mērķa vietnes konfigurācijas ieraksta identifikators."
+        },
+        "profile_id": {
+          "name": "Profila ID",
+          "description": "Cloud Activation profila ID, ieskaitot prefiksu agf:."
+        },
+        "confirm": {
+          "name": "Apstiprināt lietošanu",
+          "description": "Jāiespējo, lai lietotu atlasīto tīkla profilu."
+        },
+        "gateway_serial": {
+          "name": "Gateway sērijas numurs",
+          "description": "Neobligāts Gateway sērijas numurs, ja Activation ierakstā ir vairāki Gateway."
         }
       }
     }

@@ -95,7 +95,7 @@
       "message": "Šioje svetainėje tinklelio valdymas nepasiekiamas."
     },
     "grid_control_blocked": {
-      "message": "Šiuo metu tinklelio valdymas užblokuotas: {reasons}."
+      "message": "Šiuo metu tinklo valdymas užblokuotas."
     },
     "grid_mode_invalid": {
       "message": "Tinklelio režimas turi būti on_grid arba off_grid."
@@ -412,6 +412,9 @@
     "tariff_rate_api_unavailable": {
       "message": "Tarifų rašymo API nepasiekiama."
     },
+    "pricing_edits_disabled": {
+      "message": "Kainų redagavimas išjungtas integracijos parinktyse."
+    },
     "tariff_rate_entity_required": {
       "message": "Pasirinkite tiksliai vieną tarifo kainos objektą."
     },
@@ -456,6 +459,27 @@
     },
     "firmware_advisory_only": {
       "message": "Programinės aparatinės įrangos naujiniai yra tik informaciniai."
+    },
+    "grid_profile_installer_required": {
+      "message": "Tinklo profilio valdymui reikalinga Enphase Activation montuotojo prieiga."
+    },
+    "grid_profile_profile_invalid": {
+      "message": "Pasirinktas tinklo profilis nepasiekiamas šios vietos šalyje ir regione."
+    },
+    "grid_profile_gateway_required": {
+      "message": "Norint taikyti tinklo profilį, reikalingas Cloud Activation Gateway įrašas."
+    },
+    "grid_profile_apply_failed": {
+      "message": "Nepavyko pritaikyti tinklo profilio."
+    },
+    "grid_profile_confirmation_required": {
+      "message": "Norint taikyti tinklo profilį, reikalingas patvirtinimas."
+    },
+    "grid_profile_region_invalid": {
+      "message": "Pasirinktas tinklo profilio regionas nepasiekiamas."
+    },
+    "grid_profile_unavailable": {
+      "message": "Tinklo profilio valdymas nepasiekiamas."
     }
   },
   "options": {
@@ -464,12 +488,20 @@
         "title": "Enphase Energy parinktys",
         "description": "Pasirinkite, ką norite daryti su šiuo integracijos įrašu.",
         "menu_options": {
-          "settings": "Nustatymai",
-          "migrate_envoy": "Perkelti Envoy istoriją"
+          "settings": "Apklausa",
+          "devices": "Pasirinkite įrenginius",
+          "repair_notifications": "Pranešimai",
+          "authentication_settings": "Autentifikavimas",
+          "migrate_envoy": "Perkelti Envoy istoriją",
+          "advanced": "Išplėstiniai"
         },
         "menu_option_descriptions": {
           "settings": "Reguliuokite apklausą ir veikimą.",
-          "migrate_envoy": "Perimkite pasirinktus Enphase Envoy energijos objektų ID, kad Home Assistant Energy istorija tęstųsi šioje integracijoje."
+          "devices": "Pasirinkite, kurias įrenginių grupes pridėti. Visi pasirinkimai naudoja tą patį apklausos intervalą.",
+          "repair_notifications": "Tvarkyti „Home Assistant“ taisymo pranešimus.",
+          "authentication_settings": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
+          "migrate_envoy": "Perimkite pasirinktus Enphase Envoy energijos objektų ID, kad Home Assistant Energy istorija tęstųsi šioje integracijoje.",
+          "advanced": "Pasirenkami tinklo režimo valdikliai ir tik diegėjui skirti tinklo profilio valdikliai."
         },
         "data": {
           "type_envoy": "Šliuzas",
@@ -480,15 +512,16 @@
           "slow_poll_interval": "Lėtas apklausos intervalas (s)",
           "fast_while_streaming": "Pirmenybė greitai apklausai, kai aktyvi debesies srauto funkcija",
           "api_timeout": "API užklausos laiko limitas (s)",
-          "nominal_voltage": "Nominali įtampa (V)",
+          "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
           "session_history_interval": "Sesijos istorijos intervalas (min)",
           "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
-          "reauth": "Pradėti perautentifikavimą",
-          "forget_password": "Pamiršti išsaugotą slaptažodį",
           "type_heatpump": "Šilumos siurblys",
           "type_ac_battery": "AC baterija",
           "battery_schedules_enabled": "Įjungti baterijos planuoklį",
-          "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus"
+          "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus",
+          "weather_enabled": "Įjungti orus",
+          "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
+          "microinverter_power_enabled": "Įjungti mikroinverterių galią"
         },
         "data_description": {
           "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
@@ -499,57 +532,140 @@
           "slow_poll_interval": "Intervalas, kai nenaudojama.",
           "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu.",
           "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos.",
-          "nominal_voltage": "Atsarginė įtampa įkroviklio galios įverčiui.",
+          "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra.",
           "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų.",
-          "schedule_sync_enabled": "Tvarkyti Enphase tvarkaraščio valdymą",
-          "reauth": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
-          "forget_password": "Pašalina išsaugotą slaptažodį. Automatinis atnaujinimas daugiau nebus bandomas.",
           "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
           "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
-          "battery_schedules_enabled": "Tvarkyti IQ baterijos tvarkaraščius",
-          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai."
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai.",
+          "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas.",
+          "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius.",
+          "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija."
         }
       },
       "settings": {
-        "title": "Enphase Energy parinktys",
+        "title": "Apklausa",
         "description": "Reguliuoti apklausą ir elgseną.",
         "data": {
-          "type_envoy": "Šliuzas",
-          "type_encharge": "Baterija",
-          "type_iqevse": "Įkrovikliai",
-          "type_microinverter": "Mikroinverteriai",
           "fast_poll_interval": "Greitas apklausos intervalas (s)",
           "slow_poll_interval": "Lėtas apklausos intervalas (s)",
           "fast_while_streaming": "Pirmenybė greitai apklausai, kai aktyvi debesies srauto funkcija",
           "api_timeout": "API užklausos laiko limitas (s)",
-          "nominal_voltage": "Nominali įtampa (V)",
           "session_history_interval": "Sesijos istorijos intervalas (min)",
-          "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
-          "reauth": "Pradėti perautentifikavimą",
-          "forget_password": "Pamiršti išsaugotą slaptažodį",
-          "type_heatpump": "Šilumos siurblys",
-          "type_ac_battery": "AC baterija",
-          "battery_schedules_enabled": "Įjungti baterijos planuoklį",
           "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus"
         },
         "data_description": {
-          "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
-          "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
-          "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
-          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
           "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama.",
           "slow_poll_interval": "Intervalas, kai nenaudojama.",
           "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu.",
           "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos.",
-          "nominal_voltage": "Atsarginė įtampa įkroviklio galios įverčiui.",
           "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų.",
-          "schedule_sync_enabled": "Tvarkyti Enphase tvarkaraščio valdymą",
-          "reauth": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
-          "forget_password": "Pašalina išsaugotą slaptažodį. Automatinis atnaujinimas daugiau nebus bandomas.",
-          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
-          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
-          "battery_schedules_enabled": "Tvarkyti IQ baterijos tvarkaraščius",
           "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai."
+        }
+      },
+      "devices": {
+        "title": "Pasirinkite įrenginius",
+        "description": "Pasirinkite, kurias įrenginių grupes pridėti. Visi pasirinkimai naudoja tą patį apklausos intervalą.",
+        "sections": {
+          "devices": {
+            "name": "Pasirinkite įrenginius",
+            "data": {
+              "type_envoy": "Šliuzas",
+              "type_encharge": "Baterija",
+              "type_ac_battery": "AC baterija",
+              "type_iqevse": "Įkrovikliai",
+              "type_heatpump": "Šilumos siurblys",
+              "type_microinverter": "Mikroinverteriai"
+            },
+            "data_description": {
+              "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
+              "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
+              "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
+              "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
+              "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
+              "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius."
+            }
+          },
+          "device_features": {
+            "name": "Įrenginio funkcijos",
+            "data": {
+              "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
+              "battery_schedules_enabled": "Įjungti baterijos planuoklį",
+              "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
+              "pricing_edits_enabled": "Įjungti kainų redagavimą",
+              "weather_enabled": "Įjungti orus",
+              "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
+              "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
+              "microinverter_power_enabled": "Įjungti mikroinverterių galią"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta.",
+              "pricing_edits_enabled": "Tvarkyti „IQ Gateway“ elektros tarifus",
+              "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas.",
+              "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra.",
+              "schedule_sync_enabled": "Tvarkykite „IQ EV Charger“ tvarkaraščius.",
+              "battery_schedules_enabled": "Tvarkykite „IQ Battery“ tvarkaraščius.",
+              "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius.",
+              "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija."
+            }
+          }
+        },
+        "data": {
+          "devices": "Pasirinkite įrenginius",
+          "device_features": "Įrenginio funkcijos",
+          "type_envoy": "Šliuzas",
+          "type_encharge": "Baterija",
+          "type_ac_battery": "AC baterija",
+          "type_iqevse": "Įkrovikliai",
+          "type_heatpump": "Šilumos siurblys",
+          "type_microinverter": "Mikroinverteriai",
+          "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
+          "battery_schedules_enabled": "Įjungti baterijos planuoklį",
+          "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
+          "pricing_edits_enabled": "Įjungti kainų redagavimą",
+          "weather_enabled": "Įjungti orus",
+          "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
+          "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
+          "microinverter_power_enabled": "Įjungti mikroinverterių galią"
+        },
+        "data_description": {
+          "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
+          "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
+          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
+          "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
+          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
+          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
+          "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta.",
+          "pricing_edits_enabled": "Tvarkyti „IQ Gateway“ elektros tarifus",
+          "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas.",
+          "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra.",
+          "schedule_sync_enabled": "Tvarkykite „IQ EV Charger“ tvarkaraščius.",
+          "battery_schedules_enabled": "Tvarkykite „IQ Battery“ tvarkaraščius.",
+          "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius.",
+          "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija."
+        }
+      },
+      "repair_notifications": {
+        "title": "Pranešimai",
+        "description": "Pasirinkite, kurios „Enphase“ sąlygos kuria „Home Assistant“ taisymus.",
+        "data": {
+          "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus",
+          "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus"
+        },
+        "data_description": {
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai.",
+          "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta."
+        }
+      },
+      "authentication_settings": {
+        "title": "Autentifikavimas",
+        "description": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
+        "data": {
+          "reauth": "Pradėti perautentifikavimą",
+          "forget_password": "Pamiršti išsaugotą slaptažodį"
+        },
+        "data_description": {
+          "reauth": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
+          "forget_password": "Pašalina išsaugotą slaptažodį. Automatinis atnaujinimas daugiau nebus bandomas."
         }
       },
       "migrate_envoy_source": {
@@ -578,12 +694,12 @@
           "battery_discharge": "Baterijos iškrovimas"
         },
         "data_description": {
-          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
-          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
-          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
-          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
-          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
-          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+          "solar_production": "Priskirkite kaupiamąją bendrąją vertę jutikliui Vietos saulės gamyba. Nesirinkite dienos energijos ar momentinės galios.",
+          "consumption": "Priskirkite kaupiamąją bendrąją vertę jutikliui Vietos suvartojimas. Nesirinkite dienos energijos ar momentinės galios.",
+          "grid_import": "Priskirkite kaupiamąją bendrąją vertę jutikliui Vietos tinklo importas. Nesirinkite dienos energijos ar momentinės galios.",
+          "grid_export": "Priskirkite kaupiamąją bendrąją vertę jutikliui Vietos tinklo eksportas. Nesirinkite dienos energijos ar momentinės galios.",
+          "battery_charge": "Priskirkite kaupiamąją bendrąją vertę jutikliui Vietos baterijos įkrovimas. Nesirinkite dienos energijos ar momentinės galios.",
+          "battery_discharge": "Priskirkite kaupiamąją bendrąją vertę jutikliui Vietos baterijos iškrovimas. Nesirinkite dienos energijos ar momentinės galios."
         }
       },
       "migrate_envoy_confirm": {
@@ -593,6 +709,67 @@
           "confirm_reassign": "Suprantu, kad pasirinkti šaltinio objektų identifikatoriai bus priskirti iš naujo",
           "disable_archived_envoy_sensors": "Išjungti archyvuotus šaltinio jutiklius po migracijos"
         }
+      },
+      "advanced": {
+        "title": "Išplėstiniai",
+        "description": "Diegėjo ir priežiūros veiksmai.",
+        "menu_options": {
+          "grid_toggle": "Tinklo režimas",
+          "grid_profile": "Tinklo profilio valdymas"
+        },
+        "menu_option_descriptions": {
+          "grid_toggle": "Konfigūruoti rankinius tinklo režimo valdiklius.",
+          "grid_profile": "Naršykite ir taikykite tik diegėjams skirtus Activation tinklo profilius."
+        }
+      },
+      "grid_toggle": {
+        "title": "Tinklo režimas",
+        "description": "Dabartinis tinklelio režimas: **{current_mode}**.\n\nTinklelio režimo keitimas yra jautrus saugai. Pasirinkite pageidaujamą režimą, kad išsiųstumėte vienkartinį kodą į registruotą el. paštą ir telefoną.",
+        "data": {
+          "mode": "Reikalingas tinklelio režimas"
+        }
+      },
+      "grid_profile": {
+        "title": "Tinklo profilio valdymas",
+        "description": "Filtruoja Activation tinklo profilių katalogą pagal šios vietos šalį.\n\nĮSPĖJIMAS: PRITAIKIUS NETINKAMĄ TINKLO PROFILĮ SISTEMA GALI VEIKTI NETINKAMAI.",
+        "data": {
+          "grid_profile_region": "Regionas",
+          "grid_profile_commonly_used": "Profilių sąrašas"
+        },
+        "data_description": {
+          "grid_profile_region": "Galimi tik šios vietos šalies regionai.",
+          "grid_profile_commonly_used": "Pasirinkite dažnai naudojamus profilius arba visus profilius pasirinktame regione."
+        }
+      },
+      "grid_profile_select": {
+        "title": "Pasirinkti tinklo profilį",
+        "description": "Pasirinkite paruošiamą profilį. Nieko nebus taikoma iki patvirtinimo žingsnio.",
+        "data": {
+          "grid_profile_id": "Tinklo profilis"
+        }
+      },
+      "grid_profile_confirm": {
+        "title": "Patvirtinti tinklo profilį",
+        "description": "Dabartinis profilis: **{current_profile}**\n\nPasirinktas profilis: **{selected_profile}**\n\nProfilio ID: **{selected_profile_id}**\n\nPEL Enhanced: **{selected_profile_pel}**\n\nSuderinama su 277 V: **{selected_profile_277v}**\n\nŠalis: **{country}**\n\nRegionas: **{region}**\n\nTaikymo debesyje būsena: **{apply_status}**.",
+        "data": {
+          "confirm_apply": "Taikyti pasirinktą tinklo profilį"
+        }
+      },
+      "grid_profile_applied": {
+        "title": "Tinklo profilio naujinimas priimtas",
+        "description": "Enphase priėmė tinklo profilio naujinimą profiliui **{selected_profile}**.\n\nPrašomo profilio ID: **{requested_profile_id}**\n\nDebesies būsena: **{cloud_apply_status}**\n\nGali praeiti iki **5 minučių**, kol naujas profilis bus rodomas kaip dabartinis, kol debesis ir Gateway baigs apdorojimą. Grid Profile jutiklis bus atnaujintas, kai Activation įrašas praneš apie naują dabartinį profilį."
+      },
+      "grid_toggle_otp": {
+        "title": "Patvirtinkite tinklelio režimo pakeitimą",
+        "description": "Dabartinis tinklelio režimas: **{current_mode}**.\n\nReikalingas tinklelio režimas: **{target_mode}**.\n\nĮveskite 4 skaitmenų vienkartinį kodą ir patvirtinkite saugos požiūriu jautrų pakeitimą.",
+        "data": {
+          "otp": "Vienkartinis kodas",
+          "confirm": "Patvirtinkite tinklelio režimo pakeitimą"
+        }
+      },
+      "grid_toggle_applied": {
+        "title": "Priimtas tinklelio režimo pakeitimas",
+        "description": "„Enphase“ priėmė užklausą pakeisti tinklelio režimą į **{target_mode}**.\n\nFizinė relė vis dar gali keistis. Norėdami stebėti gautą būseną, naudokite tinklelio režimo jutiklį."
       }
     },
     "error": {
@@ -602,16 +779,73 @@
       "migration_no_selection": "Pasirinkite bent vieną suderinamą energijos jutiklį migracijai.",
       "migration_duplicate_selection": "Tas pats šaltinio objektas negali būti naudojamas daugiau nei vieną kartą.",
       "envoy_entry_loaded": "Envoy integracijos nepavyko laikinai iškrauti migracijai.",
-      "incompatible_energy_total": "Pasirinkti objektai nėra suderinami kaupiamosios energijos kiekiai."
+      "incompatible_energy_total": "Pasirinkti objektai nėra suderinami kaupiamosios energijos kiekiai.",
+      "grid_profile_unavailable": "Tinklo profilio valdymas nepasiekiamas.",
+      "grid_profile_installer_required": "Tinklo profilio valdymui reikia diegėjo prieigos prie Enphase Activation.",
+      "grid_profile_no_regions": "Šios vietos šaliai nėra tinklo profilio regionų.",
+      "grid_profile_no_profiles": "Nė vienas tinklo profilis neatitinka pasirinktų filtrų.",
+      "grid_profile_region_invalid": "Pasirinktas tinklo profilio regionas nepasiekiamas.",
+      "grid_profile_profile_invalid": "Pasirinktas tinklo profilis nepasiekiamas šios vietos šaliai ir regionui.",
+      "grid_profile_gateway_required": "Tinklo profilio taikymui reikia debesies Activation Gateway įrašo.",
+      "grid_profile_apply_failed": "Tinklo profilio taikyti nepavyko.",
+      "grid_mode_invalid": "Pasirinkite On Grid arba Off Grid.",
+      "grid_mode_already_active": "Svetainėje jau veikia pasirinktas tinklelio režimas.",
+      "grid_mode_confirm_required": "Prieš tęsdami patvirtinkite tinklelio režimo pakeitimą.",
+      "grid_control_unavailable": "Šioje svetainėje tinklelio valdymas nepasiekiamas.",
+      "grid_control_blocked": "Šiuo metu tinklo valdymas užblokuotas.",
+      "grid_otp_required": "Įveskite vienkartinį kodą.",
+      "grid_otp_invalid_format": "Vienkartinį kodą turi sudaryti tiksliai keturi skaitmenys.",
+      "grid_otp_invalid": "Vienkartinis kodas neteisingas arba pasibaigęs.",
+      "grid_envoy_serial_missing": "Nepavyko nustatyti šios svetainės vartų."
     },
     "abort": {
       "migration_no_envoy_sources": "Nėra Enphase Envoy energijos jutiklių, kuriuos būtų galima migruoti.",
       "migration_no_targets": "Nėra suderinamų Enphase Energy jutiklių, kuriuos būtų galima migruoti.",
-      "migration_partial_failure": "Migracija sustojo po dalinio užbaigimo.\n\nUžbaigti susiejimai:\n{completed_mappings}\n\nNepavyko apdoroti `{failed_entity_id}`: {failure_reason}\n\nJei rezultatas netenkina, atkurkite atsarginę kopiją."
+      "migration_partial_failure": "Migracija sustojo po dalinio užbaigimo.\n\nUžbaigti susiejimai:\n{completed_mappings}\n\nNepavyko apdoroti `{failed_entity_id}`: {failure_reason}\n\nJei rezultatas netenkina, atkurkite atsarginę kopiją.",
+      "grid_profile_unavailable": "Tinklo profilio valdymas nepasiekiamas.",
+      "grid_profile_installer_required": "Tinklo profilio valdymui reikia diegėjo prieigos prie Enphase Activation.",
+      "grid_profile_no_regions": "Šios vietos šaliai nėra tinklo profilio regionų.",
+      "grid_mode_unavailable": "Šioje svetainėje tinklelio režimo valdymas nepasiekiamas.",
+      "grid_mode_blocked": "Tinklelio režimo valdymas šiuo metu užblokuotas: {reasons}."
     },
     "create_entry": {
       "migration_success": "Migracija baigta. Enphase Energy dabar naudoja pasirinktus šaltinio objektų identifikatorius. Po kito atnaujinimo patikrinkite Energy skydelį ir Developer Tools > Statistics.",
       "migration_success_reload_needed": "Migracija baigta, tačiau viena ar daugiau integracijų nebuvo automatiškai įkeltos iš naujo. Jei reikia, rankiniu būdu iš naujo įkelkite Enphase Energy ir Enphase Envoy, tada patikrinkite Energy skydelį ir Developer Tools > Statistics."
+    }
+  },
+  "selector": {
+    "grid_profile_list_mode": {
+      "options": {
+        "commonly_used": "Dažniausiai naudojami",
+        "all_profiles": "Visi profiliai"
+      }
+    },
+    "grid_profile_status": {
+      "options": {
+        "yes": "Taip",
+        "no": "Ne",
+        "unknown": "Nežinoma",
+        "available": "Pasiekiama",
+        "unavailable": "Nepasiekiama",
+        "accepted": "Priimta"
+      }
+    },
+    "grid_mode": {
+      "options": {
+        "on_grid": "Ant tinklelio",
+        "off_grid": "Išjungtas tinklelis",
+        "unknown": "Nežinoma"
+      }
+    },
+    "grid_control_block_reason": {
+      "options": {
+        "disable_grid_control": "Tinklo valdymas šioje vietoje išjungtas.",
+        "active_download": "Vykdomas sistemos atsisiuntimas.",
+        "sunlight_backup_system_check": "Vykdoma „Sunlight Backup“ sistemos patikra.",
+        "grid_outage_check": "Vykdoma tinklo dingimo patikra.",
+        "pending": "Tinklo režimo pakeitimas jau laukia.",
+        "unknown": "Aktyvi nežinoma blokavimo sąlyga."
+      }
     }
   },
   "entity": {
@@ -895,6 +1129,9 @@
           },
           "metrics_available": {
             "name": "Metrikos pasiekiamos"
+          },
+          "endpoint_failure_details": {
+            "name": "Galinių taškų klaidų informacija"
           }
         }
       },
@@ -929,6 +1166,9 @@
       },
       "schedule_end": {
         "name": "Tvarkaraščio pabaiga"
+      },
+      "inverter_lifetime_energy": {
+        "name": "{serial} Viso energijos"
       },
       "lifetime_energy": {
         "name": "Viso energijos",
@@ -1179,16 +1419,8 @@
           "active": "Aktyvus"
         }
       },
-      "grid_control_status": {
-        "name": "Tinklo valdymo būsena",
-        "state": {
-          "ready": "Paruošta",
-          "blocked": "Užblokuota",
-          "pending": "Laukiama"
-        }
-      },
       "grid_mode": {
-        "name": "Tinklelio režimas",
+        "name": "Tinklo režimas",
         "state": {
           "on_grid": "Ant tinklelio",
           "off_grid": "Išjungtas tinklelis",
@@ -1456,6 +1688,9 @@
       "microinverter_reporting_count": {
         "name": "Aktyvūs mikroinverteriai"
       },
+      "inverter_telemetry": {
+        "name": "{serial_number} galia"
+      },
       "microinverter_last_reported": {
         "name": "Paskutinis mikroinverterių pranešimas"
       },
@@ -1558,9 +1793,9 @@
       "ac_battery_overall_status": {
         "name": "Bendra AC baterijos būsena",
         "state": {
-          "charging": "Įkrovimas",
-          "discharging": "Iškrovimas",
-          "idle": "Neaktyvus",
+          "normal": "Normalus",
+          "warning": "Įspėjimas",
+          "error": "Klaida",
           "unknown": "Nežinoma"
         }
       },
@@ -1576,9 +1811,9 @@
       "ac_battery_storage_status": {
         "name": "{serial} būsena",
         "state": {
-          "charging": "Įkrovimas",
-          "discharging": "Iškrovimas",
-          "idle": "Neaktyvus",
+          "normal": "Normalus",
+          "warning": "Įspėjimas",
+          "error": "Klaida",
           "unknown": "Nežinoma"
         }
       },
@@ -1759,6 +1994,9 @@
       },
       "dry_contacts": {
         "name": "Sausieji kontaktai"
+      },
+      "current_grid_profile": {
+        "name": "Tinklo profilis"
       }
     },
     "number": {
@@ -1952,6 +2190,38 @@
             "name": "IP adresas"
           }
         }
+      },
+      "active_system_events": {
+        "name": "Aktyvūs sistemos įvykiai",
+        "state_attributes": {
+          "available": {
+            "name": "Įvykių paslauga pasiekiama"
+          },
+          "active_count": {
+            "name": "Aktyvių įvykių skaičius"
+          },
+          "high_impact_count": {
+            "name": "Didelio poveikio įvykių skaičius"
+          },
+          "standing_alarm_count": {
+            "name": "Aktyvių aliarmų skaičius"
+          },
+          "active_events": {
+            "name": "Aktyvūs įvykiai"
+          },
+          "severity_counts": {
+            "name": "Skaičius pagal svarbą"
+          },
+          "device_type_counts": {
+            "name": "Skaičius pagal įrenginio tipą"
+          },
+          "last_success_utc": {
+            "name": "Paskutinis įvykių atnaujinimas (UTC)"
+          },
+          "using_cached_data": {
+            "name": "Naudojami talpykloje saugomi įvykių duomenys"
+          }
+        }
       }
     },
     "switch": {
@@ -2082,9 +2352,6 @@
       "cancel_pending_profile_change": {
         "name": "Atšaukti laukiantį profilio pakeitimą"
       },
-      "request_grid_toggle_otp": {
-        "name": "Prašyti tinklelio perjungimo OTP"
-      },
       "storm_alert_opt_out": {
         "name": "Atsisakyti audros įspėjimo"
       },
@@ -2154,6 +2421,9 @@
     "calendar": {
       "backup_history": {
         "name": "Atsarginio maitinimo istorija"
+      },
+      "system_event_history": {
+        "name": "Sistemos įvykių istorija"
       }
     },
     "update": {
@@ -2162,6 +2432,11 @@
       },
       "charger_firmware": {
         "name": "Programinė aparatinė įranga"
+      }
+    },
+    "weather": {
+      "site_weather": {
+        "name": "Orai"
       }
     }
   },
@@ -2188,7 +2463,7 @@
       "description": "Vietai {site_id} reikia atnaujintų sesijos antraščių. Prašome perautentifikuoti."
     },
     "auth_blocked": {
-      "title": "Enphase Energy authentication temporarily blocked",
+      "title": "„Enphase Energy“ autentifikavimas laikinai užblokuotas",
       "description": "Atrodo, kad Enphase laikinai blokuoja svetainės {site_id} autentifikavimą. Automatiniai bandymai pristabdyti iki {blocked_until}. Sėkmingas rankinis pakartotinis autentifikavimas gali panaikinti bloką anksčiau."
     },
     "too_many_active_sessions": {
@@ -2234,6 +2509,10 @@
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS laikinai pristabdyta",
       "description": "Heat Pump/HEMS apklausa svetainei {site_id} pristabdyta iki {backoff_until} po {failure_count} autentifikavimo tipo klaidų ({reason}). Wallbox, baterija, šliuzas ir kiti duomenys gali tęstis. Išjunkite Heat Pump įrenginių grupę arba naudokite Clear HEMS Auth Backoff, kai Enphase atsigaus."
+    },
+    "active_system_event": {
+      "title": "Aktyvus didelio poveikio Enphase sistemos įvykis",
+      "description": "Svetainėje {site_id} yra aktyvus {severity} įvykis, veikiantis {device_type}, pirmą kartą praneštas {event_date}. Išsamią informaciją ir rekomenduojamą veiksmą rasite Enlighten. Šis taisymas automatiškai pašalinamas, kai Enphase praneša, kad įvykis išspręstas."
     }
   },
   "system_health": {
@@ -2274,7 +2553,21 @@
       "site_energy_last_error": "Paskutinė svetainės energijos klaida",
       "site_energy_failures": "Svetainės energijos gedimai",
       "site_energy_backoff_active": "Svetainės energijos grąžinimas aktyvus",
-      "site_energy_backoff_ends_utc": "Svetainės energijos grąžinimo pabaiga (UTC)"
+      "site_energy_backoff_ends_utc": "Svetainės energijos grąžinimo pabaiga (UTC)",
+      "tariff_available": "Tarifas pasiekiamas",
+      "tariff_service_status": "Tarifų paslaugos būsena",
+      "tariff_last_error": "Paskutinė tarifo klaida",
+      "tariff_failures": "Tarifo triktys",
+      "tariff_backoff_active": "Tarifo laukimo režimas aktyvus",
+      "tariff_backoff_ends_utc": "Tarifo laukimo režimas baigiasi (UTC)",
+      "degraded_endpoint_families": "Sutrikusių galinių taškų grupės",
+      "degraded_services": "Sutrikusios paslaugos",
+      "firmware_catalog_last_fetch_utc": "Paskutinis programinės aparatinės įrangos katalogo gavimas (UTC)",
+      "firmware_catalog_last_success_utc": "Paskutinis sėkmingas programinės aparatinės įrangos katalogo gavimas (UTC)",
+      "firmware_catalog_last_error": "Paskutinė programinės aparatinės įrangos katalogo klaida",
+      "firmware_catalog_using_stale": "Programinės aparatinės įrangos katalogas naudoja pasenusius duomenis",
+      "firmware_catalog_generated_at": "Programinės aparatinės įrangos katalogas sugeneruotas",
+      "firmware_catalog_source_age_seconds": "Programinės aparatinės įrangos katalogo šaltinio amžius (s)"
     }
   },
   "services": {
@@ -2381,26 +2674,16 @@
     "request_grid_toggle_otp": {
       "name": "Prašyti tinklelio perjungimo OTP",
       "description": "Prieš keisdami svetainės tinklelio režimą, išsiųskite vienkartinį kodą.",
-      "sections": {
-        "advanced": {
-          "name": "Išplėstinės parinktys"
-        }
-      },
       "fields": {
-        "site_id": {
-          "name": "Vietos ID",
-          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        "config_entry_id": {
+          "name": "Enphase konfigūracijos įrašas",
+          "description": "Pasirinkite „Enphase“ svetainę, kuri turėtų gauti vienkartinį kodą."
         }
       }
     },
     "set_grid_mode": {
       "name": "Nustatykite tinklelio režimą",
       "description": "Pakeiskite svetainės tinklelio režimą patvirtinę vienkartinį kodą.",
-      "sections": {
-        "advanced": {
-          "name": "Išplėstinės parinktys"
-        }
-      },
       "fields": {
         "mode": {
           "name": "Tinklelio režimas",
@@ -2410,9 +2693,9 @@
           "name": "Vienkartinis kodas",
           "description": "Įveskite 4 skaitmenų vienkartinį kodą, atsiųstą jūsų registruotu el. pašto adresu ir telefonu."
         },
-        "site_id": {
-          "name": "Vietos ID",
-          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        "config_entry_id": {
+          "name": "Enphase konfigūracijos įrašas",
+          "description": "Pasirinkite Enphase svetainę, kurios tinklelio režimas turėtų pasikeisti."
         }
       }
     },
@@ -2762,6 +3045,111 @@
         "site_id": {
           "name": "Svetainės ID",
           "description": "Pasirenkamas svetainės identifikatorius; aptinkamas automatiškai pasirinkus įrenginį."
+        }
+      }
+    },
+    "browse_grid_profiles": {
+      "name": "Naršyti tinklo profilius",
+      "description": "Naršykite pasirinktos vietos šaliai ir regionui prieinamus Cloud Activation tinklo profilius.",
+      "sections": {
+        "advanced": {
+          "name": "Täiendavad valikud"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Regiono kodas",
+          "description": "Pasirinktinis regiono arba valstijos kodas, pvz., VIC."
+        },
+        "commonly_used": {
+          "name": "Tik dažnai naudojami",
+          "description": "Kai įjungta, pateikiamas dažnai naudojamų profilių katalogas."
+        },
+        "device_id": {
+          "name": "Vietos įrenginiai",
+          "description": "Pasirinkite vietos Enphase įrenginį."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus įrenginį."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirinktinis tikslinės vietos konfigūracijos įrašo identifikatorius."
+        },
+        "query": {
+          "name": "Paieška",
+          "description": "Pasirinktinis vietos šalies regionų ir profilių paieškos tekstas."
+        }
+      }
+    },
+    "refresh_grid_profiles": {
+      "name": "Atnaujinti tinklo profilius",
+      "description": "Atnaujinkite Cloud Activation tinklo profilių informacinius duomenis ir pasirinkto regiono katalogą.",
+      "sections": {
+        "advanced": {
+          "name": "Täiendavad valikud"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Regiono kodas",
+          "description": "Pasirinktinis regiono arba valstijos kodas, pvz., VIC."
+        },
+        "commonly_used": {
+          "name": "Tik dažnai naudojami",
+          "description": "Kai įjungta, pateikiamas dažnai naudojamų profilių katalogas."
+        },
+        "device_id": {
+          "name": "Vietos įrenginiai",
+          "description": "Pasirinkite vietos Enphase įrenginį."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus įrenginį."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirinktinis tikslinės vietos konfigūracijos įrašo identifikatorius."
+        }
+      }
+    },
+    "set_grid_profile": {
+      "name": "Nustatyti tinklo profilį",
+      "description": "Taikykite Cloud Activation tinklo profilį po aiškaus patvirtinimo.",
+      "sections": {
+        "advanced": {
+          "name": "Täiendavad valikud"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Regiono kodas",
+          "description": "Pasirinktinis regiono arba valstijos kodas, pvz., VIC."
+        },
+        "device_id": {
+          "name": "Vietos įrenginiai",
+          "description": "Pasirinkite vietos Enphase įrenginį."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus įrenginį."
+        },
+        "config_entry_id": {
+          "name": "Konfigūracijos įrašo ID",
+          "description": "Pasirinktinis tikslinės vietos konfigūracijos įrašo identifikatorius."
+        },
+        "profile_id": {
+          "name": "Profilio ID",
+          "description": "Cloud Activation profilio ID, įskaitant priešdėlį agf:."
+        },
+        "confirm": {
+          "name": "Patvirtinti taikymą",
+          "description": "Turi būti įjungta, kad būtų taikomas pasirinktas tinklo profilis."
+        },
+        "gateway_serial": {
+          "name": "Gateway serijos numeris",
+          "description": "Pasirinktinis Gateway serijos numeris, kai Activation įraše yra keli Gateway įrenginiai."
         }
       }
     }

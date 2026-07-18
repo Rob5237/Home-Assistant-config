@@ -95,7 +95,7 @@
       "message": "Gitterstyring er ikke tilgængelig for dette websted."
     },
     "grid_control_blocked": {
-      "message": "Netstyring er i øjeblikket blokeret: {reasons}."
+      "message": "Netstyring er i øjeblikket blokeret."
     },
     "grid_mode_invalid": {
       "message": "Gittertilstand skal være on_grid eller off_grid."
@@ -412,6 +412,9 @@
     "tariff_rate_api_unavailable": {
       "message": "API til tarifskrivning er ikke tilgængelig."
     },
+    "pricing_edits_disabled": {
+      "message": "Prisredigering er deaktiveret i integrationens indstillinger."
+    },
     "tariff_rate_entity_required": {
       "message": "Vælg præcis én tarifpris-enhed."
     },
@@ -456,6 +459,27 @@
     },
     "firmware_advisory_only": {
       "message": "Firmwareopdateringer er kun vejledende."
+    },
+    "grid_profile_installer_required": {
+      "message": "Netprofilstyring kræver installer-adgang til Enphase Activation."
+    },
+    "grid_profile_profile_invalid": {
+      "message": "Den valgte netprofil er ikke tilgængelig for dette sites land og region."
+    },
+    "grid_profile_gateway_required": {
+      "message": "Anvendelse af netprofil kræver en cloudbaseret Activation Gateway-post."
+    },
+    "grid_profile_apply_failed": {
+      "message": "Anvendelse af netprofil mislykkedes."
+    },
+    "grid_profile_confirmation_required": {
+      "message": "Bekræftelse kræves for at anvende en netprofil."
+    },
+    "grid_profile_region_invalid": {
+      "message": "Den valgte netprofilregion er ikke tilgængelig."
+    },
+    "grid_profile_unavailable": {
+      "message": "Netprofilstyring er ikke tilgængelig."
     }
   },
   "options": {
@@ -464,12 +488,20 @@
         "title": "Indstillinger for Enphase Energy",
         "description": "Vælg, hvad du vil gøre med denne integrationspost.",
         "menu_options": {
-          "settings": "Indstillinger",
-          "migrate_envoy": "Migrer Envoy-historik"
+          "settings": "Dataforespørgsler",
+          "devices": "Vælg enheder",
+          "repair_notifications": "Notifikationer",
+          "authentication_settings": "Godkendelse",
+          "migrate_envoy": "Migrer Envoy-historik",
+          "advanced": "Avanceret"
         },
         "menu_option_descriptions": {
           "settings": "Juster polling og adfærd.",
-          "migrate_envoy": "Overtag valgte Enphase Envoy-energi-entitets-id'er, så Home Assistant Energy-historikken fortsætter under denne integration."
+          "devices": "Vælg hvilke enhedsgrupper der skal tilføjes. Alle valg deler samme polling-interval.",
+          "repair_notifications": "Administrer Home Assistant-reparationsnotifikationer.",
+          "authentication_settings": "Start loginflowet for at opdatere legitimationsoplysninger uden at fjerne integrationen.",
+          "migrate_envoy": "Overtag valgte Enphase Envoy-energi-entitets-id'er, så Home Assistant Energy-historikken fortsætter under denne integration.",
+          "advanced": "Valgfri styring af nettilstand og netprofilstyring kun for installatører."
         },
         "data": {
           "type_envoy": "Gateway",
@@ -480,15 +512,16 @@
           "slow_poll_interval": "Langsomt polling-interval (s)",
           "fast_while_streaming": "Foretræk hurtig polling mens cloud-stream er aktiv",
           "api_timeout": "API-timeout (s)",
-          "nominal_voltage": "Nominel spænding (V)",
+          "nominal_voltage": "EV-opladerens nominelle spænding (V)",
           "session_history_interval": "Sessionshistorik-interval (min)",
           "schedule_sync_enabled": "Aktiver EV Charger Scheduler",
-          "reauth": "Start reautentificering",
-          "forget_password": "Glem gemt adgangskode",
           "type_heatpump": "Varmepumpe",
           "type_ac_battery": "AC-batteri",
           "battery_schedules_enabled": "Aktiver Battery Scheduler",
-          "degraded_service_repair_issues": "Aktivér reparationer for forringede tjenester"
+          "degraded_service_repair_issues": "Aktivér reparationer for forringede tjenester",
+          "weather_enabled": "Aktivér vejr",
+          "microinverter_lifetime_energy_enabled": "Aktivér mikroinverteres levetidsenergi",
+          "microinverter_power_enabled": "Aktivér mikroinvertereffekt"
         },
         "data_description": {
           "type_envoy": "Inkluderer gateway-forbindelse og målerdiagnostik.",
@@ -499,57 +532,140 @@
           "slow_poll_interval": "Interval der bruges ved inaktivitet.",
           "fast_while_streaming": "Når aktiveret, hurtig polling under aktiv cloud-streaming.",
           "api_timeout": "Sekunder før API-anmodninger udløber.",
-          "nominal_voltage": "Fallback-spænding brugt til effektestimat for laderen.",
+          "nominal_voltage": "Typisk vekselspænding til beregning af effekten, når den aktuelle spænding ikke er tilgængelig.",
           "session_history_interval": "Minutter at vente mellem hentninger af cloud-sessionhistorik.",
-          "schedule_sync_enabled": "Administrer IQ EV Charger Schedules",
-          "reauth": "Start loginflowet for at opdatere legitimationsoplysninger uden at fjerne integrationen.",
-          "forget_password": "Fjerner den gemte adgangskode. Automatisk opdatering forsøges ikke længere.",
           "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostik og forbrug.",
           "type_ac_battery": "Omfatter AC-batterisensorer og styring af dvaletilstand, når de er tilgængelige.",
-          "battery_schedules_enabled": "Administrer IQ batteri tidsplaner",
-          "degraded_service_repair_issues": "Opretter Repairs-problemer, når valgfrie Enphase-tjenester er forringede."
+          "degraded_service_repair_issues": "Opretter Repairs-problemer, når valgfrie Enphase-tjenester er forringede.",
+          "weather_enabled": "Henter det aktuelle vejr for anlægget fra Enphase og opretter kun en vejrenhed, når slutpunktet er tilgængeligt.",
+          "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi pr. mikroinverter.",
+          "microinverter_power_enabled": "Aktiverer alle effektsensorer pr. mikroinverter, når installatørtelemetri er tilgængelig."
         }
       },
       "settings": {
-        "title": "Enphase Energy-indstillinger",
+        "title": "Dataforespørgsler",
         "description": "Justér polling og adfærd.",
         "data": {
-          "type_envoy": "Gateway",
-          "type_encharge": "Batteri",
-          "type_iqevse": "Ladere",
-          "type_microinverter": "Mikroinvertere",
           "fast_poll_interval": "Hurtigt polling-interval (s)",
           "slow_poll_interval": "Langsomt polling-interval (s)",
           "fast_while_streaming": "Foretræk hurtig polling mens cloud-stream er aktiv",
           "api_timeout": "API-timeout (s)",
-          "nominal_voltage": "Nominel spænding (V)",
           "session_history_interval": "Sessionshistorik-interval (min)",
-          "schedule_sync_enabled": "Aktiver Scheduler Support",
-          "reauth": "Start reautentificering",
-          "forget_password": "Glem gemt adgangskode",
-          "type_heatpump": "Varmepumpe",
-          "type_ac_battery": "AC-batteri",
-          "battery_schedules_enabled": "Aktiver Battery Scheduler",
           "degraded_service_repair_issues": "Aktivér reparationer for forringede tjenester"
         },
         "data_description": {
-          "type_envoy": "Inkluderer gateway-forbindelse og målerdiagnostik.",
-          "type_encharge": "Inkluderer batteristatus og styringsentiteter, når de er tilgængelige.",
-          "type_iqevse": "Inkluderer EV-lader-entiteter og styringer.",
-          "type_microinverter": "Inkluderer sensorer for mikroinverter-tilslutning, aktivt antal og livstidsproduktion.",
           "fast_poll_interval": "Interval der bruges under opladning eller streaming.",
           "slow_poll_interval": "Interval der bruges ved inaktivitet.",
           "fast_while_streaming": "Når aktiveret, hurtig polling under aktiv cloud-streaming.",
           "api_timeout": "Sekunder før API-anmodninger udløber.",
-          "nominal_voltage": "Fallback-spænding brugt til effektestimat for laderen.",
           "session_history_interval": "Minutter at vente mellem hentninger af cloud-sessionhistorik.",
-          "schedule_sync_enabled": "Administrer Enphase tidsplanstyring",
-          "reauth": "Start loginflowet for at opdatere legitimationsoplysninger uden at fjerne integrationen.",
-          "forget_password": "Fjerner den gemte adgangskode. Automatisk opdatering forsøges ikke længere.",
-          "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostik og forbrug.",
-          "type_ac_battery": "Omfatter AC-batterisensorer og styring af dvaletilstand, når de er tilgængelige.",
-          "battery_schedules_enabled": "Administrer IQ batteri tidsplaner",
           "degraded_service_repair_issues": "Opretter Repairs-problemer, når valgfrie Enphase-tjenester er forringede."
+        }
+      },
+      "devices": {
+        "title": "Vælg enheder",
+        "description": "Vælg hvilke enhedsgrupper der skal tilføjes. Alle valg deler samme polling-interval.",
+        "sections": {
+          "devices": {
+            "name": "Vælg enheder",
+            "data": {
+              "type_envoy": "Gateway",
+              "type_encharge": "Batteri",
+              "type_ac_battery": "AC-batteri",
+              "type_iqevse": "Ladere",
+              "type_heatpump": "Varmepumpe",
+              "type_microinverter": "Mikroinvertere"
+            },
+            "data_description": {
+              "type_envoy": "Inkluderer gateway-forbindelse og målerdiagnostik.",
+              "type_encharge": "Inkluderer batteristatus og styringsentiteter, når de er tilgængelige.",
+              "type_ac_battery": "Omfatter AC-batterisensorer og styring af dvaletilstand, når de er tilgængelige.",
+              "type_iqevse": "Inkluderer EV-lader-entiteter og styringer.",
+              "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostik og forbrug.",
+              "type_microinverter": "Inkluderer sensorer for mikroinverter-tilslutning, aktivt antal og livstidsproduktion."
+            }
+          },
+          "device_features": {
+            "name": "Enhedsfunktioner",
+            "data": {
+              "schedule_sync_enabled": "Aktiver Scheduler Support",
+              "battery_schedules_enabled": "Aktiver Battery Scheduler",
+              "system_event_repair_issues": "Aktivér reparationsmeddelelser for systemhændelser",
+              "pricing_edits_enabled": "Aktivér prisredigering",
+              "weather_enabled": "Aktivér vejr",
+              "nominal_voltage": "EV-opladerens nominelle spænding (V)",
+              "microinverter_lifetime_energy_enabled": "Aktivér mikroinverteres levetidsenergi",
+              "microinverter_power_enabled": "Aktivér mikroinvertereffekt"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Opretter Home Assistant-reparationer for aktive stående Enphase-alarmer. Deaktiveret som standard.",
+              "pricing_edits_enabled": "Administrer elpriser for IQ Gateway",
+              "weather_enabled": "Henter det aktuelle vejr for anlægget fra Enphase og opretter kun en vejrenhed, når slutpunktet er tilgængeligt.",
+              "nominal_voltage": "Typisk vekselspænding til beregning af effekten, når den aktuelle spænding ikke er tilgængelig.",
+              "schedule_sync_enabled": "Administrer tidsplaner for IQ EV Charger.",
+              "battery_schedules_enabled": "Administrer tidsplaner for IQ Battery.",
+              "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi pr. mikroinverter.",
+              "microinverter_power_enabled": "Aktiverer alle effektsensorer pr. mikroinverter, når installatørtelemetri er tilgængelig."
+            }
+          }
+        },
+        "data": {
+          "devices": "Vælg enheder",
+          "device_features": "Enhedsfunktioner",
+          "type_envoy": "Gateway",
+          "type_encharge": "Batteri",
+          "type_ac_battery": "AC-batteri",
+          "type_iqevse": "Ladere",
+          "type_heatpump": "Varmepumpe",
+          "type_microinverter": "Mikroinvertere",
+          "schedule_sync_enabled": "Aktiver Scheduler Support",
+          "battery_schedules_enabled": "Aktiver Battery Scheduler",
+          "system_event_repair_issues": "Aktivér reparationsmeddelelser for systemhændelser",
+          "pricing_edits_enabled": "Aktivér prisredigering",
+          "weather_enabled": "Aktivér vejr",
+          "nominal_voltage": "EV-opladerens nominelle spænding (V)",
+          "microinverter_lifetime_energy_enabled": "Aktivér mikroinverteres levetidsenergi",
+          "microinverter_power_enabled": "Aktivér mikroinvertereffekt"
+        },
+        "data_description": {
+          "type_envoy": "Inkluderer gateway-forbindelse og målerdiagnostik.",
+          "type_encharge": "Inkluderer batteristatus og styringsentiteter, når de er tilgængelige.",
+          "type_ac_battery": "Omfatter AC-batterisensorer og styring af dvaletilstand, når de er tilgængelige.",
+          "type_iqevse": "Inkluderer EV-lader-entiteter og styringer.",
+          "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostik og forbrug.",
+          "type_microinverter": "Inkluderer sensorer for mikroinverter-tilslutning, aktivt antal og livstidsproduktion.",
+          "system_event_repair_issues": "Opretter Home Assistant-reparationer for aktive stående Enphase-alarmer. Deaktiveret som standard.",
+          "pricing_edits_enabled": "Administrer elpriser for IQ Gateway",
+          "weather_enabled": "Henter det aktuelle vejr for anlægget fra Enphase og opretter kun en vejrenhed, når slutpunktet er tilgængeligt.",
+          "nominal_voltage": "Typisk vekselspænding til beregning af effekten, når den aktuelle spænding ikke er tilgængelig.",
+          "schedule_sync_enabled": "Administrer tidsplaner for IQ EV Charger.",
+          "battery_schedules_enabled": "Administrer tidsplaner for IQ Battery.",
+          "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi pr. mikroinverter.",
+          "microinverter_power_enabled": "Aktiverer alle effektsensorer pr. mikroinverter, når installatørtelemetri er tilgængelig."
+        }
+      },
+      "repair_notifications": {
+        "title": "Notifikationer",
+        "description": "Vælg, hvilke Enphase-forhold der opretter Home Assistant-reparationer.",
+        "data": {
+          "degraded_service_repair_issues": "Aktivér reparationer for forringede tjenester",
+          "system_event_repair_issues": "Aktivér reparationsmeddelelser for systemhændelser"
+        },
+        "data_description": {
+          "degraded_service_repair_issues": "Opretter Repairs-problemer, når valgfrie Enphase-tjenester er forringede.",
+          "system_event_repair_issues": "Opretter Home Assistant-reparationer for aktive stående Enphase-alarmer. Deaktiveret som standard."
+        }
+      },
+      "authentication_settings": {
+        "title": "Godkendelse",
+        "description": "Start loginflowet for at opdatere legitimationsoplysninger uden at fjerne integrationen.",
+        "data": {
+          "reauth": "Start reautentificering",
+          "forget_password": "Glem gemt adgangskode"
+        },
+        "data_description": {
+          "reauth": "Start loginflowet for at opdatere legitimationsoplysninger uden at fjerne integrationen.",
+          "forget_password": "Fjerner den gemte adgangskode. Automatisk opdatering forsøges ikke længere."
         }
       },
       "migrate_envoy_source": {
@@ -578,12 +694,12 @@
           "battery_discharge": "Batteriafladning"
         },
         "data_description": {
-          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
-          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
-          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
-          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
-          "battery_charge": "Assign a cumulative battery charge total to the Enphase Energy Site Battery Charge sensor. Do not choose daily energy or live power.",
-          "battery_discharge": "Assign a cumulative battery discharge total to the Enphase Energy Site Battery Discharge sensor. Do not choose daily energy or live power."
+          "solar_production": "Tildel en kumulativ total til sensoren Site-solproduktion. Vælg ikke daglig energi eller aktuel effekt.",
+          "consumption": "Tildel en kumulativ total til sensoren Site-forbrug. Vælg ikke daglig energi eller aktuel effekt.",
+          "grid_import": "Tildel en kumulativ total til sensoren Site-netimport. Vælg ikke daglig energi eller aktuel effekt.",
+          "grid_export": "Tildel en kumulativ total til sensoren Site-neteksport. Vælg ikke daglig energi eller aktuel effekt.",
+          "battery_charge": "Tildel en kumulativ total til sensoren Site-batteriopladning. Vælg ikke daglig energi eller aktuel effekt.",
+          "battery_discharge": "Tildel en kumulativ total til sensoren Site-batteriafladning. Vælg ikke daglig energi eller aktuel effekt."
         }
       },
       "migrate_envoy_confirm": {
@@ -593,6 +709,67 @@
           "confirm_reassign": "Jeg forstår, at de valgte kildeentitets-id'er bliver omfordelt",
           "disable_archived_envoy_sensors": "Deaktiver arkiverede kildesensorer efter migreringen"
         }
+      },
+      "advanced": {
+        "title": "Avanceret",
+        "description": "Installatør- og vedligeholdelseshandlinger.",
+        "menu_options": {
+          "grid_toggle": "Nettilstand",
+          "grid_profile": "Netprofilstyring"
+        },
+        "menu_option_descriptions": {
+          "grid_toggle": "Konfigurer manuel styring af nettilstand.",
+          "grid_profile": "Gennemse og anvend Activation-netprofiler kun for installatører."
+        }
+      },
+      "grid_toggle": {
+        "title": "Nettilstand",
+        "description": "Aktuel gittertilstand: **{current_mode}**.\n\nÆndring af gittertilstand er sikkerhedsfølsomt. Vælg den ønskede tilstand for at sende en engangskode til den registrerede e-mail og telefon.",
+        "data": {
+          "mode": "Anmodet gittertilstand"
+        }
+      },
+      "grid_profile": {
+        "title": "Netprofilstyring",
+        "description": "Filtrerer Activation-netprofilkataloget efter dette anlægs land.\n\nADVARSEL: ANVENDELSE AF EN FORKERT NETPROFIL KAN MEDFØRE, AT SYSTEMET IKKE FUNGERER KORREKT.",
+        "data": {
+          "grid_profile_region": "Region",
+          "grid_profile_commonly_used": "Profilliste"
+        },
+        "data_description": {
+          "grid_profile_region": "Kun regioner for anlæggets land er tilgængelige.",
+          "grid_profile_commonly_used": "Vælg ofte brugte profiler eller alle profiler for den valgte region."
+        }
+      },
+      "grid_profile_select": {
+        "title": "Vælg netprofil",
+        "description": "Vælg en profil til klargøring. Intet anvendes før bekræftelsestrinnet.",
+        "data": {
+          "grid_profile_id": "Netprofil"
+        }
+      },
+      "grid_profile_confirm": {
+        "title": "Bekræft netprofil",
+        "description": "Aktuel profil: **{current_profile}**\n\nValgt profil: **{selected_profile}**\n\nProfil-id: **{selected_profile_id}**\n\nPEL Enhanced: **{selected_profile_pel}**\n\n277 V-kompatibel: **{selected_profile_277v}**\n\nLand: **{country}**\n\nRegion: **{region}**\n\nStatus for anvendelse i skyen: **{apply_status}**.",
+        "data": {
+          "confirm_apply": "Anvend den valgte netprofil"
+        }
+      },
+      "grid_profile_applied": {
+        "title": "Netprofilopdatering accepteret",
+        "description": "Enphase har accepteret netprofilopdateringen for **{selected_profile}**.\n\nAnmodet profil-id: **{requested_profile_id}**\n\nCloudstatus: **{cloud_apply_status}**\n\nDet kan tage op til **5 minutter**, før den nye profil vises som aktuel, mens skyen og Gateway færdiggør behandlingen. Grid Profile-sensoren opdateres, når Activation-posten rapporterer den nye aktuelle profil."
+      },
+      "grid_toggle_otp": {
+        "title": "Bekræft ændring af gittertilstand",
+        "description": "Aktuel gittertilstand: **{current_mode}**.\n\nAnmodet gittertilstand: **{target_mode}**.\n\nIndtast den 4-cifrede engangskode og bekræft den sikkerhedsfølsomme ændring.",
+        "data": {
+          "otp": "Engangskode",
+          "confirm": "Bekræft ændringen af ​​gittertilstanden"
+        }
+      },
+      "grid_toggle_applied": {
+        "title": "Ændring af gittertilstand accepteret",
+        "description": "Enphase accepterede anmodningen om at ændre Grid Mode til **{target_mode}**.\n\nDet fysiske relæ kan stadig ændre sig. Brug Grid Mode-sensoren til at observere den resulterende tilstand."
       }
     },
     "error": {
@@ -602,16 +779,73 @@
       "migration_no_selection": "Vælg mindst én kompatibel energisensor, der skal migreres.",
       "migration_duplicate_selection": "Den samme kildeentitet kan ikke bruges mere end én gang.",
       "envoy_entry_loaded": "Envoy-integrationen kunne ikke midlertidigt afindlæses til migreringen.",
-      "incompatible_energy_total": "De valgte entiteter er ikke kompatible kumulative energitotaler."
+      "incompatible_energy_total": "De valgte entiteter er ikke kompatible kumulative energitotaler.",
+      "grid_profile_unavailable": "Netprofilstyring er ikke tilgængelig.",
+      "grid_profile_installer_required": "Netprofilstyring kræver installatøradgang til Enphase Activation.",
+      "grid_profile_no_regions": "Der er ingen netprofilregioner tilgængelige for dette anlægs land.",
+      "grid_profile_no_profiles": "Ingen netprofiler matcher de valgte filtre.",
+      "grid_profile_region_invalid": "Den valgte netprofilregion er ikke tilgængelig.",
+      "grid_profile_profile_invalid": "Den valgte netprofil er ikke tilgængelig for dette anlægs land og region.",
+      "grid_profile_gateway_required": "Anvendelse af netprofil kræver en cloudbaseret Activation Gateway-post.",
+      "grid_profile_apply_failed": "Anvendelse af netprofil mislykkedes.",
+      "grid_mode_invalid": "Vælg On Grid eller Off Grid.",
+      "grid_mode_already_active": "Webstedet er allerede i den valgte Grid Mode.",
+      "grid_mode_confirm_required": "Bekræft ændringen af ​​gittertilstanden, før du fortsætter.",
+      "grid_control_unavailable": "Gitterstyring er ikke tilgængelig for dette websted.",
+      "grid_control_blocked": "Netstyring er i øjeblikket blokeret.",
+      "grid_otp_required": "Indtast engangskoden.",
+      "grid_otp_invalid_format": "Engangskoden skal indeholde præcis fire cifre.",
+      "grid_otp_invalid": "Engangskoden er ugyldig eller udløbet.",
+      "grid_envoy_serial_missing": "Gatewayen for dette websted kunne ikke bestemmes."
     },
     "abort": {
       "migration_no_envoy_sources": "Ingen Enphase Envoy-energisensorer er tilgængelige til migrering.",
       "migration_no_targets": "Ingen kompatible Enphase Energy-sensorer er tilgængelige til migrering.",
-      "migration_partial_failure": "Migreringen stoppede efter delvis gennemførelse.\n\nFuldførte kortlægninger:\n{completed_mappings}\n\nFejl ved behandling af `{failed_entity_id}`: {failure_reason}\n\nGendan fra backup, hvis resultatet ikke er acceptabelt."
+      "migration_partial_failure": "Migreringen stoppede efter delvis gennemførelse.\n\nFuldførte kortlægninger:\n{completed_mappings}\n\nFejl ved behandling af `{failed_entity_id}`: {failure_reason}\n\nGendan fra backup, hvis resultatet ikke er acceptabelt.",
+      "grid_profile_unavailable": "Netprofilstyring er ikke tilgængelig.",
+      "grid_profile_installer_required": "Netprofilstyring kræver installatøradgang til Enphase Activation.",
+      "grid_profile_no_regions": "Der er ingen netprofilregioner tilgængelige for dette anlægs land.",
+      "grid_mode_unavailable": "Grid Mode-kontrol er ikke tilgængelig for dette websted.",
+      "grid_mode_blocked": "Grid Mode-kontrol er i øjeblikket blokeret: {reasons}."
     },
     "create_entry": {
       "migration_success": "Migrering fuldført. Enphase Energy ejer nu de valgte kildeentitets-id'er. Kontrollér Energy-dashboardet og Developer Tools > Statistics efter næste opdatering.",
       "migration_success_reload_needed": "Migreringen er fuldført, men en eller flere integrationer kunne ikke genindlæses automatisk. Genindlæs Enphase Energy og Enphase Envoy manuelt efter behov, og kontrollér derefter Energy-dashboardet og Developer Tools > Statistics."
+    }
+  },
+  "selector": {
+    "grid_profile_list_mode": {
+      "options": {
+        "commonly_used": "Almindeligt anvendte",
+        "all_profiles": "Alle profiler"
+      }
+    },
+    "grid_profile_status": {
+      "options": {
+        "yes": "Ja",
+        "no": "Nej",
+        "unknown": "Ukendt",
+        "available": "Tilgængelig",
+        "unavailable": "Ikke tilgængelig",
+        "accepted": "Accepteret"
+      }
+    },
+    "grid_mode": {
+      "options": {
+        "on_grid": "På nettet",
+        "off_grid": "Frakoblet nettet",
+        "unknown": "Ukendt"
+      }
+    },
+    "grid_control_block_reason": {
+      "options": {
+        "disable_grid_control": "Netstyring er deaktiveret for anlægget.",
+        "active_download": "En systemdownload er aktiv.",
+        "sunlight_backup_system_check": "Systemkontrollen for Sunlight Backup er aktiv.",
+        "grid_outage_check": "Kontrollen for strømafbrydelse er aktiv.",
+        "pending": "En ændring af nettilstand afventer allerede.",
+        "unknown": "En ukendt blokerende betingelse er aktiv."
+      }
     }
   },
   "entity": {
@@ -895,6 +1129,9 @@
           },
           "metrics_available": {
             "name": "Metrikker tilgængelige"
+          },
+          "endpoint_failure_details": {
+            "name": "Detaljer om slutpunktsfejl"
           }
         }
       },
@@ -929,6 +1166,9 @@
       },
       "schedule_end": {
         "name": "Tidsplan slut"
+      },
+      "inverter_lifetime_energy": {
+        "name": "{serial} Livstidsenergi"
       },
       "lifetime_energy": {
         "name": "Livstidsenergi",
@@ -1179,16 +1419,8 @@
           "active": "Aktiv"
         }
       },
-      "grid_control_status": {
-        "name": "Status for netstyring",
-        "state": {
-          "ready": "Klar",
-          "blocked": "Blokeret",
-          "pending": "Afventer"
-        }
-      },
       "grid_mode": {
-        "name": "Gittertilstand",
+        "name": "Nettilstand",
         "state": {
           "on_grid": "På nettet",
           "off_grid": "Frakoblet nettet",
@@ -1456,6 +1688,9 @@
       "microinverter_reporting_count": {
         "name": "Aktive mikroinvertere"
       },
+      "inverter_telemetry": {
+        "name": "{serial_number} effekt"
+      },
       "microinverter_last_reported": {
         "name": "Senest rapporteret fra mikroinvertere"
       },
@@ -1558,9 +1793,9 @@
       "ac_battery_overall_status": {
         "name": "Samlet status for AC-batteri",
         "state": {
-          "charging": "Oplader",
-          "discharging": "Aflader",
-          "idle": "Inaktiv",
+          "normal": "Normal",
+          "warning": "Advarsel",
+          "error": "Fejl",
           "unknown": "Ukendt"
         }
       },
@@ -1576,9 +1811,9 @@
       "ac_battery_storage_status": {
         "name": "{serial} status",
         "state": {
-          "charging": "Oplader",
-          "discharging": "Aflader",
-          "idle": "Inaktiv",
+          "normal": "Normal",
+          "warning": "Advarsel",
+          "error": "Fejl",
           "unknown": "Ukendt"
         }
       },
@@ -1759,6 +1994,9 @@
       },
       "dry_contacts": {
         "name": "Potentialfrie kontakter"
+      },
+      "current_grid_profile": {
+        "name": "Netprofil"
       }
     },
     "number": {
@@ -1952,6 +2190,38 @@
             "name": "IP-adresse"
           }
         }
+      },
+      "active_system_events": {
+        "name": "Aktive systemhændelser",
+        "state_attributes": {
+          "available": {
+            "name": "Hændelsestjeneste tilgængelig"
+          },
+          "active_count": {
+            "name": "Antal aktive hændelser"
+          },
+          "high_impact_count": {
+            "name": "Antal hændelser med stor påvirkning"
+          },
+          "standing_alarm_count": {
+            "name": "Antal aktive alarmer"
+          },
+          "active_events": {
+            "name": "Aktive hændelser"
+          },
+          "severity_counts": {
+            "name": "Antal efter alvorlighed"
+          },
+          "device_type_counts": {
+            "name": "Antal efter enhedstype"
+          },
+          "last_success_utc": {
+            "name": "Seneste hændelsesopdatering (UTC)"
+          },
+          "using_cached_data": {
+            "name": "Bruger cachelagrede hændelsesdata"
+          }
+        }
       }
     },
     "switch": {
@@ -2082,9 +2352,6 @@
       "cancel_pending_profile_change": {
         "name": "Annuller afventende profilændring"
       },
-      "request_grid_toggle_otp": {
-        "name": "Anmod om Grid Toggle OTP"
-      },
       "storm_alert_opt_out": {
         "name": "Fravælg stormadvarsel"
       },
@@ -2154,6 +2421,9 @@
     "calendar": {
       "backup_history": {
         "name": "Historik for backupdrift"
+      },
+      "system_event_history": {
+        "name": "Historik over systemhændelser"
       }
     },
     "update": {
@@ -2162,6 +2432,11 @@
       },
       "charger_firmware": {
         "name": "Firmwareversion"
+      }
+    },
+    "weather": {
+      "site_weather": {
+        "name": "Vejr"
       }
     }
   },
@@ -2188,7 +2463,7 @@
       "description": "Site {site_id} kræver opdaterede sessionsheaders. Genautentificer venligst."
     },
     "auth_blocked": {
-      "title": "Enphase Energy authentication temporarily blocked",
+      "title": "Enphase Energy-godkendelse er midlertidigt blokeret",
       "description": "Enphase ser ud til midlertidigt at blokere godkendelse for site {site_id}. Automatiske forsøg er sat på pause indtil {blocked_until}. En vellykket manuel gengodkendelse kan rydde blokeringen tidligere."
     },
     "too_many_active_sessions": {
@@ -2234,6 +2509,10 @@
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS er midlertidigt sat på pause",
       "description": "Heat Pump/HEMS-polling for site {site_id} er sat på pause indtil {backoff_until} efter {failure_count} godkendelseslignende fejl ({reason}). Wallbox, batteri, gateway og andre data kan fortsætte. Deaktivér Heat Pump-gruppen, eller brug Clear HEMS Auth Backoff efter Enphase er klar igen."
+    },
+    "active_system_event": {
+      "title": "Aktiv Enphase-systemhændelse med stor påvirkning",
+      "description": "Anlæg {site_id} har en aktiv {severity}-hændelse, som påvirker {device_type}, første gang rapporteret {event_date}. Se Enlighten for detaljer og anbefalet handling. Denne reparation ryddes automatisk, når Enphase melder hændelsen løst."
     }
   },
   "system_health": {
@@ -2274,7 +2553,21 @@
       "site_energy_last_error": "Sidste fejl på webstedets energi",
       "site_energy_failures": "Energisvigt på stedet",
       "site_energy_backoff_active": "Site energy backoff aktiv",
-      "site_energy_backoff_ends_utc": "Backoff for siteenergi slutter (UTC)"
+      "site_energy_backoff_ends_utc": "Backoff for siteenergi slutter (UTC)",
+      "tariff_available": "Tarif tilgængelig",
+      "tariff_service_status": "Status for tariftjeneste",
+      "tariff_last_error": "Seneste tariffejl",
+      "tariff_failures": "Tariffejl",
+      "tariff_backoff_active": "Tarifpause aktiv",
+      "tariff_backoff_ends_utc": "Tarifpause slutter (UTC)",
+      "degraded_endpoint_families": "Forringede slutpunktsfamilier",
+      "degraded_services": "Forringede tjenester",
+      "firmware_catalog_last_fetch_utc": "Seneste hentning af firmwarekatalog (UTC)",
+      "firmware_catalog_last_success_utc": "Seneste vellykkede hentning af firmwarekatalog (UTC)",
+      "firmware_catalog_last_error": "Seneste fejl i firmwarekatalog",
+      "firmware_catalog_using_stale": "Firmwarekatalog bruger forældede data",
+      "firmware_catalog_generated_at": "Firmwarekatalog genereret",
+      "firmware_catalog_source_age_seconds": "Firmwarekatalogets kildealder (s)"
     }
   },
   "services": {
@@ -2381,26 +2674,16 @@
     "request_grid_toggle_otp": {
       "name": "Anmod om Grid Toggle OTP",
       "description": "Send den engangskode, der kræves, før du ændrer webstedsgittertilstand.",
-      "sections": {
-        "advanced": {
-          "name": "Avancerede muligheder"
-        }
-      },
       "fields": {
-        "site_id": {
-          "name": "Site-id",
-          "description": "Valgfrit site-id; registreres automatisk når en site-enhed er valgt."
+        "config_entry_id": {
+          "name": "Enphase config-indgang",
+          "description": "Vælg det Enphase-sted, der skal modtage engangskoden."
         }
       }
     },
     "set_grid_mode": {
       "name": "Indstil gittertilstand",
       "description": "Skift webstedsgittertilstand efter validering af engangskoden.",
-      "sections": {
-        "advanced": {
-          "name": "Avancerede muligheder"
-        }
-      },
       "fields": {
         "mode": {
           "name": "Gittertilstand",
@@ -2410,9 +2693,9 @@
           "name": "Engangskode",
           "description": "Indtast den 4-cifrede OTP sendt til din registrerede e-mail og telefon."
         },
-        "site_id": {
-          "name": "Site-id",
-          "description": "Valgfrit site-id; registreres automatisk når en site-enhed er valgt."
+        "config_entry_id": {
+          "name": "Enphase config-indgang",
+          "description": "Vælg det Enphase-sted, hvis gittertilstand skal ændres."
         }
       }
     },
@@ -2762,6 +3045,111 @@
         "site_id": {
           "name": "Site-id",
           "description": "Valgfrit site-id; registreres automatisk når en site-enhed vælges."
+        }
+      }
+    },
+    "browse_grid_profiles": {
+      "name": "Gennemse netprofiler",
+      "description": "Gennemse cloudbaserede Activation-netprofiler for det valgte sites land og region.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerede indstillinger"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Regionskode",
+          "description": "Valgfri regions-/statskode, f.eks. VIC."
+        },
+        "commonly_used": {
+          "name": "Kun almindeligt anvendte",
+          "description": "Returnerer kataloget med almindeligt anvendte profiler, når aktiveret."
+        },
+        "device_id": {
+          "name": "Siteenheder",
+          "description": "Vælg en Enphase-siteenhed."
+        },
+        "site_id": {
+          "name": "Site-id",
+          "description": "Valgfrit site-id; registreres automatisk, når en siteenhed vælges."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-id",
+          "description": "Valgfrit konfigurationspost-id for målsitet."
+        },
+        "query": {
+          "name": "Søg",
+          "description": "Valgfri søgetekst for regioner og profiler i sitets land."
+        }
+      }
+    },
+    "refresh_grid_profiles": {
+      "name": "Opdater netprofiler",
+      "description": "Tving opdatering af Activation-referencedata og kataloget for den valgte region.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerede indstillinger"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Regionskode",
+          "description": "Valgfri regions-/statskode, f.eks. VIC."
+        },
+        "commonly_used": {
+          "name": "Kun almindeligt anvendte",
+          "description": "Returnerer kataloget med almindeligt anvendte profiler, når aktiveret."
+        },
+        "device_id": {
+          "name": "Siteenheder",
+          "description": "Vælg en Enphase-siteenhed."
+        },
+        "site_id": {
+          "name": "Site-id",
+          "description": "Valgfrit site-id; registreres automatisk, når en siteenhed vælges."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-id",
+          "description": "Valgfrit konfigurationspost-id for målsitet."
+        }
+      }
+    },
+    "set_grid_profile": {
+      "name": "Indstil netprofil",
+      "description": "Anvender en cloudbaseret Activation-netprofil efter udtrykkelig bekræftelse.",
+      "sections": {
+        "advanced": {
+          "name": "Avancerede indstillinger"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Regionskode",
+          "description": "Valgfri regions-/statskode, f.eks. VIC."
+        },
+        "device_id": {
+          "name": "Siteenheder",
+          "description": "Vælg en Enphase-siteenhed."
+        },
+        "site_id": {
+          "name": "Site-id",
+          "description": "Valgfrit site-id; registreres automatisk, når en siteenhed vælges."
+        },
+        "config_entry_id": {
+          "name": "Konfigurationspost-id",
+          "description": "Valgfrit konfigurationspost-id for målsitet."
+        },
+        "profile_id": {
+          "name": "Profil-id",
+          "description": "Cloud Activation-profil-id inklusive agf:-præfikset."
+        },
+        "confirm": {
+          "name": "Bekræft anvendelse",
+          "description": "Skal være aktiveret for at anvende den valgte netprofil."
+        },
+        "gateway_serial": {
+          "name": "Gateway-serienummer",
+          "description": "Valgfrit Gateway-serienummer, når Activation-posten indeholder flere Gateways."
         }
       }
     }

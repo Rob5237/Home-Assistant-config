@@ -13,9 +13,14 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.data_entry_flow import FlowResult, section
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
+from homeassistant.helpers.translation import (
+    async_get_cached_translations,
+    async_get_translations,
+)
 
 from .api import (
     AuthTokens,
@@ -64,9 +69,14 @@ from .const import (
     DEFAULT_API_TIMEOUT,
     DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES,
     DEFAULT_FAST_POLL_INTERVAL,
+    DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+    DEFAULT_MICROINVERTER_POWER_ENABLED,
+    DEFAULT_PRICING_EDITS_ENABLED,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SCHEDULE_SYNC_ENABLED,
+    DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
     DEFAULT_SLOW_POLL_INTERVAL,
+    DEFAULT_WEATHER_ENABLED,
     DOMAIN,
     MAX_API_TIMEOUT,
     MAX_POLL_INTERVAL,
@@ -80,11 +90,16 @@ from .const import (
     OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
     OPT_FAST_POLL_INTERVAL,
     OPT_FAST_WHILE_STREAMING,
+    OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+    OPT_MICROINVERTER_POWER_ENABLED,
+    OPT_PRICING_EDITS_ENABLED,
     OPT_NOMINAL_VOLTAGE,
     OPT_SLOW_POLL_INTERVAL,
     OPT_SESSION_HISTORY_INTERVAL,
+    OPT_WEATHER_ENABLED,
     DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
     OPT_SCHEDULE_SYNC_ENABLED,
+    OPT_SYSTEM_EVENT_REPAIR_ISSUES,
 )
 from .device_types import (
     ONBOARDING_SUPPORTED_TYPE_KEYS,
@@ -115,6 +130,13 @@ from .envoy_history import (
     suggest_mappings,
     validate_selected_mappings,
 )
+from .grid_profile_runtime import (
+    ALL_PROFILES_OPTION,
+    COMMONLY_USED_OPTION,
+    SUPPORT_DENIED,
+    GridProfile,
+    GridProfileRuntime,
+)
 from .runtime_data import EnphaseConfigEntry
 from .log_redaction import redact_site_id, redact_text
 from .runtime_helpers import normalize_poll_intervals
@@ -131,10 +153,24 @@ CONF_TYPE_AC_BATTERY = "type_ac_battery"
 CONF_TYPE_IQEVSE = "type_iqevse"
 CONF_TYPE_HEATPUMP = "type_heatpump"
 CONF_TYPE_MICROINVERTER = "type_microinverter"
+CONF_DEVICE_CATEGORIES_SECTION = "devices"
+CONF_DEVICE_FEATURES_SECTION = "device_features"
 CONF_MIGRATION_SOURCE_ENTRY = "selected_envoy_source"
 CONF_MIGRATION_BACKUP_CONFIRMED = "backup_confirmed"
 CONF_MIGRATION_CONFIRM_REASSIGN = "confirm_reassign"
 CONF_MIGRATION_DISABLE_ARCHIVED = "disable_archived_envoy_sensors"
+CONF_GRID_PROFILE_REGION = "grid_profile_region"
+CONF_GRID_PROFILE_COMMONLY_USED = "grid_profile_commonly_used"
+CONF_GRID_PROFILE_ID = "grid_profile_id"
+CONF_GRID_PROFILE_CONFIRM_APPLY = "confirm_apply"
+CONF_GRID_MODE = "mode"
+CONF_GRID_MODE_CONFIRM = "confirm"
+
+_GRID_PROFILE_LABEL_PREFIX = f"component.{DOMAIN}.selector.grid_profile_status.options."
+_GRID_MODE_LABEL_PREFIX = f"component.{DOMAIN}.selector.grid_mode.options."
+_GRID_CONTROL_BLOCK_REASON_LABEL_PREFIX = (
+    f"component.{DOMAIN}.selector.grid_control_block_reason.options."
+)
 
 _TYPE_FIELD_BY_KEY: dict[str, str] = {
     "envoy": CONF_TYPE_ENVOY,
@@ -260,7 +296,7 @@ def _legacy_microinverters_available(payload: object) -> bool:
 
 class EnphaseEVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg,misc]
     VERSION = 1
-    MINOR_VERSION = 1
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         self._auth_tokens: AuthTokens | None = None
@@ -1213,6 +1249,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         self._migration_extra_candidates: list[EnvoyHistoryCandidate] | None = None
         self._selected_migration_source_id: str | None = None
         self._migration_selection: dict[str, str] = {}
+        self._grid_profile_apply_result: dict[str, object] | None = None
+        self._grid_mode_target: str | None = None
 
     @staticmethod
     def _normalize_serials(value: Any) -> list[str]:
@@ -1289,25 +1327,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         return [key for key in ONBOARDING_SUPPORTED_TYPE_KEYS if key in selected]
 
     def _default_nominal_voltage(self) -> int:
-        configured = coerce_nominal_voltage(
+        configured: int | None = coerce_nominal_voltage(
             self._entry.options.get(OPT_NOMINAL_VOLTAGE)
         )
         if configured is not None:
-            return cast(int, configured)
+            return configured
 
         runtime_data = getattr(self._entry, "runtime_data", None)
         coordinator = getattr(runtime_data, "coordinator", None)
         if coordinator is not None:
             preferred = getattr(coordinator, "preferred_nominal_voltage", None)
             if callable(preferred):
-                value = coerce_nominal_voltage(preferred())
+                value: int | None = coerce_nominal_voltage(preferred())
                 if value is not None:
-                    return cast(int, value)
-            nominal = coerce_nominal_voltage(
+                    return value
+            nominal: int | None = coerce_nominal_voltage(
                 getattr(coordinator, "nominal_voltage", None)
             )
             if nominal is not None:
-                return cast(int, nominal)
+                return nominal
 
         return int(resolve_nominal_voltage_for_hass(self.hass))
 
@@ -1351,90 +1389,87 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 visible.append(type_key)
         return visible
 
-    def _build_settings_schema(
-        self, visible_type_keys: list[str] | None = None
-    ) -> vol.Schema:
+    def _build_devices_schema(self, visible_type_keys: list[str]) -> vol.Schema:
         default_selected_type_keys = self._default_selected_type_keys()
-        nominal_default = self._default_nominal_voltage()
-        fast_default, slow_default = normalize_poll_intervals(
-            self._entry.options.get(OPT_FAST_POLL_INTERVAL, DEFAULT_FAST_POLL_INTERVAL),
-            self._entry.options.get(OPT_SLOW_POLL_INTERVAL, DEFAULT_SLOW_POLL_INTERVAL),
-        )
-        schema_fields: dict[vol.Marker, object] = {}
-        for type_key in visible_type_keys or list(ONBOARDING_SUPPORTED_TYPE_KEYS):
+        category_fields: dict[vol.Marker, object] = {}
+        for type_key in visible_type_keys:
             field_key = _TYPE_FIELD_BY_KEY.get(type_key)
             if field_key is None:
                 continue
-            schema_fields[
+            category_fields[
                 vol.Optional(field_key, default=type_key in default_selected_type_keys)
             ] = bool
-        schema_fields.update(
-            {
-                vol.Optional(
-                    OPT_FAST_POLL_INTERVAL,
-                    default=fast_default,
-                ): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=MIN_FAST_POLL_INTERVAL, max=MAX_POLL_INTERVAL),
-                ),
-                vol.Optional(
-                    OPT_SLOW_POLL_INTERVAL,
-                    default=slow_default,
-                ): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=MIN_SLOW_POLL_INTERVAL, max=MAX_POLL_INTERVAL),
-                ),
-                vol.Optional(
-                    OPT_FAST_WHILE_STREAMING,
-                    default=self._entry.options.get(OPT_FAST_WHILE_STREAMING, True),
-                ): bool,
-                vol.Optional(
-                    OPT_API_TIMEOUT,
-                    default=self._entry.options.get(
-                        OPT_API_TIMEOUT, DEFAULT_API_TIMEOUT
-                    ),
-                ): selector(
-                    {
-                        "number": {
-                            "min": MIN_API_TIMEOUT,
-                            "max": MAX_API_TIMEOUT,
-                            "step": 1,
-                            "mode": "box",
-                            "unit_of_measurement": "s",
-                        }
-                    }
-                ),
-                vol.Optional(
-                    OPT_NOMINAL_VOLTAGE,
-                    default=nominal_default,
-                ): int,
-                vol.Optional(
-                    OPT_SESSION_HISTORY_INTERVAL,
-                    default=self._entry.options.get(
-                        OPT_SESSION_HISTORY_INTERVAL,
-                        DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
-                    ),
-                ): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(
-                        min=MIN_SESSION_HISTORY_INTERVAL_MIN,
-                        max=MAX_SESSION_HISTORY_INTERVAL_MIN,
-                    ),
-                ),
-                vol.Optional(
+        feature_fields: dict[vol.Marker, object] = {
+            vol.Optional(
+                OPT_SCHEDULE_SYNC_ENABLED,
+                default=self._entry.options.get(
                     OPT_SCHEDULE_SYNC_ENABLED,
-                    default=self._entry.options.get(
-                        OPT_SCHEDULE_SYNC_ENABLED,
-                        DEFAULT_SCHEDULE_SYNC_ENABLED,
-                    ),
-                ): bool,
-                vol.Optional(
+                    DEFAULT_SCHEDULE_SYNC_ENABLED,
+                ),
+            ): bool,
+            vol.Optional(
+                OPT_BATTERY_SCHEDULES_ENABLED,
+                default=self._entry.options.get(
                     OPT_BATTERY_SCHEDULES_ENABLED,
-                    default=self._entry.options.get(
-                        OPT_BATTERY_SCHEDULES_ENABLED,
-                        DEFAULT_BATTERY_SCHEDULES_ENABLED,
-                    ),
-                ): bool,
+                    DEFAULT_BATTERY_SCHEDULES_ENABLED,
+                ),
+            ): bool,
+            vol.Optional(
+                OPT_PRICING_EDITS_ENABLED,
+                default=self._entry.options.get(
+                    OPT_PRICING_EDITS_ENABLED,
+                    DEFAULT_PRICING_EDITS_ENABLED,
+                ),
+            ): bool,
+            vol.Optional(
+                OPT_WEATHER_ENABLED,
+                default=self._entry.options.get(
+                    OPT_WEATHER_ENABLED,
+                    DEFAULT_WEATHER_ENABLED,
+                ),
+            ): bool,
+            vol.Optional(
+                OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+                default=self._entry.options.get(
+                    OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+                    DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+                ),
+            ): bool,
+            vol.Optional(
+                OPT_MICROINVERTER_POWER_ENABLED,
+                default=self._entry.options.get(
+                    OPT_MICROINVERTER_POWER_ENABLED,
+                    DEFAULT_MICROINVERTER_POWER_ENABLED,
+                ),
+            ): bool,
+            vol.Optional(
+                OPT_NOMINAL_VOLTAGE,
+                default=self._default_nominal_voltage(),
+            ): int,
+        }
+        return vol.Schema(
+            {
+                vol.Required(CONF_DEVICE_CATEGORIES_SECTION): section(
+                    vol.Schema(category_fields)
+                ),
+                vol.Required(CONF_DEVICE_FEATURES_SECTION): section(
+                    vol.Schema(feature_fields)
+                ),
+            }
+        )
+
+    @staticmethod
+    def _build_authentication_schema() -> vol.Schema:
+        return vol.Schema(
+            {
+                vol.Optional("reauth", default=False): bool,
+                vol.Optional("forget_password", default=False): bool,
+            }
+        )
+
+    def _build_repair_notifications_schema(self) -> vol.Schema:
+        return vol.Schema(
+            {
                 vol.Optional(
                     OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
                     default=self._entry.options.get(
@@ -1442,17 +1477,78 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                         DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES,
                     ),
                 ): bool,
-                vol.Optional("reauth", default=False): bool,
-                vol.Optional("forget_password", default=False): bool,
+                vol.Optional(
+                    OPT_SYSTEM_EVENT_REPAIR_ISSUES,
+                    default=self._entry.options.get(
+                        OPT_SYSTEM_EVENT_REPAIR_ISSUES,
+                        DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
+                    ),
+                ): bool,
             }
         )
+
+    def _build_general_settings_schema(self) -> vol.Schema:
+        fast_default, slow_default = normalize_poll_intervals(
+            self._entry.options.get(OPT_FAST_POLL_INTERVAL, DEFAULT_FAST_POLL_INTERVAL),
+            self._entry.options.get(OPT_SLOW_POLL_INTERVAL, DEFAULT_SLOW_POLL_INTERVAL),
+        )
+        schema_fields: dict[vol.Marker, object] = {
+            vol.Optional(
+                OPT_FAST_POLL_INTERVAL,
+                default=fast_default,
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(min=MIN_FAST_POLL_INTERVAL, max=MAX_POLL_INTERVAL),
+            ),
+            vol.Optional(
+                OPT_SLOW_POLL_INTERVAL,
+                default=slow_default,
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(min=MIN_SLOW_POLL_INTERVAL, max=MAX_POLL_INTERVAL),
+            ),
+            vol.Optional(
+                OPT_FAST_WHILE_STREAMING,
+                default=self._entry.options.get(OPT_FAST_WHILE_STREAMING, True),
+            ): bool,
+            vol.Optional(
+                OPT_API_TIMEOUT,
+                default=self._entry.options.get(OPT_API_TIMEOUT, DEFAULT_API_TIMEOUT),
+            ): selector(
+                {
+                    "number": {
+                        "min": MIN_API_TIMEOUT,
+                        "max": MAX_API_TIMEOUT,
+                        "step": 1,
+                        "mode": "box",
+                        "unit_of_measurement": "s",
+                    }
+                }
+            ),
+            vol.Optional(
+                OPT_SESSION_HISTORY_INTERVAL,
+                default=self._entry.options.get(
+                    OPT_SESSION_HISTORY_INTERVAL,
+                    DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
+                ),
+            ): vol.All(
+                vol.Coerce(int),
+                vol.Range(
+                    min=MIN_SESSION_HISTORY_INTERVAL_MIN,
+                    max=MAX_SESSION_HISTORY_INTERVAL_MIN,
+                ),
+            ),
+        }
         base_schema = vol.Schema(schema_fields)
         return self.add_suggested_values_to_schema(base_schema, self._entry.options)
+
+    def _build_settings_schema(self) -> vol.Schema:
+        return self._build_general_settings_schema()
 
     def _build_schema(self) -> vol.Schema:
         """Backward-compatible alias for tests and legacy direct calls."""
 
-        return self._build_settings_schema()
+        return self._build_general_settings_schema()
 
     async def _load_migration_sources(self) -> list[EnvoyHistorySource]:
         if self._migration_sources is None:
@@ -1604,25 +1700,558 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                     discovered.append(serial)
         return discovered
 
+    def _grid_profile_runtime(self) -> GridProfileRuntime | None:
+        runtime_data = getattr(self._entry, "runtime_data", None)
+        coordinator = getattr(runtime_data, "coordinator", None)
+        runtime = getattr(coordinator, "grid_profile_runtime", None)
+        return runtime if isinstance(runtime, GridProfileRuntime) else None
+
+    def _grid_mode_coordinator(self) -> Any | None:
+        runtime_data = getattr(self._entry, "runtime_data", None)
+        return getattr(runtime_data, "coordinator", None)
+
+    async def _async_prime_grid_mode_labels(self) -> None:
+        language = getattr(self.hass.config, "language", "en")
+        await async_get_translations(self.hass, language, "selector", [DOMAIN])
+
+    def _grid_mode_label(self, mode: object) -> str:
+        key = str(mode or "unknown").strip().lower() or "unknown"
+        language = getattr(self.hass.config, "language", "en")
+        path = f"{_GRID_MODE_LABEL_PREFIX}{key}"
+        for candidate_language in (language, "en"):
+            translated = async_get_cached_translations(
+                self.hass,
+                candidate_language,
+                "selector",
+                DOMAIN,
+            ).get(path)
+            if isinstance(translated, str) and translated.strip():
+                return translated
+        return key.replace("_", " ").title()
+
+    def _grid_control_block_reason_label(self, reason: object) -> str:
+        key = str(reason or "unknown").strip().lower() or "unknown"
+        language = getattr(self.hass.config, "language", "en")
+        for reason_key in (key, "unknown"):
+            path = f"{_GRID_CONTROL_BLOCK_REASON_LABEL_PREFIX}{reason_key}"
+            for candidate_language in (language, "en"):
+                translated = async_get_cached_translations(
+                    self.hass,
+                    candidate_language,
+                    "selector",
+                    DOMAIN,
+                ).get(path)
+                if isinstance(translated, str) and translated.strip():
+                    return translated
+        return "Unknown blocking condition"
+
+    def _grid_mode_placeholders(self) -> dict[str, str]:
+        coordinator = self._grid_mode_coordinator()
+        current_mode = getattr(coordinator, "grid_mode", None)
+        return {
+            "current_mode": self._grid_mode_label(current_mode),
+            "target_mode": self._grid_mode_label(self._grid_mode_target),
+        }
+
+    @staticmethod
+    def _grid_mode_error(err: ServiceValidationError) -> str:
+        return str(getattr(err, "translation_key", None) or "grid_control_unavailable")
+
+    def _grid_profile_options_available(self) -> bool:
+        runtime = self._grid_profile_runtime()
+        return bool(
+            runtime is not None
+            and runtime.installer_access_confirmed
+            and runtime.regions
+        )
+
+    @staticmethod
+    def _grid_profile_unavailable_reason(runtime: GridProfileRuntime) -> str:
+        return (
+            "grid_profile_installer_required"
+            if runtime.support_state == SUPPORT_DENIED
+            else "grid_profile_unavailable"
+        )
+
+    async def _async_grid_profile_runtime_for_options(
+        self,
+    ) -> GridProfileRuntime | None:
+        runtime = self._grid_profile_runtime()
+        if runtime is None:
+            return None
+        if runtime.installer_access_confirmed and runtime.regions:
+            return runtime
+        await runtime.async_refresh(force=False, load_profiles=False)
+        return runtime
+
+    def _grid_profile_region_options(
+        self, runtime: GridProfileRuntime
+    ) -> list[dict[str, str]]:
+        return [
+            {"value": region.region_code, "label": region.label}
+            for region in runtime.regions
+        ]
+
+    def _grid_profile_options(
+        self, profiles: list[GridProfile]
+    ) -> list[dict[str, str]]:
+        return [
+            {"value": profile.profile_id, "label": profile.option_label}
+            for profile in profiles
+        ]
+
+    @staticmethod
+    def _grid_profile_commonly_used_from_input(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        return bool(value != ALL_PROFILES_OPTION)
+
+    def _grid_profile_filter_schema(self, runtime: GridProfileRuntime) -> vol.Schema:
+        selected_region = runtime.staged_region_code
+        if selected_region is None and runtime.regions:
+            selected_region = runtime.regions[0].region_code
+        return vol.Schema(
+            {
+                vol.Required(
+                    CONF_GRID_PROFILE_REGION,
+                    default=selected_region,
+                ): selector(
+                    {
+                        "select": {
+                            "options": self._grid_profile_region_options(runtime),
+                            "mode": "dropdown",
+                        }
+                    }
+                ),
+                vol.Optional(
+                    CONF_GRID_PROFILE_COMMONLY_USED,
+                    default=runtime.list_mode_option,
+                ): selector(
+                    {
+                        "select": {
+                            "options": [COMMONLY_USED_OPTION, ALL_PROFILES_OPTION],
+                            "mode": "dropdown",
+                            "translation_key": "grid_profile_list_mode",
+                        }
+                    }
+                ),
+            }
+        )
+
+    def _grid_profile_select_schema(self, profiles: list[GridProfile]) -> vol.Schema:
+        return vol.Schema(
+            {
+                vol.Required(CONF_GRID_PROFILE_ID): selector(
+                    {
+                        "select": {
+                            "options": self._grid_profile_options(profiles),
+                            "mode": "dropdown",
+                        }
+                    }
+                )
+            }
+        )
+
+    def _grid_profile_confirm_schema(self, runtime: GridProfileRuntime) -> vol.Schema:
+        if not runtime.apply_available:
+            return vol.Schema({})
+        return vol.Schema(
+            {vol.Required(CONF_GRID_PROFILE_CONFIRM_APPLY, default=False): bool}
+        )
+
+    async def _async_prime_grid_profile_labels(self) -> None:
+        language = getattr(self.hass.config, "language", "en")
+        await async_get_translations(
+            self.hass,
+            language,
+            "selector",
+            [DOMAIN],
+        )
+
+    def _grid_profile_status_label(self, key: str) -> str:
+        language = getattr(self.hass.config, "language", "en")
+        path = f"{_GRID_PROFILE_LABEL_PREFIX}{key}"
+        for candidate_language in (language, "en"):
+            translated = async_get_cached_translations(
+                self.hass,
+                candidate_language,
+                "selector",
+                DOMAIN,
+            ).get(path)
+            if isinstance(translated, str) and translated.strip():
+                return translated
+        return key.replace("_", " ").capitalize()
+
+    def _grid_profile_flag_label(self, value: bool | None) -> str:
+        if value is True:
+            return self._grid_profile_status_label("yes")
+        if value is False:
+            return self._grid_profile_status_label("no")
+        return self._grid_profile_status_label("unknown")
+
+    def _grid_profile_confirm_placeholders(
+        self, runtime: GridProfileRuntime
+    ) -> dict[str, str]:
+        profile = runtime.profile_for_id_in_region(
+            runtime.staged_profile_id,
+            runtime.staged_region_code,
+        )
+        unknown = self._grid_profile_status_label("unknown")
+        return {
+            "country": runtime.country_code or unknown,
+            "region": runtime.staged_region_label
+            or runtime.staged_region_code
+            or unknown,
+            "current_profile": runtime.current_profile_display() or unknown,
+            "selected_profile": profile.option_label if profile else unknown,
+            "selected_profile_id": profile.profile_id if profile else unknown,
+            "selected_profile_pel": self._grid_profile_flag_label(
+                profile.pel_enabled if profile else None
+            ),
+            "selected_profile_277v": self._grid_profile_flag_label(
+                profile.is_277v_compatible if profile else None
+            ),
+            "apply_status": self._grid_profile_status_label(
+                "available" if runtime.apply_available else "unavailable"
+            ),
+        }
+
+    def _grid_profile_applied_placeholders(
+        self, runtime: GridProfileRuntime | None
+    ) -> dict[str, str]:
+        placeholders: dict[str, str] = {}
+        if runtime is not None:
+            placeholders.update(self._grid_profile_confirm_placeholders(runtime))
+
+        requested_profile_id = placeholders.get(
+            "selected_profile_id", self._grid_profile_status_label("unknown")
+        )
+        result = self._grid_profile_apply_result
+        cloud_apply_status = self._grid_profile_status_label("accepted")
+        if isinstance(result, dict):
+            requested = result.get("requested_profile_id")
+            if requested:
+                requested_profile_id = str(requested)
+            status = result.get("cloud_apply_status")
+            if status:
+                cloud_apply_status = self._grid_profile_status_label(str(status))
+
+        placeholders["requested_profile_id"] = requested_profile_id
+        placeholders["cloud_apply_status"] = cloud_apply_status
+        return placeholders
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is not None:
+            if "reauth" in user_input or "forget_password" in user_input:
+                return await self.async_step_authentication_settings(user_input)
             return await self.async_step_settings(user_input)
+        menu_options = [
+            "settings",
+            "devices",
+            "repair_notifications",
+            "authentication_settings",
+            "advanced",
+            "migrate_envoy",
+        ]
         return self.async_show_menu(
             step_id="init",
-            menu_options=["settings", "migrate_envoy"],
+            menu_options=menu_options,
+        )
+
+    async def async_step_advanced(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        del user_input
+        menu_options = ["grid_toggle"]
+        if self._grid_profile_options_available():
+            menu_options.append("grid_profile")
+        return self.async_show_menu(
+            step_id="advanced",
+            menu_options=menu_options,
+        )
+
+    async def async_step_grid_toggle(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        coordinator = self._grid_mode_coordinator()
+        if coordinator is None:
+            return self.async_abort(reason="grid_mode_unavailable")
+
+        errors: dict[str, str] = {}
+        await self._async_prime_grid_mode_labels()
+        if user_input is None:
+            try:
+                refreshed = (
+                    await coordinator.battery_runtime.async_refresh_grid_control_check(
+                        force=True
+                    )
+                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug(
+                    "Failed refreshing Grid Mode eligibility for site %s: %s",
+                    redact_site_id(getattr(coordinator, "site_id", "")),
+                    redact_text(
+                        err,
+                        site_ids=(str(getattr(coordinator, "site_id", "")),),
+                    ),
+                )
+                return self.async_abort(reason="grid_mode_unavailable")
+
+            if refreshed is not True:
+                return self.async_abort(reason="grid_mode_unavailable")
+            if getattr(coordinator, "grid_control_supported", None) is not True:
+                return self.async_abort(reason="grid_mode_unavailable")
+            if getattr(coordinator, "grid_toggle_allowed", None) is not True:
+                reasons = getattr(coordinator, "grid_toggle_blocked_reasons", [])
+                return self.async_abort(
+                    reason="grid_mode_blocked",
+                    description_placeholders={
+                        "reasons": ", ".join(
+                            self._grid_control_block_reason_label(reason)
+                            for reason in (reasons or ["pending"])
+                        )
+                    },
+                )
+        else:
+            target = str(user_input.get(CONF_GRID_MODE, "")).strip().lower()
+            current = str(getattr(coordinator, "grid_mode", "") or "").lower()
+            if target not in {"on_grid", "off_grid"}:
+                errors[CONF_GRID_MODE] = "grid_mode_invalid"
+            elif target == current:
+                errors[CONF_GRID_MODE] = "grid_mode_already_active"
+            else:
+                self._grid_mode_target = target
+                try:
+                    await coordinator.async_request_grid_toggle_otp()
+                except ServiceValidationError as err:
+                    errors["base"] = self._grid_mode_error(err)
+                else:
+                    return await self.async_step_grid_toggle_otp()
+
+        return self.async_show_form(
+            step_id="grid_toggle",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_GRID_MODE): selector(
+                        {
+                            "select": {
+                                "options": ["on_grid", "off_grid"],
+                                "mode": "dropdown",
+                                "translation_key": "grid_mode",
+                            }
+                        }
+                    )
+                }
+            ),
+            description_placeholders=self._grid_mode_placeholders(),
+            errors=errors,
+        )
+
+    async def async_step_grid_toggle_otp(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        coordinator = self._grid_mode_coordinator()
+        if coordinator is None or self._grid_mode_target not in {
+            "on_grid",
+            "off_grid",
+        }:
+            return self.async_abort(reason="grid_mode_unavailable")
+
+        errors: dict[str, str] = {}
+        await self._async_prime_grid_mode_labels()
+        if user_input is not None:
+            if not user_input.get(CONF_GRID_MODE_CONFIRM):
+                errors["base"] = "grid_mode_confirm_required"
+            else:
+                try:
+                    await coordinator.async_set_grid_mode(
+                        self._grid_mode_target,
+                        user_input.get(CONF_OTP, ""),
+                    )
+                except ServiceValidationError as err:
+                    errors["base"] = self._grid_mode_error(err)
+                else:
+                    return await self.async_step_grid_toggle_applied()
+
+        return self.async_show_form(
+            step_id="grid_toggle_otp",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_OTP): selector({"text": {"type": "password"}}),
+                    vol.Required(CONF_GRID_MODE_CONFIRM, default=False): bool,
+                }
+            ),
+            description_placeholders=self._grid_mode_placeholders(),
+            errors=errors,
+        )
+
+    async def async_step_grid_toggle_applied(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        await self._async_prime_grid_mode_labels()
+        if user_input is not None:
+            return self.async_create_entry(title="", data=dict(self._entry.options))
+        return self.async_show_form(
+            step_id="grid_toggle_applied",
+            data_schema=vol.Schema({}),
+            description_placeholders=self._grid_mode_placeholders(),
+        )
+
+    async def async_step_grid_profile(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        runtime = await self._async_grid_profile_runtime_for_options()
+        if runtime is None:
+            return self.async_abort(reason="grid_profile_unavailable")
+        if not runtime.installer_access_confirmed:
+            return self.async_abort(
+                reason=self._grid_profile_unavailable_reason(runtime)
+            )
+        if not runtime.regions:
+            return self.async_abort(reason="grid_profile_no_regions")
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            region_code = str(user_input.get(CONF_GRID_PROFILE_REGION, "")).strip()
+            commonly_used = self._grid_profile_commonly_used_from_input(
+                user_input.get(CONF_GRID_PROFILE_COMMONLY_USED, COMMONLY_USED_OPTION)
+            )
+            if runtime.region_for_code(region_code) is None:
+                errors[CONF_GRID_PROFILE_REGION] = "grid_profile_region_invalid"
+            else:
+                runtime.set_region(region_code)
+                runtime.set_list_mode(
+                    COMMONLY_USED_OPTION if commonly_used else ALL_PROFILES_OPTION
+                )
+                runtime.set_search_query(None)
+                await runtime.async_load_profiles(
+                    region_code=region_code,
+                    commonly_used=commonly_used,
+                    force=True,
+                )
+                if not runtime.installer_access_confirmed:
+                    return self.async_abort(
+                        reason=self._grid_profile_unavailable_reason(runtime)
+                    )
+                if not runtime.filtered_profiles():
+                    errors["base"] = "grid_profile_no_profiles"
+                else:
+                    return await self.async_step_grid_profile_select()
+
+        return self.async_show_form(
+            step_id="grid_profile",
+            data_schema=self._grid_profile_filter_schema(runtime),
+            errors=errors,
+        )
+
+    async def async_step_grid_profile_select(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        runtime = self._grid_profile_runtime()
+        if runtime is None:
+            return self.async_abort(reason="grid_profile_unavailable")
+        if not runtime.installer_access_confirmed:
+            return self.async_abort(
+                reason=self._grid_profile_unavailable_reason(runtime)
+            )
+
+        profiles = runtime.filtered_profiles()
+        if not profiles:
+            return await self.async_step_grid_profile()
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            profile_id = str(user_input.get(CONF_GRID_PROFILE_ID, "")).strip()
+            if (
+                runtime.profile_for_id_in_region(
+                    profile_id,
+                    runtime.staged_region_code,
+                )
+                is None
+            ):
+                errors[CONF_GRID_PROFILE_ID] = "grid_profile_profile_invalid"
+            else:
+                runtime.set_staged_profile(profile_id)
+                return await self.async_step_grid_profile_confirm()
+
+        return self.async_show_form(
+            step_id="grid_profile_select",
+            data_schema=self._grid_profile_select_schema(profiles),
+            errors=errors,
+        )
+
+    async def async_step_grid_profile_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        runtime = self._grid_profile_runtime()
+        if runtime is None:
+            return self.async_abort(reason="grid_profile_unavailable")
+        if not runtime.installer_access_confirmed:
+            return self.async_abort(
+                reason=self._grid_profile_unavailable_reason(runtime)
+            )
+        if (
+            runtime.profile_for_id_in_region(
+                runtime.staged_profile_id,
+                runtime.staged_region_code,
+            )
+            is None
+        ):
+            return await self.async_step_grid_profile_select()
+
+        errors: dict[str, str] = {}
+        await self._async_prime_grid_profile_labels()
+        if user_input is not None:
+            if not runtime.apply_available:
+                errors["base"] = "grid_profile_gateway_required"
+            elif not user_input.get(CONF_GRID_PROFILE_CONFIRM_APPLY):
+                errors["base"] = "confirm_required"
+            else:
+                try:
+                    self._grid_profile_apply_result = await runtime.async_apply_staged()
+                except ServiceValidationError as err:
+                    errors["base"] = getattr(
+                        err, "translation_key", "grid_profile_apply_failed"
+                    )
+                else:
+                    return await self.async_step_grid_profile_applied()
+
+        return self.async_show_form(
+            step_id="grid_profile_confirm",
+            data_schema=self._grid_profile_confirm_schema(runtime),
+            description_placeholders=self._grid_profile_confirm_placeholders(runtime),
+            errors=errors,
+        )
+
+    async def async_step_grid_profile_applied(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        runtime = self._grid_profile_runtime()
+        await self._async_prime_grid_profile_labels()
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data=dict(self._entry.options),
+            )
+        placeholders: dict[str, str] = {}
+        if runtime is not None:
+            placeholders = self._grid_profile_applied_placeholders(runtime)
+        return self.async_show_form(
+            step_id="grid_profile_applied",
+            data_schema=vol.Schema({}),
+            description_placeholders=placeholders,
         )
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        visible_type_keys = await self._settings_type_keys()
-        schema = self._build_settings_schema(visible_type_keys)
+        schema = self._build_settings_schema()
         if user_input is not None:
             option_data = dict(user_input)
-            forget_password = bool(option_data.pop("forget_password", False))
-            reauth = bool(option_data.pop("reauth", False))
+            option_data.pop("forget_password", None)
+            option_data.pop("reauth", None)
             errors: dict[str, str] = {}
             if OPT_API_TIMEOUT in option_data:
                 api_timeout = _bounded_int(
@@ -1656,61 +2285,191 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             )
             option_data[OPT_FAST_POLL_INTERVAL] = fast_poll
             option_data[OPT_SLOW_POLL_INTERVAL] = slow_poll
-            selected_type_keys: list[str] = []
-            default_selected_type_keys = self._default_selected_type_keys()
-            for type_key in visible_type_keys:
-                field_key = _TYPE_FIELD_BY_KEY.get(type_key)
-                if field_key is None:
-                    continue
-                if bool(
-                    option_data.pop(field_key, type_key in default_selected_type_keys)
-                ):
-                    selected_type_keys.append(type_key)
-
-            stored_selected_type_keys = self._stored_selected_type_keys()
-            for type_key in stored_selected_type_keys:
-                if (
-                    type_key not in ONBOARDING_SUPPORTED_TYPE_KEYS
-                    and type_key not in selected_type_keys
-                ):
-                    selected_type_keys.append(type_key)
-
-            serials = self._normalize_serials(self._entry.data.get(CONF_SERIALS, []))
-            site_only = "iqevse" not in selected_type_keys
-            include_inverters = "microinverter" in selected_type_keys
-            if site_only:
-                serials = []
-            elif not serials and not (forget_password or reauth):
-                serials = await self._discover_iqevse_serials()
-                if not serials:
-                    error_schema = self.add_suggested_values_to_schema(
-                        self._build_settings_schema(visible_type_keys), user_input
-                    )
-                    return self.async_show_form(
-                        step_id="settings",
-                        data_schema=error_schema,
-                        errors={"base": "serials_required"},
-                    )
-
-            new_data = dict(self._entry.data)
-            new_data[CONF_SELECTED_TYPE_KEYS] = selected_type_keys
-            new_data[CONF_SITE_ONLY] = site_only
-            new_data[CONF_INCLUDE_INVERTERS] = include_inverters
-            new_data[CONF_SERIALS] = serials
-
-            if forget_password:
-                new_data.pop(CONF_PASSWORD, None)
-                new_data[CONF_REMEMBER_PASSWORD] = False
-
+            for field_key in _TYPE_FIELD_BY_KEY.values():
+                option_data.pop(field_key, None)
+            option_data.pop(OPT_SCHEDULE_SYNC_ENABLED, None)
+            option_data.pop(OPT_BATTERY_SCHEDULES_ENABLED, None)
+            option_data.pop(OPT_DEGRADED_SERVICE_REPAIR_ISSUES, None)
+            option_data.pop(OPT_SYSTEM_EVENT_REPAIR_ISSUES, None)
+            option_data.pop(OPT_PRICING_EDITS_ENABLED, None)
+            option_data.pop(OPT_WEATHER_ENABLED, None)
+            option_data.pop(OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED, None)
+            option_data.pop(OPT_MICROINVERTER_POWER_ENABLED, None)
+            option_data.pop(OPT_NOMINAL_VOLTAGE, None)
             option_data.pop(CONF_SCAN_INTERVAL, None)
             option_data.pop(CONF_SITE_ONLY, None)
 
-            self.hass.config_entries.async_update_entry(self._entry, data=new_data)
-            if reauth:
-                self._entry.async_start_reauth(self.hass, data=new_data)
-            return self.async_create_entry(data=option_data)
+            options = dict(self._entry.options)
+            options.update(option_data)
+            return self.async_create_entry(data=options)
 
         return self.async_show_form(step_id="settings", data_schema=schema)
+
+    async def async_step_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        visible_type_keys = await self._settings_type_keys()
+        schema = self._build_devices_schema(visible_type_keys)
+        if user_input is None:
+            return self.async_show_form(step_id="devices", data_schema=schema)
+
+        submitted_data = dict(user_input)
+        category_data = submitted_data.pop(CONF_DEVICE_CATEGORIES_SECTION, None)
+        feature_data = submitted_data.pop(CONF_DEVICE_FEATURES_SECTION, None)
+        device_data = dict(category_data) if isinstance(category_data, dict) else {}
+        if isinstance(feature_data, dict):
+            device_data.update(feature_data)
+        device_data.update(submitted_data)
+        selected_type_keys: list[str] = []
+        default_selected_type_keys = self._default_selected_type_keys()
+        for type_key in visible_type_keys:
+            field_key = _TYPE_FIELD_BY_KEY.get(type_key)
+            if field_key is None:
+                continue
+            if bool(device_data.pop(field_key, type_key in default_selected_type_keys)):
+                selected_type_keys.append(type_key)
+
+        for type_key in self._stored_selected_type_keys():
+            if (
+                type_key not in ONBOARDING_SUPPORTED_TYPE_KEYS
+                and type_key not in selected_type_keys
+            ):
+                selected_type_keys.append(type_key)
+
+        serials = self._normalize_serials(self._entry.data.get(CONF_SERIALS, []))
+        site_only = "iqevse" not in selected_type_keys
+        if site_only:
+            serials = []
+        elif not serials:
+            serials = await self._discover_iqevse_serials()
+            if not serials:
+                return self.async_show_form(
+                    step_id="devices",
+                    data_schema=self.add_suggested_values_to_schema(schema, user_input),
+                    errors={"base": "serials_required"},
+                )
+
+        new_data = dict(self._entry.data)
+        new_data[CONF_SELECTED_TYPE_KEYS] = selected_type_keys
+        new_data[CONF_SITE_ONLY] = site_only
+        new_data[CONF_INCLUDE_INVERTERS] = "microinverter" in selected_type_keys
+        new_data[CONF_SERIALS] = serials
+        self.hass.config_entries.async_update_entry(self._entry, data=new_data)
+
+        options = dict(self._entry.options)
+        options[OPT_SCHEDULE_SYNC_ENABLED] = bool(
+            device_data.get(
+                OPT_SCHEDULE_SYNC_ENABLED,
+                options.get(
+                    OPT_SCHEDULE_SYNC_ENABLED,
+                    DEFAULT_SCHEDULE_SYNC_ENABLED,
+                ),
+            )
+        )
+        options[OPT_BATTERY_SCHEDULES_ENABLED] = bool(
+            device_data.get(
+                OPT_BATTERY_SCHEDULES_ENABLED,
+                options.get(
+                    OPT_BATTERY_SCHEDULES_ENABLED,
+                    DEFAULT_BATTERY_SCHEDULES_ENABLED,
+                ),
+            )
+        )
+        options[OPT_PRICING_EDITS_ENABLED] = bool(
+            device_data.get(
+                OPT_PRICING_EDITS_ENABLED,
+                options.get(
+                    OPT_PRICING_EDITS_ENABLED,
+                    DEFAULT_PRICING_EDITS_ENABLED,
+                ),
+            )
+        )
+        options[OPT_WEATHER_ENABLED] = bool(
+            device_data.get(
+                OPT_WEATHER_ENABLED,
+                options.get(
+                    OPT_WEATHER_ENABLED,
+                    DEFAULT_WEATHER_ENABLED,
+                ),
+            )
+        )
+        options[OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED] = bool(
+            device_data.get(
+                OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+                options.get(
+                    OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+                    DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
+                ),
+            )
+        )
+        options[OPT_MICROINVERTER_POWER_ENABLED] = bool(
+            device_data.get(
+                OPT_MICROINVERTER_POWER_ENABLED,
+                options.get(
+                    OPT_MICROINVERTER_POWER_ENABLED,
+                    DEFAULT_MICROINVERTER_POWER_ENABLED,
+                ),
+            )
+        )
+        options[OPT_NOMINAL_VOLTAGE] = (
+            coerce_nominal_voltage(
+                device_data.get(
+                    OPT_NOMINAL_VOLTAGE,
+                    options.get(OPT_NOMINAL_VOLTAGE, self._default_nominal_voltage()),
+                )
+            )
+            or self._default_nominal_voltage()
+        )
+        return self.async_create_entry(title="", data=options)
+
+    async def async_step_repair_notifications(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        schema = self._build_repair_notifications_schema()
+        if user_input is None:
+            return self.async_show_form(
+                step_id="repair_notifications",
+                data_schema=schema,
+            )
+
+        options = dict(self._entry.options)
+        options[OPT_DEGRADED_SERVICE_REPAIR_ISSUES] = bool(
+            user_input.get(
+                OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
+                options.get(
+                    OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
+                    DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES,
+                ),
+            )
+        )
+        options[OPT_SYSTEM_EVENT_REPAIR_ISSUES] = bool(
+            user_input.get(
+                OPT_SYSTEM_EVENT_REPAIR_ISSUES,
+                options.get(
+                    OPT_SYSTEM_EVENT_REPAIR_ISSUES,
+                    DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
+                ),
+            )
+        )
+        return self.async_create_entry(title="", data=options)
+
+    async def async_step_authentication_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        if user_input is None:
+            return self.async_show_form(
+                step_id="authentication_settings",
+                data_schema=self._build_authentication_schema(),
+            )
+
+        new_data = dict(self._entry.data)
+        if bool(user_input.get("forget_password", False)):
+            new_data.pop(CONF_PASSWORD, None)
+            new_data[CONF_REMEMBER_PASSWORD] = False
+            self.hass.config_entries.async_update_entry(self._entry, data=new_data)
+        if bool(user_input.get("reauth", False)):
+            self._entry.async_start_reauth(self.hass, data=new_data)
+        return self.async_create_entry(title="", data=dict(self._entry.options))
 
     async def async_step_migrate_envoy(
         self, user_input: dict[str, Any] | None = None

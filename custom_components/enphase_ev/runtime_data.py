@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
+
 from .const import DOMAIN
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -16,6 +19,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from .evse_schedule_editor import EvseScheduleEditorManager
     from .evse_firmware import EvseFirmwareDetailsManager
     from .firmware_catalog import FirmwareCatalogManager
+    from .gateway_software_update import GatewaySoftwareUpdateManager
+    from .weather import EnphaseWeatherCoordinator
 
 
 @dataclass(slots=True)
@@ -25,9 +30,26 @@ class EnphaseRuntimeData:
     coordinator: EnphaseCoordinator
     firmware_catalog: FirmwareCatalogManager | None = None
     evse_firmware_details: EvseFirmwareDetailsManager | None = None
+    gateway_software_update: GatewaySoftwareUpdateManager | None = None
     battery_schedule_editor: BatteryScheduleEditorManager | None = None
     evse_schedule_editor: EvseScheduleEditorManager | None = None
+    weather_coordinator: EnphaseWeatherCoordinator | None = None
+    weather_discovery_task: asyncio.Task[None] | None = None
     reload_suppression_count: int = 0
+
+    async def async_stop_weather(self) -> None:
+        """Stop and release the optional weather child coordinator."""
+
+        task = self.weather_discovery_task
+        self.weather_discovery_task = None
+        if isinstance(task, asyncio.Task) and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        coordinator = self.weather_coordinator
+        self.weather_coordinator = None
+        if coordinator is not None:
+            coordinator.mark_stopped()
 
 
 type EnphaseConfigEntry = ConfigEntry[EnphaseRuntimeData]

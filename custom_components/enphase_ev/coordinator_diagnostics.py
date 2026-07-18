@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
@@ -220,7 +220,7 @@ class CoordinatorDiagnostics:
             if not bucket:
                 continue
             try:
-                type_counts[key] = int(bucket.get("count", 0))
+                type_counts[key] = int(str(bucket.get("count", 0)))
             except Exception:
                 type_counts[key] = 0
 
@@ -231,7 +231,7 @@ class CoordinatorDiagnostics:
             if value is None:
                 return None
             try:
-                return float(value)
+                return float(str(value))
             except Exception:
                 return None
 
@@ -395,6 +395,9 @@ class CoordinatorDiagnostics:
                 getattr(coord, "_refresh_performance_history", [])
             ),
             "bootstrap_phase_timings": coord.bootstrap_phase_timings,
+            "setup_phase_timings": coord.setup_phase_timings,
+            "setup_milestones": coord.setup_milestones,
+            "startup_power_phase_timings": coord.startup_power_phase_timings,
             "warmup_phase_timings": coord.warmup_phase_timings,
             "warmup_in_progress": getattr(coord, "_warmup_in_progress", False),
             "warmup_last_error": getattr(coord, "_warmup_last_error", None),
@@ -851,6 +854,7 @@ class CoordinatorDiagnostics:
             "evse_feature_flag_charger_count": len(
                 getattr(coord, "_evse_feature_flags_by_serial", {}) or {}
             ),
+            "pricing_edits_enabled": coord.pricing_edits_enabled,
             "grid_control_supported": coord.grid_control_supported,
             "grid_toggle_allowed": coord.grid_toggle_allowed,
             "grid_toggle_pending": coord.grid_toggle_pending,
@@ -864,6 +868,13 @@ class CoordinatorDiagnostics:
                 coord, "_grid_control_check_failures", 0
             ),
             "grid_control_data_stale": coord.grid_control_supported is None,
+            "grid_mode_source": coord.grid_mode_source,
+            "grid_mode_status_supported": coord.grid_mode_status_supported,
+            "grid_mode_status_raw": coord.grid_mode_status_raw,
+            "grid_mode_status_fetch_failures": getattr(
+                coord, "_grid_mode_status_failures", 0
+            ),
+            "grid_mode_status_data_stale": coord.grid_mode_status_supported is None,
             "grid_outage_context_supported": coord.grid_outage_context_supported,
             "grid_outage_is_grid_outage": coord.grid_outage_is_grid_outage,
             "grid_outage_show_grid_connect": coord.grid_outage_show_grid_connect,
@@ -899,6 +910,14 @@ class CoordinatorDiagnostics:
             age = time.monotonic() - float(grid_last_success)
             if age >= 0:
                 metrics["grid_control_last_success_age_s"] = round(age, 1)
+
+        grid_mode_last_success = getattr(
+            coord, "_grid_mode_status_last_success_mono", None
+        )
+        if isinstance(grid_mode_last_success, (int, float)):
+            age = time.monotonic() - float(grid_mode_last_success)
+            if age >= 0:
+                metrics["grid_mode_status_last_success_age_s"] = round(age, 1)
 
         grid_outage_last_success = getattr(
             coord, "_grid_outage_context_last_success_mono", None
@@ -990,20 +1009,27 @@ class CoordinatorDiagnostics:
             )
 
         site_energy_age = None
-        site_flows = {}
-        site_meta = {}
+        site_flows: dict[str, object] = {}
+        site_meta: dict[str, object] = {}
         if energy_manager is not None:
             site_energy_age = getattr(energy_manager, "site_energy_cache_age", None)
-            site_flows = getattr(energy_manager, "site_energy", None) or {}
-            site_meta = getattr(energy_manager, "site_energy_meta", None) or {}
+            raw_flows = getattr(energy_manager, "site_energy", None)
+            raw_meta = getattr(energy_manager, "site_energy_meta", None)
+            if isinstance(raw_flows, dict):
+                site_flows = cast(dict[str, object], raw_flows)
+            if isinstance(raw_meta, dict):
+                site_meta = cast(dict[str, object], raw_meta)
         if site_flows or site_energy_age is not None or site_meta:
+            site_last_report = site_meta.get("last_report_date")
             metrics["site_energy"] = {
                 "flows": sorted(list(site_flows.keys())),
                 "cache_age_s": (
                     round(site_energy_age, 3) if site_energy_age is not None else None
                 ),
                 "start_date": site_meta.get("start_date"),
-                "last_report_date": _iso(site_meta.get("last_report_date")),
+                "last_report_date": _iso(
+                    site_last_report if isinstance(site_last_report, datetime) else None
+                ),
                 "update_pending": site_meta.get("update_pending"),
                 "interval_minutes": site_meta.get("interval_minutes"),
             }
@@ -1014,6 +1040,9 @@ class CoordinatorDiagnostics:
         def _endpoint_family_degraded(state: object) -> bool:
             if not isinstance(state, dict):
                 return False
+            degraded = state.get("degraded")
+            if isinstance(degraded, bool):
+                return degraded
             try:
                 failures = int(state.get("consecutive_failures") or 0)
             except (TypeError, ValueError):
@@ -1030,6 +1059,16 @@ class CoordinatorDiagnostics:
             if _endpoint_family_degraded(state)
         ]
         metrics["degraded_endpoint_families"] = degraded_endpoint_families
+        metrics["endpoint_failure_details"] = {
+            family: {
+                "reason": state.get("last_error"),
+                "retry_utc": state.get("next_retry_utc"),
+            }
+            for family, state in endpoint_family_health.items()
+            if isinstance(state, dict)
+            and isinstance(state.get("last_error"), str)
+            and bool(state.get("last_error"))
+        }
 
         degraded_services = [
             service
@@ -1133,7 +1172,7 @@ class CoordinatorDiagnostics:
                 "last_payload_signature": None,
             }
             coord._payload_health[name] = state
-        return state
+        return cast(dict[str, object], state)
 
     def mark_payload_endpoint_success(
         self,
@@ -1167,7 +1206,7 @@ class CoordinatorDiagnostics:
         state = self.payload_health_state(name)
         state["available"] = False
         state["using_stale"] = using_stale
-        state["failures"] = int(state.get("failures", 0) or 0) + 1
+        state["failures"] = int(str(state.get("failures", 0) or 0)) + 1
         state["last_error"] = error
         state["last_failure_utc"] = dt_util.utcnow()
         state["last_payload_signature"] = (
@@ -1306,7 +1345,7 @@ class CoordinatorDiagnostics:
             if state is None:
                 continue
             support_state = getattr(state, "support_state", "unknown")
-            out[family] = {
+            family_health: dict[str, object] = {
                 "family": family,
                 "request_count": int(getattr(state, "request_count", 0) or 0),
                 "last_request_utc": _iso(getattr(state, "last_request_utc", None)),
@@ -1322,6 +1361,23 @@ class CoordinatorDiagnostics:
                 "suppressed": support_state == "suppressed",
                 "last_error": getattr(state, "last_error", None),
             }
+            degraded = getattr(state, "degraded", None)
+            if isinstance(degraded, bool):
+                family_health.update(
+                    {
+                        "degraded": degraded,
+                        "partial_success": bool(
+                            getattr(state, "partial_success", False)
+                        ),
+                        "successful_items": getattr(state, "successful_items", None),
+                        "total_items": getattr(state, "total_items", None),
+                        "using_cached_data": bool(
+                            getattr(state, "using_cached_data", False)
+                        ),
+                        "cache_stale": bool(getattr(state, "cache_stale", False)),
+                    }
+                )
+            out[family] = family_health
         return out
 
     def sync_session_history_issue(self) -> None:

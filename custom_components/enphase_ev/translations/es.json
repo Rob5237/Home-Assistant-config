@@ -95,7 +95,7 @@
       "message": "El control de red no está disponible para este sitio."
     },
     "grid_control_blocked": {
-      "message": "El control de red está actualmente bloqueado: {reasons}."
+      "message": "El control de red está actualmente bloqueado."
     },
     "grid_mode_invalid": {
       "message": "El modo de cuadrícula debe ser on_grid o off_grid."
@@ -412,6 +412,9 @@
     "tariff_rate_api_unavailable": {
       "message": "La API de escritura de tarifas no está disponible."
     },
+    "pricing_edits_disabled": {
+      "message": "La edición de precios está desactivada en las opciones de la integración."
+    },
     "tariff_rate_entity_required": {
       "message": "Selecciona exactamente una entidad de tarifa."
     },
@@ -456,6 +459,27 @@
     },
     "firmware_advisory_only": {
       "message": "Las actualizaciones de firmware son solo informativas."
+    },
+    "grid_profile_installer_required": {
+      "message": "El control de perfil de red requiere acceso de instalador de Enphase Activation."
+    },
+    "grid_profile_profile_invalid": {
+      "message": "El perfil de red seleccionado no está disponible para el país y la región de este sitio."
+    },
+    "grid_profile_gateway_required": {
+      "message": "Aplicar el perfil de red requiere un registro Cloud Activation Gateway."
+    },
+    "grid_profile_apply_failed": {
+      "message": "Error al aplicar el perfil de red."
+    },
+    "grid_profile_confirmation_required": {
+      "message": "Se requiere confirmación para aplicar un perfil de red."
+    },
+    "grid_profile_region_invalid": {
+      "message": "La región del perfil de red seleccionada no está disponible."
+    },
+    "grid_profile_unavailable": {
+      "message": "El control de perfil de red no está disponible."
     }
   },
   "options": {
@@ -464,12 +488,20 @@
         "title": "Opciones de Enphase Energy",
         "description": "Elige qué quieres hacer con esta entrada de integración.",
         "menu_options": {
-          "settings": "Ajustes",
-          "migrate_envoy": "Migrar historial de Envoy"
+          "settings": "Sondeo",
+          "devices": "Seleccionar dispositivos",
+          "repair_notifications": "Notificaciones",
+          "authentication_settings": "Autenticación",
+          "migrate_envoy": "Migrar historial de Envoy",
+          "advanced": "Avanzado"
         },
         "menu_option_descriptions": {
           "settings": "Ajusta el sondeo y el comportamiento.",
-          "migrate_envoy": "Asume los identificadores de entidad de energía seleccionados de Enphase Envoy para que el historial de Home Assistant Energy continúe con esta integración."
+          "devices": "Elija qué grupos de dispositivos agregar. Todas las selecciones comparten el mismo intervalo de sondeo.",
+          "repair_notifications": "Gestiona las notificaciones de reparaciones de Home Assistant.",
+          "authentication_settings": "Inicia el flujo de inicio de sesión para actualizar credenciales sin eliminar la integración.",
+          "migrate_envoy": "Asume los identificadores de entidad de energía seleccionados de Enphase Envoy para que el historial de Home Assistant Energy continúe con esta integración.",
+          "advanced": "Controles opcionales del modo de red y controles de perfil solo para instaladores."
         },
         "data": {
           "type_envoy": "Puerta de enlace",
@@ -480,15 +512,16 @@
           "slow_poll_interval": "Intervalo de sondeo lento (s)",
           "fast_while_streaming": "Preferir sondeo rápido mientras el flujo en la nube esté activo",
           "api_timeout": "Tiempo de espera de API (s)",
-          "nominal_voltage": "Voltaje nominal (V)",
+          "nominal_voltage": "Tensión nominal del cargador EV (V)",
           "session_history_interval": "Intervalo del historial de sesiones (min)",
           "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
-          "reauth": "Iniciar reautenticación",
-          "forget_password": "Olvidar contraseña almacenada",
           "type_heatpump": "Bomba de calor",
           "type_ac_battery": "Batería CA",
           "battery_schedules_enabled": "Activar programador de batería",
-          "degraded_service_repair_issues": "Activar reparaciones por servicios degradados"
+          "degraded_service_repair_issues": "Activar reparaciones por servicios degradados",
+          "weather_enabled": "Activar el tiempo",
+          "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
+          "microinverter_power_enabled": "Activar potencia de los microinversores"
         },
         "data_description": {
           "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
@@ -499,57 +532,140 @@
           "slow_poll_interval": "Intervalo que se usa cuando está inactivo.",
           "fast_while_streaming": "Si se activa, realiza sondeo rápido durante el streaming en la nube.",
           "api_timeout": "Segundos antes de que las solicitudes a la API agoten el tiempo de espera.",
-          "nominal_voltage": "Voltaje de respaldo para estimar la potencia del cargador.",
+          "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real.",
           "session_history_interval": "Minutos de espera entre obtenciones del historial de sesiones en la nube.",
-          "schedule_sync_enabled": "Gestionar la gestión de horarios de Enphase",
-          "reauth": "Inicia el flujo de inicio de sesión para actualizar credenciales sin eliminar la integración.",
-          "forget_password": "Elimina la contraseña almacenada. Ya no se intentará la actualización automática.",
           "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
           "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
-          "battery_schedules_enabled": "Gestionar horarios de batería IQ",
-          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados."
+          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados.",
+          "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible.",
+          "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor.",
+          "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible."
         }
       },
       "settings": {
-        "title": "Opciones de Enphase Energy",
+        "title": "Sondeo",
         "description": "Ajuste el sondeo y el comportamiento.",
         "data": {
-          "type_envoy": "Puerta de enlace",
-          "type_encharge": "Batería",
-          "type_iqevse": "Cargadores",
-          "type_microinverter": "Microinversores",
           "fast_poll_interval": "Intervalo de sondeo rápido (s)",
           "slow_poll_interval": "Intervalo de sondeo lento (s)",
           "fast_while_streaming": "Preferir sondeo rápido mientras el flujo en la nube esté activo",
           "api_timeout": "Tiempo de espera de API (s)",
-          "nominal_voltage": "Voltaje nominal (V)",
           "session_history_interval": "Intervalo del historial de sesiones (min)",
-          "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
-          "reauth": "Iniciar reautenticación",
-          "forget_password": "Olvidar contraseña almacenada",
-          "type_heatpump": "Bomba de calor",
-          "type_ac_battery": "Batería CA",
-          "battery_schedules_enabled": "Activar programador de batería",
           "degraded_service_repair_issues": "Activar reparaciones por servicios degradados"
         },
         "data_description": {
-          "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
-          "type_encharge": "Incluye estado de baterías y entidades de control cuando estén disponibles.",
-          "type_iqevse": "Incluye entidades y controles de cargadores EV.",
-          "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada.",
           "fast_poll_interval": "Intervalo que se usa durante la carga o cuando hay streaming.",
           "slow_poll_interval": "Intervalo que se usa cuando está inactivo.",
           "fast_while_streaming": "Si se activa, realiza sondeo rápido durante el streaming en la nube.",
           "api_timeout": "Segundos antes de que las solicitudes a la API agoten el tiempo de espera.",
-          "nominal_voltage": "Voltaje de respaldo para estimar la potencia del cargador.",
           "session_history_interval": "Minutos de espera entre obtenciones del historial de sesiones en la nube.",
-          "schedule_sync_enabled": "Gestionar la gestión de horarios de Enphase",
-          "reauth": "Inicia el flujo de inicio de sesión para actualizar credenciales sin eliminar la integración.",
-          "forget_password": "Elimina la contraseña almacenada. Ya no se intentará la actualización automática.",
-          "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
-          "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
-          "battery_schedules_enabled": "Gestionar horarios de batería IQ",
           "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados."
+        }
+      },
+      "devices": {
+        "title": "Seleccionar dispositivos",
+        "description": "Elija qué grupos de dispositivos agregar. Todas las selecciones comparten el mismo intervalo de sondeo.",
+        "sections": {
+          "devices": {
+            "name": "Seleccionar dispositivos",
+            "data": {
+              "type_envoy": "Puerta de enlace",
+              "type_encharge": "Batería",
+              "type_ac_battery": "Batería CA",
+              "type_iqevse": "Cargadores",
+              "type_heatpump": "Bomba de calor",
+              "type_microinverter": "Microinversores"
+            },
+            "data_description": {
+              "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
+              "type_encharge": "Incluye estado de baterías y entidades de control cuando estén disponibles.",
+              "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
+              "type_iqevse": "Incluye entidades y controles de cargadores EV.",
+              "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
+              "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada."
+            }
+          },
+          "device_features": {
+            "name": "Funciones del dispositivo",
+            "data": {
+              "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
+              "battery_schedules_enabled": "Activar programador de batería",
+              "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
+              "pricing_edits_enabled": "Activar la edición de precios",
+              "weather_enabled": "Activar el tiempo",
+              "nominal_voltage": "Tensión nominal del cargador EV (V)",
+              "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
+              "microinverter_power_enabled": "Activar potencia de los microinversores"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada.",
+              "pricing_edits_enabled": "Gestionar las tarifas eléctricas de IQ Gateway",
+              "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible.",
+              "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real.",
+              "schedule_sync_enabled": "Gestiona los horarios del IQ EV Charger.",
+              "battery_schedules_enabled": "Gestiona los horarios de la IQ Battery.",
+              "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor.",
+              "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible."
+            }
+          }
+        },
+        "data": {
+          "devices": "Seleccionar dispositivos",
+          "device_features": "Funciones del dispositivo",
+          "type_envoy": "Puerta de enlace",
+          "type_encharge": "Batería",
+          "type_ac_battery": "Batería CA",
+          "type_iqevse": "Cargadores",
+          "type_heatpump": "Bomba de calor",
+          "type_microinverter": "Microinversores",
+          "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
+          "battery_schedules_enabled": "Activar programador de batería",
+          "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
+          "pricing_edits_enabled": "Activar la edición de precios",
+          "weather_enabled": "Activar el tiempo",
+          "nominal_voltage": "Tensión nominal del cargador EV (V)",
+          "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
+          "microinverter_power_enabled": "Activar potencia de los microinversores"
+        },
+        "data_description": {
+          "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
+          "type_encharge": "Incluye estado de baterías y entidades de control cuando estén disponibles.",
+          "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
+          "type_iqevse": "Incluye entidades y controles de cargadores EV.",
+          "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
+          "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada.",
+          "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada.",
+          "pricing_edits_enabled": "Gestionar las tarifas eléctricas de IQ Gateway",
+          "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible.",
+          "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real.",
+          "schedule_sync_enabled": "Gestiona los horarios del IQ EV Charger.",
+          "battery_schedules_enabled": "Gestiona los horarios de la IQ Battery.",
+          "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor.",
+          "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible."
+        }
+      },
+      "repair_notifications": {
+        "title": "Notificaciones",
+        "description": "Elige qué condiciones de Enphase crean reparaciones en Home Assistant.",
+        "data": {
+          "degraded_service_repair_issues": "Activar reparaciones por servicios degradados",
+          "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema"
+        },
+        "data_description": {
+          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados.",
+          "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada."
+        }
+      },
+      "authentication_settings": {
+        "title": "Autenticación",
+        "description": "Inicia el flujo de inicio de sesión para actualizar credenciales sin eliminar la integración.",
+        "data": {
+          "reauth": "Iniciar reautenticación",
+          "forget_password": "Olvidar contraseña almacenada"
+        },
+        "data_description": {
+          "reauth": "Inicia el flujo de inicio de sesión para actualizar credenciales sin eliminar la integración.",
+          "forget_password": "Elimina la contraseña almacenada. Ya no se intentará la actualización automática."
         }
       },
       "migrate_envoy_source": {
@@ -578,12 +694,12 @@
           "battery_discharge": "Descarga de batería"
         },
         "data_description": {
-          "solar_production": "Assign a cumulative production total to the Enphase Energy Site Solar Production sensor. Do not choose daily energy or live power.",
-          "consumption": "Assign a cumulative consumption total to the Enphase Energy Site Consumption sensor. Do not choose daily energy or live power.",
-          "grid_import": "Assign a cumulative grid import total to the Enphase Energy Site Grid Import sensor. Do not choose daily energy or live power.",
-          "grid_export": "Assign a cumulative grid export total to the Enphase Energy Site Grid Export sensor. Do not choose daily energy or live power.",
-          "battery_charge": "Asigna un total acumulado de carga de batería al sensor Enphase Energy Site Battery Charge. No elijas energía diaria ni potencia en vivo.",
-          "battery_discharge": "Asigna un total acumulado de descarga de batería al sensor Enphase Energy Site Battery Discharge. No elijas energía diaria ni potencia en vivo."
+          "solar_production": "Asigna un total acumulado al sensor Producción solar del sitio. No elijas energía diaria ni potencia en vivo.",
+          "consumption": "Asigna un total acumulado al sensor Consumo del sitio. No elijas energía diaria ni potencia en vivo.",
+          "grid_import": "Asigna un total acumulado al sensor Importación de red del sitio. No elijas energía diaria ni potencia en vivo.",
+          "grid_export": "Asigna un total acumulado al sensor Exportación a la red del sitio. No elijas energía diaria ni potencia en vivo.",
+          "battery_charge": "Asigna un total acumulado al sensor Carga de batería del sitio. No elijas energía diaria ni potencia en vivo.",
+          "battery_discharge": "Asigna un total acumulado al sensor Descarga de batería del sitio. No elijas energía diaria ni potencia en vivo."
         }
       },
       "migrate_envoy_confirm": {
@@ -593,6 +709,67 @@
           "confirm_reassign": "Entiendo que los identificadores de entidad de origen seleccionados se reasignarán",
           "disable_archived_envoy_sensors": "Desactivar los sensores de origen archivados después de la migración"
         }
+      },
+      "advanced": {
+        "title": "Avanzado",
+        "description": "Acciones de instalador y mantenimiento.",
+        "menu_options": {
+          "grid_toggle": "Modo de red",
+          "grid_profile": "Control de perfil de red"
+        },
+        "menu_option_descriptions": {
+          "grid_toggle": "Configura los controles manuales del modo de red.",
+          "grid_profile": "Explorar y aplicar perfiles de red de Activation solo para instaladores."
+        }
+      },
+      "grid_toggle": {
+        "title": "Modo de red",
+        "description": "Modo de cuadrícula actual: **{current_mode}**.\n\nCambiar el modo de red es una cuestión de seguridad. Seleccione el modo solicitado para enviar un código de un solo uso al correo electrónico y al teléfono registrados.",
+        "data": {
+          "mode": "Modo de cuadrícula solicitado"
+        }
+      },
+      "grid_profile": {
+        "title": "Control de perfil de red",
+        "description": "Filtra el catálogo de perfiles de red de Activation para el país de este sitio.\n\nADVERTENCIA: APLICAR UN PERFIL DE RED INCORRECTO PUEDE PROVOCAR UN FUNCIONAMIENTO DEFECTUOSO DEL SISTEMA.",
+        "data": {
+          "grid_profile_region": "Región",
+          "grid_profile_commonly_used": "Lista de perfiles"
+        },
+        "data_description": {
+          "grid_profile_region": "Solo están disponibles las regiones del país del sitio.",
+          "grid_profile_commonly_used": "Elige perfiles usados habitualmente o todos los perfiles para la región seleccionada."
+        }
+      },
+      "grid_profile_select": {
+        "title": "Seleccionar perfil de red",
+        "description": "Elige un perfil para preparar. No se aplicará nada hasta el paso de confirmación.",
+        "data": {
+          "grid_profile_id": "Perfil de red"
+        }
+      },
+      "grid_profile_confirm": {
+        "title": "Confirmar perfil de red",
+        "description": "Perfil actual: **{current_profile}**\n\nPerfil seleccionado: **{selected_profile}**\n\nID del perfil: **{selected_profile_id}**\n\nPEL Enhanced: **{selected_profile_pel}**\n\nCompatible con 277 V: **{selected_profile_277v}**\n\nPaís: **{country}**\n\nRegión: **{region}**\n\nEstado de aplicación en la nube: **{apply_status}**.",
+        "data": {
+          "confirm_apply": "Aplicar el perfil de red seleccionado"
+        }
+      },
+      "grid_profile_applied": {
+        "title": "Actualización del perfil de red aceptada",
+        "description": "Enphase aceptó la actualización del perfil de red para **{selected_profile}**.\n\nID del perfil solicitado: **{requested_profile_id}**\n\nEstado en la nube: **{cloud_apply_status}**\n\nEl nuevo perfil puede tardar hasta **5 minutos** en aparecer como actual mientras la nube y el Gateway terminan de procesarlo. El sensor Grid Profile se actualizará cuando el registro de Activation informe el nuevo perfil actual."
+      },
+      "grid_toggle_otp": {
+        "title": "Confirmar cambio de modo de cuadrícula",
+        "description": "Modo de cuadrícula actual: **{current_mode}**.\n\nModo de cuadrícula solicitado: **{target_mode}**.\n\nIngrese el código único de 4 dígitos y confirme el cambio sensible a la seguridad.",
+        "data": {
+          "otp": "código de un solo uso",
+          "confirm": "Confirme el cambio de modo de cuadrícula"
+        }
+      },
+      "grid_toggle_applied": {
+        "title": "Cambio de modo de cuadrícula aceptado",
+        "description": "Enphase aceptó la solicitud para cambiar el modo de cuadrícula a **{target_mode}**.\n\nEs posible que el relé físico aún esté cambiando. Utilice el sensor de modo de cuadrícula para observar el estado resultante."
       }
     },
     "error": {
@@ -602,16 +779,73 @@
       "migration_no_selection": "Selecciona al menos un sensor de energía compatible para migrar.",
       "migration_duplicate_selection": "La misma entidad de origen no se puede usar más de una vez.",
       "envoy_entry_loaded": "No se pudo descargar temporalmente la integración Envoy para la migración.",
-      "incompatible_energy_total": "Las entidades seleccionadas no son totales de energía compatibles."
+      "incompatible_energy_total": "Las entidades seleccionadas no son totales de energía compatibles.",
+      "grid_profile_unavailable": "El control de perfil de red no está disponible.",
+      "grid_profile_installer_required": "El control de perfil de red requiere acceso de instalador a Enphase Activation.",
+      "grid_profile_no_regions": "No hay regiones de perfil de red disponibles para el país de este sitio.",
+      "grid_profile_no_profiles": "Ningún perfil de red coincide con los filtros seleccionados.",
+      "grid_profile_region_invalid": "La región de perfil de red seleccionada no está disponible.",
+      "grid_profile_profile_invalid": "El perfil de red seleccionado no está disponible para el país y la región de este sitio.",
+      "grid_profile_gateway_required": "Aplicar el perfil de red requiere un registro de Gateway de Activation en la nube.",
+      "grid_profile_apply_failed": "No se pudo aplicar el perfil de red.",
+      "grid_mode_invalid": "Seleccione En la red o Fuera de la red.",
+      "grid_mode_already_active": "El sitio ya está en el modo de cuadrícula seleccionado.",
+      "grid_mode_confirm_required": "Confirme el cambio del modo de cuadrícula antes de continuar.",
+      "grid_control_unavailable": "El control de red no está disponible para este sitio.",
+      "grid_control_blocked": "El control de red está actualmente bloqueado.",
+      "grid_otp_required": "Ingrese el código de un solo uso.",
+      "grid_otp_invalid_format": "El código de un solo uso debe contener exactamente cuatro dígitos.",
+      "grid_otp_invalid": "El código de un solo uso no es válido o ha caducado.",
+      "grid_envoy_serial_missing": "No se pudo determinar la puerta de enlace para este sitio."
     },
     "abort": {
       "migration_no_envoy_sources": "No hay sensores de energía de Enphase Envoy disponibles para migrar.",
       "migration_no_targets": "No hay sensores compatibles de Enphase Energy disponibles para migrar.",
-      "migration_partial_failure": "La migración se detuvo tras completarse parcialmente.\n\nAsignaciones completadas:\n{completed_mappings}\n\nFalló al procesar `{failed_entity_id}`: {failure_reason}\n\nRestaura desde la copia de seguridad si el resultado no es aceptable."
+      "migration_partial_failure": "La migración se detuvo tras completarse parcialmente.\n\nAsignaciones completadas:\n{completed_mappings}\n\nFalló al procesar `{failed_entity_id}`: {failure_reason}\n\nRestaura desde la copia de seguridad si el resultado no es aceptable.",
+      "grid_profile_unavailable": "El control de perfil de red no está disponible.",
+      "grid_profile_installer_required": "El control de perfil de red requiere acceso de instalador a Enphase Activation.",
+      "grid_profile_no_regions": "No hay regiones de perfil de red disponibles para el país de este sitio.",
+      "grid_mode_unavailable": "El control del modo de cuadrícula no está disponible para este sitio.",
+      "grid_mode_blocked": "El control del modo de cuadrícula está bloqueado actualmente: {reasons}."
     },
     "create_entry": {
       "migration_success": "Migración completada. Enphase Energy ahora posee los identificadores de entidad de origen seleccionados. Verifica el panel de Energy y Developer Tools > Statistics después de la próxima actualización.",
       "migration_success_reload_needed": "La migración se completó, pero una o más integraciones no se pudieron recargar automáticamente. Recarga manualmente Enphase Energy y Enphase Envoy si es necesario y luego verifica el panel de Energy y Developer Tools > Statistics."
+    }
+  },
+  "selector": {
+    "grid_profile_list_mode": {
+      "options": {
+        "commonly_used": "De uso común",
+        "all_profiles": "Todos los perfiles"
+      }
+    },
+    "grid_profile_status": {
+      "options": {
+        "yes": "Sí",
+        "no": "No",
+        "unknown": "Desconocido",
+        "available": "Disponible",
+        "unavailable": "No disponible",
+        "accepted": "Aceptado"
+      }
+    },
+    "grid_mode": {
+      "options": {
+        "on_grid": "En la cuadrícula",
+        "off_grid": "Fuera de la red",
+        "unknown": "Desconocido"
+      }
+    },
+    "grid_control_block_reason": {
+      "options": {
+        "disable_grid_control": "El control de red está desactivado para el sitio.",
+        "active_download": "Hay una descarga del sistema activa.",
+        "sunlight_backup_system_check": "La comprobación del sistema Sunlight Backup está activa.",
+        "grid_outage_check": "La comprobación de corte de red está activa.",
+        "pending": "Ya hay un cambio de modo de red pendiente.",
+        "unknown": "Hay una condición de bloqueo desconocida activa."
+      }
     }
   },
   "entity": {
@@ -895,6 +1129,9 @@
           },
           "metrics_available": {
             "name": "Métricas disponibles"
+          },
+          "endpoint_failure_details": {
+            "name": "Detalles de fallos de los endpoints"
           }
         }
       },
@@ -929,6 +1166,9 @@
       },
       "schedule_end": {
         "name": "Fin de programación"
+      },
+      "inverter_lifetime_energy": {
+        "name": "{serial} Energía acumulada"
       },
       "lifetime_energy": {
         "name": "Energía acumulada",
@@ -1179,16 +1419,8 @@
           "active": "Activo"
         }
       },
-      "grid_control_status": {
-        "name": "Estado del control de red",
-        "state": {
-          "ready": "Listo",
-          "blocked": "Bloqueado",
-          "pending": "Pendiente"
-        }
-      },
       "grid_mode": {
-        "name": "Modo de cuadrícula",
+        "name": "Modo de red",
         "state": {
           "on_grid": "En la cuadrícula",
           "off_grid": "Fuera de la red",
@@ -1456,6 +1688,9 @@
       "microinverter_reporting_count": {
         "name": "Microinversores activos"
       },
+      "inverter_telemetry": {
+        "name": "Potencia {serial_number}"
+      },
       "microinverter_last_reported": {
         "name": "Último reporte de microinversores"
       },
@@ -1558,9 +1793,9 @@
       "ac_battery_overall_status": {
         "name": "Estado general de la batería CA",
         "state": {
-          "charging": "Cargando",
-          "discharging": "Descargando",
-          "idle": "Inactivo",
+          "normal": "Normal",
+          "warning": "Advertencia",
+          "error": "Error",
           "unknown": "Desconocido"
         }
       },
@@ -1576,9 +1811,9 @@
       "ac_battery_storage_status": {
         "name": "Estado de {serial}",
         "state": {
-          "charging": "Cargando",
-          "discharging": "Descargando",
-          "idle": "Inactivo",
+          "normal": "Normal",
+          "warning": "Advertencia",
+          "error": "Error",
           "unknown": "Desconocido"
         }
       },
@@ -1759,6 +1994,9 @@
       },
       "dry_contacts": {
         "name": "Contactos secos"
+      },
+      "current_grid_profile": {
+        "name": "Perfil de red"
       }
     },
     "number": {
@@ -1952,6 +2190,38 @@
             "name": "Dirección IP"
           }
         }
+      },
+      "active_system_events": {
+        "name": "Eventos activos del sistema",
+        "state_attributes": {
+          "available": {
+            "name": "Servicio de eventos disponible"
+          },
+          "active_count": {
+            "name": "Número de eventos activos"
+          },
+          "high_impact_count": {
+            "name": "Número de eventos de alto impacto"
+          },
+          "standing_alarm_count": {
+            "name": "Número de alarmas activas"
+          },
+          "active_events": {
+            "name": "Eventos activos"
+          },
+          "severity_counts": {
+            "name": "Recuento por gravedad"
+          },
+          "device_type_counts": {
+            "name": "Recuento por tipo de dispositivo"
+          },
+          "last_success_utc": {
+            "name": "Última actualización de eventos (UTC)"
+          },
+          "using_cached_data": {
+            "name": "Usando datos de eventos en caché"
+          }
+        }
       }
     },
     "switch": {
@@ -2082,9 +2352,6 @@
       "cancel_pending_profile_change": {
         "name": "Cancelar cambio de perfil pendiente"
       },
-      "request_grid_toggle_otp": {
-        "name": "Solicitar OTP de alternancia de cuadrícula"
-      },
       "storm_alert_opt_out": {
         "name": "Excluir alerta de tormenta"
       },
@@ -2154,6 +2421,9 @@
     "calendar": {
       "backup_history": {
         "name": "Historial de respaldo"
+      },
+      "system_event_history": {
+        "name": "Historial de eventos del sistema"
       }
     },
     "update": {
@@ -2162,6 +2432,11 @@
       },
       "charger_firmware": {
         "name": "Versión de firmware"
+      }
+    },
+    "weather": {
+      "site_weather": {
+        "name": "Tiempo"
       }
     }
   },
@@ -2188,7 +2463,7 @@
       "description": "El sitio {site_id} requiere actualizar las cabeceras de sesión. Vuelva a autenticarse."
     },
     "auth_blocked": {
-      "title": "Enphase Energy authentication temporarily blocked",
+      "title": "La autenticación de Enphase Energy está bloqueada temporalmente",
       "description": "Enphase parece estar bloqueando temporalmente la autenticación del sitio {site_id}. Los reintentos automáticos están pausados hasta {blocked_until}. Una reautenticación manual correcta puede eliminar el bloqueo antes."
     },
     "too_many_active_sessions": {
@@ -2234,6 +2509,10 @@
     "hems_auth_degraded": {
       "title": "HEMS de Enphase Energy pausado temporalmente",
       "description": "El sondeo Heat Pump/HEMS del sitio {site_id} está pausado hasta {backoff_until} tras {failure_count} fallos similares a autenticación ({reason}). Wallbox, batería, gateway y otros datos pueden continuar. Desactiva el grupo Heat Pump o usa Clear HEMS Auth Backoff cuando Enphase se recupere."
+    },
+    "active_system_event": {
+      "title": "Evento del sistema Enphase de alto impacto activo",
+      "description": "El sitio {site_id} tiene un evento {severity} activo que afecta a {device_type}, notificado por primera vez el {event_date}. Consulta Enlighten para ver los detalles y la acción recomendada. Esta reparación se elimina automáticamente cuando Enphase informa que el evento está resuelto."
     }
   },
   "system_health": {
@@ -2274,7 +2553,21 @@
       "site_energy_last_error": "Último error de energía del sitio",
       "site_energy_failures": "Fallas de energía del sitio",
       "site_energy_backoff_active": "Reducción de energía del sitio activa",
-      "site_energy_backoff_ends_utc": "Finaliza el retraso de energía del sitio (UTC)"
+      "site_energy_backoff_ends_utc": "Finaliza el retraso de energía del sitio (UTC)",
+      "tariff_available": "Tarifa disponible",
+      "tariff_service_status": "Estado del servicio de tarifas",
+      "tariff_last_error": "Último error de tarifa",
+      "tariff_failures": "Fallos de tarifa",
+      "tariff_backoff_active": "Espera de tarifa activa",
+      "tariff_backoff_ends_utc": "La espera de tarifa finaliza (UTC)",
+      "degraded_endpoint_families": "Familias de puntos de conexión degradadas",
+      "degraded_services": "Servicios degradados",
+      "firmware_catalog_last_fetch_utc": "Última consulta del catálogo de firmware (UTC)",
+      "firmware_catalog_last_success_utc": "Última consulta correcta del catálogo de firmware (UTC)",
+      "firmware_catalog_last_error": "Último error del catálogo de firmware",
+      "firmware_catalog_using_stale": "El catálogo de firmware usa datos obsoletos",
+      "firmware_catalog_generated_at": "Catálogo de firmware generado el",
+      "firmware_catalog_source_age_seconds": "Antigüedad de la fuente del catálogo de firmware (s)"
     }
   },
   "services": {
@@ -2381,26 +2674,16 @@
     "request_grid_toggle_otp": {
       "name": "Solicitar OTP de alternancia de cuadrícula",
       "description": "Envíe el código de un solo uso requerido antes de cambiar el modo de cuadrícula del sitio.",
-      "sections": {
-        "advanced": {
-          "name": "Opciones avanzadas"
-        }
-      },
       "fields": {
-        "site_id": {
-          "name": "ID del sitio",
-          "description": "Identificador de sitio opcional; se detecta automáticamente cuando se selecciona un dispositivo de sitio."
+        "config_entry_id": {
+          "name": "Entrada de configuración de Enphase",
+          "description": "Seleccione el sitio de Enphase que debería recibir el código de un solo uso."
         }
       }
     },
     "set_grid_mode": {
       "name": "Establecer modo de cuadrícula",
       "description": "Cambie el modo de cuadrícula del sitio después de validar el código de un solo uso.",
-      "sections": {
-        "advanced": {
-          "name": "Opciones avanzadas"
-        }
-      },
       "fields": {
         "mode": {
           "name": "Modo cuadrícula",
@@ -2410,9 +2693,9 @@
           "name": "código de un solo uso",
           "description": "Ingrese la OTP de 4 dígitos enviada a su correo electrónico y teléfono registrados."
         },
-        "site_id": {
-          "name": "ID del sitio",
-          "description": "Identificador de sitio opcional; se detecta automáticamente cuando se selecciona un dispositivo de sitio."
+        "config_entry_id": {
+          "name": "Entrada de configuración de Enphase",
+          "description": "Seleccione el sitio de Enphase cuyo modo de cuadrícula debería cambiar."
         }
       }
     },
@@ -2762,6 +3045,111 @@
         "site_id": {
           "name": "ID del sitio",
           "description": "Identificador opcional del sitio; se detecta automáticamente al seleccionar un dispositivo."
+        }
+      }
+    },
+    "browse_grid_profiles": {
+      "name": "Explorar perfil de reds",
+      "description": "Explora perfiles Cloud Activation para el país y la región del sitio seleccionado.",
+      "sections": {
+        "advanced": {
+          "name": "Opciones avanzadas"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Code región",
+          "description": "Código opcional de región/estado, por ejemplo VIC."
+        },
+        "commonly_used": {
+          "name": "Solo usados habitualmente",
+          "description": "Devuelve el catálogo de perfiles usados habitualmente cuando está activado."
+        },
+        "device_id": {
+          "name": "Dispositivos del sitio",
+          "description": "Seleccione un dispositivo Enphase del sitio."
+        },
+        "site_id": {
+          "name": "ID del sitio",
+          "description": "Identificador opcional del sitio; se detecta automáticamente al seleccionar un dispositivo."
+        },
+        "config_entry_id": {
+          "name": "ID de entrada de configuración",
+          "description": "Identificador opcional de la entrada de configuración del sitio de destino."
+        },
+        "query": {
+          "name": "Buscar",
+          "description": "Texto de búsqueda opcional en regiones y perfiles del país del sitio."
+        }
+      }
+    },
+    "refresh_grid_profiles": {
+      "name": "Actualizar perfil de reds",
+      "description": "Actualiza datos de referencia Activation y el catálogo de la región seleccionada.",
+      "sections": {
+        "advanced": {
+          "name": "Opciones avanzadas"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Code región",
+          "description": "Código opcional de región/estado, por ejemplo VIC."
+        },
+        "commonly_used": {
+          "name": "Solo usados habitualmente",
+          "description": "Devuelve el catálogo de perfiles usados habitualmente cuando está activado."
+        },
+        "device_id": {
+          "name": "Dispositivos del sitio",
+          "description": "Seleccione un dispositivo Enphase del sitio."
+        },
+        "site_id": {
+          "name": "ID del sitio",
+          "description": "Identificador opcional del sitio; se detecta automáticamente al seleccionar un dispositivo."
+        },
+        "config_entry_id": {
+          "name": "ID de entrada de configuración",
+          "description": "Identificador opcional de la entrada de configuración del sitio de destino."
+        }
+      }
+    },
+    "set_grid_profile": {
+      "name": "Establecer perfil de red",
+      "description": "Aplica un perfil Cloud Activation tras confirmación explícita.",
+      "sections": {
+        "advanced": {
+          "name": "Opciones avanzadas"
+        }
+      },
+      "fields": {
+        "region_code": {
+          "name": "Code región",
+          "description": "Código opcional de región/estado, por ejemplo VIC."
+        },
+        "device_id": {
+          "name": "Dispositivos del sitio",
+          "description": "Seleccione un dispositivo Enphase del sitio."
+        },
+        "site_id": {
+          "name": "ID del sitio",
+          "description": "Identificador opcional del sitio; se detecta automáticamente al seleccionar un dispositivo."
+        },
+        "config_entry_id": {
+          "name": "ID de entrada de configuración",
+          "description": "Identificador opcional de la entrada de configuración del sitio de destino."
+        },
+        "profile_id": {
+          "name": "ID del perfil",
+          "description": "ID de perfil Cloud Activation, incluido el prefijo agf:."
+        },
+        "confirm": {
+          "name": "Confirmar aplicación",
+          "description": "Debe estar activado para aplicar el perfil de red seleccionado."
+        },
+        "gateway_serial": {
+          "name": "Número de serie Gateway",
+          "description": "Número de serie Gateway opcional cuando el registro Activation contiene varios Gateways."
         }
       }
     }

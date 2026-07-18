@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import math
 import re
 import time
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from functools import partial
+from typing import TYPE_CHECKING, TypeVar, cast
 from zoneinfo import ZoneInfo
 
 from homeassistant.core import callback
@@ -52,11 +55,22 @@ from .system_dashboard_helpers import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
+    from .api import EnphaseEVClient
     from .coordinator import EnphaseCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+_CallbackT = TypeVar("_CallbackT", bound=Callable[..., object])
+
+
+def _typed_callback(func: _CallbackT) -> _CallbackT:
+    """Apply Home Assistant's callback marker without losing the callable type."""
+
+    return cast(_CallbackT, callback(func))
+
 
 DEVICES_INVENTORY_CACHE_TTL = 600.0
+GATEWAY_PHASE_MAP_CACHE_TTL = 21600.0
+GATEWAY_PHASE_MAP_FAILURE_BACKOFF_S = 3600.0
 HEMS_INVENTORY_ENDPOINT_FAMILY = "hems_inventory"
 HEMS_DEVICES_STALE_AFTER_S = 90.0
 HEMS_DEVICES_CACHE_TTL = 60.0
@@ -70,6 +84,30 @@ SYSTEM_DASHBOARD_DIAGNOSTIC_TYPES: tuple[str, ...] = (
     "modems",
     "inverters",
 )
+INVERTER_PARAMETER_ALIASES: dict[str, str] = {
+    "power": "power",
+    "ac_power": "power",
+    "ac_voltage": "ac_voltage",
+    "voltage": "ac_voltage",
+    "acv": "ac_voltage",
+    "dc_voltage": "dc_voltage",
+    "dcv": "dc_voltage",
+    "ac_current": "ac_current",
+    "current": "ac_current",
+    "dc_current": "dc_current",
+    "dca": "dc_current",
+    "ac_frequency": "ac_frequency",
+    "frequency": "ac_frequency",
+    "achz": "ac_frequency",
+    "temperature": "temperature",
+    "tmpi": "temperature",
+    "signal_strength": "signal_strength",
+    "rssi": "signal_strength",
+    "firmware": "firmware",
+    "sw_version": "firmware",
+}
+INVERTER_PARAMETER_REQUEST_TIMEOUT_S = 15.0
+INVERTER_PARAMETER_BATCH_CONCURRENCY = 2
 
 
 @dataclass(frozen=True)
@@ -86,12 +124,49 @@ class CoordinatorTopologySnapshot:
 class InventoryRuntime:
     """Inventory, topology, and system-dashboard runtime helpers."""
 
+    _debug_summary_log_cache: dict[str, object]
+    _topology_snapshot_cache: CoordinatorTopologySnapshot
+    _topology_listeners: list[Callable[[], object]]
+    _topology_refresh_suppressed: int
+    _topology_refresh_pending: bool
+    _gateway_inventory_summary_cache: dict[str, object]
+    _gateway_inventory_summary_source: object
+    _microinverter_inventory_summary_cache: dict[str, object]
+    _microinverter_inventory_summary_source: object
+    _heatpump_inventory_summary_cache: dict[str, object]
+    _heatpump_inventory_summary_source: object
+    _heatpump_type_summaries_cache: dict[str, dict[str, object]]
+    _heatpump_type_summaries_source: object
+    _gateway_iq_energy_router_records_cache: list[dict[str, object]]
+    _gateway_iq_energy_router_records_source: object
+    _gateway_iq_energy_router_records_by_key_cache: dict[str, dict[str, object]]
+    _gateway_phase_map: dict[str, dict[str, object]]
+    _gateway_phase_map_cache_until: float | None
+    _gateway_phase_map_failure_backoff_until: float | None
+    _devices_inventory_cache_until: float | None
+    _devices_inventory_ready: bool
+    _hems_inventory_ready: bool
+    _hems_devices_cache_until: float | None
+    _hems_devices_using_stale: bool
+    _system_dashboard_cache_until: float | None
+    _system_dashboard_type_summaries: dict[str, dict[str, object]]
+    _system_dashboard_hierarchy_summary: dict[str, object]
+    _system_dashboard_devices_tree_raw: dict[str, object] | None
+    _system_dashboard_devices_details_raw: dict[str, dict[str, object]]
+    _inverter_model_counts: dict[str, int]
+    _inverter_summary_counts: dict[str, int]
+
     def __init__(self, coordinator: EnphaseCoordinator) -> None:
         self.coordinator = coordinator
         self.discovery_state = coordinator.discovery_state
         self.refresh_state = coordinator.refresh_state
         self.inventory_state = coordinator.inventory_state
         self.heatpump_state = coordinator.heatpump_state
+        self._update_shared_state(
+            _gateway_phase_map={},
+            _gateway_phase_map_cache_until=None,
+            _gateway_phase_map_failure_backoff_until=None,
+        )
 
     def _set_shared_state_attr(self, name: str, value: object) -> None:
         object.__setattr__(self, name, value)
@@ -107,25 +182,25 @@ class InventoryRuntime:
         return getattr(self.coordinator, name, default)
 
     @property
-    def client(self):
+    def client(self) -> EnphaseEVClient:
         return self.coordinator.client
 
     @property
     def site_id(self) -> str:
-        return self.coordinator.site_id
+        return str(self.coordinator.site_id)
 
     @property
     def include_inverters(self) -> bool:
-        return self.coordinator.include_inverters
+        return bool(self.coordinator.include_inverters)
 
     def iter_serials(self) -> list[str]:
-        return self.coordinator.iter_serials()
+        return list(self.coordinator.iter_serials())
 
     def iter_battery_serials(self) -> list[str]:
-        return self.coordinator.iter_battery_serials()
+        return list(self.coordinator.iter_battery_serials())
 
     def iter_type_keys(self) -> list[str]:
-        return self.coordinator.inventory_view.iter_type_keys()
+        return list(self.coordinator.inventory_view.iter_type_keys())
 
     def gateway_iq_energy_router_records(self) -> list[dict[str, object]]:
         return self.coordinator.inventory_view.gateway_iq_energy_router_records()
@@ -133,8 +208,208 @@ class InventoryRuntime:
     def type_bucket(self, type_key: object) -> dict[str, object] | None:
         return self.coordinator.inventory_view.type_bucket(type_key)
 
+    @staticmethod
+    def _normalize_gateway_phase_map(
+        payload: object,
+    ) -> dict[str, dict[str, object]]:
+        """Normalize the dynamic gateway-keyed phase-map response."""
+
+        if not isinstance(payload, dict):
+            return {}
+        field_aliases = {
+            "connectedLoadControl": "connected_load_control",
+            "hasGenerator": "has_generator",
+            "hasIqBattery": "has_iq_battery",
+            "hasAcb": "has_acb",
+            "isSplitPhase": "is_split_phase",
+            "isProductionOnly": "is_production_only",
+            "isConsumptionOnly": "is_consumption_only",
+            "showSmartMeterConsumption": "show_smart_meter_consumption",
+            "hasEnpower": "has_enpower",
+            "hasEncharge": "has_encharge",
+            "showStorage": "show_storage",
+            "isEnsemble": "is_ensemble",
+            "isDefaultGateway": "is_default_gateway",
+            "isPrimaryGateway": "is_primary_gateway",
+            "any": "any_phase",
+            "all": "all_phases",
+        }
+        normalized: dict[str, dict[str, object]] = {}
+        for raw_serial, raw_details in payload.items():
+            serial = coerce_optional_text(raw_serial)
+            if serial is None or not isinstance(raw_details, dict):
+                continue
+            details: dict[str, object] = {}
+            for source_key, target_key in field_aliases.items():
+                value = coerce_optional_bool(raw_details.get(source_key))
+                if value is not None:
+                    details[target_key] = value
+            total_phase = coerce_int(raw_details.get("totalPhase"), default=0)
+            if total_phase > 0:
+                details["total_phase"] = total_phase
+            gateway_status = coerce_optional_text(raw_details.get("gatewayStatus"))
+            if gateway_status is not None:
+                details["gateway_status"] = gateway_status
+            phases_raw = raw_details.get("phases")
+            if isinstance(phases_raw, dict):
+                phases: dict[str, bool] = {}
+                for raw_phase, raw_enabled in phases_raw.items():
+                    phase = coerce_optional_text(raw_phase)
+                    enabled = coerce_optional_bool(raw_enabled)
+                    if phase is not None and enabled is not None:
+                        phases[phase] = enabled
+                if phases:
+                    details["phases"] = phases
+            normalized[serial] = details
+        return normalized
+
+    def gateway_phase_map(self) -> dict[str, dict[str, object]]:
+        """Return a defensive copy of normalized gateway topology metadata."""
+
+        raw = getattr(self, "_gateway_phase_map", None)
+        if not isinstance(raw, dict):
+            return {}
+        copied: dict[str, dict[str, object]] = {}
+        for serial, details in raw.items():
+            if not isinstance(details, dict):
+                continue
+            item = dict(details)
+            phases = item.get("phases")
+            if isinstance(phases, dict):
+                item["phases"] = dict(phases)
+            copied[str(serial)] = item
+        return copied
+
+    def gateway_phase_map_for_serial(self, serial: object) -> dict[str, object] | None:
+        """Return phase-map metadata for one gateway serial."""
+
+        serial_text = coerce_optional_text(serial)
+        if serial_text is None:
+            return None
+        details = self.gateway_phase_map().get(serial_text)
+        return dict(details) if isinstance(details, dict) else None
+
+    def gateway_phase_map_preferred_serial(self) -> str | None:
+        """Return the primary/default gateway serial advertised by the phase map."""
+
+        phase_map = self.gateway_phase_map()
+        for flag in ("is_primary_gateway", "is_default_gateway"):
+            for serial, details in phase_map.items():
+                if details.get(flag) is True:
+                    return serial
+        if len(phase_map) == 1:
+            return next(iter(phase_map))
+        return None
+
+    def gateway_phase_map_summary(self) -> dict[str, object]:
+        """Return a compact topology summary suitable for diagnostics/entities."""
+
+        phase_map = self.gateway_phase_map()
+        if not phase_map:
+            return {}
+        preferred = self.gateway_phase_map_preferred_serial()
+        primary = next(
+            (
+                serial
+                for serial, details in phase_map.items()
+                if details.get("is_primary_gateway") is True
+            ),
+            None,
+        )
+        default = next(
+            (
+                serial
+                for serial, details in phase_map.items()
+                if details.get("is_default_gateway") is True
+            ),
+            None,
+        )
+        preferred_details = phase_map.get(preferred or "", {})
+        return {
+            "gateway_count": len(phase_map),
+            "multi_gateway": len(phase_map) > 1,
+            "primary_gateway_serial": primary,
+            "default_gateway_serial": default,
+            "preferred_gateway_serial": preferred,
+            "preferred_gateway_phase_count": preferred_details.get("total_phase"),
+            "split_phase_gateway_count": sum(
+                details.get("is_split_phase") is True for details in phase_map.values()
+            ),
+            "three_phase_gateway_count": sum(
+                details.get("total_phase") == 3 for details in phase_map.values()
+            ),
+            "production_only_gateway_count": sum(
+                details.get("is_production_only") is True
+                for details in phase_map.values()
+            ),
+            "consumption_only_gateway_count": sum(
+                details.get("is_consumption_only") is True
+                for details in phase_map.values()
+            ),
+            "storage_gateway_count": sum(
+                details.get("show_storage") is True
+                or details.get("has_iq_battery") is True
+                or details.get("has_encharge") is True
+                for details in phase_map.values()
+            ),
+        }
+
+    def gateway_phase_map_refresh_due(self, *, force: bool = False) -> bool:
+        """Return whether the optional gateway phase map should be refreshed."""
+
+        fetcher = getattr(self.client, "phase_map_multiple_envoy", None)
+        if not callable(fetcher):
+            return False
+        if force:
+            return True
+        now = time.monotonic()
+        cache_until = getattr(self, "_gateway_phase_map_cache_until", None)
+        if isinstance(cache_until, (int, float)) and now < float(cache_until):
+            return False
+        backoff_until = getattr(self, "_gateway_phase_map_failure_backoff_until", None)
+        return not (
+            isinstance(backoff_until, (int, float)) and now < float(backoff_until)
+        )
+
+    async def _async_refresh_gateway_phase_map(self, *, force: bool = False) -> None:
+        """Refresh optional multi-gateway topology without failing inventory."""
+
+        if not self.gateway_phase_map_refresh_due(force=force):
+            return
+        fetcher = cast(
+            Callable[[], Awaitable[object]],
+            getattr(self.client, "phase_map_multiple_envoy"),
+        )
+        now = time.monotonic()
+        try:
+            payload = await fetcher()
+        except Exception as err:  # noqa: BLE001
+            self._set_shared_state_attr(
+                "_gateway_phase_map_failure_backoff_until",
+                now + GATEWAY_PHASE_MAP_FAILURE_BACKOFF_S,
+            )
+            _LOGGER.debug(
+                "Gateway phase-map refresh failed for site %s: %s",
+                redact_site_id(self.site_id),
+                redact_text(err, site_ids=(self.site_id,)),
+            )
+            return
+        if not isinstance(payload, dict):
+            self._set_shared_state_attr(
+                "_gateway_phase_map_failure_backoff_until",
+                now + GATEWAY_PHASE_MAP_FAILURE_BACKOFF_S,
+            )
+            return
+        normalized = self._normalize_gateway_phase_map(payload)
+        self._update_shared_state(
+            _gateway_phase_map=normalized,
+            _gateway_phase_map_cache_until=now + GATEWAY_PHASE_MAP_CACHE_TTL,
+            _gateway_phase_map_failure_backoff_until=None,
+        )
+
     def _type_member_text(self, member: dict[str, object], *keys: str) -> str | None:
-        return type_member_text(member, *keys)
+        value = type_member_text(member, *keys)
+        return str(value) if value is not None else None
 
     def _gateway_member_ip_address(self, member: dict[str, object]) -> str | None:
         return self._type_member_text(member, "ip", "ip_address", "ip-address")
@@ -179,24 +454,29 @@ class InventoryRuntime:
         return None
 
     def _coerce_optional_text(self, value: object) -> str | None:
-        return coerce_optional_text(value)
+        text = coerce_optional_text(value)
+        return str(text) if text is not None else None
 
     def _coerce_optional_bool(self, value: object) -> bool | None:
-        return coerce_optional_bool(value)
+        result = coerce_optional_bool(value)
+        return bool(result) if result is not None else None
 
     def _coerce_int(self, value: object, *, default: int = 0) -> int:
-        return coerce_int(value, default=default)
+        return int(coerce_int(value, default=default))
 
     def _copy_diagnostics_value(self, value: object) -> object:
         return copy_diagnostics_value(value)
 
     def _normalize_iso_date(self, value: object) -> str | None:
-        return normalize_iso_date(value)
+        result = normalize_iso_date(value)
+        return str(result) if result is not None else None
 
     def _site_local_current_date(self) -> str:
-        return resolve_site_local_current_date(
-            getattr(self, "_devices_inventory_payload", None),
-            getattr(self.coordinator, "_battery_timezone", None),
+        return str(
+            resolve_site_local_current_date(
+                getattr(self, "_devices_inventory_payload", None),
+                getattr(self.coordinator, "_battery_timezone", None),
+            )
         )
 
     def _seconds_until_next_site_local_day(self) -> float:
@@ -229,15 +509,15 @@ class InventoryRuntime:
 
     @staticmethod
     def _debug_sorted_keys(value: object) -> list[str]:
-        return debug_sorted_keys(value)
+        return list(debug_sorted_keys(value))
 
     @classmethod
     def _debug_field_keys(cls, members: object) -> list[str]:
-        return debug_field_keys(members)
+        return list(debug_field_keys(members))
 
     @staticmethod
     def _debug_render_summary(summary: object) -> str:
-        return debug_render_summary(summary)
+        return str(debug_render_summary(summary))
 
     def _debug_log_summary_if_changed(
         self, summary_key: str, log_label: str, summary: object
@@ -334,7 +614,7 @@ class InventoryRuntime:
     def _debug_system_dashboard_summary(
         self,
         tree_payload: dict[str, object] | None,
-        details_payloads: dict[str, dict[str, dict[str, object]]],
+        details_payloads: dict[str, dict[str, object]],
         type_summaries: dict[str, dict[str, object]],
         hierarchy_summary: dict[str, object],
     ) -> dict[str, object]:
@@ -411,7 +691,7 @@ class InventoryRuntime:
     def _build_system_dashboard_summaries(
         self,
         tree_payload: dict[str, object] | None,
-        details_payloads: dict[str, dict[str, dict[str, object]]],
+        details_payloads: dict[str, dict[str, object]],
     ) -> tuple[
         dict[str, dict[str, object]],
         dict[str, object],
@@ -420,7 +700,8 @@ class InventoryRuntime:
         return build_system_dashboard_summaries(tree_payload, details_payloads)
 
     def _system_dashboard_type_key(self, raw_type: object) -> str | None:
-        return system_dashboard_type_key(raw_type)
+        key = system_dashboard_type_key(raw_type)
+        return str(key) if key is not None else None
 
     def topology_snapshot(self) -> CoordinatorTopologySnapshot:
         """Return the latest cached topology snapshot."""
@@ -479,7 +760,7 @@ class InventoryRuntime:
             self._gateway_iq_energy_router_records_cache = records
             self._gateway_iq_energy_router_records_source = source
             self._gateway_iq_energy_router_records_by_key_cache = {
-                record["key"]: record
+                str(record["key"]): record
                 for record in records
                 if isinstance(record, dict) and isinstance(record.get("key"), str)
             }
@@ -535,7 +816,7 @@ class InventoryRuntime:
             ),
         )
 
-    @callback
+    @_typed_callback
     def _notify_topology_listeners(self) -> None:
         for listener in list(self._topology_listeners):
             try:
@@ -547,7 +828,7 @@ class InventoryRuntime:
                     exc_info=True,
                 )
 
-    @callback
+    @_typed_callback
     def _refresh_cached_topology(self) -> bool:
         if self._topology_refresh_suppressed > 0:
             # Batch refreshes coalesce Home Assistant entity-registry notifications.
@@ -574,11 +855,11 @@ class InventoryRuntime:
         self._notify_topology_listeners()
         return True
 
-    @callback
+    @_typed_callback
     def _begin_topology_refresh_batch(self) -> None:
         self._topology_refresh_suppressed += 1
 
-    @callback
+    @_typed_callback
     def _end_topology_refresh_batch(self) -> bool:
         if self._topology_refresh_suppressed > 0:
             self._topology_refresh_suppressed -= 1
@@ -608,7 +889,7 @@ class InventoryRuntime:
 
     @staticmethod
     async def _async_call_refreshable_fetcher(
-        fetcher, *, force: bool = False
+        fetcher: Callable[..., Awaitable[object]], *, force: bool = False
     ) -> object:
         if not force:
             return await fetcher()
@@ -628,6 +909,7 @@ class InventoryRuntime:
     def _parse_devices_inventory_payload(
         self, payload: object
     ) -> tuple[bool, dict[str, dict[str, object]], list[str]]:
+        result: object
         if isinstance(payload, list):
             result = payload
         elif isinstance(payload, dict):
@@ -652,7 +934,7 @@ class InventoryRuntime:
 
         def _dry_contact_member_dedupe_key(
             raw_type: object,
-            member: dict[str, object],
+            member: Mapping[str, object],
             member_index: int,
         ) -> str:
             source_type = _clean_text(raw_type)
@@ -694,10 +976,12 @@ class InventoryRuntime:
 
             fingerprint_parts: list[str] = []
             for key in sorted(member):
-                value = member.get(key)
-                if value is None or not isinstance(value, (str, int, float, bool)):
+                field_value = member.get(key)
+                if field_value is None or not isinstance(
+                    field_value, (str, int, float, bool)
+                ):
                     continue
-                fingerprint_parts.append(f"{key}:{value}")
+                fingerprint_parts.append(f"{key}:{field_value}")
             if fingerprint_parts:
                 fingerprint = "|".join(fingerprint_parts)
                 if source_type is not None:
@@ -733,7 +1017,9 @@ class InventoryRuntime:
                 }
                 seen_per_type[type_key] = set()
                 ordered_keys.append(type_key)
-            members: list[dict[str, object]] = grouped[type_key]["devices"]  # type: ignore[assignment]
+            raw_members = grouped[type_key]["devices"]
+            assert isinstance(raw_members, list)
+            members: list[object] = raw_members
             seen_keys = seen_per_type[type_key]
             for member_index, member in enumerate(devices):
                 if not isinstance(member, dict):
@@ -743,13 +1029,14 @@ class InventoryRuntime:
                 sanitized = sanitize_member(member)
                 if not sanitized:
                     continue
+                sanitized_member = sanitized
                 if type_key == "dry_contact":
                     dedupe_key = _dry_contact_member_dedupe_key(
-                        raw_type, sanitized, member_index
+                        raw_type, sanitized_member, member_index
                     )
                 else:
-                    serial = sanitized.get("serial_number")
-                    name = sanitized.get("name")
+                    serial = sanitized_member.get("serial_number")
+                    name = sanitized_member.get("name")
                     if isinstance(serial, str) and serial.strip():
                         dedupe_key = f"sn:{serial.strip()}"
                     elif isinstance(name, str) and name.strip():
@@ -759,19 +1046,19 @@ class InventoryRuntime:
                 if dedupe_key in seen_keys:
                     continue
                 seen_keys.add(dedupe_key)
-                members.append(sanitized)
+                members.append(sanitized_member)
 
         valid = True
         for type_key, bucket in grouped.items():
-            members = bucket.get("devices")
-            count = len(members) if isinstance(members, list) else 0
+            bucket_members = bucket.get("devices")
+            count = len(bucket_members) if isinstance(bucket_members, list) else 0
             bucket["count"] = count
             bucket["type_label"] = bucket.get("type_label") or type_display_label(
                 type_key
             )
-            if type_key == "encharge" and isinstance(members, list):
+            if type_key == "encharge" and isinstance(bucket_members, list):
                 name_counts: dict[str, int] = {}
-                for member in members:
+                for member in bucket_members:
                     if not isinstance(member, dict):
                         continue
                     raw_name = member.get("name")
@@ -804,12 +1091,12 @@ class InventoryRuntime:
             for key in ordered_keys
             if key in grouped
             and isinstance(grouped[key].get("devices"), list)
-            and int(grouped[key].get("count", 0)) > 0
+            and int(str(grouped[key].get("count", 0))) > 0
         ]
         buckets_out = {
             key: value
             for key, value in grouped.items()
-            if int(value.get("count", 0)) > 0
+            if int(str(value.get("count", 0))) > 0
         }
         self._set_shared_state_attr("_type_device_buckets", buckets_out)
         self._set_shared_state_attr("_type_device_order", normalized_order)
@@ -990,7 +1277,7 @@ class InventoryRuntime:
     def _hems_bucket_type(raw_type: object) -> str | None:
         normalized = normalize_type_key(raw_type)
         if normalized:
-            return normalized.replace("_", "")
+            return str(normalized).replace("_", "")
         try:
             text = str(raw_type).strip().lower()
         except Exception:
@@ -1001,7 +1288,8 @@ class InventoryRuntime:
 
     @staticmethod
     def _heatpump_member_device_type(member: dict[str, object] | None) -> str | None:
-        return heatpump_member_device_type(member)
+        device_type = heatpump_member_device_type(member)
+        return str(device_type) if device_type is not None else None
 
     @staticmethod
     def _heatpump_worst_status_text(status_counts: dict[str, int]) -> str | None:
@@ -1171,6 +1459,7 @@ class InventoryRuntime:
         return (
             id(self._summary_type_bucket_source("envoy")),
             id(dashboard_envoy),
+            id(getattr(self, "_gateway_phase_map", None)),
         )
 
     def _microinverter_inventory_summary_marker(self) -> tuple[object, ...]:
@@ -1198,7 +1487,8 @@ class InventoryRuntime:
 
     @staticmethod
     def _heatpump_status_text(member: dict[str, object] | None) -> str | None:
-        return heatpump_status_text(member)
+        status = heatpump_status_text(member)
+        return str(status) if status is not None else None
 
     @classmethod
     def _gateway_iq_energy_router_summary_records(
@@ -1250,7 +1540,7 @@ class InventoryRuntime:
             members = [dict(dashboard_envoy)]
         ip_address = self._gateway_summary_ip_address(members, dashboard_envoy)
         try:
-            total_devices = int(bucket.get("count", len(members)) or 0)
+            total_devices = int(str(bucket.get("count", len(members)) or 0))
         except Exception:
             total_devices = len(members)
         total_devices = max(total_devices, len(members))
@@ -1390,6 +1680,7 @@ class InventoryRuntime:
             ),
             "latest_reported_device": latest_reported_device,
             "property_keys": sorted(property_keys),
+            **self.gateway_phase_map_summary(),
         }
 
     def _build_microinverter_inventory_summary(self) -> dict[str, object]:
@@ -1417,7 +1708,7 @@ class InventoryRuntime:
                 except Exception:
                     status_counts[key] = 0
         try:
-            total_inverters = int(bucket.get("count", len(safe_members)) or 0)
+            total_inverters = int(str(bucket.get("count", len(safe_members)) or 0))
         except Exception:
             total_inverters = len(safe_members)
         if status_counts.get("total", 0) > 0:
@@ -1449,31 +1740,34 @@ class InventoryRuntime:
             if bucket.get("latest_reported_utc") is not None
             else bucket.get("latest_reported")
         )
+        latest_device_value = bucket.get("latest_reported_device")
         latest_reported_device = (
-            dict(bucket.get("latest_reported_device"))
-            if isinstance(bucket.get("latest_reported_device"), dict)
-            else None
+            dict(latest_device_value) if isinstance(latest_device_value, dict) else None
         )
-        if latest_reported is None:
-            for member in safe_members:
-                parsed_last = self._parse_inverter_last_report(
-                    member.get("last_report")
-                )
-                if parsed_last is None:
-                    continue
-                if latest_reported is None or parsed_last > latest_reported:
-                    latest_reported = parsed_last
-                    latest_reported_device = {
-                        "serial_number": self._summary_text(
-                            member.get("serial_number")
-                        ),
-                        "name": self._summary_text(member.get("name")),
-                        "status": self._summary_text(
-                            member.get("statusText")
-                            if member.get("statusText") is not None
-                            else member.get("status")
-                        ),
-                    }
+        for member in safe_members:
+            parsed_last = None
+            for key in (
+                "last_report",
+                "last_reported",
+                "last_reported_at",
+                "last-report",
+            ):
+                parsed_last = self._parse_inverter_last_report(member.get(key))
+                if parsed_last is not None:
+                    break
+            if parsed_last is None:
+                continue
+            if latest_reported is None or parsed_last > latest_reported:
+                latest_reported = parsed_last
+                latest_reported_device = {
+                    "serial_number": self._summary_text(member.get("serial_number")),
+                    "name": self._summary_text(member.get("name")),
+                    "status": self._summary_text(
+                        member.get("statusText")
+                        if member.get("statusText") is not None
+                        else member.get("status")
+                    ),
+                }
         snapshot: dict[str, object] = {
             "total_inverters": total_inverters,
             "reporting_inverters": reporting,
@@ -1485,13 +1779,13 @@ class InventoryRuntime:
             "firmware_summary": bucket.get("firmware_summary"),
             "array_summary": bucket.get("array_summary"),
             "panel_info": (
-                dict(bucket.get("panel_info"))
-                if isinstance(bucket.get("panel_info"), dict)
+                dict(panel_info)
+                if isinstance(panel_info := bucket.get("panel_info"), dict)
                 else None
             ),
             "status_type_counts": (
-                dict(bucket.get("status_type_counts"))
-                if isinstance(bucket.get("status_type_counts"), dict)
+                dict(status_types)
+                if isinstance(status_types := bucket.get("status_type_counts"), dict)
                 else None
             ),
             "latest_reported": latest_reported,
@@ -1558,7 +1852,7 @@ class InventoryRuntime:
                 )
                 status_counts[status_key] = int(status_counts.get(status_key, 0)) + 1
         try:
-            total_devices = int(bucket.get("count", len(safe_members)) or 0)
+            total_devices = int(str(bucket.get("count", len(safe_members)) or 0))
         except Exception:
             total_devices = len(safe_members)
         total_devices = max(total_devices, len(safe_members))
@@ -1570,10 +1864,9 @@ class InventoryRuntime:
             if bucket.get("latest_reported_utc") is not None
             else bucket.get("latest_reported")
         )
+        latest_device_value = bucket.get("latest_reported_device")
         latest_reported_device = (
-            dict(bucket.get("latest_reported_device"))
-            if isinstance(bucket.get("latest_reported_device"), dict)
-            else None
+            dict(latest_device_value) if isinstance(latest_device_value, dict) else None
         )
         without_last_report_count = 0
         if latest_reported is None:
@@ -1612,8 +1905,9 @@ class InventoryRuntime:
         if not overall_status_text:
             overall_status_text = self._heatpump_worst_status_text(status_counts)
         device_type_counts: dict[str, int] = {}
-        if isinstance(bucket.get("device_type_counts"), dict):
-            for key, value in bucket.get("device_type_counts", {}).items():
+        raw_device_type_counts = bucket.get("device_type_counts")
+        if isinstance(raw_device_type_counts, dict):
+            for key, value in raw_device_type_counts.items():
                 if key is None:
                     continue
                 try:
@@ -1666,17 +1960,19 @@ class InventoryRuntime:
 
     def _build_heatpump_type_summaries(self) -> dict[str, dict[str, object]]:
         snapshot = self._build_heatpump_inventory_summary()
-        members = [
-            member for member in snapshot.get("members", []) if isinstance(member, dict)
-        ]
+        raw_members = snapshot.get("members")
+        members = (
+            [member for member in raw_members if isinstance(member, dict)]
+            if isinstance(raw_members, list)
+            else []
+        )
         summaries: dict[str, dict[str, object]] = {}
-        for device_type in sorted(
-            {
-                self._heatpump_member_device_type(member)
-                for member in members
-                if self._heatpump_member_device_type(member)
-            }
-        ):
+        device_types: set[str] = set()
+        for member in members:
+            device_type = self._heatpump_member_device_type(member)
+            if device_type:
+                device_types.add(device_type)
+        for device_type in sorted(device_types):
             type_members = [
                 member
                 for member in members
@@ -1721,6 +2017,7 @@ class InventoryRuntime:
                         "status": status_text,
                     }
             unique_statuses = list(dict.fromkeys(status_texts))
+            native_status: str | None
             if len(unique_statuses) == 1:
                 native_status = unique_statuses[0]
             else:
@@ -1743,7 +2040,7 @@ class InventoryRuntime:
             }
         return summaries
 
-    @callback
+    @_typed_callback
     def _rebuild_inventory_summary_caches(self) -> None:
         gateway_source = self._gateway_inventory_summary_marker()
         micro_source = self._microinverter_inventory_summary_marker()
@@ -1793,6 +2090,7 @@ class InventoryRuntime:
     async def _async_refresh_devices_inventory(self, *, force: bool = False) -> None:
         coord = self.coordinator
         now = time.monotonic()
+        await self._async_refresh_gateway_phase_map(force=force)
         family = "inventory_topology"
         if not coord._endpoint_family_should_run(family, force=force):
             return
@@ -1869,13 +2167,14 @@ class InventoryRuntime:
     def devices_inventory_refresh_due(self, *, force: bool = False) -> bool:
         coord = self.coordinator
         now = time.monotonic()
+        phase_map_due = self.gateway_phase_map_refresh_due(force=force)
         if not coord._endpoint_family_should_run("inventory_topology", force=force):
-            return False
+            return phase_map_due
         if not force and self._devices_inventory_cache_until:
             if now < self._devices_inventory_cache_until:
-                return False
+                return phase_map_due
         fetcher = getattr(self.client, "devices_inventory", None)
-        return callable(fetcher)
+        return phase_map_due or callable(fetcher)
 
     async def _async_refresh_hems_devices(self, *, force: bool = False) -> None:
         coord = self.coordinator
@@ -2114,13 +2413,14 @@ class InventoryRuntime:
 
     def _system_dashboard_detail_records(
         self,
-        payloads: dict[str, object],
+        payloads: Mapping[str, object],
         *source_types: str,
     ) -> list[dict[str, object]]:
-        return system_dashboard_detail_records(payloads, *source_types)
+        return system_dashboard_detail_records(dict(payloads), *source_types)
 
     def _system_dashboard_meter_kind(self, payload: dict[str, object]) -> str | None:
-        return system_dashboard_meter_kind(payload)
+        meter_kind = system_dashboard_meter_kind(payload)
+        return str(meter_kind) if meter_kind is not None else None
 
     def _system_dashboard_battery_detail_subset(
         self,
@@ -2187,13 +2487,13 @@ class InventoryRuntime:
                         )
                     )
             detail_results = [task.result() for task in detail_tasks]
-            for source_type, payload, err in detail_results:
-                if err is not None:
+            for source_type, payload, detail_error in detail_results:
+                if detail_error is not None:
                     if first_error is None:
-                        first_error = err
+                        first_error = detail_error
                     detail_failures[source_type] = (
-                        redact_text(err, site_ids=(self.site_id,))
-                        or err.__class__.__name__
+                        redact_text(detail_error, site_ids=(self.site_id,))
+                        or detail_error.__class__.__name__
                     )
                     continue
                 if payload is None:
@@ -2271,10 +2571,10 @@ class InventoryRuntime:
     def _inverter_start_date(self) -> str | None:
         energy = getattr(self.coordinator, "energy", None)
         site_energy_meta = getattr(energy, "_site_energy_meta", None)
-        return resolve_inverter_start_date(
-            site_energy_meta,
-            self._coordinator_backed_attr("_inverter_data"),
+        start_date = resolve_inverter_start_date(
+            site_energy_meta, self._coordinator_backed_attr("_inverter_data")
         )
+        return str(start_date) if start_date is not None else None
 
     @staticmethod
     def _format_inverter_model_summary(model_counts: dict[str, int]) -> str | None:
@@ -2501,6 +2801,517 @@ class InventoryRuntime:
         if not ready_before:
             self._devices_inventory_ready = False
 
+    def _gateway_serials_for_inverter_telemetry(self) -> list[str]:
+        """Return gateway serials without retaining any identifiers in diagnostics."""
+
+        bucket = self.type_bucket("envoy") or {}
+        members = bucket.get("devices")
+        if not isinstance(members, list):
+            return []
+        serials: list[str] = []
+        for member in members:
+            if not isinstance(member, dict):
+                continue
+            serial = self._type_member_text(
+                member, "serial_number", "serial_num", "serialNumber", "serial"
+            )
+            if serial:
+                serials.append(serial)
+        return list(dict.fromkeys(serials))
+
+    async def _async_inverter_dashboard_inventory(
+        self, inverters: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
+        """Merge optional per-gateway dashboard inventory into legacy inventory."""
+
+        family = "inverter_dashboard_inventory"
+        cached = getattr(self, "_inverter_dashboard_inventory", None)
+        cached_by_serial = dict(cached) if isinstance(cached, dict) else {}
+        dashboard_health = self.coordinator._endpoint_family_state(family)
+        if (
+            dashboard_health.last_success_mono is not None
+            and not self.coordinator._endpoint_family_can_use_stale(family)
+        ):
+            cached_by_serial = {}
+        fetcher = getattr(self.client, "system_dashboard_envoy_inverters", None)
+        gateway_serials = self._gateway_serials_for_inverter_telemetry()
+        if not callable(fetcher) or not gateway_serials:
+            dashboard_by_serial = cached_by_serial
+        elif not self.coordinator._endpoint_family_should_run(family):
+            dashboard_by_serial = cached_by_serial
+        else:
+            results = await asyncio.gather(
+                *(fetcher(serial) for serial in gateway_serials),
+                return_exceptions=True,
+            )
+            first_error = next(
+                (result for result in results if isinstance(result, Exception)), None
+            )
+            fresh_by_serial: dict[str, dict[str, object]] = {}
+            valid_response_count = 0
+            for result in results:
+                if not isinstance(result, dict):
+                    continue
+                records = result.get("data")
+                if not isinstance(records, list):
+                    continue
+                valid_response_count += 1
+                for record in records:
+                    if not isinstance(record, dict):
+                        continue
+                    serial = str(record.get("serial_number") or "").strip()
+                    if serial:
+                        # Device/parent IDs are not needed by entities and must not
+                        # be retained in inventory diagnostics.
+                        fresh_by_serial[serial] = {
+                            key: record[key]
+                            for key in (
+                                "name",
+                                "serial_number",
+                                "status",
+                                "sub_status",
+                                "type",
+                            )
+                            if record.get(key) is not None
+                        }
+            if valid_response_count == len(gateway_serials):
+                dashboard_by_serial = fresh_by_serial
+                self.coordinator._note_endpoint_family_success(family)
+                self._set_shared_state_attr(
+                    "_inverter_dashboard_inventory", dashboard_by_serial
+                )
+            else:
+                error = first_error or ValueError(
+                    "Dashboard inverter inventory was partially unavailable"
+                )
+                self.coordinator._note_endpoint_family_failure(family, error)
+                dashboard_by_serial = dict(cached_by_serial)
+                dashboard_by_serial.update(fresh_by_serial)
+                if valid_response_count:
+                    self._set_shared_state_attr(
+                        "_inverter_dashboard_inventory", dashboard_by_serial
+                    )
+
+        merged_by_serial: dict[str, dict[str, object]] = {}
+        order: list[str] = []
+        for item in inverters:
+            serial = str(item.get("serial_number") or "").strip()
+            if not serial:
+                continue
+            merged = dict(dashboard_by_serial.get(serial, {}))
+            merged.update(item)
+            merged_by_serial[serial] = merged
+            order.append(serial)
+        for serial, item in dashboard_by_serial.items():
+            if serial in merged_by_serial:
+                continue
+            merged_by_serial[serial] = dict(item)
+            order.append(serial)
+        return [merged_by_serial[serial] for serial in order]
+
+    @staticmethod
+    def _inverter_parameter_value(value: object) -> object | None:
+        """Normalize a dashboard reading without accepting containers or NaN."""
+
+        if value is None or isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            number = float(value)
+            return number if math.isfinite(number) else None
+        if isinstance(value, str):
+            text = value.strip()
+            if not text or text.lower() in {"n/a", "na", "none", "null", "-"}:
+                return None
+            try:
+                number = float(text)
+            except ValueError:
+                return text
+            return number if math.isfinite(number) else None
+        return None
+
+    @classmethod
+    def _inverter_parameter_rows(
+        cls, payload: dict[str, object], parameter_id: str
+    ) -> dict[str, tuple[object, object | None]]:
+        """Extract latest per-serial values from observed parameter-view shapes."""
+
+        rows = payload.get("intervals")
+        if not isinstance(rows, list):
+            rows = payload.get("data")
+        if not isinstance(rows, list):
+            return {}
+        columns = payload.get("columns")
+        column_records = (
+            [item for item in columns if isinstance(item, dict)]
+            if isinstance(columns, list)
+            else []
+        )
+        out: dict[str, tuple[object, object | None]] = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            sampled_at = next(
+                (
+                    row.get(key)
+                    for key in ("timestamp", "date", "reported_at", "sampled_at")
+                    if row.get(key) is not None
+                ),
+                None,
+            )
+            serial = str(
+                row.get("serial_number")
+                or row.get("serial_num")
+                or row.get("device_serial")
+                or ""
+            ).strip()
+            if serial and serial not in out:
+                value = next(
+                    (
+                        row.get(key)
+                        for key in (parameter_id, "value", "reading")
+                        if row.get(key) is not None
+                    ),
+                    None,
+                )
+                normalized = cls._inverter_parameter_value(value)
+                if normalized is not None:
+                    out[serial] = (normalized, sampled_at)
+            for column in column_records:
+                column_serial = str(column.get("serial_number") or "").strip()
+                if not column_serial or column_serial in out:
+                    continue
+                attribute = str(column.get("attribute_name") or "").strip()
+                raw_value = row.get(attribute) if attribute else None
+                if raw_value is None:
+                    raw_value = row.get(column_serial)
+                normalized = cls._inverter_parameter_value(raw_value)
+                if normalized is not None:
+                    out[column_serial] = (normalized, sampled_at)
+        return out
+
+    @staticmethod
+    def _inverter_parameter_payload_is_valid(payload: object) -> bool:
+        """Return whether a parameter response has an authoritative row list."""
+
+        if not isinstance(payload, dict):
+            return False
+        return isinstance(payload.get("intervals"), list) or isinstance(
+            payload.get("data"), list
+        )
+
+    @staticmethod
+    def _inverter_parameter_snapshot_has_values(snapshot: object) -> bool:
+        """Return whether a telemetry snapshot contains at least one reading."""
+
+        return isinstance(snapshot, dict) and any(
+            key not in {"parameter_ids", "sampled_at"} for key in snapshot
+        )
+
+    @classmethod
+    def _remove_inverter_parameter(
+        cls,
+        telemetry_by_serial: dict[str, dict[str, object]],
+        canonical: str,
+    ) -> None:
+        """Remove one canonical reading and its metadata from every inverter."""
+
+        for serial, snapshot in list(telemetry_by_serial.items()):
+            snapshot.pop(canonical, None)
+            for metadata_key in ("parameter_ids", "sampled_at"):
+                metadata = snapshot.get(metadata_key)
+                if not isinstance(metadata, dict):
+                    continue
+                metadata.pop(canonical, None)
+                if not metadata:
+                    snapshot.pop(metadata_key, None)
+            if not cls._inverter_parameter_snapshot_has_values(snapshot):
+                telemetry_by_serial.pop(serial, None)
+
+    async def _async_refresh_inverter_parameter_telemetry(
+        self, serials: list[str]
+    ) -> dict[str, dict[str, object]]:
+        """Refresh supported parameters in bulk, preserving stale optional data."""
+
+        coord = self.coordinator
+        cached = getattr(self, "_inverter_parameter_telemetry", None)
+        cached_items = cached.items() if isinstance(cached, dict) else ()
+        cached_by_serial = {
+            serial: {
+                key: (
+                    dict(item)
+                    if key in {"parameter_ids", "sampled_at"} and isinstance(item, dict)
+                    else item
+                )
+                for key, item in value.items()
+            }
+            for serial, value in cached_items
+            if isinstance(serial, str) and isinstance(value, dict)
+        }
+        telemetry_family = "inverter_parameter_telemetry"
+        telemetry_health = coord._endpoint_family_state(telemetry_family)
+        freshness_raw = getattr(self, "_inverter_parameter_success_mono", None)
+        freshness_items = (
+            freshness_raw.items() if isinstance(freshness_raw, dict) else ()
+        )
+        freshness_by_parameter = {
+            str(key): float(value)
+            for key, value in freshness_items
+            if isinstance(key, str) and isinstance(value, (int, float))
+        }
+        policy = coord._endpoint_family_policy(telemetry_family)
+        stale_after_s = policy.stale_after_s if policy is not None else None
+        now_mono = time.monotonic()
+        cached_canonicals = {
+            key
+            for snapshot in cached_by_serial.values()
+            for key in snapshot
+            if key not in {"parameter_ids", "sampled_at"}
+        }
+        stale_canonicals: set[str] = set()
+        if isinstance(stale_after_s, (int, float)) and stale_after_s > 0:
+            for canonical in cached_canonicals:
+                last_success = freshness_by_parameter.get(
+                    canonical,
+                    telemetry_health.last_success_mono,
+                )
+                if last_success is not None and now_mono - last_success > float(
+                    stale_after_s
+                ):
+                    stale_canonicals.add(canonical)
+                    self._remove_inverter_parameter(cached_by_serial, canonical)
+                    freshness_by_parameter.pop(canonical, None)
+        if stale_canonicals:
+            self._update_shared_state(
+                _inverter_parameter_telemetry=cached_by_serial,
+                _inverter_parameter_success_mono=freshness_by_parameter,
+            )
+            if isinstance(telemetry_health.degraded, bool):
+                telemetry_health.degraded = True
+                telemetry_health.cache_stale = True
+                telemetry_health.using_cached_data = bool(cached_by_serial)
+        if not serials:
+            return cached_by_serial
+
+        master_fetcher = getattr(self.client, "system_dashboard_master_data", None)
+        columns_fetcher = getattr(self.client, "system_dashboard_data_columns", None)
+        parameter_ids = list(getattr(self, "_inverter_parameter_ids", None) or [])
+        catalog_family = "inverter_parameter_catalog"
+        if callable(master_fetcher) and coord._endpoint_family_should_run(
+            catalog_family
+        ):
+            try:
+                master_payload = await master_fetcher()
+            except Exception as err:  # noqa: BLE001
+                coord._note_endpoint_family_failure(catalog_family, err)
+                if not coord._endpoint_family_can_use_stale(catalog_family):
+                    parameter_ids = []
+                    self._set_shared_state_attr("_inverter_parameter_ids", [])
+            else:
+                parameters = (
+                    master_payload.get("parameters")
+                    if isinstance(master_payload, dict)
+                    else None
+                )
+                available: list[str] = []
+                if isinstance(parameters, list):
+                    for parameter in parameters:
+                        if not isinstance(parameter, dict):
+                            continue
+                        parameter_id = str(parameter.get("id") or "").strip()
+                        if parameter_id.lower() in INVERTER_PARAMETER_ALIASES:
+                            available.append(parameter_id)
+                if isinstance(master_payload, dict):
+                    selected: list[str] = []
+                    canonical_seen: set[str] = set()
+                    for parameter_id in available:
+                        canonical = INVERTER_PARAMETER_ALIASES[parameter_id.lower()]
+                        if canonical in canonical_seen:
+                            continue
+                        canonical_seen.add(canonical)
+                        selected.append(parameter_id)
+                    parameter_ids = selected
+                    self._set_shared_state_attr(
+                        "_inverter_parameter_ids", parameter_ids
+                    )
+                    coord._note_endpoint_family_success(catalog_family)
+                else:
+                    coord._note_endpoint_family_failure(
+                        catalog_family,
+                        ValueError("Dashboard parameter catalog was unavailable"),
+                    )
+
+            gateway_serials = self._gateway_serials_for_inverter_telemetry()
+            if callable(columns_fetcher) and gateway_serials:
+                typed_columns_fetcher = cast(
+                    Callable[[str], Awaitable[object]], columns_fetcher
+                )
+                column_results = await self._async_run_bounded_optional_batch(
+                    [
+                        partial(typed_columns_fetcher, serial)
+                        for serial in gateway_serials
+                    ]
+                )
+                column_names: set[str] = set()
+                for result in column_results:
+                    if not isinstance(result, dict):
+                        continue
+                    columns = result.get("columns")
+                    if not isinstance(columns, list):
+                        continue
+                    for column in columns:
+                        if not isinstance(column, dict):
+                            continue
+                        name = str(
+                            column.get("attribute_name") or column.get("name") or ""
+                        ).strip()
+                        if name:
+                            column_names.add(name)
+                self._set_shared_state_attr(
+                    "_inverter_parameter_columns", sorted(column_names)
+                )
+
+        parameter_fetcher = getattr(
+            self.client, "system_dashboard_parameter_view", None
+        )
+        if (
+            not callable(parameter_fetcher)
+            or not parameter_ids
+            or not coord._endpoint_family_should_run(telemetry_family)
+        ):
+            return cached_by_serial
+
+        typed_parameter_fetcher = cast(
+            Callable[[list[str], str], Awaitable[object]], parameter_fetcher
+        )
+        results = await self._async_run_bounded_optional_batch(
+            [
+                partial(typed_parameter_fetcher, serials, parameter_id)
+                for parameter_id in parameter_ids
+            ]
+        )
+        valid_payload_count = 0
+        first_error: Exception | None = None
+        telemetry_by_serial = {
+            serial: value
+            for serial, value in cached_by_serial.items()
+            if serial in serials
+        }
+        cached_canonicals = {
+            key
+            for snapshot in telemetry_by_serial.values()
+            for key in snapshot
+            if key not in {"parameter_ids", "sampled_at"}
+        }
+        failed_canonicals: set[str] = set()
+        for parameter_id, result in zip(parameter_ids, results, strict=True):
+            canonical = INVERTER_PARAMETER_ALIASES[parameter_id.lower()]
+            if isinstance(result, Exception):
+                first_error = first_error or result
+                failed_canonicals.add(canonical)
+                continue
+            if not self._inverter_parameter_payload_is_valid(result):
+                first_error = first_error or ValueError(
+                    f"Dashboard parameter response was invalid for {parameter_id}"
+                )
+                failed_canonicals.add(canonical)
+                continue
+            assert isinstance(result, dict)
+            valid_payload_count += 1
+            freshness_by_parameter[canonical] = now_mono
+            self._remove_inverter_parameter(telemetry_by_serial, canonical)
+            for serial, (value, sampled_at) in self._inverter_parameter_rows(
+                result, parameter_id
+            ).items():
+                if serial not in serials:
+                    continue
+                snapshot = telemetry_by_serial.setdefault(serial, {})
+                snapshot[canonical] = value
+                snapshot.setdefault("parameter_ids", {})[canonical] = parameter_id
+                if sampled_at is not None:
+                    snapshot.setdefault("sampled_at", {})[canonical] = sampled_at
+        if valid_payload_count:
+            self._update_shared_state(
+                _inverter_parameter_telemetry=telemetry_by_serial,
+                _inverter_parameter_success_mono=freshness_by_parameter,
+            )
+        useful_telemetry = any(
+            self._inverter_parameter_snapshot_has_values(snapshot)
+            for snapshot in telemetry_by_serial.values()
+        )
+        current_canonicals = {
+            key
+            for snapshot in telemetry_by_serial.values()
+            for key in snapshot
+            if key not in {"parameter_ids", "sampled_at"}
+        }
+        using_cached_data = bool(
+            failed_canonicals & cached_canonicals & current_canonicals
+        )
+        failed_cache_stale = bool(failed_canonicals & stale_canonicals)
+        if valid_payload_count == len(parameter_ids):
+            coord._note_endpoint_family_success(telemetry_family)
+            telemetry_health.degraded = False
+            telemetry_health.partial_success = False
+            telemetry_health.successful_items = valid_payload_count
+            telemetry_health.total_items = len(parameter_ids)
+            telemetry_health.using_cached_data = False
+            telemetry_health.cache_stale = False
+            return telemetry_by_serial
+        batch_error = first_error or ValueError(
+            "Dashboard parameter readings were unavailable"
+        )
+        safe_batch_error = redact_text(
+            batch_error,
+            site_ids=(coord.site_id,),
+            identifiers=serials,
+            max_length=160,
+        )
+        if valid_payload_count:
+            coord._note_endpoint_family_success(telemetry_family)
+            telemetry_health.last_error = safe_batch_error
+            telemetry_health.degraded = bool(failed_cache_stale or not useful_telemetry)
+            telemetry_health.partial_success = True
+        else:
+            coord._note_endpoint_family_failure(telemetry_family, batch_error)
+            telemetry_health.last_error = safe_batch_error
+            failure_threshold = (
+                int(policy.suppress_after_failures)
+                if policy is not None and policy.suppress_after_failures is not None
+                else 1
+            )
+            telemetry_health.degraded = bool(
+                failed_cache_stale
+                or not useful_telemetry
+                or telemetry_health.consecutive_failures >= failure_threshold
+            )
+            telemetry_health.partial_success = False
+        telemetry_health.successful_items = valid_payload_count
+        telemetry_health.total_items = len(parameter_ids)
+        telemetry_health.using_cached_data = using_cached_data
+        telemetry_health.cache_stale = failed_cache_stale
+        return telemetry_by_serial if valid_payload_count else cached_by_serial
+
+    @staticmethod
+    async def _async_run_bounded_optional_batch(
+        factories: list[Callable[[], Awaitable[object]]],
+        *,
+        timeout_s: float = INVERTER_PARAMETER_REQUEST_TIMEOUT_S,
+        concurrency: int = INVERTER_PARAMETER_BATCH_CONCURRENCY,
+    ) -> list[object]:
+        """Run optional requests with bounded concurrency and per-request timeout."""
+
+        semaphore = asyncio.Semaphore(max(1, concurrency))
+
+        async def _run(factory: Callable[[], Awaitable[object]]) -> object:
+            try:
+                async with semaphore:
+                    async with asyncio.timeout(max(0.0, timeout_s)):
+                        return await factory()
+            except Exception as err:  # noqa: BLE001 - preserve partial optional data
+                return err
+
+        return list(await asyncio.gather(*(_run(factory) for factory in factories)))
+
     async def _async_refresh_inverters(self) -> None:
         """Refresh inverter metadata/status/production and build serial snapshots."""
         coord = self.coordinator
@@ -2519,6 +3330,11 @@ class InventoryRuntime:
                 _inverter_status_type_counts={},
                 _inverter_model_counts={},
                 _inverter_production_cache_key=None,
+                _inverter_dashboard_inventory={},
+                _inverter_parameter_ids=[],
+                _inverter_parameter_columns=[],
+                _inverter_parameter_telemetry={},
+                _inverter_parameter_success_mono={},
                 _inverter_summary_counts={
                     "total": 0,
                     "normal": 0,
@@ -2627,6 +3443,16 @@ class InventoryRuntime:
             inventory_payload = dict(inventory_payload)
             inventory_payload["inverters"] = merged
             inverters_list = merged
+        inverters_list = await self._async_inverter_dashboard_inventory(inverters_list)
+        inventory_payload = dict(inventory_payload)
+        inventory_payload["inverters"] = inverters_list
+        telemetry_by_serial = await self._async_refresh_inverter_parameter_telemetry(
+            [
+                str(item.get("serial_number") or "").strip()
+                for item in inverters_list
+                if str(item.get("serial_number") or "").strip()
+            ]
+        )
         if fetch_inventory_now and inventory_payload is not cached_inventory_payload:
             coord._note_endpoint_family_success(inventory_family)
             self._set_shared_state_attr(
@@ -2753,14 +3579,14 @@ class InventoryRuntime:
             production_raw = {}
 
         status_by_serial: dict[str, dict[str, object]] = {}
-        for inverter_id, payload in status_payload.items():
+        for raw_inverter_id, payload in status_payload.items():
             if not isinstance(payload, dict):
                 continue
             serial = str(payload.get("serialNum") or "").strip()
             if not serial:
                 continue
             item = dict(payload)
-            item["inverter_id"] = str(inverter_id)
+            item["inverter_id"] = str(raw_inverter_id)
             status_by_serial[serial] = item
 
         previous_data = self._coordinator_backed_attr("_inverter_data")
@@ -2782,7 +3608,7 @@ class InventoryRuntime:
                 continue
             serial = str(item.get("serial_number") or "").strip()
             if not serial:
-                continue
+                continue  # pragma: no cover - filtered by dashboard merge
             previous_item = previous_data.get(serial)
             if not isinstance(previous_item, dict):
                 previous_item = {}
@@ -2886,6 +3712,7 @@ class InventoryRuntime:
                 "lifetime_production_wh": production_wh,
                 "lifetime_query_start_date": query_start,
                 "lifetime_query_end_date": query_end,
+                "telemetry": dict(telemetry_by_serial.get(serial, {})),
             }
             inverter_order.append(serial)
 
@@ -3022,7 +3849,39 @@ class InventoryRuntime:
                 ) and coord._endpoint_family_should_run(
                     "inverter_production", force=force
                 )
-        return inventory_due or status_due or production_due
+        catalog_fetcher = getattr(self.client, "system_dashboard_master_data", None)
+        catalog_due = callable(catalog_fetcher) and coord._endpoint_family_should_run(
+            "inverter_parameter_catalog", force=force
+        )
+        parameter_ids = getattr(self, "_inverter_parameter_ids", None)
+        telemetry_fetcher = getattr(
+            self.client, "system_dashboard_parameter_view", None
+        )
+        telemetry_due = (
+            bool(parameter_ids)
+            and callable(telemetry_fetcher)
+            and coord._endpoint_family_should_run(
+                "inverter_parameter_telemetry", force=force
+            )
+        )
+        dashboard_fetcher = getattr(
+            self.client, "system_dashboard_envoy_inverters", None
+        )
+        dashboard_due = (
+            bool(self._gateway_serials_for_inverter_telemetry())
+            and callable(dashboard_fetcher)
+            and coord._endpoint_family_should_run(
+                "inverter_dashboard_inventory", force=force
+            )
+        )
+        return (
+            inventory_due
+            or status_due
+            or production_due
+            or catalog_due
+            or telemetry_due
+            or dashboard_due
+        )
 
     def iter_inverter_serials(self) -> list[str]:
         """Return currently active inverter serials in a stable order."""
@@ -3030,7 +3889,8 @@ class InventoryRuntime:
         data = self._coordinator_backed_attr("_inverter_data")
         if not isinstance(data, dict):
             return []
-        serials = [str(sn) for sn in order if sn in data]
+        order_values = order if isinstance(order, (list, tuple)) else []
+        serials = [str(sn) for sn in order_values if sn in data]
         serials.extend(str(sn) for sn in data.keys())
         return [sn for sn in dict.fromkeys(serials) if sn]
 
@@ -3218,7 +4078,7 @@ class InventoryRuntime:
 
     @staticmethod
     def member_is_retired(member: dict[str, object]) -> bool:
-        return device_member_is_retired(member)
+        return bool(device_member_is_retired(member))
 
 
 install_state_descriptors(InventoryRuntime)

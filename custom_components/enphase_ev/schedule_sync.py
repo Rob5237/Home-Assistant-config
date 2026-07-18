@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterable
+from collections.abc import Coroutine, Iterable
 from datetime import datetime, time as dt_time, timedelta
 import inspect
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar, cast
 
 from homeassistant.components import websocket_api
 from homeassistant.components.schedule.const import (
@@ -17,7 +17,7 @@ from homeassistant.components.schedule.const import (
     CONF_TO,
     DOMAIN as SCHEDULE_DOMAIN,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback as ha_callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_call_later,
@@ -33,6 +33,7 @@ from .const import (
     OPT_SCHEDULE_SYNC_ENABLED,
 )
 from .log_redaction import redact_identifier, redact_text
+from .request_metrics import request_metrics_scope
 from .schedule import normalize_slot_payload
 
 if TYPE_CHECKING:
@@ -41,10 +42,28 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+_CallbackT = TypeVar("_CallbackT", bound=Callable[..., object])
+
+
+def callback(func: _CallbackT) -> _CallbackT:
+    """Apply Home Assistant's callback marker with its identity type preserved."""
+
+    return cast(_CallbackT, ha_callback(func))
+
+
+class ScheduleStorageCollection(Protocol):
+    """Storage operations used by the schedule sync cleanup path."""
+
+    data: dict[str, Any]
+
+    async def async_delete_item(self, item_id: str) -> None: ...
+
+
 SYNC_INTERVAL = timedelta(minutes=5)
 SYNC_REFRESH_CONCURRENCY = 3
 # Scheduler writes often return before reads reflect the new slot state.
 PATCH_REFRESH_DELAY_S = 1.0
+SCHEDULE_SYNC_STOP_TIMEOUT_S = 10.0
 SYNC_CAPTURE_ERRORS = (RuntimeError, TypeError, ValueError, AttributeError)
 
 
@@ -64,9 +83,9 @@ class ScheduleSync:
         self._meta_cache: dict[str, str | None] = {}
         self._config_cache: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
-        self._storage_collection = None
-        self._unsub_interval = None
-        self._unsub_coordinator = None
+        self._storage_collection: ScheduleStorageCollection | None = None
+        self._unsub_interval: Callable[[], None] | None = None
+        self._unsub_coordinator: Callable[[], None] | None = None
         self._listeners: list[Callable[[], None]] = []
         self._disabled_cleanup_done = False
         self._storage_sanitize_done = False
@@ -74,6 +93,10 @@ class ScheduleSync:
         self._last_error: str | None = None
         self._last_status: str | None = None
         self._pending_patch_refresh: set[str] = set()
+        self._pending_patch_refresh_cancels: dict[str, Callable[[], None]] = {}
+        self._pending_patch_refresh_tasks: dict[str, asyncio.Future[None]] = {}
+        self._refresh_tasks: set[asyncio.Future[None]] = set()
+        self._stopping = False
 
     async def async_start(self) -> None:
         self._disabled_cleanup_done = False
@@ -81,6 +104,8 @@ class ScheduleSync:
             await self._disable_support()
             return
         await self._remove_all_helpers()
+        if self._stopping:
+            return
         self._unsub_interval = async_track_time_interval(
             self.hass, self._handle_interval, SYNC_INTERVAL
         )
@@ -93,12 +118,39 @@ class ScheduleSync:
         await self.async_refresh(reason="startup")
 
     async def async_stop(self) -> None:
+        self._stopping = True
         if self._unsub_interval is not None:
             self._unsub_interval()
             self._unsub_interval = None
         if self._unsub_coordinator is not None:
             self._unsub_coordinator()
             self._unsub_coordinator = None
+        for cancel in self._pending_patch_refresh_cancels.values():
+            cancel()
+        self._pending_patch_refresh_cancels.clear()
+        tasks = tuple(
+            {
+                *self._pending_patch_refresh_tasks.values(),
+                *self._refresh_tasks,
+            }
+        )
+        for task in tasks:
+            task.cancel()
+        self._pending_patch_refresh_tasks.clear()
+        self._refresh_tasks.clear()
+        self._pending_patch_refresh.clear()
+        if tasks:
+            done, pending = await asyncio.wait(
+                tasks,
+                timeout=SCHEDULE_SYNC_STOP_TIMEOUT_S,
+            )
+            if done:
+                await asyncio.gather(*done, return_exceptions=True)
+            if pending:
+                _LOGGER.warning(
+                    "Timed out waiting for %s Enphase schedule task(s) to stop",
+                    len(pending),
+                )
 
     def diagnostics(self) -> dict[str, Any]:
         return {
@@ -151,21 +203,34 @@ class ScheduleSync:
         self._pending_patch_refresh.add(sn)
 
         @callback
-        def _run(_now) -> None:
-            self._pending_patch_refresh.discard(sn)
+        def _run(_now: datetime) -> None:
+            self._pending_patch_refresh_cancels.pop(sn, None)
             coro = self.async_refresh(reason="patch", serials=[sn])
             try:
-                self.hass.async_create_task(
+                task = self.hass.async_create_task(
                     coro,
                     name=f"{DOMAIN}_schedule_patch_refresh_{redact_identifier(sn)}",
                 )
             except TypeError:
                 coro.close()
-                self.hass.async_create_task(
+                task = self.hass.async_create_task(
                     self.async_refresh(reason="patch", serials=[sn])
                 )
+            if task is None:
+                self._pending_patch_refresh.discard(sn)
+                return
+            self._pending_patch_refresh_tasks[sn] = task
 
-        async_call_later(self.hass, PATCH_REFRESH_DELAY_S, _run)
+            def _clear(completed: asyncio.Future[None]) -> None:
+                if self._pending_patch_refresh_tasks.get(sn) is completed:
+                    self._pending_patch_refresh_tasks.pop(sn, None)
+                    self._pending_patch_refresh.discard(sn)
+
+            task.add_done_callback(_clear)
+
+        self._pending_patch_refresh_cancels[sn] = async_call_later(
+            self.hass, PATCH_REFRESH_DELAY_S, _run
+        )
 
     def _scheduler_backoff_active(self) -> bool:
         backoff_active = getattr(self._coordinator, "scheduler_backoff_active", None)
@@ -377,9 +442,9 @@ class ScheduleSync:
             )
             return
         for cached_id, desired in slot_states.items():
-            cached_slot = self._slot_cache.get(sn, {}).get(cached_id)
-            if cached_slot is not None:
-                cached_slot["enabled"] = bool(desired)
+            updated_slot = self._slot_cache.get(sn, {}).get(cached_id)
+            if updated_slot is not None:
+                updated_slot["enabled"] = bool(desired)
         needs_refresh = True
         if isinstance(response, dict):
             meta = response.get("meta")
@@ -420,28 +485,46 @@ class ScheduleSync:
         self._notify_listeners()
 
     @callback
-    def _handle_interval(self, *_args) -> None:
-        coro = self.async_refresh(reason="interval")
+    def _handle_interval(self, *_args: object) -> None:
+        self._schedule_refresh_task(
+            self.async_refresh(reason="interval"),
+            f"{DOMAIN}_schedule_interval_refresh",
+            fallback=lambda: self.async_refresh(reason="interval"),
+        )
+
+    def _schedule_refresh_task(
+        self,
+        coro: Coroutine[Any, Any, None],
+        name: str,
+        *,
+        fallback: Callable[[], Coroutine[Any, Any, None]],
+    ) -> None:
+        """Schedule and retain a refresh for deterministic shutdown."""
+
+        if self._stopping:
+            coro.close()
+            return
         try:
-            self.hass.async_create_task(
-                coro,
-                name=f"{DOMAIN}_schedule_interval_refresh",
-            )
+            task = self.hass.async_create_task(coro, name=name)
         except TypeError:
             coro.close()
-            self.hass.async_create_task(self.async_refresh(reason="interval"))
+            task = self.hass.async_create_task(fallback())
+        if not isinstance(task, asyncio.Future):
+            return
+        self._refresh_tasks.add(task)
+        task.add_done_callback(self._refresh_tasks.discard)
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        coro = self._refresh_if_stale()
-        try:
-            self.hass.async_create_task(
-                coro,
-                name=f"{DOMAIN}_schedule_coordinator_refresh",
-            )
-        except TypeError:
-            coro.close()
-            self.hass.async_create_task(self._refresh_if_stale())
+        if self._last_sync is not None:
+            age = dt_util.utcnow() - self._last_sync
+            if age < SYNC_INTERVAL:
+                return
+        self._schedule_refresh_task(
+            self._refresh_if_stale(),
+            f"{DOMAIN}_schedule_coordinator_refresh",
+            fallback=self._refresh_if_stale,
+        )
 
     async def _refresh_if_stale(self) -> None:
         if not self._last_sync:
@@ -453,6 +536,12 @@ class ScheduleSync:
 
     async def async_refresh(
         self, *, reason: str = "manual", serials: Iterable[str] | None = None
+    ) -> None:
+        with request_metrics_scope("schedule_sync"):
+            await self._async_refresh_impl(reason=reason, serials=serials)
+
+    async def _async_refresh_impl(
+        self, *, reason: str, serials: Iterable[str] | None
     ) -> None:
         if not self._sync_enabled():
             self._last_status = "disabled"
@@ -705,7 +794,7 @@ class ScheduleSync:
         self._notify_listeners()
 
     def _default_server_timestamp(self) -> str:
-        return dt_util.utcnow().isoformat(timespec="milliseconds")
+        return cast(str, dt_util.utcnow().isoformat(timespec="milliseconds"))
 
     async def async_replace_slots(self, sn: str, slots: list[dict[str, Any]]) -> None:
         if not self._sync_enabled():
@@ -840,7 +929,7 @@ class ScheduleSync:
         self._schedule_post_patch_refresh(sn)
         self._notify_listeners()
 
-    async def _ensure_storage_collection(self):
+    async def _ensure_storage_collection(self) -> ScheduleStorageCollection | None:
         if self._storage_collection is not None:
             return self._storage_collection
         if not self._storage_sanitize_done:
@@ -853,18 +942,19 @@ class ScheduleSync:
             return None
         handler = handler_entry[0]
         target = inspect.unwrap(handler)
-        self._storage_collection = getattr(
-            getattr(target, "__self__", None), "storage_collection", None
+        self._storage_collection = cast(
+            ScheduleStorageCollection | None,
+            getattr(getattr(target, "__self__", None), "storage_collection", None),
         )
         return self._storage_collection
 
     async def _sanitize_schedule_storage(self) -> bool:
         path = self.hass.config.path(".storage", SCHEDULE_DOMAIN)
 
-        def _load():
+        def _load() -> object:
             try:
                 with open(path, "r", encoding="utf-8") as handle:
-                    return json.load(handle)
+                    return cast(object, json.load(handle))
             except FileNotFoundError:
                 return None
             except Exception as err:  # noqa: BLE001
@@ -910,7 +1000,7 @@ class ScheduleSync:
         if not changed:
             return False
 
-        def _save():
+        def _save() -> bool:
             try:
                 with open(path, "w", encoding="utf-8") as handle:
                     json.dump(raw, handle, ensure_ascii=False, indent=2)
@@ -925,7 +1015,7 @@ class ScheduleSync:
         saved = await self.hass.async_add_executor_job(_save)
         if saved:
             _LOGGER.warning("Sanitized schedule storage times with microseconds")
-        return saved
+        return bool(saved)
 
     def _sync_enabled(self) -> bool:
         if not self._config_entry:
