@@ -46,6 +46,7 @@ from ..const import (
     CALLBACK_SOC_UPDATE,
     CALLBACK_SUN_ELEVATION_UPDATE,
     CALLBACK_SYNC_UPDATE,
+    CALLBACK_WEATHER_FORECAST,
     CONFIG_NET_POWER_SENSOR,
     ENTITY_CHARGEE_SOC_SENSOR,
     ENTITY_CHARGER_PLUGGED_IN_SENSOR,
@@ -426,6 +427,23 @@ class Tracker(ScOptionState):
         """Unsubscribe sync events."""
 
         self.remove_callback(CALLBACK_SYNC_UPDATE)
+
+    # ----------------------------------------------------------------------------
+    def track_weather_update(self, action: STATE_CHANGE_CALLBACK) -> bool:
+        """Track weather events."""
+        ok: bool = False
+
+        entity_id = self.get_weather_provider()
+        if entity_id is not None:
+            ok = self._track_state_change(entity_id, CALLBACK_WEATHER_FORECAST, action)
+
+        return ok
+
+    # ----------------------------------------------------------------------------
+    def untrack_weather_update(self) -> None:
+        """Unsubscribe weather events."""
+
+        self.remove_callback(CALLBACK_WEATHER_FORECAST)
 
     # ----------------------------------------------------------------------------
     # Sensors that are created by default

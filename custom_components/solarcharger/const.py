@@ -12,7 +12,7 @@ NAME = "SolarCharger"
 DOMAIN = "solarcharger"
 DOMAIN_DATA = f"{DOMAIN}_data"
 # Also need to set version in manifest.json, README.md and CHANGELOG.md.
-VERSION = "0.8.3"
+VERSION = "0.9.0"
 ISSUE_URL = "https://github.com/flashg1/SolarCharger/issues"
 CONFIG_URL = "https://github.com/flashg1/SolarCharger"
 
@@ -60,6 +60,72 @@ PLATFORMS: list[Platform | str] = [
     # May be under entity_component?
     # INPUT_TIME,
 ]
+
+
+#######################################################
+# Enumerations
+#######################################################
+class ChargeStatus(Enum):
+    """Enumeration of charge statuses."""
+
+    CHARGE_CONTINUE = "charge_continue"
+    CHARGE_PAUSE = "charge_pause"
+    CHARGE_END = "charge_end"
+
+
+class StartState(Enum):
+    """Enumeration of start states."""
+
+    AUTO = "auto"
+    CHARGE = "charge"
+    PAUSE = "pause"
+
+
+START_STATE_LIST: list[str] = [state.value for state in StartState]
+
+
+class RunState(Enum):
+    """Enumeration of machine states."""
+
+    # Sensor state attributes must be lower case. Translation will display state in OS language.
+    UNDEFINED = "undefined"
+    STARTING = "starting"
+    INITIALISING = "initialising"
+
+    CHARGING = "charging"
+    # SELF_DEPOWER is a sub-state of CHARGING state.
+    SELF_DEPOWER = "self-depower"
+
+    PAUSED = "paused"
+    ABORTING = "aborting"
+    ENDING = "ending"
+    ENDED = "ended"
+
+
+RUN_STATE_LIST: list[str] = [state.value for state in RunState]
+
+
+class MedianDataState(Enum):
+    """Enumeration of median data set states."""
+
+    # Sensor state attributes must be lower case. Translation will display state in OS language.
+    NOT_READY = "not_ready"
+    READY = "ready"
+
+
+MEDIAN_DATA_STATE_LIST: list[str] = [state.value for state in MedianDataState]
+
+
+class ChargeControlApi(Enum):
+    """Enumeration of supported ChargeControl APIs."""
+
+    OCPP_CHARGER_API = "ocpp_charger_api"
+    TESLA_CUSTOM_API = "tesla_custom_api"
+    TESLA_MQTTBLE_API = "tesla_mqtt_ble_api"
+    TESLA_FLEET_API = "tesla_fleet_api"
+    TESLA_TESSIE_API = "tesla_tessie_api"
+    USER_CUSTOM_API = "user_custom_api"
+
 
 #######################################################
 # Constants
@@ -157,6 +223,7 @@ ERROR_SELECT_CHARGER = "select_charger_error"
 ERROR_SUBENTRY_ID_NOT_FOUND = "subentry_id_not_found"
 ERROR_SUBENTRY_NOT_FOUND = "subentry_not_found"
 ERROR_DEVICE_ALREADY_ADDED = "device_already_added"
+ERROR_MISSING_DEVICE_NAME = "missing_device_name"
 ERROR_DEFAULT_CHARGE_LIMIT = "invalid_default_charge_limit"
 ERROR_NUMBER_FORMAT = "invalid_number_format"
 ERROR_SUBENTRY_CREATED = "device_subentry_created"
@@ -179,7 +246,10 @@ SENSOR_CONSUMED_POWER = "consumed_power"
 SENSOR_CONSUMED_ENERGY_TODAY = "consumed_energy_today"
 SENSOR_INSTANCE_COUNT = "instance_count"  # 0 or 1
 SENSOR_SHARE_ALLOCATION = "share_allocation"  # 1=shared or 0=not shared
-SENSOR_SELF_PAUSED_TODAY = "self_paused_today"
+# Count the number of time device reduce power by itself today
+SENSOR_SELF_DEPOWER_TODAY = "self_depower_today"
+# Count the number of time device increase power by itself today
+# SENSOR_SELF_REPOWER_TODAY = "self_repower_today"
 # Pause count per session
 SENSOR_PAUSE_COUNT = "pause_count"
 # Pause avg duration per session
@@ -193,8 +263,7 @@ SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE = "reduce_charge_limit_difference"
 # Local device switches
 SWITCH_FAST_CHARGE_MODE = "fast_charge_mode"
 SWITCH_POLL_CHARGER_UPDATE = "poll_charger_update"
-SWITCH_END_ON_MAX_CONSUMED_ENERGY = "end_on_max_consumed_energy"
-SWITCH_PAUSE_ON_START = "pause_on_start"
+SWITCH_END_ON_CONDITION = "end_on_condition"
 
 # Action switches
 # Switch on to start charging, and switch off to stop charging.
@@ -270,7 +339,6 @@ NUMBER_CHARGER_PRIORITY = "charger_priority"  # 8
 MAX_SPEED_CHARGE_PRIORITY = 3
 MAX_SPEED_CHARGE_PRIORITY_WEIGHT = 1
 NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT = "charger_power_allocation_weight"  # 1
-NUMBER_MAX_CONSUMED_ENERGY_LIMIT = "max_consumed_energy_limit"  # 7 kWh
 NUMBER_CHARGEE_MIN_CHARGE_LIMIT = "chargee_min_charge_limit"
 NUMBER_CHARGEE_MAX_CHARGE_LIMIT = "chargee_max_charge_limit"
 
@@ -283,6 +351,8 @@ NUMBER_WAIT_CHARGEE_UPDATE_HA = "wait_chargee_update_ha"  # 5 seconds
 NUMBER_WAIT_CHARGEE_LIMIT_CHANGE = "wait_chargee_limit_change"  # 5 seconds
 NUMBER_WAIT_CHARGER_ON = "wait_charger_on"  # 11 seconds
 NUMBER_WAIT_CHARGER_OFF = "wait_charger_off"  # 5 seconds
+
+# Time to wait after switching on charger and set initial current.  Default 1 second.
 NUMBER_WAIT_CHARGER_AMP_CHANGE = "wait_charger_amp_change"  # 1 second
 
 # 0 minutes=disabled, suggest 15 minutes to capture allocated power and turn off if average is below min power.
@@ -333,6 +403,10 @@ SENSOR_MEDIAN_NET_ALLOCATED_POWER = "median_net_allocated_power"
 SENSOR_MEDIAN_NET_ALLOCATED_POWER_PERIOD = "median_net_allocated_power_period"
 SENSOR_SMA_NET_ALLOCATED_POWER = "sma_net_allocated_power"
 SELECT_DEVICE_PRESENCE_SENSOR = "device_presence_sensor"
+SELECT_START_STATE = "start_state"
+SELECT_EXIT_CONDITION_SENSOR = "exit_condition_sensor"
+SELECT_WEATHER_PROVIDER = "weather_provider"
+SENSOR_WEATHER_FORECAST = "weather_forecast"
 
 #####################################
 # Charge schedule entities
@@ -426,7 +500,6 @@ CONFIG_ENTITY_ID_LIST: list[str] = [
     NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
     NUMBER_CHARGER_PRIORITY,
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT,
     NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
     NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
@@ -550,6 +623,7 @@ OPTION_COMMON_DEFAULT_VALUES: dict[str, Any] = {
     # Global defaults: Charger configs
     #####################################
     NUMBER_POWER_MONITOR_DURATION: 10,  # 0=disabled
+    SELECT_WEATHER_PROVIDER: None,  # Also update CONFIG_WITH_NO_DEFAULTS
     #####################################
     # Local device required defaults
     #####################################
@@ -560,7 +634,6 @@ OPTION_COMMON_DEFAULT_VALUES: dict[str, Any] = {
     NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD: 10,
     NUMBER_CHARGER_PRIORITY: 8,
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: 1,
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: 7,
     NUMBER_CHARGEE_MIN_CHARGE_LIMIT: 50,
     NUMBER_CHARGEE_MAX_CHARGE_LIMIT: 100,
     #####################################
@@ -574,8 +647,7 @@ OPTION_COMMON_DEFAULT_VALUES: dict[str, Any] = {
     SWITCH_CHARGE: DEFAULT_OFF,
     SWITCH_FAST_CHARGE_MODE: DEFAULT_OFF,
     SWITCH_POLL_CHARGER_UPDATE: DEFAULT_OFF,
-    SWITCH_END_ON_MAX_CONSUMED_ENERGY: DEFAULT_OFF,
-    SWITCH_PAUSE_ON_START: DEFAULT_OFF,
+    SWITCH_END_ON_CONDITION: DEFAULT_OFF,
     SWITCH_SCHEDULE_CHARGE: DEFAULT_OFF,
     SWITCH_PLUGIN_TRIGGER: DEFAULT_ON,
     SWITCH_PRESENCE_TRIGGER: DEFAULT_OFF,
@@ -585,12 +657,16 @@ OPTION_COMMON_DEFAULT_VALUES: dict[str, Any] = {
     # Local device select defaults
     #####################################
     SELECT_DEVICE_PRESENCE_SENSOR: None,  # Also update CONFIG_WITH_NO_DEFAULTS
+    SELECT_START_STATE: StartState.AUTO.value,
+    SELECT_EXIT_CONDITION_SENSOR: None,  # Also update CONFIG_WITH_NO_DEFAULTS
 }
 
 CONFIG_WITH_NO_DEFAULTS: list[str] = [
     NUMBER_CHARGER_EFFECTIVE_VOLTAGE,
+    SELECT_WEATHER_PROVIDER,
     NUMBER_CHARGER_MAX_CURRENT,
     SELECT_DEVICE_PRESENCE_SENSOR,
+    SELECT_EXIT_CONDITION_SENSOR,
 ]
 
 OCPP_DEFAULT_VALUES: dict[str, Any] = {
@@ -616,9 +692,13 @@ TESLA_ESPBLE_DEFAULT_VALUES: dict[str, Any] = {
     NUMBER_WAIT_CHARGEE_UPDATE_HA: 25,
 }
 
-TESLA_FLEET_DEFAULT_VALUES: dict[str, Any] = TESLA_DEFAULT_VALUES
-TESSIE_DEFAULT_VALUES: dict[str, Any] = TESLA_DEFAULT_VALUES
-TESLEMETRY_DEFAULT_VALUES: dict[str, Any] = TESLA_DEFAULT_VALUES
+# Tesla Fleet, Tessie and Teslemetry have no polling button.
+TESLA_FLEET_DEFAULT_VALUES: dict[str, Any] = {
+    **TESLA_DEFAULT_VALUES,
+    SWITCH_POLL_CHARGER_UPDATE: DEFAULT_ON,
+}
+TESSIE_DEFAULT_VALUES: dict[str, Any] = TESLA_FLEET_DEFAULT_VALUES
+TESLEMETRY_DEFAULT_VALUES: dict[str, Any] = TESLA_FLEET_DEFAULT_VALUES
 
 USER_CUSTOM_DEFAULT_VALUES: dict[str, Any] = {
     NUMBER_CHARGER_MIN_WORKABLE_CURRENT: 4,
@@ -719,6 +799,7 @@ OPTION_LOCAL_INTERNAL_ENTITIES: dict[str, str] = {
     # Global entities
     #####################################
     # SENSOR_SYNC_UPDATE: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{SENSOR_SYNC_UPDATE}",
+    SELECT_WEATHER_PROVIDER: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{SELECT_WEATHER_PROVIDER}",
     #####################################
     # Local entities
     #####################################
@@ -733,8 +814,9 @@ OPTION_LOCAL_INTERNAL_ENTITIES: dict[str, str] = {
     SWITCH_SUN_TRIGGER: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_SUN_TRIGGER}",
     SWITCH_SCHEDULE_CHARGE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_SCHEDULE_CHARGE}",
     SWITCH_POLL_CHARGER_UPDATE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_POLL_CHARGER_UPDATE}",
-    SWITCH_END_ON_MAX_CONSUMED_ENERGY: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_END_ON_MAX_CONSUMED_ENERGY}",
-    SWITCH_PAUSE_ON_START: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_PAUSE_ON_START}",
+    SELECT_START_STATE: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SELECT_START_STATE}",
+    SELECT_EXIT_CONDITION_SENSOR: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SELECT_EXIT_CONDITION_SENSOR}",
+    SWITCH_END_ON_CONDITION: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_END_ON_CONDITION}",
     SWITCH_CALIBRATE_MAX_CHARGE_SPEED: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_CALIBRATE_MAX_CHARGE_SPEED}",
     #####################################
     # OCPP entities
@@ -796,7 +878,6 @@ OCPP_CHARGER_ENTITIES: dict[str, str | None] = {
     NUMBER_CHARGER_PRIORITY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_PRIORITY}",
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT}",
     SENSOR_DELTA_ALLOCATED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_DELTA_ALLOCATED_POWER}",
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_MAX_CONSUMED_ENERGY_LIMIT}",
 }
 
 TESLA_CUSTOM_ENTITIES: dict[str, str | None] = {
@@ -827,7 +908,6 @@ TESLA_CUSTOM_ENTITIES: dict[str, str | None] = {
     NUMBER_CHARGER_PRIORITY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_PRIORITY}",
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT}",
     SENSOR_DELTA_ALLOCATED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_DELTA_ALLOCATED_POWER}",
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_MAX_CONSUMED_ENERGY_LIMIT}",
 }
 
 TESLA_MQTTBLE_ENTITIES: dict[str, str | None] = {
@@ -859,7 +939,6 @@ TESLA_MQTTBLE_ENTITIES: dict[str, str | None] = {
     NUMBER_CHARGER_PRIORITY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_PRIORITY}",
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT}",
     SENSOR_DELTA_ALLOCATED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_DELTA_ALLOCATED_POWER}",
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_MAX_CONSUMED_ENERGY_LIMIT}",
 }
 
 TESLA_ESPBLE_ENTITIES: dict[str, str | None] = {
@@ -892,7 +971,6 @@ TESLA_ESPBLE_ENTITIES: dict[str, str | None] = {
     NUMBER_CHARGER_PRIORITY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_PRIORITY}",
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT}",
     SENSOR_DELTA_ALLOCATED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_DELTA_ALLOCATED_POWER}",
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_MAX_CONSUMED_ENERGY_LIMIT}",
 }
 
 TESLA_FLEET_ENTITIES: dict[str, str | None] = {
@@ -923,7 +1001,6 @@ TESLA_FLEET_ENTITIES: dict[str, str | None] = {
     NUMBER_CHARGER_PRIORITY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_PRIORITY}",
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT}",
     SENSOR_DELTA_ALLOCATED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_DELTA_ALLOCATED_POWER}",
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_MAX_CONSUMED_ENERGY_LIMIT}",
 }
 
 # Tessie and Teslemetry are using same entity names as Tesla Fleet.
@@ -958,7 +1035,6 @@ USER_CUSTOM_ENTITIES: dict[str, str | None] = {
     NUMBER_CHARGER_PRIORITY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_PRIORITY}",
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT}",
     SENSOR_DELTA_ALLOCATED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_DELTA_ALLOCATED_POWER}",
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_MAX_CONSUMED_ENERGY_LIMIT}",
 }
 
 CHARGE_API_ENTITIES: dict[str, dict[str, str | None]] = {
@@ -986,6 +1062,7 @@ CALLBACK_SUNSET_DAILY_MAINTENANCE = "callback_sunset_daily_maintenance"
 CALLBACK_NET_POWER_UPDATE = "callback_net_power_update"
 CALLBACK_DELTA_ALLOCATED_POWER = "callback_delta_allocated_power"
 CALLBACK_SYNC_UPDATE = "callback_sync_update"
+CALLBACK_WEATHER_FORECAST = "callback_weather_forecast"
 CALLBACK_NEXT_CHARGE_TIME_UPDATE = "callback_next_charge_time_update"
 CALLBACK_NEXT_CHARGE_TIME_TRIGGER = "callback_next_charge_time_trigger"
 CALLBACK_SOC_UPDATE = "callback_soc_update"
@@ -998,57 +1075,6 @@ CALLBACK_CHARGE_ENDTIME_UPDATE = "callback_charge_endtime_update"
 #######################################################
 # Misc
 #######################################################
-class ChargeStatus(Enum):
-    """Enumeration of charge statuses."""
-
-    CHARGE_CONTINUE = "charge_continue"
-    CHARGE_PAUSE = "charge_pause"
-    CHARGE_END = "charge_end"
-
-
-class RunState(Enum):
-    """Enumeration of machine states."""
-
-    # Sensor state attributes must be lower case. Translation will display state in OS language.
-    UNDEFINED = "undefined"
-    STARTING = "starting"
-    INITIALISING = "initialising"
-
-    CHARGING = "charging"
-    # SELF_PAUSED is a sub-state of CHARGING state.
-    SELF_PAUSED = "self-paused"
-
-    PAUSED = "paused"
-    ABORTING = "aborting"
-    ENDING = "ending"
-    ENDED = "ended"
-
-
-RUN_STATE_LIST: list[str] = [state.value for state in RunState]
-
-
-class MedianDataState(Enum):
-    """Enumeration of median data set states."""
-
-    # Sensor state attributes must be lower case. Translation will display state in OS language.
-    NOT_READY = "not_ready"
-    READY = "ready"
-
-
-MEDIAN_DATA_STATE_LIST: list[str] = [state.value for state in MedianDataState]
-
-
-class ChargeControlApi(Enum):
-    """Enumeration of supported ChargeControl APIs."""
-
-    OCPP_CHARGER_API = "ocpp_charger_api"
-    TESLA_CUSTOM_API = "tesla_custom_api"
-    TESLA_MQTTBLE_API = "tesla_mqtt_ble_api"
-    TESLA_FLEET_API = "tesla_fleet_api"
-    TESLA_TESSIE_API = "tesla_tessie_api"
-    USER_CUSTOM_API = "user_custom_api"
-
-
 CENTRE_OF_SUN_DEGREE_BELOW_HORIZON_AT_SUNRISE = 0.833
 
 DEBUG = False

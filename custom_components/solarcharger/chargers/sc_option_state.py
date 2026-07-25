@@ -10,6 +10,7 @@ from typing import Any
 from propcache.api import cached_property
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, State
 
 from ..config.config_utils import get_saved_option_value
@@ -30,26 +31,27 @@ from ..const import (
     NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
     NUMBER_CHARGER_PRIORITY,
-    NUMBER_MAX_CONSUMED_ENERGY_LIMIT,
     NUMBER_POWER_MONITOR_DURATION,
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
     NUMBER_SUNSET_ELEVATION_END_TRIGGER,
     OPTION_CHARGER_NAME,
     SELECT,
     SELECT_DEVICE_PRESENCE_SENSOR,
+    SELECT_EXIT_CONDITION_SENSOR,
+    SELECT_START_STATE,
+    SELECT_WEATHER_PROVIDER,
     SENSOR,
     SENSOR_CONSUMED_ENERGY_TODAY,
     SENSOR_CONSUMED_POWER,
     SENSOR_DELTA_ALLOCATED_POWER,
-    SENSOR_SELF_PAUSED_TODAY,
+    SENSOR_SELF_DEPOWER_TODAY,
     SENSOR_SHARE_ALLOCATION,
     SENSOR_SYNC_UPDATE,
     SWITCH,
     SWITCH_CALIBRATE_MAX_CHARGE_SPEED,
     SWITCH_CHARGE,
-    SWITCH_END_ON_MAX_CONSUMED_ENERGY,
+    SWITCH_END_ON_CONDITION,
     SWITCH_FAST_CHARGE_MODE,
-    SWITCH_PAUSE_ON_START,
     SWITCH_PLUGIN_TRIGGER,
     SWITCH_POLL_CHARGER_UPDATE,
     SWITCH_PRESENCE_TRIGGER,
@@ -108,6 +110,13 @@ class ScOptionState(ScConfigState):
         )
 
     @cached_property
+    def weather_provider_selector_entity_id(self) -> str:
+        """Return weather provider selector entity ID."""
+        return compose_entity_id(
+            SELECT, CONFIG_NAME_GLOBAL_DEFAULTS, SELECT_WEATHER_PROVIDER
+        )
+
+    @cached_property
     def share_allocation_entity_id(self) -> str:
         """Return the share allocation entity ID."""
         return compose_entity_id(
@@ -115,10 +124,10 @@ class ScOptionState(ScConfigState):
         )
 
     @cached_property
-    def self_paused_today_entity_id(self) -> str:
-        """Return the self-paused today entity ID."""
+    def self_depower_today_entity_id(self) -> str:
+        """Return the self-depower today entity ID."""
         return compose_entity_id(
-            SENSOR, self._subentry.unique_id, SENSOR_SELF_PAUSED_TODAY
+            SENSOR, self._subentry.unique_id, SENSOR_SELF_DEPOWER_TODAY
         )
 
     @cached_property
@@ -157,17 +166,10 @@ class ScOptionState(ScConfigState):
         )
 
     @cached_property
-    def end_on_max_consumed_energy_switch_entity_id(self) -> str:
-        """Return the end on max consumed energy switch entity ID."""
+    def end_on_condition_switch_entity_id(self) -> str:
+        """Return the end on condition switch entity ID."""
         return compose_entity_id(
-            SWITCH, self._subentry.unique_id, SWITCH_END_ON_MAX_CONSUMED_ENERGY
-        )
-
-    @cached_property
-    def pause_on_start_switch_entity_id(self) -> str:
-        """Return the pause on start switch entity ID."""
-        return compose_entity_id(
-            SWITCH, self._subentry.unique_id, SWITCH_PAUSE_ON_START
+            SWITCH, self._subentry.unique_id, SWITCH_END_ON_CONDITION
         )
 
     @cached_property
@@ -213,6 +215,18 @@ class ScOptionState(ScConfigState):
         """Return the selector entity ID for the device presence sensor."""
         return compose_entity_id(
             SELECT, self._subentry.unique_id, SELECT_DEVICE_PRESENCE_SENSOR
+        )
+
+    @cached_property
+    def start_state_selector_entity_id(self) -> str:
+        """Return the selector entity ID for the device start state."""
+        return compose_entity_id(SELECT, self._subentry.unique_id, SELECT_START_STATE)
+
+    @cached_property
+    def exit_condition_sensor_selector_entity_id(self) -> str:
+        """Return the selector entity ID for the exit condition sensor."""
+        return compose_entity_id(
+            SELECT, self._subentry.unique_id, SELECT_EXIT_CONDITION_SENSOR
         )
 
     # ----------------------------------------------------------------------------
@@ -786,6 +800,16 @@ class ScOptionState(ScConfigState):
         return self.option_get_entity_number_or_abort(NUMBER_POWER_MONITOR_DURATION)
 
     # ----------------------------------------------------------------------------
+    def get_weather_provider(self) -> str | None:
+        """Get weather provider entity ID."""
+
+        entity_id = self.get_string(self.weather_provider_selector_entity_id)
+        if entity_id in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            entity_id = None
+
+        return entity_id
+
+    # ----------------------------------------------------------------------------
     def is_reduce_charge_limit_difference_between_days(self) -> bool:
         """Return True if reduce charge limit difference between days is enabled."""
 
@@ -814,12 +838,6 @@ class ScOptionState(ScConfigState):
         """Get delta allocated power."""
 
         return self.option_get_entity_number_or_abort(SENSOR_DELTA_ALLOCATED_POWER)
-
-    # ----------------------------------------------------------------------------
-    def get_max_consumed_energy_limit(self) -> float:
-        """Get maximum consumed energy limit."""
-
-        return self.option_get_entity_number_or_abort(NUMBER_MAX_CONSUMED_ENERGY_LIMIT)
 
     # ----------------------------------------------------------------------------
     def get_charger_min_workable_current(self) -> float:
@@ -868,10 +886,10 @@ class ScOptionState(ScConfigState):
 
     # ----------------------------------------------------------------------------
     # Need entity to keep state across reboots.
-    def get_self_paused_today(self) -> int:
-        """Get self-paused today."""
+    def get_self_depower_today(self) -> int:
+        """Get self-depower today."""
 
-        return self.get_integer(self.self_paused_today_entity_id)
+        return self.get_integer(self.self_depower_today_entity_id)
 
     # ----------------------------------------------------------------------------
     def is_fast_charge_mode(self) -> bool:
@@ -886,18 +904,10 @@ class ScOptionState(ScConfigState):
         return self.get_boolean_or_abort(self.poll_charger_update_switch_entity_id)
 
     # ----------------------------------------------------------------------------
-    def is_end_on_max_consumed_energy(self) -> bool:
-        """Is end on max consumed energy on?"""
+    def is_end_on_condition(self) -> bool:
+        """Is end on condition switch on?"""
 
-        return self.get_boolean_or_abort(
-            self.end_on_max_consumed_energy_switch_entity_id
-        )
-
-    # ----------------------------------------------------------------------------
-    def is_pause_on_start(self) -> bool:
-        """Is pause on start on?"""
-
-        return self.get_boolean_or_abort(self.pause_on_start_switch_entity_id)
+        return self.get_boolean_or_abort(self.end_on_condition_switch_entity_id)
 
     # ----------------------------------------------------------------------------
     def is_schedule_charge(self) -> bool:

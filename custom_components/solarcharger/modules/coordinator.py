@@ -1,4 +1,4 @@
-# ruff: noqa: TRY401, TID252
+# ruff: noqa: TRY401, TID252, PLR5501
 """Solar charger coordinator."""
 
 from datetime import datetime, time, timedelta
@@ -9,11 +9,13 @@ from typing import Any
 from propcache.api import cached_property
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import (
     CALLBACK_TYPE,
     Event,
     EventStateChangedData,
     HomeAssistant,
+    callback,
 )
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.event import async_track_time_interval
@@ -31,6 +33,7 @@ from ..const import (
     OPTION_GLOBAL_DEFAULTS_ID,
     SENSOR_LAST_CHECK,
     SENSOR_SYNC_UPDATE,
+    SENSOR_WEATHER_FORECAST,
     WEEKLY_CHARGE_ENDTIMES,
 )
 
@@ -98,6 +101,9 @@ class SolarChargerCoordinator(ScOptionState):
 
         # Net power update count
         self._net_power_update_count: int = 0
+
+        # Started tracking weather
+        self._tracking_weather: bool = False
 
     # ----------------------------------------------------------------------------
     @cached_property
@@ -452,6 +458,100 @@ class SolarChargerCoordinator(ScOptionState):
             # raise EntityExceptionError("Invalid net power sensor")
 
     # ----------------------------------------------------------------------------
+    def _update_sensor_attribute(
+        self, config_item: str, state_value: str, attributes: dict[str, Any] | None
+    ) -> None:
+        """Update attribute sensor."""
+
+        try:
+            # Coordinator has global defaults subentry
+            control = self.device_controls[self._subentry.subentry_id]
+
+            assert control.controller.charge_control.entities.sensors is not None
+            control.controller.charge_control.entities.sensors[
+                config_item
+            ].set_complete_state(state_value, attributes)
+
+        except Exception as e:
+            _LOGGER.exception(
+                "%s: Failed to update attribute sensor data: %s",
+                self.caller,
+                e,
+            )
+
+    # ----------------------------------------------------------------------------
+    async def _async_update_weather_sensor(self, entity_id: str) -> None:
+        """Update weather sensor."""
+
+        state_obj = self._hass.states.get(entity_id)
+        if not state_obj:
+            return
+
+        # The attributes has current weather condition but no daily data, so get
+        # daily data separately below.
+        attributes = dict(state_obj.attributes)
+
+        # Request weather forecast data correctly via the standard service engine
+        try:
+            # Setting blocking=True with return_response=True satisfies HA execution rules
+            response = await self._hass.services.async_call(
+                domain="weather",
+                service="get_forecasts",
+                service_data={"type": "daily"},
+                target={"entity_id": entity_id},
+                blocking=True,  # Required when returning a response
+                return_response=True,  # Tells HA to expect data payload mapping
+            )
+
+            # Safely extract and map the forecast list to attributes
+            if response and entity_id in response:
+                attributes["daily_forecast"] = response[entity_id].get("forecast", [])
+            else:
+                attributes["daily_forecast"] = []
+
+        except Exception as e:
+            _LOGGER.warning(
+                "%s: Failed get_forecasts: %s: %s", self.caller, entity_id, e
+            )
+
+        # Assign and commit the newly bundled metadata state
+        self._update_sensor_attribute(
+            SENSOR_WEATHER_FORECAST, state_obj.state, attributes
+        )
+
+    # ----------------------------------------------------------------------------
+    @callback
+    def _async_handle_weather_update(
+        self, event: Event[EventStateChangedData] | None
+    ) -> None:
+        """Handle weather update."""
+
+        entity_id = self.get_weather_provider()
+        if entity_id is not None:
+            self._hass.async_create_task(self._async_update_weather_sensor(entity_id))
+
+    # ----------------------------------------------------------------------------
+    def _check_weather_provider(self) -> None:
+        """Track weather if weather provider is defined."""
+
+        entity_id = self.get_weather_provider()
+        if entity_id is not None:
+            if not self._tracking_weather:
+                if self._tracker.track_weather_update(
+                    self._async_handle_weather_update
+                ):
+                    # Populate weather sensor with data.
+                    self._async_handle_weather_update(None)
+                    self._tracking_weather = True
+        else:
+            if self._tracking_weather:
+                self._tracker.untrack_weather_update()
+                self._update_sensor_attribute(
+                    SENSOR_WEATHER_FORECAST, STATE_UNKNOWN, None
+                )
+                self._tracking_weather = False
+
+    # ----------------------------------------------------------------------------
     # Periodic functions
     # ----------------------------------------------------------------------------
     # @callback
@@ -484,6 +584,11 @@ class SolarChargerCoordinator(ScOptionState):
                     continue
 
                 await control.controller.async_check_if_need_to_reschedule_charge()
+
+            #####################################
+            # Misc
+            #####################################
+            self._check_weather_provider()
 
         except Exception as e:
             _LOGGER.exception(
@@ -535,6 +640,9 @@ class SolarChargerCoordinator(ScOptionState):
         # Global default entities MUST be created first before running the coordinator.setup().
         # Otherwise cannot get entity config values here.
         await self._tracker.async_setup()
+
+        # Update weather sensor now because the one in periodic maintenance is delayed by 60 sec.
+        self._check_weather_provider()
 
         self._track_net_power_update()
         self._start_periodic_maintenance()

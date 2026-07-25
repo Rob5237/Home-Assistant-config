@@ -84,9 +84,12 @@ from .const import (
     CONF_SITE_NAME,
     CONF_TOKEN_EXPIRES_AT,
     DEFAULT_API_TIMEOUT,
+    DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES,
     DEFAULT_FAST_POLL_INTERVAL,
     DEFAULT_PRICING_EDITS_ENABLED,
+    DEFAULT_SCHEDULE_SYNC_ENABLED,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
     MAX_API_TIMEOUT,
     MAX_POLL_INTERVAL,
     MAX_SESSION_HISTORY_INTERVAL_MIN,
@@ -104,11 +107,14 @@ from .const import (
     HEMS_AUTH_BACKOFF_STEPS_S,
     HEMS_AUTH_MANUAL_CLEAR_COOLDOWN_S,
     OPT_API_TIMEOUT,
+    OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
     OPT_FAST_POLL_INTERVAL,
     OPT_NOMINAL_VOLTAGE,
     OPT_PRICING_EDITS_ENABLED,
+    OPT_SCHEDULE_SYNC_ENABLED,
     OPT_SLOW_POLL_INTERVAL,
     OPT_SESSION_HISTORY_INTERVAL,
+    OPT_SYSTEM_EVENT_REPAIR_ISSUES,
     PHASE_SWITCH_CONFIG_SETTING,
     SAVINGS_OPERATION_MODE_SUBTYPE,
     DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
@@ -219,6 +225,17 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 _CallbackT = TypeVar("_CallbackT", bound=Callable[..., object])
+_HEATPUMP_HEMS_AUTH_ENDPOINTS = frozenset(
+    {
+        "hems_devices",
+        "hems_support_preflight",
+        "show_livestream",
+        "heat_pump_events",
+        "iq_er_events",
+        "hems_heatpump_state",
+        "hems_energy_consumption",
+    }
+)
 
 
 def _typed_callback(func: _CallbackT) -> _CallbackT:
@@ -1199,6 +1216,9 @@ class EnphaseCoordinator(
         self._phase_timings = {}
         started = time.monotonic()
         await self.discovery_snapshot.async_restore_state()
+        if not self._heatpump_hems_polling_enabled():
+            self.inventory_runtime._mark_hems_inventory_polling_disabled()
+            self._clear_disabled_heatpump_hems_auth_state()
         self.record_setup_phase("snapshot_restore_s", started)
         await self.refresh_runner.async_start_startup_power()
 
@@ -1249,6 +1269,150 @@ class EnphaseCoordinator(
         finally:
             self._minimal_setup_refresh_active = False
             self.record_setup_phase("first_refresh_s", started)
+
+    def apply_config_entry_data(self, config: Mapping[str, Any]) -> None:
+        """Apply topology configuration when reusing a coordinator for reload."""
+
+        site_id = str(config[CONF_SITE_ID])
+        if site_id != self.site_id:
+            raise ValueError("Cannot reuse a coordinator for a different site")
+
+        raw_serials = config.get(CONF_SERIALS) or []
+        if isinstance(raw_serials, (list, tuple, set)):
+            serial_order = [
+                normalized
+                for item in raw_serials
+                if item is not None and (normalized := str(item).strip())
+            ]
+        else:
+            normalized = str(raw_serials).strip()
+            serial_order = [normalized] if normalized else []
+        self.serials = set(serial_order)
+        self._serial_order = list(dict.fromkeys(serial_order))
+        self._configured_serials = set(self.serials)
+        self.site_only = bool(config.get(CONF_SITE_ONLY, False))
+        self.include_inverters = bool(config.get(CONF_INCLUDE_INVERTERS, True))
+
+        raw_selected = config.get(CONF_SELECTED_TYPE_KEYS)
+        selected: set[str] | None = None
+        if isinstance(raw_selected, (list, tuple, set)):
+            selected = {
+                normalized_type
+                for item in raw_selected
+                if (normalized_type := normalize_type_key(item))
+            }
+        elif isinstance(raw_selected, str):
+            normalized_type = normalize_type_key(raw_selected)
+            selected = {normalized_type} if normalized_type else None
+        self._selected_type_keys = selected
+        self.site_name = config.get(CONF_SITE_NAME)
+
+        for serial in self._serial_order:
+            self._ensure_serial_tracked(serial)
+        self.always_update = self.site_only or not self.serials
+
+    def apply_auth_storage_config(self, config: Mapping[str, Any]) -> None:
+        """Apply credential-storage preferences that do not affect the session."""
+
+        self._email = config.get(CONF_EMAIL)
+        self._stored_password = config.get(CONF_PASSWORD)
+        self._remember_password = bool(config.get(CONF_REMEMBER_PASSWORD))
+
+    async def async_apply_config_entry_options(
+        self,
+        previous_options: Mapping[str, Any],
+    ) -> None:
+        """Apply non-topology config-entry options without reloading entities."""
+
+        config_entry = self.config_entry
+        if config_entry is None:
+            return
+        options = config_entry.options
+
+        timeout = helper_coerce_int(
+            options.get(OPT_API_TIMEOUT, DEFAULT_API_TIMEOUT),
+            default=DEFAULT_API_TIMEOUT,
+        )
+        self.client.set_timeout(min(MAX_API_TIMEOUT, max(MIN_API_TIMEOUT, timeout)))
+
+        _fast, slow = normalize_poll_intervals(
+            options.get(OPT_FAST_POLL_INTERVAL, DEFAULT_FAST_POLL_INTERVAL),
+            options.get(
+                OPT_SLOW_POLL_INTERVAL,
+                self._configured_slow_poll_interval,
+            ),
+        )
+        self._configured_slow_poll_interval = slow
+        current_data = self.data if isinstance(self.data, dict) else {}
+        try:
+            polling_state = self._determine_polling_state(current_data)
+        except (
+            Exception
+        ):  # noqa: BLE001 - retain the current interval on bad cache data
+            polling_state = {"target": slow}
+        self._apply_refresh_polling_interval(polling_state)
+
+        nominal = coerce_nominal_voltage(options.get(OPT_NOMINAL_VOLTAGE))
+        if nominal is None:
+            nominal = resolve_nominal_voltage_for_hass(self.hass)
+        self._nominal_v = nominal
+
+        history_interval = helper_coerce_int(
+            options.get(
+                OPT_SESSION_HISTORY_INTERVAL,
+                DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
+            ),
+            default=DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
+        )
+        self._session_history_interval_min = min(
+            MAX_SESSION_HISTORY_INTERVAL_MIN,
+            max(MIN_SESSION_HISTORY_INTERVAL_MIN, history_interval),
+        )
+        self._session_history_cache_ttl_value = max(
+            MIN_SESSION_HISTORY_CACHE_TTL,
+            self._session_history_interval_min * 60,
+        )
+        self.session_history.cache_ttl = self._session_history_cache_ttl_value
+        self._pricing_edits_enabled = bool(
+            options.get(OPT_PRICING_EDITS_ENABLED, DEFAULT_PRICING_EDITS_ENABLED)
+        )
+
+        if not bool(
+            options.get(
+                OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
+                DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES,
+            )
+        ):
+            self.diagnostics.clear_degraded_service_repair_issues()
+        if not bool(
+            options.get(
+                OPT_SYSTEM_EVENT_REPAIR_ISSUES,
+                DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
+            )
+        ):
+            self.system_events_runtime.clear_repairs()
+
+        schedule_sync_changed = bool(
+            previous_options.get(
+                OPT_SCHEDULE_SYNC_ENABLED,
+                DEFAULT_SCHEDULE_SYNC_ENABLED,
+            )
+        ) != bool(
+            options.get(
+                OPT_SCHEDULE_SYNC_ENABLED,
+                DEFAULT_SCHEDULE_SYNC_ENABLED,
+            )
+        )
+        if schedule_sync_changed:
+            await self.schedule_sync.async_stop()
+            await self.schedule_sync.async_start()
+
+        published = {
+            serial: {**payload, "nominal_v": nominal}
+            for serial, payload in current_data.items()
+            if isinstance(payload, dict)
+        }
+        self.async_set_updated_data(published)
 
     async def async_cancel_startup_power(self) -> None:
         """Cancel and await the startup-power task after failed setup."""
@@ -2135,6 +2299,80 @@ class EnphaseCoordinator(
                     "Timed out waiting for %s Enphase runtime task(s) to stop",
                     len(pending),
                 )
+
+    async def async_quiesce_for_reload(self) -> bool:
+        """Stop entry background work while retaining cached runtime state."""
+
+        current_task = asyncio.current_task()
+        cancelled_tasks: set[asyncio.Future[Any]] = set()
+        quiesced = True
+
+        def _cancel(task: object) -> None:
+            if (
+                isinstance(task, asyncio.Future)
+                and task is not current_task
+                and not task.done()
+            ):
+                task.cancel()
+                cancelled_tasks.add(task)
+
+        reload_task_attrs = {
+            attr_name: getattr(self, attr_name, None)
+            for attr_name in (
+                "_warmup_task",
+                "_startup_power_task",
+                "_grid_profile_metadata_task",
+            )
+        }
+        for task in reload_task_attrs.values():
+            _cancel(task)
+
+        entry_background_tasks = getattr(self, "_entry_background_tasks", None)
+        for task in tuple(entry_background_tasks or ()):
+            _cancel(task)
+
+        session_manager = getattr(self, "session_history", None)
+        enrichment_tasks = getattr(session_manager, "_enrichment_tasks", None)
+        for task in tuple(enrichment_tasks or ()):
+            _cancel(task)
+
+        pending: set[asyncio.Future[Any]] = set()
+        if cancelled_tasks:
+            done, pending = await asyncio.wait(
+                cancelled_tasks,
+                timeout=RUNTIME_CLEANUP_TIMEOUT_S,
+            )
+            if done:
+                await asyncio.gather(*done, return_exceptions=True)
+            if pending:
+                quiesced = False
+                _LOGGER.warning(
+                    "Timed out waiting for %s Enphase reload task(s) to stop",
+                    len(pending),
+                )
+
+        for attr_name, task in reload_task_attrs.items():
+            if task not in pending and getattr(self, attr_name, None) is task:
+                setattr(self, attr_name, None)
+        if entry_background_tasks is not None:
+            entry_background_tasks.difference_update(
+                task for task in tuple(entry_background_tasks) if task not in pending
+            )
+        if enrichment_tasks is not None:
+            enrichment_tasks.difference_update(
+                task for task in tuple(enrichment_tasks) if task not in pending
+            )
+
+        try:
+            async with asyncio.timeout(RUNTIME_CLEANUP_TIMEOUT_S):
+                async with self._refresh_lock:
+                    pass
+        except TimeoutError:
+            quiesced = False
+            _LOGGER.warning(
+                "Timed out waiting for the active Enphase refresh to stop before reload"
+            )
+        return quiesced
 
     def track_entry_background_task(self, task: object) -> None:
         """Track config-entry background work for pre-client-close cancellation."""
@@ -3740,7 +3978,7 @@ class EnphaseCoordinator(
                 async with self._grid_profile_metadata_refresh_lock:
                     with request_metrics_scope("grid_profile_metadata"):
                         with enlighten_optional_read_scope():
-                            await refresh(force=force, load_profiles=False)
+                            await refresh(force=force, load_profiles=True)
         except TimeoutError:
             _LOGGER.debug(
                 "Stopped optional grid-profile metadata refresh for site %s after %.1f seconds",
@@ -3778,6 +4016,12 @@ class EnphaseCoordinator(
         task.add_done_callback(self._clear_grid_profile_metadata_task)
 
     async def _async_update_data(self) -> dict[str, dict[str, object]]:
+        async with self._refresh_lock:
+            return await self._async_update_data_locked()
+
+    async def _async_update_data_locked(self) -> dict[str, dict[str, object]]:
+        """Run one serialized coordinator refresh."""
+
         with request_metrics_scope("core_refresh") as request_metrics:
             context = self._start_refresh_pipeline()
             context.request_metrics = request_metrics
@@ -5618,8 +5862,8 @@ class EnphaseCoordinator(
         """Return True when HEMS auth failures should be surfaced to the user."""
 
         selected = getattr(self, "_selected_type_keys", None)
-        if isinstance(selected, (set, list, tuple)) and selected:
-            return any(normalize_type_key(key) == "heatpump" for key in selected)
+        if selected is not None:
+            return self._heatpump_hems_polling_enabled()
         inventory_view = getattr(self, "inventory_view", None)
         has_type = getattr(inventory_view, "has_type", None)
         if callable(has_type):
@@ -5638,6 +5882,23 @@ class EnphaseCoordinator(
             except Exception:  # noqa: BLE001 - defensive diagnostics guard
                 return False
         return False
+
+    def _heatpump_hems_polling_enabled(self) -> bool:
+        """Return whether configured device groups require Heat Pump HEMS polling."""
+
+        selected = getattr(self, "_selected_type_keys", None)
+        if selected is None:
+            return True
+        return any(normalize_type_key(key) == "heatpump" for key in selected)
+
+    def _clear_disabled_heatpump_hems_auth_state(self) -> None:
+        """Clear auth state created only by disabled Heat Pump HEMS endpoints."""
+
+        if self._heatpump_hems_polling_enabled():
+            return
+        if self._hems_auth_last_endpoint not in _HEATPUMP_HEMS_AUTH_ENDPOINTS:
+            return
+        self._clear_hems_auth_circuit(persist=True, reset_failure_count=True)
 
     def _note_hems_auth_failure(
         self,
@@ -5668,12 +5929,13 @@ class EnphaseCoordinator(
         self._hems_auth_backoff_ends_utc = now + timedelta(seconds=delay)
         self._last_error = "hems_auth_degraded"
         self._persist_hems_auth_circuit_state()
+        repair_context_available = self._hems_auth_repair_context_available()
         diagnostics = getattr(self, "diagnostics", None)
         if diagnostics is not None:
             repairs_enabled = bool(
                 getattr(diagnostics, "degraded_service_repair_issues_enabled", True)
             )
-            if self._hems_auth_repair_context_available() or not repairs_enabled:
+            if repair_context_available or not repairs_enabled:
                 diagnostics.create_hems_auth_degraded_issue()
             else:
                 clear_issue = getattr(
@@ -5681,7 +5943,10 @@ class EnphaseCoordinator(
                 )
                 if callable(clear_issue):
                     clear_issue()
-        _LOGGER.warning(
+        log_hems_auth_failure = (
+            _LOGGER.warning if repair_context_available else _LOGGER.debug
+        )
+        log_hems_auth_failure(
             "Pausing optional HEMS polling for site %s after HEMS auth failure: endpoint=%s status=%s reason=%s failure_count=%s retry_at=%s",
             redact_site_id(self.site_id),
             self._hems_auth_last_endpoint,

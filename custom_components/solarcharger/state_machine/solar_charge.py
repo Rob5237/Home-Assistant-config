@@ -7,7 +7,6 @@ from decimal import Decimal
 import inspect
 import logging
 import threading
-from typing import Any
 
 from propcache.api import cached_property
 
@@ -51,12 +50,13 @@ from ..const import (
     SENSOR_NET_ALLOCATED_POWER_SAMPLE_SIZE,
     SENSOR_PAUSE_COUNT,
     SENSOR_RUN_STATE,
-    SENSOR_SELF_PAUSED_TODAY,
+    SENSOR_SELF_DEPOWER_TODAY,
     SENSOR_SHARE_ALLOCATION,
     SENSOR_SMA_NET_ALLOCATED_POWER,
     ChargeStatus,
     MedianDataState,
     RunState,
+    StartState,
 )
 from ..helpers.utils import log_is_event_loop
 from ..models.model_charge_control import ControlEntities
@@ -117,6 +117,7 @@ class SolarCharge(ScOptionState):
 
         # self.update_timestamp: float = 0  # utcnow().timestamp()   # UTC time
         # Remember last current for energy calculation and for devices that cannot set current.
+        # It is only set in async_set_charge_current().
         self.last_charge_current: float = 0.0
         # Must reset time before setting current to avoid possible wrong energy calculation after pause period.
         # Specifically for devices with on/off switch and max current only, ie. cannot set 0 current.
@@ -131,6 +132,8 @@ class SolarCharge(ScOptionState):
         self.net_allocations: MedianData | None = None
 
         self.stats = ChargeStats()
+
+        # Global flag to indicate if max charge current has been started for this session.
         self.started_max_charge: int = 0
 
         # Use semaphore to ensure that only one thread can update update_ha_task_count and only one task running.
@@ -142,7 +145,7 @@ class SolarCharge(ScOptionState):
         # Entity backed by variable for efficiency. Ok if re-direction is not required.
         self._share_allocation: int = 0
         self._consumed_power: float = 0.0
-        self._self_paused: bool = False
+        self._self_depower: bool = False
 
         # Initialise state machine self._state variable.
         self.set_machine_state(StateStart())
@@ -178,9 +181,9 @@ class SolarCharge(ScOptionState):
         return self._machine_state
 
     @property
-    def is_self_paused(self) -> bool:
-        """Return True if the charger is self-paused."""
-        return self._self_paused
+    def is_self_depower(self) -> bool:
+        """Return True if device reduced power consumption by itself."""
+        return self._self_depower
 
     # ----------------------------------------------------------------------------
     # State machine methods
@@ -211,10 +214,10 @@ class SolarCharge(ScOptionState):
         self.entities.sensors[SENSOR_RUN_STATE].set_state(state.value)
 
     # ----------------------------------------------------------------------------
-    def set_self_paused(self, self_paused: bool) -> None:
-        """Set the self-paused state of the object."""
+    def set_self_depower(self, self_depower: bool) -> None:
+        """Set the self-depower state of the object."""
 
-        self._self_paused = self_paused
+        self._self_depower = self_depower
 
     # ----------------------------------------------------------------------------
     # Global utils
@@ -341,10 +344,10 @@ class SolarCharge(ScOptionState):
         self.update_sensor(SENSOR_CONSUMED_ENERGY_TODAY, val)
 
     # ----------------------------------------------------------------------------
-    def set_self_paused_today(self, val: int) -> None:
-        """Set self-paused today."""
+    def set_self_depower_today(self, val: int) -> None:
+        """Set self-depower today."""
 
-        self.update_sensor(SENSOR_SELF_PAUSED_TODAY, val)
+        self.update_sensor(SENSOR_SELF_DEPOWER_TODAY, val)
 
     # ----------------------------------------------------------------------------
     def set_pause_count(self, val: int) -> None:
@@ -481,6 +484,20 @@ class SolarCharge(ScOptionState):
 
         await self._async_wakeup_device(chargeable)
         await self.async_update_ha(chargeable)
+
+    # ----------------------------------------------------------------------------
+    def get_start_state(self) -> StartState:
+        """Get preferred start state from config."""
+
+        state_str = self.get_string(self.start_state_selector_entity_id)
+        start_state = StartState(state_str)
+        if start_state == StartState.AUTO:
+            if self.is_daytime():
+                start_state = StartState.CHARGE
+            else:
+                start_state = StartState.PAUSE
+
+        return start_state
 
     # ----------------------------------------------------------------------------
     async def async_turn_charger_switch(self, charger: Charger, turn_on: bool) -> None:
@@ -631,7 +648,7 @@ class SolarCharge(ScOptionState):
             else:
                 new_charge_current = new_current
 
-            # Can lose a bit for energy calculation if device set current=0 by itself, so save new current.
+            # Save new current for on/off resistive load current change detection and energy calculation.
             self.last_charge_current = new_charge_current
 
             #####################################
@@ -648,7 +665,8 @@ class SolarCharge(ScOptionState):
             #####################################
             # Set energy consumed since last current update
             #####################################
-            old_consumed_power = self.get_consumed_power()
+            effective_voltage = self.get_charger_effective_voltage()
+            old_consumed_power = old_charge_current * effective_voltage
             if old_consumed_power > 0 and old_charge_current_duration != timedelta.min:
                 # Energy in kWh = Power in kW * time in hours
                 consumed_energy_last_period = (old_consumed_power / 1000) * (
@@ -661,7 +679,6 @@ class SolarCharge(ScOptionState):
             #####################################
             # Set consumed power
             #####################################
-            effective_voltage = self.get_charger_effective_voltage()
             self.set_consumed_power(new_charge_current * effective_voltage)
 
             # Do not hold up callback
@@ -687,7 +704,8 @@ class SolarCharge(ScOptionState):
 
         # Must reset time here to avoid possible wrong energy calculation if pausing.
         self.charge_current_updatetime = datetime.min
-        self.set_self_paused(False)
+        self.started_max_charge = 0
+        self.set_self_depower(False)
 
     # ----------------------------------------------------------------------------
     async def async_set_charge_limit(
@@ -699,21 +717,47 @@ class SolarCharge(ScOptionState):
         await self.async_option_sleep(NUMBER_WAIT_CHARGEE_LIMIT_CHANGE)
 
     # ----------------------------------------------------------------------------
+    # async def async_set_charge_limit_if_required(
+    #     self, chargeable: Chargeable, goal: ScheduleData
+    # ) -> bool:
+    #     """Set new charge limit if changed, otherwise use existing charge limit."""
+
+    #     if charge_limit_changed := (goal.old_charge_limit != goal.new_charge_limit):
+    #         _LOGGER.warning(
+    #             "%s: Changing charge limit from %.1f %% to %.1f %% for %s",
+    #             self.caller,
+    #             goal.old_charge_limit,
+    #             goal.new_charge_limit,
+    #             # now_time.strftime("%A"),
+    #             goal.weekly_schedule[goal.day_index].charge_day,
+    #         )
+    #         await self.async_set_charge_limit(chargeable, goal.new_charge_limit)
+
+    #     return charge_limit_changed
+
+    # ----------------------------------------------------------------------------
     async def async_set_charge_limit_if_required(
         self, chargeable: Chargeable, goal: ScheduleData
     ) -> bool:
         """Set new charge limit if changed, otherwise use existing charge limit."""
 
-        if charge_limit_changed := (goal.old_charge_limit != goal.new_charge_limit):
+        final_charge_limit = goal.new_charge_limit
+        if goal.next_charge_limit is not None:
+            final_charge_limit = goal.next_charge_limit
+
+        if charge_limit_changed := (goal.old_charge_limit != final_charge_limit):
             _LOGGER.warning(
-                "%s: Changing charge limit from %.1f %% to %.1f %% for %s",
+                "%s: Changing charge limit from %.0f%% to %.0f%% (new=%.0f, next=%s) for %s",
                 self.caller,
                 goal.old_charge_limit,
+                final_charge_limit,
                 goal.new_charge_limit,
+                # next_charge_limit can be None causing %.0f format exception, so use %s.
+                goal.next_charge_limit,
                 # now_time.strftime("%A"),
                 goal.weekly_schedule[goal.day_index].charge_day,
             )
-            await self.async_set_charge_limit(chargeable, goal.new_charge_limit)
+            await self.async_set_charge_limit(chargeable, final_charge_limit)
 
         return charge_limit_changed
 
@@ -960,10 +1004,7 @@ class SolarCharge(ScOptionState):
         continue_charge = (
             context.connected
             and context.below_charge_limit
-            and (
-                not context.goal.end_on_max_consumed_energy
-                or context.goal.below_max_consumed_energy
-            )
+            and (not (context.goal.end_on_condition and context.goal.exit_condition))
             and (context.stats.loop_success_count == 0 or context.charging)
             and (
                 not context.goal.sun_trigger  # Sun trigger off, continue.
@@ -998,10 +1039,7 @@ class SolarCharge(ScOptionState):
 
         continue_pause = (
             context.connected
-            and (
-                not context.goal.end_on_max_consumed_energy
-                or context.goal.below_max_consumed_energy
-            )
+            and (not (context.goal.end_on_condition and context.goal.exit_condition))
             and (
                 not context.goal.sun_trigger
                 or context.goal.sun_above_start_end_elevations
@@ -1055,8 +1093,10 @@ class SolarCharge(ScOptionState):
             msg=state.value,
         )
 
-        if self.running_goal.max_charge_now and self.started_max_charge == 0:
+        if self.running_goal.has_charge_endtime and self.running_goal.max_charge_now:
             self.started_max_charge = 1
+        elif not self.running_goal.has_charge_endtime:
+            self.started_max_charge = 0
 
         # Only set charge limit when in charging state because it can turn on the charger.
         # Once set, the latest and correct state can be requested without calling _async_update_ha() first.

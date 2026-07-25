@@ -38,6 +38,7 @@ from ..const import (
     DOMAIN_TESLEMETRY,
     DOMAIN_TESSIE,
     ERROR_DEVICE_ALREADY_ADDED,
+    ERROR_MISSING_DEVICE_NAME,
     ERROR_SELECT_CHARGER,
     ERROR_SUBENTRY_CREATED,
     ESPHOME_TESLA_BLE_MANUFACTURER,
@@ -236,8 +237,50 @@ class AddChargerSubEntryFlowHandler(ConfigSubentryFlow):
                     raise ValueError(
                         f"{thirdparty_charger.name}: Charger config entry not found"
                     )
+
+                #######################################################
+                # thirdparty_charger.name is set by official Tesla mobile app.  Need reboot
+                # HA for name change to take effect.
+                # thirdparty_charger.name_by_user is set in HA.  Original value=None.  Can be
+                # set to any string including blank in HA.
+                #
+                # If thirdparty_charger.name_by_user is the first choice, user will also need
+                # to apply the name change to the device's entity IDs in order for SC to work.
+                # This is an issue for the following reasons,
+                #
+                # - User might just want to change the device name and not the names for the
+                # device's entities for a number of reasons.
+                # - The device entities might have historical data, and there is risk involved
+                # in changing these orphaned entities.
+                # - The device entities might be used in automation and scripts, and a pain to
+                # change them all.
+                # - The device name is also used to create SC entities to form part of the SC
+                # entity name, which means user will need to delete and re-add SC when they
+                # changed the device name.
+                # - Other custom integrations might not allow renaming of their entities even
+                # though their device name can be renamed, eg. OCPP. (Tested "Tesla Custom"
+                # integration do allow renaming of entities.)
+                # - The name once set in the official Tesla mobile app cannot be "unnamed".
+                # The name can be changed in the app, but cannot be deleted to put it back to
+                # its original empty state.
+                #
+                # HA device display name is `name` or `name_by_user`.
+                # Prefer the integration's default `name` over `name_by_user`
+                # Fall back to `name_by_user` only if `name` is empty.
+                # thirdparty_charger_name = (
+                #     thirdparty_charger.name or thirdparty_charger.name_by_user
+                # )
+                #
+                # To avoid complications in case of user setting different name in official
+                # Tesla app sometime in the future, ensure SC just get name from single source.
+                # This will ensure direct cause and effect, and avoid confusion in the future.
+                #######################################################
+                thirdparty_charger_name = thirdparty_charger.name
+                if not thirdparty_charger_name:
+                    return self.async_abort(reason=ERROR_MISSING_DEVICE_NAME)
+
                 thirdparty_display_name = (
-                    f"{thirdparty_config_entry.domain} {thirdparty_charger.name}"
+                    f"{thirdparty_config_entry.domain} {thirdparty_charger_name}"
                 )
                 thirdparty_config_name = slugify(f"{thirdparty_display_name}")
                 thirdparty_charger_subdomain = compose_subdomain(
@@ -246,9 +289,11 @@ class AddChargerSubEntryFlowHandler(ConfigSubentryFlow):
                     thirdparty_charger.model,
                 )
 
-                _LOGGER.info(
-                    "Creating subentry %d: charger='%s', unique_id='%s', sub-domain='%s'",
+                _LOGGER.warning(
+                    "Create subentry %d: charger='%s' (name_by_user='%s', name='%s'), unique_id='%s', sub-domain='%s'",
                     len(config_entry.subentries) + 1,
+                    thirdparty_charger_name,
+                    thirdparty_charger.name_by_user,
                     thirdparty_charger.name,
                     thirdparty_config_name,
                     thirdparty_charger_subdomain,
@@ -262,12 +307,12 @@ class AddChargerSubEntryFlowHandler(ConfigSubentryFlow):
                 # Create new subentry
                 if (
                     not thirdparty_config_entry.domain
-                    or not thirdparty_charger.name
+                    or not thirdparty_charger_name
                     or not thirdparty_charger_id
                 ):
                     raise ValueError(
                         f"Charger config entry domain, name, or ID is missing: "
-                        f"{thirdparty_config_entry.domain=}, {thirdparty_charger.name=}, {thirdparty_charger_id=}"
+                        f"{thirdparty_config_entry.domain=}, {thirdparty_charger_name=}, {thirdparty_charger_id=}"
                     )
 
                 self.hass.config_entries.async_add_subentry(
@@ -280,7 +325,7 @@ class AddChargerSubEntryFlowHandler(ConfigSubentryFlow):
                             {
                                 SUBENTRY_CHARGER_DEVICE_DOMAIN: thirdparty_config_entry.domain,  # Integration domain
                                 SUBENTRY_CHARGER_DEVICE_SUBDOMAIN: thirdparty_charger_subdomain,  # Integration sub-domain
-                                SUBENTRY_CHARGER_DEVICE_NAME: thirdparty_charger.name,  # Integration-specific device name
+                                SUBENTRY_CHARGER_DEVICE_NAME: thirdparty_charger_name,  # Integration-specific device name
                                 SUBENTRY_CHARGER_DEVICE_ID: thirdparty_charger_id,  # Integration-specific device ID
                             }
                         ),
@@ -290,13 +335,13 @@ class AddChargerSubEntryFlowHandler(ConfigSubentryFlow):
                 self.setup_options(
                     config_entry,
                     thirdparty_config_name,
-                    slugify(thirdparty_charger.name),
+                    slugify(thirdparty_charger_name),
                 )
 
                 _LOGGER.info(
                     "Created subentry %d: charger='%s', unique_id='%s', sub-domain='%s'",
                     len(config_entry.subentries),
-                    thirdparty_charger.name,
+                    thirdparty_charger_name,
                     thirdparty_config_name,
                     thirdparty_charger_subdomain,
                 )

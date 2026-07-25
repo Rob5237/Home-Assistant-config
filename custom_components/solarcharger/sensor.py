@@ -5,14 +5,14 @@ from decimal import Decimal
 import logging
 from typing import Any
 
-from homeassistant import config_entries, core
+from homeassistant import core
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigSubentry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
@@ -48,10 +48,11 @@ from .const import (
     SENSOR_NET_ALLOCATED_POWER_SAMPLE_SIZE,
     SENSOR_PAUSE_COUNT,
     SENSOR_RUN_STATE,
-    SENSOR_SELF_PAUSED_TODAY,
+    SENSOR_SELF_DEPOWER_TODAY,
     SENSOR_SHARE_ALLOCATION,
     SENSOR_SMA_NET_ALLOCATED_POWER,
     SENSOR_SYNC_UPDATE,
+    SENSOR_WEATHER_FORECAST,
     MedianDataState,
     RunState,
 )
@@ -72,6 +73,7 @@ class SolarChargerSensorEntity(SolarChargerEntity, SensorEntity, RestoreEntity):
         self,
         config_item: str,
         subentry: ConfigSubentry,
+        config_entry: ConfigEntry,
         entity_type: SolarChargerEntityType,
         desc: SensorEntityDescription,
         starting_state: StateType | date | datetime | Decimal,
@@ -81,11 +83,20 @@ class SolarChargerSensorEntity(SolarChargerEntity, SensorEntity, RestoreEntity):
 
         SolarChargerEntity.__init__(self, config_item, subentry, entity_type)
 
+        self._config_entry = config_entry
         self.set_entity_id(SENSOR, config_item)
         self.set_entity_unique_id(SENSOR, config_item)
         self.entity_description = desc
         self._starting_state = starting_state
         self._is_restore_state = is_restore_state
+
+        self._extra_attributes: dict[str, Any] | None = None
+
+    # ----------------------------------------------------------------------------
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return sensor extra attributes."""
+        return self._extra_attributes
 
     # ----------------------------------------------------------------------------
     def set_state(self, new_state: StateType | date | datetime | Decimal):
@@ -95,10 +106,31 @@ class SolarChargerSensorEntity(SolarChargerEntity, SensorEntity, RestoreEntity):
         self.update_ha_state()
 
     # ----------------------------------------------------------------------------
+    def set_complete_state(
+        self,
+        new_state: StateType | date | datetime | Decimal,
+        extra_attributes: dict[str, Any] | None,
+    ) -> None:
+        """Set all values for state."""
+
+        self._attr_native_value = new_state
+        self._extra_attributes = extra_attributes
+        self.update_ha_state()
+
+    # ----------------------------------------------------------------------------
     def get_state(self) -> StateType | date | datetime | Decimal:
         """Get sensor state."""
 
         return self._attr_native_value
+
+    # ----------------------------------------------------------------------------
+    def _set_starting_state(
+        self, starting_state: StateType | date | datetime | Decimal
+    ):
+        """Set the starting state for the sensor."""
+
+        if starting_state is not None:
+            self.set_state(starting_state)
 
     # ----------------------------------------------------------------------------
     # See https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-event-setup/
@@ -125,11 +157,11 @@ class SolarChargerSensorEntity(SolarChargerEntity, SensorEntity, RestoreEntity):
                         self.entity_id,
                         self._starting_state,
                     )
-                    self.set_state(self._starting_state)
+                    self._set_starting_state(self._starting_state)
             else:
-                self.set_state(self._starting_state)
+                self._set_starting_state(self._starting_state)
         else:
-            self.set_state(self._starting_state)
+            self._set_starting_state(self._starting_state)
 
 
 # ----------------------------------------------------------------------------
@@ -141,6 +173,7 @@ class SolarChargerSensorStateEntity(SolarChargerSensorEntity):
         self,
         config_item: str,
         subentry: ConfigSubentry,
+        config_entry: ConfigEntry,
         entity_type: SolarChargerEntityType,
         desc: SensorEntityDescription,
         starting_state: StateType | date | datetime | Decimal,
@@ -149,7 +182,13 @@ class SolarChargerSensorStateEntity(SolarChargerSensorEntity):
         """Initialise sensor."""
 
         super().__init__(
-            config_item, subentry, entity_type, desc, starting_state, is_restore_state
+            config_item,
+            subentry,
+            config_entry,
+            entity_type,
+            desc,
+            starting_state,
+            is_restore_state,
         )
 
 
@@ -162,6 +201,7 @@ class SolarChargerSensorResetAtMidnightEntity(SolarChargerSensorEntity):
         self,
         config_item: str,
         subentry: ConfigSubentry,
+        config_entry: ConfigEntry,
         entity_type: SolarChargerEntityType,
         desc: SensorEntityDescription,
         starting_state: StateType | date | datetime | Decimal,
@@ -170,7 +210,13 @@ class SolarChargerSensorResetAtMidnightEntity(SolarChargerSensorEntity):
         """Initialise sensor."""
 
         super().__init__(
-            config_item, subentry, entity_type, desc, starting_state, is_restore_state
+            config_item,
+            subentry,
+            config_entry,
+            entity_type,
+            desc,
+            starting_state,
+            is_restore_state,
         )
 
     # ----------------------------------------------------------------------------
@@ -193,7 +239,123 @@ class SolarChargerSensorResetAtMidnightEntity(SolarChargerSensorEntity):
         _LOGGER.debug(
             "Resetting %s to %s at %s.", self.entity_id, self._starting_state, now_time
         )
-        self.set_state(self._starting_state)
+        self._set_starting_state(self._starting_state)
+
+
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# from homeassistant.core import Event, EventStateChangedData, callback
+# from homeassistant.helpers.event import async_track_state_change_event
+
+# class SolarChargerSensorAttributeEntity(SolarChargerSensorEntity):
+#     """Solar Charger weather sensor class."""
+
+#     def __init__(
+#         self,
+#         config_item: str,
+#         subentry: ConfigSubentry,
+#         config_entry: ConfigEntry,
+#         entity_type: SolarChargerEntityType,
+#         desc: SensorEntityDescription,
+#         starting_state: StateType | date | datetime | Decimal,
+#         is_restore_state: bool,
+#     ) -> None:
+#         """Initialise sensor."""
+
+#         super().__init__(
+#             config_item,
+#             subentry,
+#             config_entry,
+#             entity_type,
+#             desc,
+#             starting_state,
+#             is_restore_state,
+#         )
+
+#         # Internal state tracking variables
+#         # self._weather_provider_entity = self._config_entry.data.get(
+#         #     SELECT_WEATHER_PROVIDER
+#         # )
+#         self._state_value: str | None = None
+#         self._extra_attributes: dict[str, Any] = {}
+
+#     # ----------------------------------------------------------------------------
+#     @property
+#     def native_value(self) -> str | None:
+#         """Return the main state value (e.g., sunny, rainy)."""
+#         return self._state_value
+
+#     @property
+#     def extra_state_attributes(self) -> dict[str, Any]:
+#         """Return base data mixed with the recovered daily forecast list."""
+#         return self._extra_attributes
+
+#     # ----------------------------------------------------------------------------
+#     def set_complete_state(
+#         self, state_value: str | None, extra_attributes: dict[str, Any]
+#     ) -> None:
+#         """Set all values for state."""
+
+#         self._state_value = state_value
+#         self._extra_attributes = extra_attributes
+#         self.update_ha_state()
+
+#     # # ----------------------------------------------------------------------------
+#     # async def async_added_to_hass(self) -> None:
+#     #     """Handle entity pipeline subscriptions."""
+
+#     #     await super().async_added_to_hass()
+
+#     #     async def _async_update_sensor_data(entity_id: str) -> None:
+#     #         state_obj = self.hass.states.get(entity_id)
+#     #         if not state_obj:
+#     #             return
+
+#     #         self._state_value = state_obj.state
+#     #         attributes = dict(state_obj.attributes)
+
+#     #         # Request weather forecast data correctly via the standard service engine
+#     #         try:
+#     #             # Setting blocking=True with return_response=True satisfies HA execution rules
+#     #             response = await self.hass.services.async_call(
+#     #                 domain="weather",
+#     #                 service="get_forecasts",
+#     #                 service_data={"type": "daily"},
+#     #                 target={"entity_id": entity_id},
+#     #                 blocking=True,  # Required when returning a response
+#     #                 return_response=True,  # Tells HA to expect data payload mapping
+#     #             )
+
+#     #             # Safely extract and map the forecast list to attributes
+#     #             if response and entity_id in response:
+#     #                 attributes["forecast"] = response[entity_id].get("forecast", [])
+#     #             else:
+#     #                 attributes["forecast"] = []
+
+#     #         except Exception as err:
+#     #             _LOGGER.warning(
+#     #                 "Could not call get_forecasts action for %s: %s", entity_id, err
+#     #             )
+
+#     #         # Assign and commit the newly bundled metadata state
+#     #         self._extra_attributes = attributes
+#     #         self.async_write_ha_state()
+
+#     #     # Run immediately on component launch
+#     #     await _async_update_sensor_data(self._weather_provider_entity)
+
+#     #     # Monitor state triggers for cloud configuration refreshes
+#     #     @callback
+#     #     def _async_on_weather_change(event: Event[EventStateChangedData]) -> None:
+#     #         self.hass.async_create_task(
+#     #             _async_update_sensor_data(self._weather_provider_entity)
+#     #         )
+
+#     #     self.async_on_remove(
+#     #         async_track_state_change_event(
+#     #             self.hass, [self._weather_provider_entity], _async_on_weather_change
+#     #         )
+#     #     )
 
 
 # ----------------------------------------------------------------------------
@@ -209,6 +371,7 @@ class SolarChargerSensorLastCheck(SolarChargerSensorEntity):
         self,
         config_item: str,
         subentry: ConfigSubentry,
+        config_entry: ConfigEntry,
         entity_type: SolarChargerEntityType,
         desc: SensorEntityDescription,
         starting_state: StateType | date | datetime | Decimal,
@@ -217,7 +380,13 @@ class SolarChargerSensorLastCheck(SolarChargerSensorEntity):
         """Initialise sensor."""
 
         super().__init__(
-            config_item, subentry, entity_type, desc, starting_state, is_restore_state
+            config_item,
+            subentry,
+            config_entry,
+            entity_type,
+            desc,
+            starting_state,
+            is_restore_state,
         )
 
 
@@ -390,6 +559,16 @@ CONFIG_SENSOR_LIST: tuple[
         RESTORE_ON_START_FALSE,
     ),
     (
+        SENSOR_WEATHER_FORECAST,
+        SolarChargerSensorStateEntity,
+        SolarChargerEntityType.TYPE_GLOBAL,
+        SensorEntityDescription(
+            key=SENSOR_WEATHER_FORECAST,
+        ),
+        STATE_UNKNOWN,
+        RESTORE_ON_START_FALSE,
+    ),
+    (
         SENSOR_LAST_CHECK,
         SolarChargerSensorLastCheck,
         SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBALHIDDEN,
@@ -428,11 +607,11 @@ CONFIG_SENSOR_LIST: tuple[
         RESTORE_ON_START_FALSE,
     ),
     (
-        SENSOR_SELF_PAUSED_TODAY,
+        SENSOR_SELF_DEPOWER_TODAY,
         SolarChargerSensorResetAtMidnightEntity,
         SolarChargerEntityType.TYPE_LOCAL,
         SensorEntityDescription(
-            key=SENSOR_SELF_PAUSED_TODAY,
+            key=SENSOR_SELF_DEPOWER_TODAY,
             state_class=SensorStateClass.TOTAL,
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
@@ -486,7 +665,7 @@ CONFIG_SENSOR_LIST: tuple[
 # ----------------------------------------------------------------------------
 async def async_setup_entry(
     hass: core.HomeAssistant,
-    config_entry: config_entries.ConfigEntry,
+    config_entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up sensors based on config entry."""
@@ -511,6 +690,7 @@ async def async_setup_entry(
                 sensors[config_item] = cls(
                     config_item,
                     subentry,
+                    config_entry,
                     entity_type,
                     entity_description,
                     starting_state,
