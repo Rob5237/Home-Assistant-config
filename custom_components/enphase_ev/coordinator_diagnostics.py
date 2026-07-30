@@ -62,8 +62,12 @@ class CoordinatorDiagnostics:
         if not self.degraded_service_repair_issues_enabled:
             self.clear_degraded_service_repair_issues()
 
-    def _delete_issue(self, issue_id: str) -> None:
+    def _delete_issue(self, issue_id: str, *, preserve_ignored: bool = False) -> None:
         coord = self.coordinator
+        if preserve_ignored:
+            issue = ir.async_get(coord.hass).async_get_issue(DOMAIN, issue_id)
+            if issue is not None and issue.dismissed_version is not None:
+                return
         ir.async_delete_issue(coord.hass, DOMAIN, issue_id)
 
     def _entry_issue_suffix(self) -> str | None:
@@ -84,17 +88,55 @@ class CoordinatorDiagnostics:
             return issue_id
         return f"{issue_id}_{suffix}"
 
-    def _delete_reported_issue(self, issue_id: str) -> None:
+    def _delete_reported_issue(
+        self, issue_id: str, *, preserve_ignored: bool = False
+    ) -> None:
         registry_issue_id = self._repair_issue_id(issue_id)
-        self._delete_issue(registry_issue_id)
+        self._delete_issue(
+            registry_issue_id,
+            preserve_ignored=preserve_ignored,
+        )
         if registry_issue_id != issue_id:
-            self._delete_issue(issue_id)
+            self._delete_issue(issue_id, preserve_ignored=preserve_ignored)
+
+    def _reported_issue_is_active(self, issue_id: str) -> bool:
+        registry_issue_id = self._repair_issue_id(issue_id)
+        issue_registry = ir.async_get(self.coordinator.hass)
+        issue = issue_registry.async_get_issue(DOMAIN, registry_issue_id)
+        if issue is not None and issue.active:
+            return True
+        if registry_issue_id == issue_id:
+            return False
+        legacy_issue = issue_registry.async_get_issue(DOMAIN, issue_id)
+        return legacy_issue is not None and legacy_issue.active
 
     def clear_legacy_degraded_service_repair_issues(self) -> None:
         """Clear pre-scoped degraded-service repair issues after upgrade."""
 
         for issue_id in _DEGRADED_SERVICE_REPAIR_ISSUE_IDS:
             self._delete_issue(issue_id)
+
+    @staticmethod
+    def _repair_issue_metrics(
+        issue_id: str, metrics: dict[str, object]
+    ) -> dict[str, object]:
+        """Return diagnostic context relevant to a specific repair issue."""
+
+        if issue_id == ISSUE_HEMS_AUTH_DEGRADED:
+            return metrics
+        filtered = {
+            key: value
+            for key, value in metrics.items()
+            if not key.startswith("hems_auth_")
+        }
+        if filtered.get("last_error") == "hems_auth_degraded":
+            filtered.pop("last_error")
+        degraded_services = filtered.get("degraded_services")
+        if isinstance(degraded_services, list):
+            filtered["degraded_services"] = [
+                service for service in degraded_services if service != "hems_auth"
+            ]
+        return filtered
 
     def _create_site_metrics_issue(
         self,
@@ -105,7 +147,8 @@ class CoordinatorDiagnostics:
     ) -> None:
         coord = self.coordinator
         registry_issue_id = self._repair_issue_id(issue_id)
-        metrics, base_placeholders = self.issue_context()
+        metrics = self._repair_issue_metrics(issue_id, self.collect_site_metrics())
+        base_placeholders = self.issue_translation_placeholders(metrics)
         # Repair issues store the current diagnostic snapshot so users can share
         # actionable context without enabling debug logging first.
         issue_placeholders = dict(base_placeholders)
@@ -126,9 +169,11 @@ class CoordinatorDiagnostics:
 
     def _clear_reported_issue(self, flag_attr: str, issue_id: str) -> None:
         coord = self.coordinator
-        if not getattr(coord, flag_attr, False):
+        if not getattr(coord, flag_attr, False) and not self._reported_issue_is_active(
+            issue_id
+        ):
             return
-        self._delete_reported_issue(issue_id)
+        self._delete_reported_issue(issue_id, preserve_ignored=True)
         setattr(coord, flag_attr, False)
 
     @property
@@ -562,6 +607,7 @@ class CoordinatorDiagnostics:
             "charge_from_grid_control_available": (
                 coord.charge_from_grid_control_available
             ),
+            "power_match_control_available": coord.power_match_control_available,
             "charge_from_grid_schedule_supported": (
                 coord.charge_from_grid_schedule_supported
             ),
@@ -773,6 +819,7 @@ class CoordinatorDiagnostics:
             "battery_dtg_control": coord.battery_dtg_control,
             "battery_cfg_control": coord.battery_cfg_control,
             "battery_rbd_control": coord.battery_rbd_control,
+            "battery_power_match_control": coord.battery_power_match_control,
             "battery_system_task": coord.battery_system_task,
             "battery_grid_mode": getattr(coord, "_battery_grid_mode", None),
             "battery_mode_display": coord.battery_mode_display,

@@ -231,7 +231,9 @@ class InventoryState:
     _inverter_parameter_ids: list[str] = field(default_factory=list)
     _inverter_parameter_columns: list[str] = field(default_factory=list)
     _inverter_parameter_telemetry: PayloadMapByKey = field(default_factory=dict)
-    _inverter_parameter_success_mono: dict[str, float] = field(default_factory=dict)
+    _inverter_parameter_success_mono: dict[str, dict[str, float]] = field(
+        default_factory=dict
+    )
 
 
 @dataclass(slots=True)
@@ -399,6 +401,7 @@ class BatteryState:
     _battery_cfg_control_force_schedule_supported: bool | None = None
     _battery_cfg_control: BatteryControlCapability | None = None
     _battery_rbd_control: BatteryControlCapability | None = None
+    _battery_power_match_control: BatteryControlCapability | None = None
     _battery_system_task: bool | None = None
     _battery_profile_evse_device: PayloadMap | None = None
     _battery_use_battery_for_self_consumption: bool | None = None
