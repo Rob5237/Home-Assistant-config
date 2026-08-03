@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
@@ -22,6 +23,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from homeassistant.helpers.storage import Store
 from homeassistant.util import slugify
 
 from ..const import (
@@ -34,9 +36,23 @@ from ..const import (
     DEVICE_NAME_MARKER,
     DOMAIN,
     DOMAIN_WITH_SUBDOMAINS,
+    ENTITY_DEVICE_GET_CHARGE_LIMIT,
+    ENTITY_DEVICE_LOCATION_SENSOR,
+    ENTITY_DEVICE_SET_CHARGE_LIMIT,
+    ENTITY_DEVICE_SOC_SENSOR,
+    ENTITY_DEVICE_UPDATE_HA_BUTTON,
+    ENTITY_DEVICE_WAKE_UP_BUTTON,
     NON_ENTITY_CONFIGS,
+    NUMBER_DEVICE_CHARGE_LIMIT,
+    NUMBER_DEVICE_MAX_CHARGE_LIMIT,
+    NUMBER_DEVICE_MIN_CHARGE_LIMIT,
+    NUMBER_WAIT_DEVICE_LIMIT_CHANGE,
+    NUMBER_WAIT_DEVICE_UPDATE_HA,
+    NUMBER_WAIT_DEVICE_WAKEUP,
     OPTION_CHARGER_NAME,
+    OPTION_DEVICE_LOCATION_STATE_LIST,
     OPTION_GLOBAL_DEFAULTS_ID,
+    STORAGE_VERSION,
     SUBENTRY_CHARGER_DEVICE_DOMAIN,
     SUBENTRY_CHARGER_DEVICE_SUBDOMAIN,
 )
@@ -242,6 +258,82 @@ def choose_selector(
                 return read_only_selector
 
     return default_selector
+
+
+# ----------------------------------------------------------------------------
+# Config storage utils
+# ----------------------------------------------------------------------------
+def _ha_store_get_key(config_name: str) -> str:
+    """Get config storage key."""
+
+    name = slugify(config_name.strip())
+    return f"{DOMAIN}.{name}"
+
+
+# ----------------------------------------------------------------------------
+def ha_store_open(hass: HomeAssistant, config_name: str) -> Store:
+    """Open device settings file storage."""
+
+    storage_key = _ha_store_get_key(config_name)
+    return Store(hass, STORAGE_VERSION, storage_key)
+
+
+# ----------------------------------------------------------------------------
+def _ha_store_migrate_config(store_config: dict[str, Any]) -> None:
+    """Migrate and delete old config settings."""
+
+    # Since Python 3.7, standard dictionaries remember the order items were added.
+    # Converting a dictionary to a list keeps that same order for version migrations.
+    # old name (key): new name (value)
+    migrate_list: dict[str, str] = {
+        # Migrate from v0.9.0 to v0.10.0.
+        "chargee_min_charge_limit": NUMBER_DEVICE_MIN_CHARGE_LIMIT,
+        "chargee_max_charge_limit": NUMBER_DEVICE_MAX_CHARGE_LIMIT,
+        "wait_chargee_wakeup": NUMBER_WAIT_DEVICE_WAKEUP,
+        "wait_chargee_update_ha": NUMBER_WAIT_DEVICE_UPDATE_HA,
+        "wait_chargee_limit_change": NUMBER_WAIT_DEVICE_LIMIT_CHANGE,
+        "chargee_soc_sensor": ENTITY_DEVICE_SOC_SENSOR,
+        "chargee_charge_limit": NUMBER_DEVICE_CHARGE_LIMIT,
+        "chargee_get_charge_limit": ENTITY_DEVICE_GET_CHARGE_LIMIT,
+        "chargee_set_charge_limit": ENTITY_DEVICE_SET_CHARGE_LIMIT,
+        "chargee_location_sensor": ENTITY_DEVICE_LOCATION_SENSOR,
+        "chargee_location_state_list": OPTION_DEVICE_LOCATION_STATE_LIST,  # string
+        "chargee_wake_up_button": ENTITY_DEVICE_WAKE_UP_BUTTON,
+        "chargee_update_ha_button": ENTITY_DEVICE_UPDATE_HA_BUTTON,
+    }
+
+    # Do not directly modify data map in loop, so put in list first.
+    for old_name, old_config_val in list(store_config.items()):
+        new_name = migrate_list.get(old_name)
+        if new_name:
+            # old_config_val = data.pop(old_name)
+            del store_config[old_name]
+
+            # Only remove old solar charger entity ID.
+            # Need to handle separately for config string.
+            if not _is_solarcharger_entity(old_config_val):
+                # Keep non-solarcharger entity ID, string config or None.
+                store_config[new_name] = old_config_val
+
+
+# ----------------------------------------------------------------------------
+async def async_ha_store_load(store: Store) -> dict[str, Any] | None:
+    """Open device settings file storage."""
+
+    store_config = await store.async_load()
+    if store_config is not None:
+        _ha_store_migrate_config(store_config)
+
+    return store_config
+
+
+# ----------------------------------------------------------------------------
+async def async_ha_store_save(store: Store, data: dict[str, Any]) -> None:
+    """Save device settings to file storage."""
+
+    # sorted_by_key = {k: v for k, v in sorted(data.items())}
+    sorted_by_key = dict(sorted(data.items()))
+    await store.async_save(sorted_by_key)
 
 
 # ----------------------------------------------------------------------------

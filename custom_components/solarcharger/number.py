@@ -16,7 +16,7 @@ from homeassistant.const import (
     PERCENTAGE,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
-    UnitOfEnergy,
+    # UnitOfEnergy,
     UnitOfTime,
 )
 from homeassistant.helpers.entity import EntityCategory
@@ -33,9 +33,6 @@ from .const import (
     NUMBER_CHARGE_LIMIT_THURSDAY,
     NUMBER_CHARGE_LIMIT_TUESDAY,
     NUMBER_CHARGE_LIMIT_WEDNESDAY,
-    NUMBER_CHARGEE_CHARGE_LIMIT,
-    NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
-    NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
     NUMBER_CHARGER_EFFECTIVE_VOLTAGE,
     NUMBER_CHARGER_MAX_CURRENT,
     NUMBER_CHARGER_MAX_SPEED,
@@ -44,6 +41,7 @@ from .const import (
     NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD,
     NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
     NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
+    NUMBER_CHARGER_POWER_FACTOR,
     NUMBER_CHARGER_PRIORITY,
     NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY,
     NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY,
@@ -52,17 +50,20 @@ from .const import (
     NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY,
     NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY,
     NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY,
+    NUMBER_DEVICE_CHARGE_LIMIT,
+    NUMBER_DEVICE_MAX_CHARGE_LIMIT,
+    NUMBER_DEVICE_MIN_CHARGE_LIMIT,
     NUMBER_OCPP_PROFILE_ID,
     NUMBER_OCPP_PROFILE_STACK_LEVEL,
     NUMBER_POWER_MONITOR_DURATION,
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
     NUMBER_SUNSET_ELEVATION_END_TRIGGER,
-    NUMBER_WAIT_CHARGEE_LIMIT_CHANGE,
-    NUMBER_WAIT_CHARGEE_UPDATE_HA,
-    NUMBER_WAIT_CHARGEE_WAKEUP,
     NUMBER_WAIT_CHARGER_AMP_CHANGE,
     NUMBER_WAIT_CHARGER_OFF,
     NUMBER_WAIT_CHARGER_ON,
+    NUMBER_WAIT_DEVICE_LIMIT_CHANGE,
+    NUMBER_WAIT_DEVICE_UPDATE_HA,
+    NUMBER_WAIT_DEVICE_WAKEUP,
 )
 from .entity import (
     SolarChargerEntity,
@@ -183,19 +184,24 @@ CONFIG_NUMBER_LIST: tuple[
     ...,
 ] = (
     #####################################
+    # Local non-overridable entities
+    # Must haves, ie. not hidden for all
+    # entity_category=EntityCategory.CONFIG
+    #####################################
+    #####################################
     # Global defaults or local device entities
     # Hidden if not device entities, except for global defaults.
     # entity_category=EntityCategory.CONFIG
     #####################################
     # Used as local device entity for OCPP only. Others come with own entity.
     (
-        NUMBER_CHARGEE_CHARGE_LIMIT,
+        NUMBER_DEVICE_CHARGE_LIMIT,
         [
             SolarChargerEntityType.TYPE_LOCAL_OCPP,
             SolarChargerEntityType.TYPE_LOCAL_USER_CUSTOM,
         ],
         NumberEntityDescription(
-            key=NUMBER_CHARGEE_CHARGE_LIMIT,
+            key=NUMBER_DEVICE_CHARGE_LIMIT,
             entity_category=EntityCategory.CONFIG,
             native_unit_of_measurement=PERCENTAGE,
             native_min_value=0,
@@ -235,6 +241,17 @@ CONFIG_NUMBER_LIST: tuple[
             native_min_value=0.0,
             native_max_value=100.0,
             native_step=0.001,
+        ),
+    ),
+    (
+        NUMBER_CHARGER_POWER_FACTOR,
+        SolarChargerEntityType.TYPE_LOCAL,
+        NumberEntityDescription(
+            key=NUMBER_CHARGER_POWER_FACTOR,
+            entity_category=EntityCategory.CONFIG,
+            native_min_value=0.0,
+            native_max_value=1.0,
+            native_step=0.0001,
         ),
     ),
     (
@@ -355,10 +372,10 @@ CONFIG_NUMBER_LIST: tuple[
         ),
     ),
     (
-        NUMBER_WAIT_CHARGEE_WAKEUP,
+        NUMBER_WAIT_DEVICE_WAKEUP,
         SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
         NumberEntityDescription(
-            key=NUMBER_WAIT_CHARGEE_WAKEUP,
+            key=NUMBER_WAIT_DEVICE_WAKEUP,
             entity_category=EntityCategory.CONFIG,
             device_class=NumberDeviceClass.DURATION,
             native_unit_of_measurement=UnitOfTime.SECONDS,
@@ -368,10 +385,10 @@ CONFIG_NUMBER_LIST: tuple[
         ),
     ),
     (
-        NUMBER_WAIT_CHARGEE_UPDATE_HA,
+        NUMBER_WAIT_DEVICE_UPDATE_HA,
         SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
         NumberEntityDescription(
-            key=NUMBER_WAIT_CHARGEE_UPDATE_HA,
+            key=NUMBER_WAIT_DEVICE_UPDATE_HA,
             entity_category=EntityCategory.CONFIG,
             device_class=NumberDeviceClass.DURATION,
             native_unit_of_measurement=UnitOfTime.SECONDS,
@@ -381,10 +398,10 @@ CONFIG_NUMBER_LIST: tuple[
         ),
     ),
     (
-        NUMBER_WAIT_CHARGEE_LIMIT_CHANGE,
+        NUMBER_WAIT_DEVICE_LIMIT_CHANGE,
         SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
         NumberEntityDescription(
-            key=NUMBER_WAIT_CHARGEE_LIMIT_CHANGE,
+            key=NUMBER_WAIT_DEVICE_LIMIT_CHANGE,
             entity_category=EntityCategory.CONFIG,
             device_class=NumberDeviceClass.DURATION,
             native_unit_of_measurement=UnitOfTime.SECONDS,
@@ -453,10 +470,10 @@ CONFIG_NUMBER_LIST: tuple[
     #####################################
     # Max/min charge limit config.
     (
-        NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
+        NUMBER_DEVICE_MIN_CHARGE_LIMIT,
         SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
         NumberEntityDescription(
-            key=NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
+            key=NUMBER_DEVICE_MIN_CHARGE_LIMIT,
             entity_category=EntityCategory.CONFIG,
             native_unit_of_measurement=PERCENTAGE,
             native_min_value=0,
@@ -465,10 +482,10 @@ CONFIG_NUMBER_LIST: tuple[
         ),
     ),
     (
-        NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
+        NUMBER_DEVICE_MAX_CHARGE_LIMIT,
         SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
         NumberEntityDescription(
-            key=NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
+            key=NUMBER_DEVICE_MAX_CHARGE_LIMIT,
             entity_category=EntityCategory.CONFIG,
             native_unit_of_measurement=PERCENTAGE,
             native_min_value=0,

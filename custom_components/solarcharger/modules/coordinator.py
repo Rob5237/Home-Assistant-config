@@ -28,8 +28,8 @@ from ..const import (
     DELTA_CHARGER_CURRENT_UPDATE_PERIOD,
     DOMAIN,
     ERROR_DEFAULT_CHARGE_LIMIT,
-    NUMBER_CHARGEE_MAX_CHARGE_LIMIT,
-    NUMBER_CHARGEE_MIN_CHARGE_LIMIT,
+    NUMBER_DEVICE_MAX_CHARGE_LIMIT,
+    NUMBER_DEVICE_MIN_CHARGE_LIMIT,
     OPTION_GLOBAL_DEFAULTS_ID,
     SENSOR_LAST_CHECK,
     SENSOR_SYNC_UPDATE,
@@ -103,6 +103,7 @@ class SolarChargerCoordinator(ScOptionState):
         self._net_power_update_count: int = 0
 
         # Started tracking weather
+        self._weather_provider: str = None
         self._tracking_weather: bool = False
 
     # ----------------------------------------------------------------------------
@@ -266,10 +267,10 @@ class SolarChargerCoordinator(ScOptionState):
                 )
 
                 min_charge_limit = self.option_get_entity_number_or_abort(
-                    NUMBER_CHARGEE_MIN_CHARGE_LIMIT
+                    NUMBER_DEVICE_MIN_CHARGE_LIMIT
                 )
                 max_charge_limit = self.option_get_entity_number_or_abort(
-                    NUMBER_CHARGEE_MAX_CHARGE_LIMIT
+                    NUMBER_DEVICE_MAX_CHARGE_LIMIT
                 )
 
                 # Set charge limits
@@ -531,25 +532,42 @@ class SolarChargerCoordinator(ScOptionState):
             self._hass.async_create_task(self._async_update_weather_sensor(entity_id))
 
     # ----------------------------------------------------------------------------
+    def _subscribe_weather(self, weather_provider: str) -> None:
+        """Subscribe weather updates."""
+
+        if self._tracker.track_weather_update(self._async_handle_weather_update):
+            # Populate weather sensor with data.
+            self._async_handle_weather_update(None)
+            self._weather_provider = weather_provider
+            self._tracking_weather = True
+        else:
+            self._weather_provider = None
+            self._tracking_weather = False
+
+    # ----------------------------------------------------------------------------
+    def _unsubscribe_weather(self) -> None:
+        """Unsubscribe weather updates."""
+
+        self._tracker.untrack_weather_update()
+        self._update_sensor_attribute(SENSOR_WEATHER_FORECAST, STATE_UNKNOWN, None)
+        self._weather_provider = None
+        self._tracking_weather = False
+
+    # ----------------------------------------------------------------------------
     def _check_weather_provider(self) -> None:
         """Track weather if weather provider is defined."""
 
         entity_id = self.get_weather_provider()
         if entity_id is not None:
+            if entity_id != self._weather_provider and self._tracking_weather:
+                self._unsubscribe_weather()
+
             if not self._tracking_weather:
-                if self._tracker.track_weather_update(
-                    self._async_handle_weather_update
-                ):
-                    # Populate weather sensor with data.
-                    self._async_handle_weather_update(None)
-                    self._tracking_weather = True
+                self._subscribe_weather(entity_id)
+
         else:
             if self._tracking_weather:
-                self._tracker.untrack_weather_update()
-                self._update_sensor_attribute(
-                    SENSOR_WEATHER_FORECAST, STATE_UNKNOWN, None
-                )
-                self._tracking_weather = False
+                self._unsubscribe_weather()
 
     # ----------------------------------------------------------------------------
     # Periodic functions

@@ -38,7 +38,13 @@ from ..entity import compose_entity_id
 from ..exceptions.validation_exception import ValidationExceptionError
 from ..helpers.utils import compose_subdomain
 from .config_options_flow import process_api_config
-from .config_utils import TEXT_SELECTOR, get_subentry_id
+from .config_utils import (
+    TEXT_SELECTOR,
+    async_ha_store_load,
+    async_ha_store_save,
+    get_subentry_id,
+    ha_store_open,
+)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -82,7 +88,7 @@ class AddCustomSubEntryFlowHandler(ConfigSubentryFlow):
     """Handles subentry flow for creating charger."""
 
     # ----------------------------------------------------------------------------
-    def setup_options(
+    async def _async_setup_options(
         self, config_entry: ConfigEntry, subentry_unique_id: str, device_name: str
     ) -> None:
         """Set up default options for the new subentry."""
@@ -95,7 +101,17 @@ class AddCustomSubEntryFlowHandler(ConfigSubentryFlow):
         data: dict[str, Any] = {
             OPTION_CHARGER_NAME: device_name,
         }
+
+        # Look for historical config left behind by a previous installation.
+        store = ha_store_open(self.hass, subentry_unique_id)
+        store_config = await async_ha_store_load(store)
+        if store_config is not None:
+            data.update(store_config)
+
         process_api_config(config_entry, subentry_unique_id, data, is_init_all=True)
+
+        # Save device settings to file storage.
+        await async_ha_store_save(store, data)
 
         self.hass.config_entries.async_update_entry(
             config_entry,
@@ -198,7 +214,7 @@ class AddCustomSubEntryFlowHandler(ConfigSubentryFlow):
                     ),
                 )
 
-                self.setup_options(
+                await self._async_setup_options(
                     config_entry,
                     custom_charger_config_name,
                     slugify(custom_charger_name),

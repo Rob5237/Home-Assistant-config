@@ -33,11 +33,6 @@ from .state_tidyup import StateTidyUp
 # ----------------------------------------------------------------------------
 _LOGGER = logging.getLogger(__name__)
 
-# Allow 5% variation off max current.
-# Hot water max current can vary between 14.617A and 14.996A.
-# ie. 14.996 - 14.617 = 0.379, 0.379 / 14.996 = 0.0253, ie. 2.53%
-CURRENT_VARIATION_PERCENTAGE = 5
-
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -223,13 +218,6 @@ class StateCharge(SolarChargeState):
         self._set_charging_substate()
 
     # ----------------------------------------------------------------------------
-    def _get_allowed_current_variation(self) -> float:
-        """Get allowed current variation for device that do not support setting current."""
-
-        max_current = self.solarcharge.get_charger_max_current()
-        return max_current * CURRENT_VARIATION_PERCENTAGE / 100
-
-    # ----------------------------------------------------------------------------
     def _is_same_current(
         self,
         new_current: float,
@@ -239,7 +227,7 @@ class StateCharge(SolarChargeState):
         """Is the current the same?"""
 
         if current_variation is None:
-            current_variation = self._get_allowed_current_variation()
+            current_variation = self.solarcharge.get_allowed_current_variation()
 
         return (
             old_current - current_variation
@@ -254,7 +242,7 @@ class StateCharge(SolarChargeState):
         """Is device at zero current?"""
 
         if current_variation is None:
-            current_variation = self._get_allowed_current_variation()
+            current_variation = self.solarcharge.get_allowed_current_variation()
 
         return -current_variation < current < +current_variation
 
@@ -356,11 +344,16 @@ class StateCharge(SolarChargeState):
         #####################################
         # Calculate new current from allocated power
         #####################################
-        charger_effective_voltage = self.solarcharge.get_charger_effective_voltage()
-        one_amp_watt_step = charger_effective_voltage * 1
+        effective_voltage = self.solarcharge.get_charger_effective_voltage()
+        power_factor = self.solarcharge.get_charger_power_factor()
+        one_amp_watt_step = effective_voltage * 1 * power_factor
         power_offset = 0
         all_power_net = delta_allocated_power + (one_amp_watt_step * 0.3) + power_offset
-        all_current_net = all_power_net / charger_effective_voltage
+        all_current_net = (
+            all_power_net / effective_voltage / power_factor
+            if effective_voltage > 0 and power_factor > 0
+            else 0
+        )
 
         if all_current_net > 0:
             propose_charge_current = round(
@@ -381,14 +374,16 @@ class StateCharge(SolarChargeState):
             new_charge_current = propose_new_charge_current
 
         _LOGGER.debug(
-            "%s: delta_allocated_power=%s, charger_effective_voltage=%s, config_min_current=%s, "
+            "%s: delta_allocated_power=%s, effective_voltage=%s, power_factor=%s, "
+            "config_min_current=%s, "
             "charger_min_current=%s, charger_max_current=%s, old_charge_current=%s, "
             "all_power_net=%s, all_current_net=%s, propose_charge_current=%s, "
             "propose_new_charge_current=%s, charger_min_workable_current=%s, "
             "new_charge_current=%s ",
             self.solarcharge.caller,
             delta_allocated_power,
-            charger_effective_voltage,
+            effective_voltage,
+            power_factor,
             config_min_current,
             charger_min_current,
             charger_max_current,
@@ -414,7 +409,7 @@ class StateCharge(SolarChargeState):
         # or indirectly via consumed power set in async_set_charge_current().
         # Allocator is triggered by net power update on another thread set up by the coordinator.
         if not self.solarcharge.can_set_current:
-            current_variation = self._get_allowed_current_variation()
+            current_variation = self.solarcharge.get_allowed_current_variation()
 
             if self._is_device_reduced_current_by_itself(
                 new_current, old_current, current_variation
@@ -573,6 +568,11 @@ class StateCharge(SolarChargeState):
         # required.
         await self.solarcharge.async_option_sleep(NUMBER_WAIT_CHARGER_AMP_CHANGE)
         await self.solarcharge.async_update_ha(chargeable)
+
+        # Step up to max current after switching on charger in case there is no net power update.
+        if self.solarcharge.can_set_current and self.solarcharge.is_max_speed_charge():
+            max_current = self.solarcharge.get_charger_max_current()
+            await self.solarcharge.async_set_charge_current(charger, max_current)
 
         # Subscribe for charge current synchronise update signal.
         self._subscribe_sync_update()

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from types import MappingProxyType
-from typing import cast
+from typing import Any, cast
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
@@ -11,7 +11,12 @@ from homeassistant.helpers import config_validation as cv
 
 from .chargers import Charger, charger_factory
 from .chargers.chargeable import Chargeable
-from .config.config_utils import get_subentry
+from .config.config_utils import (
+    async_ha_store_load,
+    async_ha_store_save,
+    get_subentry,
+    ha_store_open,
+)
 from .const import (
     DOMAIN,
     OPTION_GLOBAL_DEFAULT_ENTITIES,
@@ -68,11 +73,22 @@ async def async_create_global_defaults_subentry(
             ),
         )
 
+        data: dict[str, Any] = OPTION_GLOBAL_DEFAULT_ENTITIES
+
+        # Look for historical config left behind by a previous installation.
+        store = ha_store_open(hass, OPTION_GLOBAL_DEFAULTS_ID)
+        store_config = await async_ha_store_load(store)
+        if store_config is not None:
+            data.update(store_config)
+
+        # Save device settings to file storage.
+        await async_ha_store_save(store, data)
+
         hass.config_entries.async_update_entry(
             config_entry,
             options=config_entry.options
             | {
-                OPTION_GLOBAL_DEFAULTS_ID: OPTION_GLOBAL_DEFAULT_ENTITIES,
+                OPTION_GLOBAL_DEFAULTS_ID: data,
             },
         )
 
