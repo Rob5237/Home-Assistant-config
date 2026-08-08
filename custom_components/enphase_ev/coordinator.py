@@ -90,6 +90,7 @@ from .const import (
     DEFAULT_SCHEDULE_SYNC_ENABLED,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
+    DEFAULT_VPP_EVENTS_ENABLED,
     MAX_API_TIMEOUT,
     MAX_POLL_INTERVAL,
     MAX_SESSION_HISTORY_INTERVAL_MIN,
@@ -115,6 +116,7 @@ from .const import (
     OPT_SLOW_POLL_INTERVAL,
     OPT_SESSION_HISTORY_INTERVAL,
     OPT_SYSTEM_EVENT_REPAIR_ISSUES,
+    OPT_VPP_EVENTS_ENABLED,
     PHASE_SWITCH_CONFIG_SETTING,
     SAVINGS_OPERATION_MODE_SUBTYPE,
     DEFAULT_SESSION_HISTORY_INTERVAL_MIN,
@@ -194,6 +196,11 @@ from .request_metrics import RequestMetrics, request_metrics_scope
 from .summary import SummaryStore
 from . import system_dashboard_helpers as sd_helpers
 from .system_events import SystemEventsRuntime
+from .vpp_runtime import (
+    VPP_ENROLLMENT_ENDPOINT_FAMILY,
+    VPP_EVENTS_ENDPOINT_FAMILY,
+    VppRuntime,
+)
 from .refresh_plan import (
     build_followup_plan,
     build_heatpump_followup_plan,
@@ -277,6 +284,7 @@ COORDINATOR_RUNTIME_CLASSES: dict[str, type] = {
     "grid_profile_runtime": GridProfileRuntime,
     "tariff_runtime": TariffRuntime,
     "system_events_runtime": SystemEventsRuntime,
+    "vpp_runtime": VppRuntime,
 }
 
 
@@ -1073,6 +1081,7 @@ class EnphaseCoordinator(
         self._ensure_coordinator_runtime("grid_profile_runtime")
         self._ensure_coordinator_runtime("tariff_runtime")
         self._ensure_coordinator_runtime("system_events_runtime")
+        self._ensure_coordinator_runtime("vpp_runtime")
         self.inventory_runtime = InventoryRuntime(self)
         self.discovery_snapshot = DiscoverySnapshotManager(self)
         self.inventory_view = InventoryView(self)
@@ -1118,6 +1127,7 @@ class EnphaseCoordinator(
             chargers=freeze_charger_data(data),
             evse_feature_flags=feature_flags,
             current_power=current_power,
+            vpp=self.vpp_runtime.snapshot,
             runtime_revisions=tuple(
                 sorted(self._runtime_publication_revisions.items())
             ),
@@ -1130,6 +1140,7 @@ class EnphaseCoordinator(
                 chargers=candidate.chargers,
                 evse_feature_flags=candidate.evse_feature_flags,
                 current_power=candidate.current_power,
+                vpp=candidate.vpp,
                 runtime_revisions=candidate.runtime_revisions,
                 revision=self._publication_revision,
             )
@@ -1391,6 +1402,10 @@ class EnphaseCoordinator(
             )
         ):
             self.system_events_runtime.clear_repairs()
+        if not bool(options.get(OPT_VPP_EVENTS_ENABLED, DEFAULT_VPP_EVENTS_ENABLED)):
+            self.vpp_runtime.clear()
+            self._endpoint_family_health.pop(VPP_ENROLLMENT_ENDPOINT_FAMILY, None)
+            self._endpoint_family_health.pop(VPP_EVENTS_ENDPOINT_FAMILY, None)
 
         schedule_sync_changed = bool(
             previous_options.get(
@@ -1487,6 +1502,24 @@ class EnphaseCoordinator(
                 stale_after_s=86400.0,
                 failure_backoff_schedule_s=(900.0, 1800.0, 3600.0, 7200.0),
                 max_backoff_s=7200.0,
+                optional=True,
+                suppress_after_failures=3,
+                support_state_on_success=True,
+            ),
+            "vpp_enrollment": EndpointFamilyPolicy(
+                success_ttl_s=21600.0,
+                stale_after_s=604800.0,
+                failure_backoff_schedule_s=(900.0, 1800.0, 3600.0, 7200.0),
+                max_backoff_s=7200.0,
+                optional=True,
+                suppress_after_failures=3,
+                support_state_on_success=True,
+            ),
+            "vpp_events": EndpointFamilyPolicy(
+                success_ttl_s=300.0,
+                stale_after_s=3600.0,
+                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
+                max_backoff_s=3600.0,
                 optional=True,
                 suppress_after_failures=3,
                 support_state_on_success=True,
@@ -7131,16 +7164,22 @@ class EnphaseCoordinator(
         start_minutes: object,
         end_minutes: object,
         schedule_status: object = None,
+        allow_control_window: bool = False,
     ) -> bool:
         if self._battery_schedule_control_available(control):
             show_day_schedule = self._battery_control_field(
                 control, "show_day_schedule"
             )
-            if show_day_schedule is False:
-                return False
             schedule_supported = self._battery_control_field(
                 control, "schedule_supported"
             )
+            if show_day_schedule is False:
+                return (
+                    allow_control_window
+                    and schedule_supported is True
+                    and start_minutes is not None
+                    and end_minutes is not None
+                )
             if schedule_supported is not None:
                 return schedule_supported
         elif isinstance(schedule_status, str) and schedule_status.strip():
@@ -7162,16 +7201,18 @@ class EnphaseCoordinator(
         schedule_id: object,
         start_minutes: object,
         end_minutes: object,
+        allow_control_window: bool = False,
     ) -> bool:
         if not self._battery_schedule_supported(
             control,
             schedule_id=schedule_id,
             start_minutes=start_minutes,
             end_minutes=end_minutes,
+            allow_control_window=allow_control_window,
         ):
             return False
         return (
-            schedule_id is not None
+            (schedule_id is not None or allow_control_window)
             and start_minutes is not None
             and end_minutes is not None
         )
@@ -7219,23 +7260,36 @@ class EnphaseCoordinator(
         age = self.battery_settings_write_age_seconds
         return age is not None and age < FAST_TOGGLE_POLL_HOLD_S
 
+    def _battery_dtg_effective_window(self) -> tuple[int | None, int | None]:
+        start_minutes = getattr(self, "_battery_dtg_begin_time", None)
+        if start_minutes is None:
+            start_minutes = getattr(self, "_battery_dtg_control_begin_time", None)
+        end_minutes = getattr(self, "_battery_dtg_end_time", None)
+        if end_minutes is None:
+            end_minutes = getattr(self, "_battery_dtg_control_end_time", None)
+        return start_minutes, end_minutes
+
     @property
     def discharge_to_grid_schedule_supported(self) -> bool:
+        start_minutes, end_minutes = self._battery_dtg_effective_window()
         return self._battery_schedule_supported(
             getattr(self, "_battery_dtg_control", None),
             schedule_id=getattr(self, "_battery_dtg_schedule_id", None),
-            start_minutes=getattr(self, "_battery_dtg_begin_time", None),
-            end_minutes=getattr(self, "_battery_dtg_end_time", None),
+            start_minutes=start_minutes,
+            end_minutes=end_minutes,
             schedule_status=getattr(self, "_battery_dtg_schedule_status", None),
+            allow_control_window=True,
         )
 
     @property
     def discharge_to_grid_schedule_available(self) -> bool:
+        start_minutes, end_minutes = self._battery_dtg_effective_window()
         return self._battery_schedule_available(
             getattr(self, "_battery_dtg_control", None),
             schedule_id=getattr(self, "_battery_dtg_schedule_id", None),
-            start_minutes=getattr(self, "_battery_dtg_begin_time", None),
-            end_minutes=getattr(self, "_battery_dtg_end_time", None),
+            start_minutes=start_minutes,
+            end_minutes=end_minutes,
+            allow_control_window=True,
         )
 
     def _battery_schedule_effective_enabled(self, schedule_type: str) -> bool | None:
@@ -7282,16 +7336,12 @@ class EnphaseCoordinator(
 
     @property
     def battery_discharge_to_grid_start_time(self) -> dt_time | None:
-        minutes = getattr(self, "_battery_dtg_begin_time", None)
-        if minutes is None:
-            minutes = getattr(self, "_battery_dtg_control_begin_time", None)
+        minutes, _ = self._battery_dtg_effective_window()
         return self._minutes_of_day_to_time(minutes)
 
     @property
     def battery_discharge_to_grid_end_time(self) -> dt_time | None:
-        minutes = getattr(self, "_battery_dtg_end_time", None)
-        if minutes is None:
-            minutes = getattr(self, "_battery_dtg_control_end_time", None)
+        _, minutes = self._battery_dtg_effective_window()
         return self._minutes_of_day_to_time(minutes)
 
     @property

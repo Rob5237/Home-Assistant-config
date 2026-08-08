@@ -1208,9 +1208,9 @@
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_gelijk_buiten_actueel
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1287,9 +1287,9 @@
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_gelijk_buiten_actueel
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1365,9 +1365,9 @@
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_te_koel_sluit_ramen
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1444,9 +1444,9 @@
             buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_te_koel_sluit_ramen
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1515,9 +1515,9 @@
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_warm_buiten_warmer
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1594,9 +1594,9 @@
             Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: kamer_warm_buiten_warmer
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:thermometer
       - action: persistent_notification.create
@@ -1660,9 +1660,9 @@
             ({{ states('weather.thuis') }}).
           data:
             tag: kamer_regen
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:weather-pouring
       - action: persistent_notification.create
@@ -1739,9 +1739,9 @@
             ({{ states('weather.thuis') }}).
           data:
             tag: kamer_regen
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:weather-pouring
       - action: persistent_notification.create
@@ -1810,9 +1810,9 @@
             koel. Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: nachtventilatie
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:weather-night
       - action: persistent_notification.create
@@ -1878,9 +1878,9 @@
             koel. Kamer {{ kamer_temp }}°C, buiten {{ buiten_actueel }}°C.
           data:
             tag: nachtventilatie
-            channel: "{{ 'Ventilatie advies (stil)' if (stil_venster or gemeld) else 'Ventilatie advies' }}"
-            importance: "{{ 'low' if (stil_venster or gemeld) else 'high' }}"
-            priority: "{{ 'normal' if (stil_venster or gemeld) else 'high' }}"
+            channel: "Ventilatie advies (stil)"
+            importance: low
+            priority: normal
             ttl: 0
             notification_icon: mdi:weather-night
       - action: persistent_notification.create
@@ -2113,9 +2113,9 @@
       message: "{{ reversal_msg }}"
       data:
         tag: kamer_reversal
-        channel: "{{ 'Ventilatie advies (stil)' if stil_venster else 'Ventilatie advies' }}"
-        importance: "{{ 'low' if stil_venster else 'high' }}"
-        priority: "{{ 'normal' if stil_venster else 'high' }}"
+        channel: "Ventilatie advies (stil)"
+        importance: low
+        priority: normal
         ttl: 0
         notification_icon: "{{ 'mdi:window-closed-variant' if is_stijgend else 'mdi:trending-down' }}"
   - action: persistent_notification.create

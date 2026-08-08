@@ -18,6 +18,7 @@ from homeassistant.components.sensor import (
     RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
+    SensorExtraStoredData,
     SensorStateClass,
 )
 from homeassistant.const import (
@@ -50,9 +51,11 @@ from .const import (
     DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
     DEFAULT_MICROINVERTER_POWER_ENABLED,
     DEFAULT_NOMINAL_VOLTAGE,
+    DEFAULT_VPP_EVENTS_ENABLED,
     DOMAIN,
     OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
     OPT_MICROINVERTER_POWER_ENABLED,
+    OPT_VPP_EVENTS_ENABLED,
     PHASE_SWITCH_CONFIG_SETTING,
     SAFE_LIMIT_AMPS,
 )
@@ -68,6 +71,7 @@ from .entity import (
 from .labels import friendly_status_text, status_label
 from .log_redaction import redact_text
 from .grid_profile_runtime import (
+    SUPPORT_READ_ONLY,
     SUPPORT_UNKNOWN,
     SUPPORT_UNAVAILABLE,
     GridProfileRuntime,
@@ -131,6 +135,7 @@ from .sensor_registry import EnphaseSensorRegistrySetup
 from .sensor_snapshot_helpers import (
     parse_gateway_timestamp as _gateway_parse_timestamp,
 )
+from .sensor_vpp import VPP_SENSOR_KEYS, vpp_sensor_entities
 from .serial_entity_metadata import (
     AC_BATTERY_ENTITY_UNIQUE_SUFFIXES as AC_BATTERY_ENTITY_UNIQUE_SUFFIXES,
     AC_BATTERY_RETIRED_UNIQUE_SUFFIXES as AC_BATTERY_RETIRED_UNIQUE_SUFFIXES,
@@ -178,7 +183,7 @@ SITE_SERVICE_STATUS_STATES: tuple[str, ...] = ("ok", "degraded", "unknown")
 CURRENT_POWER_CACHE_TTL_MULTIPLIER = 2
 SITE_LIFETIME_FLOW_BUCKET_LENGTH_KEYS: dict[str, tuple[str, ...]] = {
     "grid_import": ("import", "grid_home", "grid_battery"),
-    "grid_export": ("solar_grid",),
+    "grid_export": ("solar_grid", "battery_grid", "generator_grid"),
     "battery_charge": ("charge", "solar_battery", "grid_battery"),
     "battery_discharge": ("discharge", "battery_home", "battery_grid"),
 }
@@ -190,6 +195,8 @@ def _retain_grid_profile_sensors(coord: EnphaseCoordinator) -> bool:
         return False
     if getattr(runtime, "installer_access_confirmed", False):
         return True
+    if getattr(runtime, "support_state", None) == SUPPORT_READ_ONLY:
+        return bool(runtime.current_profile_display())
     return bool(
         getattr(runtime, "installer_access_ever_confirmed", False)
         and getattr(runtime, "support_state", None) == SUPPORT_UNAVAILABLE
@@ -898,6 +905,32 @@ async def async_setup_entry(
                 "ac_battery_last_reported",
             ):
                 _async_remove_site_sensor_entity(entity_key)
+        vpp_enabled = bool(
+            entry.options.get(OPT_VPP_EVENTS_ENABLED, DEFAULT_VPP_EVENTS_ENABLED)
+        )
+        vpp_runtime = getattr(coord, "vpp_runtime", None)
+        vpp_registered = any(
+            _site_sensor_entity_registered(key) for key in VPP_SENSOR_KEYS
+        )
+        if (
+            vpp_enabled
+            and vpp_runtime is not None
+            and vpp_runtime.enrollment_state != "unenrolled"
+            and (vpp_runtime.available or vpp_registered)
+        ):
+            for key, entity in zip(
+                VPP_SENSOR_KEYS,
+                vpp_sensor_entities(coord),
+                strict=True,
+            ):
+                _add_site_entity(key, entity)
+        elif (
+            not vpp_enabled
+            or vpp_runtime is None
+            or vpp_runtime.enrollment_state == "unenrolled"
+        ):
+            for key in VPP_SENSOR_KEYS:
+                _async_remove_site_sensor_entity(key)
         if site_entities:
             async_add_entities(site_entities, update_before_add=False)
 
@@ -1193,6 +1226,7 @@ async def async_setup_entry(
                 except Exception:  # noqa: BLE001
                     values.append(False)
             known_channels = tuple(values)
+        vpp_runtime = getattr(coord, "vpp_runtime", None)
         return (
             bool(getattr(coord, "_devices_inventory_ready", False)),
             _site_has_battery(coord),
@@ -1206,6 +1240,14 @@ async def async_setup_entry(
             _type_available(coord, "enpower"),
             _heatpump_runtime_device_uid(coord),
             battery_scheduler_enabled(entry),
+            bool(
+                entry.options.get(
+                    OPT_VPP_EVENTS_ENABLED,
+                    DEFAULT_VPP_EVENTS_ENABLED,
+                )
+            ),
+            getattr(vpp_runtime, "enrollment_state", "disabled"),
+            bool(getattr(vpp_runtime, "available", False)),
             _battery_schedule_inventory_supported(coord),
             _grid_control_site_applicable(coord),
             getattr(coord, "tariff_billing", None) is not None,
@@ -1369,6 +1411,59 @@ class _LastSessionRestoreData(ExtraStoredData):  # type: ignore[misc]
             _as_float(data.get("last_session_end")),
             str(session_key) if session_key is not None else None,
             _as_int(data.get("last_duration_min")),
+        )
+
+
+@dataclass
+class _SiteEnergyRestoreData(SensorExtraStoredData):  # type: ignore[misc]
+    """Persist sensor state and site-energy composition migration state."""
+
+    composition_offset_kwh: float
+    composition_offset_reset_at: str | None
+    composition_source_start_date: str | None
+    composition_migration_checked: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            **super().as_dict(),
+            "composition_offset_kwh": self.composition_offset_kwh,
+            "composition_offset_reset_at": self.composition_offset_reset_at,
+            "composition_source_start_date": self.composition_source_start_date,
+            "composition_migration_checked": self.composition_migration_checked,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> "_SiteEnergyRestoreData":
+        if not isinstance(data, dict):
+            return cls(None, None, 0.0, None, None, False)
+        sensor_restore = SensorExtraStoredData.from_dict(data)
+        try:
+            offset = float(data.get("composition_offset_kwh", 0.0))
+        except (TypeError, ValueError):
+            offset = 0.0
+        if not math.isfinite(offset) or offset < 0:
+            offset = 0.0
+        reset_at = data.get("composition_offset_reset_at")
+        start_date = data.get("composition_source_start_date")
+        return cls(
+            native_value=(
+                sensor_restore.native_value if sensor_restore is not None else None
+            ),
+            native_unit_of_measurement=(
+                sensor_restore.native_unit_of_measurement
+                if sensor_restore is not None
+                else None
+            ),
+            composition_offset_kwh=offset,
+            composition_offset_reset_at=(
+                reset_at if isinstance(reset_at, str) else None
+            ),
+            composition_source_start_date=(
+                start_date if isinstance(start_date, str) else None
+            ),
+            composition_migration_checked=(
+                data.get("composition_migration_checked") is True
+            ),
         )
 
 
@@ -4598,6 +4693,10 @@ class EnphaseSiteEnergySensor(_SiteBaseEntity, RestoreSensor):  # type: ignore[m
         self._attr_unique_id = f"{DOMAIN}_site_{coord.site_id}_{flow_key}"
         self._restored_value: float | None = None
         self._restored_reset_at: str | None = None
+        self._composition_offset_kwh = 0.0
+        self._composition_offset_reset_at: str | None = None
+        self._composition_source_start_date: str | None = None
+        self._composition_migration_checked = flow_key != "grid_export"
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -4617,9 +4716,34 @@ class EnphaseSiteEnergySensor(_SiteBaseEntity, RestoreSensor):  # type: ignore[m
         except Exception:  # noqa: BLE001
             last_state = None
         if last_state is not None:
-            reset_attr = (last_state.attributes or {}).get("last_reset_at")
+            attributes = last_state.attributes or {}
+            reset_attr = attributes.get("last_reset_at")
             if isinstance(reset_attr, str):
                 self._restored_reset_at = reset_attr
+        last_extra = await self.async_get_last_extra_data()
+        composition_restore = _SiteEnergyRestoreData.from_dict(
+            last_extra.as_dict() if last_extra is not None else None
+        )
+        if (
+            self._flow_key == "grid_export"
+            and composition_restore.composition_migration_checked
+        ):
+            self._composition_offset_kwh = composition_restore.composition_offset_kwh
+            self._composition_offset_reset_at = (
+                composition_restore.composition_offset_reset_at
+            )
+            self._composition_source_start_date = (
+                composition_restore.composition_source_start_date
+            )
+            self._composition_migration_checked = True
+
+    @staticmethod
+    def _coerce_nonnegative_float(value: object) -> float | None:
+        try:
+            numeric = float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+        return numeric if math.isfinite(numeric) and numeric >= 0 else None
 
     def _flow_data(self) -> dict[str, object]:
         energy = getattr(self._coord, "energy", None)
@@ -4640,6 +4764,7 @@ class EnphaseSiteEnergySensor(_SiteBaseEntity, RestoreSensor):  # type: ignore[m
                 "source_unit": entry.source_unit,
                 "last_reset_at": entry.last_reset_at,
                 "interval_minutes": entry.interval_minutes,
+                "legacy_offset_kwh": entry.legacy_offset_kwh,
             }
         if isinstance(entry, dict):
             return entry
@@ -4654,6 +4779,53 @@ class EnphaseSiteEnergySensor(_SiteBaseEntity, RestoreSensor):  # type: ignore[m
             return float(val)  # type: ignore[arg-type]
         except Exception:  # noqa: BLE001
             return None
+
+    def _ensure_composition_migration(self) -> None:
+        """Preserve total-increasing continuity across export composition changes."""
+
+        data = self._flow_data()
+        current_value = self._coerce_nonnegative_float(data.get("value_kwh"))
+        reset_at = data.get("last_reset_at")
+        current_reset_at = reset_at if isinstance(reset_at, str) else None
+        start_date = data.get("start_date")
+        current_start_date = start_date if isinstance(start_date, str) else None
+        if self._composition_migration_checked:
+            reset_marker_changed = (
+                current_reset_at is not None
+                and current_reset_at != self._composition_offset_reset_at
+            )
+            source_start_changed = (
+                current_start_date is not None
+                and self._composition_source_start_date is not None
+                and current_start_date != self._composition_source_start_date
+            )
+            offset_exceeds_total = (
+                current_value is not None
+                and current_value < self._composition_offset_kwh
+            )
+            if reset_marker_changed or source_start_changed or offset_exceeds_total:
+                self._composition_offset_kwh = 0.0
+                self._composition_offset_reset_at = current_reset_at
+                self._composition_source_start_date = current_start_date
+            return
+        if current_value is None:
+            return
+        if self._restored_value is not None:
+            legacy_offset = self._coerce_nonnegative_float(
+                data.get("legacy_offset_kwh")
+            )
+            if legacy_offset is not None:
+                legacy_value = max(current_value - legacy_offset, 0.0)
+                restored_to_legacy = abs(self._restored_value - legacy_value)
+                restored_to_composite = abs(self._restored_value - current_value)
+                # A takeover can restore a total from another integration. Only
+                # remove the newly added channels when the prior value actually
+                # tracks the legacy solar-only composition.
+                if restored_to_legacy <= restored_to_composite:
+                    self._composition_offset_kwh = legacy_offset
+        self._composition_offset_reset_at = current_reset_at
+        self._composition_source_start_date = current_start_date
+        self._composition_migration_checked = True
 
     @property
     def available(self) -> bool:
@@ -4683,14 +4855,30 @@ class EnphaseSiteEnergySensor(_SiteBaseEntity, RestoreSensor):  # type: ignore[m
     def native_value(self) -> Any:
         current = self._current_value()
         if current is not None:
-            return round(current, 2)
+            self._ensure_composition_migration()
+            return round(max(current - self._composition_offset_kwh, 0.0), 2)
         if self._restored_value is None:
             return None
         return round(self._restored_value, 2)
 
     @property
+    def extra_restore_state_data(self) -> ExtraStoredData | None:
+        if self._flow_key != "grid_export":
+            return super().extra_restore_state_data
+        sensor_restore = super().extra_restore_state_data
+        return _SiteEnergyRestoreData(
+            native_value=sensor_restore.native_value,
+            native_unit_of_measurement=sensor_restore.native_unit_of_measurement,
+            composition_offset_kwh=self._composition_offset_kwh,
+            composition_offset_reset_at=self._composition_offset_reset_at,
+            composition_source_start_date=self._composition_source_start_date,
+            composition_migration_checked=self._composition_migration_checked,
+        )
+
+    @property
     def extra_state_attributes(self) -> Any:
         data = self._flow_data()
+        self._ensure_composition_migration()
         attrs: dict[str, object] = {}
         last_report_raw = data.get("last_report_date")
         parsed_sample_ts = _EnphaseSiteLifetimePowerSensor._parse_sample_timestamp(
@@ -5622,7 +5810,16 @@ class _GridProfileSensor(_SiteBaseEntity):
     @property
     def available(self) -> bool:
         runtime = self._coord.grid_profile_runtime
-        return bool(super().available and runtime.installer_access_confirmed)
+        return bool(
+            super().available
+            and (
+                runtime.installer_access_confirmed
+                or (
+                    runtime.support_state == SUPPORT_READ_ONLY
+                    and runtime.current_profile_display()
+                )
+            )
+        )
 
 
 class EnphaseCurrentGridProfileSensor(_GridProfileSensor):
