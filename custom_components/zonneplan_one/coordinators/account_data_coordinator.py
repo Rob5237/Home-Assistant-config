@@ -74,6 +74,9 @@ class AccountDataUpdateCoordinator(ZonneplanDataUpdateCoordinator):
     async def _async_update_data(self) -> list[ZonneplanAddressGroup]:
         """Fetch the latest account status."""
         try:
+            if not self.data:
+                await self.api.async_set_locale("nl-NL")
+
             accounts = await self.api.async_get_user_accounts()
             if not accounts:
                 raise UpdateFailed(retry_after=60)
@@ -104,4 +107,4 @@ class AccountDataUpdateCoordinator(ZonneplanDataUpdateCoordinator):
         if hasattr(self.coordinators[uuid], coordinator_type):
             setattr(self.coordinators[uuid], coordinator_type, coordinator)
         else:
-            _LOGGER.exception("Unknown coordinator type %s", coordinator_type)
+            _LOGGER.error("Unknown coordinator type %s", coordinator_type)
