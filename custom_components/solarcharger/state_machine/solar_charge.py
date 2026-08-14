@@ -146,6 +146,7 @@ class SolarCharge(ScOptionState):
 
         # Entity backed by variable for efficiency. Ok if re-direction is not required.
         self._share_allocation: int = 0
+        self._need_rebalance: bool = False
         self._consumed_power: float = 0.0
         self._self_depower: bool = False
 
@@ -275,10 +276,23 @@ class SolarCharge(ScOptionState):
         )
 
     # ----------------------------------------------------------------------------
+    def set_need_rebalance(self, need_rebalance: bool) -> None:
+        """Set need rebalance."""
+
+        self._need_rebalance = need_rebalance
+
+    # ----------------------------------------------------------------------------
+    def need_rebalance(self) -> bool:
+        """Get need rebalance."""
+
+        return self._need_rebalance
+
+    # ----------------------------------------------------------------------------
     def participate_in_real_power_allocation(self) -> None:
         """Participate in real power allocation."""
 
         self._share_allocation = 1
+        self.set_need_rebalance(True)
         self.update_sensor(SENSOR_SHARE_ALLOCATION, 1)
 
     # ----------------------------------------------------------------------------
@@ -286,6 +300,7 @@ class SolarCharge(ScOptionState):
         """Participate in real power allocation."""
 
         self._share_allocation = 0
+        self.set_need_rebalance(False)
         self.update_sensor(SENSOR_SHARE_ALLOCATION, 0)
 
     # ----------------------------------------------------------------------------
@@ -960,7 +975,7 @@ class SolarCharge(ScOptionState):
         # If device can set current, make it harder to exit pause state by raising the requirement to exit pause state.
         # Min workable current enter pause percent = 0%
         # Min workable current exit pause percent = 10% (ie. harder to change from paused to charging state)
-        if run_state == RunState.PAUSED:
+        if run_state == RunState.PAUSE:
             #####################################
             # For exiting out of paused state.
             #####################################
@@ -1004,7 +1019,7 @@ class SolarCharge(ScOptionState):
             median_net_allocated_power = net_allocations.median_value
             adjusted_activation_power, _ = self.get_adjusted_activation_power(run_state)
 
-            if run_state == RunState.PAUSED:
+            if run_state == RunState.PAUSE:
                 #####################################
                 # For exiting out of paused state.
                 #####################################
@@ -1104,9 +1119,9 @@ class SolarCharge(ScOptionState):
     ) -> None:
         """Check if to continue state."""
 
-        if context.state == RunState.CHARGING:
+        if context.state == RunState.CHARGE:
             self._set_is_continue_charge_state(context)
-        elif context.state == RunState.PAUSED:
+        elif context.state == RunState.PAUSE:
             self._set_is_continue_pause_state(context)
 
     # ----------------------------------------------------------------------------
@@ -1136,7 +1151,7 @@ class SolarCharge(ScOptionState):
 
         # Only set charge limit when in charging state because it can turn on the charger.
         # Once set, the latest and correct state can be requested without calling _async_update_ha() first.
-        if state == RunState.CHARGING:
+        if state == RunState.CHARGE:
             await self.async_set_charge_limit_if_required(chargeable, self.running_goal)
 
         context = self._get_context(
@@ -1272,8 +1287,8 @@ class SolarCharge(ScOptionState):
             await self.async_action_state()
             next_state = self.machine_state.state
 
-            if next_state == current_state and current_state == RunState.ENDED:
-                # Completed "Ended" state. No more states to run.
+            if next_state == current_state and current_state == RunState.END:
+                # Completed "End" state. No more states to run.
                 break
 
     # ----------------------------------------------------------------------------
