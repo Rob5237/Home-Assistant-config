@@ -14,6 +14,7 @@ CONF_CPI = "charge_point_identity"
 CONF_CPID = "cpid"
 CONF_CPIDS = "cpids"
 CONF_CSID = "csid"
+CONF_ENABLE_HA_NOTIFICATIONS = "enable_ha_notifications"
 CONF_DEFAULT_AUTH_STATUS = "default_authorization_status"
 CONF_HOST = ha.CONF_HOST
 CONF_ID_TAG = "id_tag"
@@ -45,6 +46,7 @@ CONF_WEBSOCKET_PING_TIMEOUT = "websocket_ping_timeout"
 DATA_UPDATED = "ocpp_data_updated"
 DEFAULT_CSID = "central"
 DEFAULT_CPID = "charger"
+DEFAULT_ENABLE_HA_NOTIFICATIONS = True
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_MAX_CURRENT = 32
 DEFAULT_NUM_CONNECTORS = 1
@@ -73,6 +75,27 @@ DEFAULT_WEBSOCKET_PING_INTERVAL = 20
 DEFAULT_WEBSOCKET_PING_TIMEOUT = 20
 DOMAIN = "ocpp"
 CONFIG = "config"
+
+
+def sensor_unique_id(cpid: str, metric: str, connector_id: int | None = None) -> str:
+    """Return the canonical unique_id of the sensor backing a metric.
+
+    The single source of truth: ChargePointMetric builds its unique_id
+    from this, the stale-entity cleanup in sensor.py matches against it,
+    and chargepoint.py resolves entities through it for targeted refresh
+    dispatches. Hand-mirrored copies of this format drifted apart once
+    already (a copy that forgot the dot replacement never matched any
+    dotted metric), so changes belong here and nowhere else. And think
+    hard before changing it at all: unique_ids are persisted in the
+    entity registry, so a new format orphans every existing sensor.
+    """
+    key = str(metric).strip().lower().replace(".", "_")
+    parts = [DOMAIN, cpid, key, "sensor"]
+    if connector_id is not None:
+        parts.insert(2, f"conn{connector_id}")
+    return ".".join(parts)
+
+
 ICON = "mdi:ev-station"
 SLEEP_TIME = 60
 
@@ -162,6 +185,7 @@ class ChargerSystemSettings:
     monitored_variables_autoconfig: bool
     skip_schema_validation: bool
     force_smart_charging: bool
+    enable_ha_notifications: bool = DEFAULT_ENABLE_HA_NOTIFICATIONS
     connection: int | None = None  # number of this connection in central server
     num_connectors: int = DEFAULT_NUM_CONNECTORS
 
