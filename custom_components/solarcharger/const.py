@@ -12,7 +12,7 @@ NAME = "SolarCharger"
 DOMAIN = "solarcharger"
 DOMAIN_DATA = f"{DOMAIN}_data"
 # Also need to set version in manifest.json, README.md and CHANGELOG.md.
-VERSION = "0.10.2"
+VERSION = "0.10.3"
 STORAGE_VERSION = 1
 ISSUE_URL = "https://github.com/flashg1/SolarCharger/issues"
 CONFIG_URL = "https://github.com/flashg1/SolarCharger"
@@ -347,6 +347,8 @@ NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD = (
 NUMBER_CHARGER_PRIORITY = "charger_priority"  # 8
 MAX_SPEED_CHARGE_PRIORITY = 3
 MAX_SPEED_CHARGE_PRIORITY_WEIGHT = 1
+USER_DEVICE_PRIORITY_START = 5
+USER_DEVICE_PRIORITY_END = 100
 NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT = "charger_power_allocation_weight"  # 1
 NUMBER_DEVICE_MIN_CHARGE_LIMIT = "device_min_charge_limit"
 NUMBER_DEVICE_MAX_CHARGE_LIMIT = "device_max_charge_limit"

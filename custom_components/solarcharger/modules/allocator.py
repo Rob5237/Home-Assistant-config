@@ -10,6 +10,7 @@ from ..const import (
     MAX_SPEED_CHARGE_PRIORITY,
     MAX_SPEED_CHARGE_PRIORITY_WEIGHT,
     OPTION_GLOBAL_DEFAULTS_ID,
+    USER_DEVICE_PRIORITY_START,
     RunState,
 )
 from ..helpers.general import async_set_delta_allocated_power
@@ -495,7 +496,7 @@ class PowerAllocator:
         self,
         ladder: list[AllocationGroup],
         net_power: float,  # ie. net_power is positive to free up power.
-        end_rung: int = -1,  # inclusive, -1 means all the way to the top priority level.
+        end_rung: int = -1,  # inclusive, -1 means all the way from bottom to top inclduing index 0.
     ) -> float:
         """Release power from lower to higher priority chargers up to and not including the end_rung priority level."""
 
@@ -640,17 +641,26 @@ class PowerAllocator:
                         )
 
     # ----------------------------------------------------------------------------
-    def _distribute_loan_power(
-        self, rebalance_active_ladder: list[AllocationGroup], loan_power: float
+    def _temporarily_lend_power_until_borrower_is_paused(
+        self, rebalance_active_ladder: list[AllocationGroup], total_loan_power: float
     ) -> None:
-        """Distribute loaned power from lower to higher priority chargers that can adjust current."""
+        """Temporarily lend power to devices that cannot adjust current until paused.
 
-        if loan_power > 0:
-            freeup_power = loan_power
+        Distribute loan from lower to higher priority devices that can adjust current.
+        """
+
+        exit_loop = False
+        if total_loan_power > 0:
+            freeup_power = total_loan_power
             for rung in range(len(rebalance_active_ladder) - 1, -1, -1):
                 for rebalance_active_member in rebalance_active_ladder[
                     rung
                 ].member_map.values():
+                    # Do not lend power from system priority devices.
+                    if rebalance_active_member.priority < USER_DEVICE_PRIORITY_START:
+                        exit_loop = True
+                        break
+
                     # Reduce net allocated power from devices that can adjust current.
                     # Should distribute load evenly amoung members, but for now just iterate.
                     if rebalance_active_member.can_set_current:
@@ -658,17 +668,26 @@ class PowerAllocator:
                             rebalance_active_member.final_power
                             - rebalance_active_member.consumed_power
                         )
-                        if member_rebalance_power < 0:
-                            freeup_power += member_rebalance_power
+
+                        # Ensure lender can keep minimum activation power to avoid pausing.
+                        member_lend_power = (
+                            member_rebalance_power
+                            - rebalance_active_member.activation_power
+                        )
+                        if member_lend_power < 0:
+                            freeup_power += member_lend_power
                             if freeup_power <= 0:
                                 rebalance_active_member.final_power = (
                                     freeup_power
+                                    + rebalance_active_member.activation_power
                                     + rebalance_active_member.consumed_power
                                 )
                                 freeup_power = 0
+                                exit_loop = True
                             else:
                                 rebalance_active_member.final_power = (
-                                    rebalance_active_member.consumed_power
+                                    rebalance_active_member.activation_power
+                                    + rebalance_active_member.consumed_power
                                 )
 
                             _LOGGER.info(
@@ -681,10 +700,10 @@ class PowerAllocator:
                                 rebalance_active_member.final_power,  # After loan
                             )
 
-                    if freeup_power <= 0:
+                    if exit_loop:
                         break
 
-                if freeup_power <= 0:
+                if exit_loop:
                     break
 
     # ----------------------------------------------------------------------------
@@ -712,11 +731,16 @@ class PowerAllocator:
                     rebalance_active_member.consumed_power * -1
                 )
 
-                # No need to loan power if monitor window is disabled.
-                control = self._device_controls[rebalance_member.subentry_id]
+                # Devices that cannot adjust current will borrow power from devices
+                # that can adjust current until such time the borrower device is paused.
                 if (
-                    control.controller.solar_charge.power_monitor_duration > 0
-                    and not rebalance_member.can_set_current
+                    # Note: If monitor window is disabled, currently devices will just
+                    # continue charging. **Need to think about this.**
+                    # self._device_controls[
+                    #     rebalance_member.subentry_id
+                    # ].controller.solar_charge.power_monitor_duration
+                    # > 0 and
+                    not rebalance_member.can_set_current
                     and rebalance_member.final_power
                     > rebalance_member.adjusted_activation_power
                 ):
@@ -737,7 +761,9 @@ class PowerAllocator:
         # Reduce total loan power with unallocated power from rebalance.
         if total_loan_power > 0 and unallocated_power < 0:
             total_loan_power = max(total_loan_power + unallocated_power, 0)
-        self._distribute_loan_power(rebalance_active_ladder, total_loan_power)
+        self._temporarily_lend_power_until_borrower_is_paused(
+            rebalance_active_ladder, total_loan_power
+        )
 
         return rebalance_active_ladder
 
@@ -748,6 +774,7 @@ class PowerAllocator:
         _LOGGER.info("AllocationBook: %s", book)
 
         # Allocation for all running chargers including both active and paused chargers.
+        # This will be later used as theoretical allocation for paused chargers.
         _, all_ladder = self._process_allocation_group(
             book.all_group_map,
             book.gross_power,
@@ -756,6 +783,28 @@ class PowerAllocator:
 
         #####################################
         # Rebalance allocation
+        #####################################
+        # Characteristics of rebalance allocation:
+        # - Rebalance is good because power distribution is recalculated for all
+        # devices every time.
+        # - gross power = net_power - total_consumed_power
+        # - When gross power < 0, then there is surplus power for allocation.
+        # - Rebalance deallocation is easy, ie. when gross power >= 0, all devices
+        # will get 0 power.
+        # - Power is rebalanced assuming that power can be redistributed immediately,
+        # which is not the case for devices that cannot adjust current.
+        # - For devices that cannot adjust current, power is borrowed from devices
+        # that can adjust current until such time the borrower device is paused.
+        # - Pausing a device takes time.
+        # - This can lead to the lender device being paused by lending out too much
+        # power for too long, so ensure lender can keep minimum activation power to
+        # avoid pausing.
+        # - In the case of only 2 devices and both cannot adjust current, there is
+        # no lending of power, so there will be an overlap period in which both devices
+        # are using up power until such time the lower priority deivce is paused.
+        # ** Think about whether rebalance can plan ahead doing both deallocation
+        # and allocation at the same time, so that the lower priority device can
+        # be paused before the higher priority device becomes active.
         #####################################
         active_ladder = self._sorted_list_of_priority_level(book.active_group_map)
 
@@ -769,9 +818,12 @@ class PowerAllocator:
             book, active_ladder, unallocated_power
         )
 
+        # Send allocation for active chargers.
         await self._async_send_allocations(
             rebalance_active_ladder, paused_only=False, log=False
         )
+
+        # Send allocation for paused chargers.
         await self._async_send_allocations(all_ladder, paused_only=True, log=True)
 
     # # ----------------------------------------------------------------------------
