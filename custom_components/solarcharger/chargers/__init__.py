@@ -48,6 +48,7 @@ async def charger_factory(
         TeslaFleetCharger,
         TessieCharger,
         TeslemetryCharger,
+        # Custom charger requires global defaults device!
         UserCustomCharger,
     ]:
         if charger_cls.is_charger_device(device):

@@ -12,7 +12,7 @@ NAME = "SolarCharger"
 DOMAIN = "solarcharger"
 DOMAIN_DATA = f"{DOMAIN}_data"
 # Also need to set version in manifest.json, README.md and CHANGELOG.md.
-VERSION = "0.10.3"
+VERSION = "0.10.4"
 STORAGE_VERSION = 1
 ISSUE_URL = "https://github.com/flashg1/SolarCharger/issues"
 CONFIG_URL = "https://github.com/flashg1/SolarCharger"
@@ -117,15 +117,15 @@ class MedianDataState(Enum):
 MEDIAN_DATA_STATE_LIST: list[str] = [state.value for state in MedianDataState]
 
 
-class ChargeControlApi(Enum):
-    """Enumeration of supported ChargeControl APIs."""
+# class ChargeControlApi(Enum):
+#     """Enumeration of supported ChargeControl APIs."""
 
-    OCPP_CHARGER_API = "ocpp_charger_api"
-    TESLA_CUSTOM_API = "tesla_custom_api"
-    TESLA_MQTTBLE_API = "tesla_mqtt_ble_api"
-    TESLA_FLEET_API = "tesla_fleet_api"
-    TESLA_TESSIE_API = "tesla_tessie_api"
-    USER_CUSTOM_API = "user_custom_api"
+#     OCPP_CHARGER_API = "ocpp_charger_api"
+#     TESLA_CUSTOM_API = "tesla_custom_api"
+#     TESLA_MQTTBLE_API = "tesla_mqtt_ble_api"
+#     TESLA_FLEET_API = "tesla_fleet_api"
+#     TESLA_TESSIE_API = "tesla_tessie_api"
+#     USER_CUSTOM_API = "user_custom_api"
 
 
 #######################################################
@@ -140,6 +140,16 @@ CHARGER_INITIAL_CURRENT = 6.0
 # Hot water max current can vary between 14.617A and 14.996A.
 # ie. 14.996 - 14.617 = 0.379, 0.379 / 14.996 = 0.0253, ie. 2.53%
 CURRENT_VARIATION_PERCENTAGE = 5
+
+#####################################
+# SolarCharger config file names
+#####################################
+CONFIG_FILE_SOURCE = "Source"
+CONFIG_FILE_DEVICE = "Device"
+CONFIG_DEVICE_LIST = "device_list"
+CONFIG_DEVICE_DOMAIN = "device_domain"
+CONFIG_DEVICE_NAME = "device_name"
+CONFIG_DEVICE_ID = "device_id"
 
 #######################################################
 # Subentry constants
@@ -319,7 +329,6 @@ EVENT_ATTR_OLD_VALUE = "old_value"
 #####################################
 # Power import/export sensor
 #####################################
-CONFIG_SOURCE_NAME = "Source"
 CONFIG_NET_POWER_SENSOR = "net_power_sensor"
 
 CONFIG_CHARGER_CURRENT_UPDATE_PERIOD = "charger_current_update_period"

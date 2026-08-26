@@ -29,6 +29,11 @@ from homeassistant.util import slugify
 from ..const import (
     CHARGE_API_DEFAULT_VALUES,
     CHARGE_API_ENTITIES,
+    CONFIG_DEVICE_DOMAIN,
+    CONFIG_DEVICE_ID,
+    CONFIG_DEVICE_LIST,
+    CONFIG_DEVICE_NAME,
+    CONFIG_FILE_DEVICE,
     CONFIG_NAME_MARKER,
     CONFIG_WITH_NO_DEFAULTS,
     DELETE_ENTITY_MARKER,
@@ -276,6 +281,156 @@ def ha_store_open(hass: HomeAssistant, config_name: str) -> Store:
 
     storage_key = _ha_store_get_key(config_name)
     return Store(hass, STORAGE_VERSION, storage_key)
+
+
+# ----------------------------------------------------------------------------
+async def _async_ha_store_get_device_list(store: Store) -> list[dict[str, str]]:
+    """Load device list from file storage."""
+
+    data = await store.async_load()
+    if data is None:
+        return []
+
+    device_list: list[dict[str, str]] = data.get(CONFIG_DEVICE_LIST, [])
+    return device_list
+
+
+# ----------------------------------------------------------------------------
+async def async_ha_store_load_device_list(
+    hass: HomeAssistant,
+) -> list[dict[str, str]]:
+    """Load device list from file storage."""
+
+    store = ha_store_open(hass, CONFIG_FILE_DEVICE)
+    return await _async_ha_store_get_device_list(store)
+
+
+# ----------------------------------------------------------------------------
+async def async_ha_store_update_device_list(
+    hass: HomeAssistant, device_domain: str, device_name: str, device_id: str
+) -> None:
+    """Update device list in file storage."""
+
+    store = ha_store_open(hass, CONFIG_FILE_DEVICE)
+    device_list = await _async_ha_store_get_device_list(store)
+    new_device = {
+        CONFIG_DEVICE_DOMAIN: device_domain,
+        CONFIG_DEVICE_NAME: device_name,
+        CONFIG_DEVICE_ID: device_id,
+    }
+
+    found = False
+    for index, device in enumerate(device_list):
+        if (
+            device[CONFIG_DEVICE_DOMAIN] == device_domain
+            and device[CONFIG_DEVICE_NAME] == device_name
+        ):
+            device_list[index] = new_device
+            found = True
+            break
+
+    if not found:
+        device_list.append(new_device)
+
+    await store.async_save({CONFIG_DEVICE_LIST: device_list})
+
+    #######################################################
+    # Problem with HA storing list[tuples[str,str,str]]. It stores it as list[list[str]].
+    # So need to use list instead of tuples.
+    # It is stored as,
+    # "device_list": [["ocpp","charger1","5a75634604b1af16993777353f385926"],["ocpp","charger2","ee354487291c4dc05f9d86ae3b8cab70"]]
+    # It needs to be stored as,
+    # "device_list": [("ocpp","charger1","5a75634604b1af16993777353f385926"),("ocpp","charger2","ee354487291c4dc05f9d86ae3b8cab70")]
+    # Hence cannot match.
+    #######################################################
+    # if new_item not in device_list:
+    #     device_list.append(new_item)
+    #     await store.async_save({CONFIG_DEVICE_LIST: device_list})
+
+
+# ----------------------------------------------------------------------------
+def _delete_member_not_in_new_list(
+    old_list: list[dict[str, str]], new_list: list[dict[str, str]]
+) -> list[dict[str, str]]:
+    """Delete member not in new list."""
+
+    # Create a lookup dictionary of {(domain, name): new_list_device}
+    new_lookup = {(d[CONFIG_DEVICE_DOMAIN], d[CONFIG_DEVICE_NAME]): d for d in new_list}
+
+    # Filter and update elements safely using a list comprehension
+    return [
+        new_lookup[(device[CONFIG_DEVICE_DOMAIN], device[CONFIG_DEVICE_NAME])]
+        for device in old_list
+        if (device[CONFIG_DEVICE_DOMAIN], device[CONFIG_DEVICE_NAME]) in new_lookup
+    ]
+
+
+# ----------------------------------------------------------------------------
+def _add_new_member_from_new_list(
+    old_list: list[dict[str, str]], new_list: list[dict[str, str]], merge: bool
+) -> list[dict[str, str]]:
+    """Add or update member from new list keeping old list order. Delete member not in new list if not merging."""
+
+    # Create a lookup dictionary of {(domain, name): new_list_device}
+    new_lookup = {(d[CONFIG_DEVICE_DOMAIN], d[CONFIG_DEVICE_NAME]): d for d in new_list}
+    updated_list = []
+    updated_list_keys = set()
+
+    # 1. Update existing matches in 'old_list' and track what we've processed.
+    for old_device in old_list:
+        old_key = (old_device[CONFIG_DEVICE_DOMAIN], old_device[CONFIG_DEVICE_NAME])
+        if old_key in new_lookup:
+            # Match found: update with a shallow copy from new_list.
+            updated_list.append(new_lookup[old_key])
+            updated_list_keys.add(old_key)
+        elif merge:
+            # No match: keep the original item as-is if merging.
+            updated_list.append(old_device)
+            updated_list_keys.add(old_key)
+
+    # 2. Append elements from 'new_list' that were never found in 'old_list'.
+    for new_device in new_list:
+        new_key = (new_device[CONFIG_DEVICE_DOMAIN], new_device[CONFIG_DEVICE_NAME])
+        if new_key not in updated_list_keys:
+            # Safe shallow copy.
+            updated_list.append(new_device)
+            # Prevents duplicates if new_list has duplicates.
+            updated_list_keys.add(new_key)
+
+    return updated_list
+
+
+# ----------------------------------------------------------------------------
+async def async_ha_store_replace_device_list(
+    hass: HomeAssistant, new_list: list[dict[str, str]]
+) -> None:
+    """Replace device list."""
+
+    store = ha_store_open(hass, CONFIG_FILE_DEVICE)
+    device_list = await _async_ha_store_get_device_list(store)
+    device_list = _add_new_member_from_new_list(device_list, new_list, merge=False)
+    await store.async_save({CONFIG_DEVICE_LIST: device_list})
+
+
+# ----------------------------------------------------------------------------
+async def async_ha_store_delete_device_list(
+    hass: HomeAssistant, device_domain: str, device_name: str
+) -> None:
+    """Delete device from device list in file storage."""
+
+    store = ha_store_open(hass, CONFIG_FILE_DEVICE)
+    device_list = await _async_ha_store_get_device_list(store)
+
+    # Remove device matching domain and name
+    for index, device in enumerate(device_list):
+        if (
+            device[CONFIG_DEVICE_DOMAIN] == device_domain
+            and device[CONFIG_DEVICE_NAME] == device_name
+        ):
+            device_list.pop(index)
+            break
+
+    await store.async_save({CONFIG_DEVICE_LIST: device_list})
 
 
 # ----------------------------------------------------------------------------
@@ -657,7 +812,7 @@ def create_entity_ids_from_templates(
             is_api_entity = (
                 False if template is None else DEVICE_NAME_MARKER in template
             )
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "%s: is_api_entity=%s, user_config='%s', sc_entity_id='%s'",
                 config_item,
                 is_api_entity,
@@ -699,7 +854,7 @@ def process_api_config(
     """Reset entity names using new device name and config name substitutions. Delete marked entities."""
 
     if config_name != OPTION_GLOBAL_DEFAULTS_ID:
-        _LOGGER.warning("Original config: %s", data)
+        # _LOGGER.warning("Original config: %s", data)
         # Delete marked entities and config strings
         data = delete_marked_config(data)
 
@@ -727,5 +882,7 @@ def process_api_config(
                 create_entity_ids_from_templates(
                     data, api_entities, device_name, subentry.unique_id, is_init_all
                 )
+
+        _LOGGER.warning("Device config: %s", data)
 
     return data
