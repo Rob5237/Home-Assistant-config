@@ -1,5 +1,5 @@
 # ruff: noqa: TID252
-"""Tesla Custom charger implementation."""
+"""Kia UVO charger implementation."""
 
 import logging
 
@@ -7,7 +7,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
-from ..const import DOMAIN_TESLA_CUSTOM
+from ..const import DOMAIN_KIA_UVO
 from .charger_chargeable_base import ChargerChargeableBase
 
 # ----------------------------------------------------------------------------
@@ -17,8 +17,8 @@ _LOGGER = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
-class TeslaCustomCharger(ChargerChargeableBase):
-    """Implementation of the Charger class for Tesla Custom chargers."""
+class KiaUVOCharger(ChargerChargeableBase):
+    """Implementation of the Charger class for Kia UVO chargers."""
 
     def __init__(
         self,
@@ -27,7 +27,7 @@ class TeslaCustomCharger(ChargerChargeableBase):
         subentry: ConfigSubentry,
         device: DeviceEntry,
     ) -> None:
-        """Initialize the Tesla Custom charger."""
+        """Initialize the Kia UVO charger."""
 
         ChargerChargeableBase.__init__(self, hass, entry, subentry, device)
 
@@ -36,21 +36,17 @@ class TeslaCustomCharger(ChargerChargeableBase):
     # ----------------------------------------------------------------------------
     @staticmethod
     def is_chargeable_device(device: DeviceEntry) -> bool:
-        """Check if the given device is an Tesla Custom charger."""
+        """Check if the given device is an Kia UVO charger."""
 
         _LOGGER.debug("%s: %s", device.name, device)
-        return any(
-            id_domain == DOMAIN_TESLA_CUSTOM for id_domain, _ in device.identifiers
-        )
+        return any(id_domain == DOMAIN_KIA_UVO for id_domain, _ in device.identifiers)
 
     # ----------------------------------------------------------------------------
     # Charger interface implementation
     # ----------------------------------------------------------------------------
     @staticmethod
     def is_charger_device(device: DeviceEntry) -> bool:
-        """Check if device is a Tesla Custom charger."""
+        """Check if device is a Kia UVO charger."""
 
         _LOGGER.debug("%s: %s", device.name, device)
-        return any(
-            id_domain == DOMAIN_TESLA_CUSTOM for id_domain, _ in device.identifiers
-        )
+        return any(id_domain == DOMAIN_KIA_UVO for id_domain, _ in device.identifiers)
