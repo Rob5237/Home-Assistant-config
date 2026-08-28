@@ -28,6 +28,8 @@ from ocpp.v16.enums import (
     DataTransferStatus,
     Measurand,
     MessageTrigger,
+    Phase,
+    ReadingContext,
     RegistrationStatus,
     RemoteStartStopStatus,
     ResetStatus,
@@ -56,6 +58,7 @@ from .const import (
     CentralSystemSettings,
     ChargerSystemSettings,
     DEFAULT_MEASURAND,
+    DEFAULT_MAX_CURRENT,
     HA_ENERGY_UNIT,
     MEASURANDS,
 )
@@ -76,6 +79,37 @@ def _to_message_trigger(name: str) -> MessageTrigger | None:
         "firmwarestatusnotification": MessageTrigger.firmware_status_notification,
     }
     return mapping.get(key)
+
+
+# Charge-rate defaults plus conservative electrical conversion fallbacks.
+_DEFAULT_LIMIT_AMPS = DEFAULT_MAX_CURRENT
+_DEFAULT_LIMIT_WATTS = 22000
+_DEFAULT_LINE_VOLTAGE = 230.0
+_DEFAULT_PHASES = 1
+
+_AMPS_UNIT_TOKENS = frozenset({"current", "a", "amp", "amps", "ampere", "amperes"})
+_WATTS_UNIT_TOKENS = frozenset({"power", "w", "watt", "watts"})
+_PHASE_KEY_GROUPS = (
+    frozenset({Phase.l1.value, Phase.l2.value, Phase.l3.value}),
+    frozenset({Phase.l1_n.value, Phase.l2_n.value, Phase.l3_n.value}),
+    frozenset({Phase.l1_l2.value, Phase.l2_l3.value, Phase.l3_l1.value}),
+)
+
+
+def _allowed_charging_rate_units(units_resp: str | None) -> tuple[bool, bool]:
+    """Parse ChargingScheduleAllowedChargingRateUnit into (amps, watts) support."""
+    if not units_resp:
+        return True, False
+    tokens = {
+        tok.strip().lower()
+        for tok in str(units_resp).replace(";", ",").split(",")
+        if tok.strip()
+    }
+    supports_amps = bool(tokens & _AMPS_UNIT_TOKENS)
+    supports_watts = bool(tokens & _WATTS_UNIT_TOKENS)
+    if not supports_amps and not supports_watts:
+        return True, False
+    return supports_amps, supports_watts
 
 
 class ChargePoint(cp):
@@ -102,6 +136,7 @@ class ChargePoint(cp):
             charger,
         )
         self._active_tx: dict[int, int] = {}  # connector_id -> transaction_id
+        self._ended_tx: dict[int, int] = {}  # connector_id -> last stopped tx
 
     async def get_number_of_connectors(self) -> int:
         """Return number of connectors on this charger."""
@@ -381,6 +416,7 @@ class ChargePoint(cp):
 
         req = call.TriggerMessage(requested_message=trig)
         resp = await self.call(req)
+        _LOGGER.debug("TriggerMessage %s to %s answered: %s", trig, self.id, resp)
         if resp.status != TriggerMessageStatus.accepted:
             _LOGGER.warning("Failed with response: %s", resp.status)
             return False
@@ -406,10 +442,75 @@ class ChargePoint(cp):
             _LOGGER.debug("ClearChargingProfile raised %s (ignored)", ex)
             return False
 
+    def _lookup_metric(self, measurand: str, conn_id: int):
+        """Return a connector metric if it has a value, else None."""
+        metrics = getattr(self, "_metrics", None)
+        if metrics is None:
+            return None
+        try:
+            target = int(conn_id) if conn_id and int(conn_id) > 0 else 1
+        except (TypeError, ValueError):
+            target = 1
+        # Connector 0 contains legacy/global telemetry. Never fall back to
+        # connector 1 for another connector, as that can mix unrelated ports.
+        connector_ids = (target, 0)
+        for cid in connector_ids:
+            key = (cid, measurand)
+            if key not in metrics:
+                continue
+            metric = metrics[key]
+            if metric is not None and getattr(metric, "value", None) is not None:
+                return metric
+        return None
+
+    def _line_voltage(self, conn_id: int) -> float:
+        """Return a plausible line-to-neutral voltage, or the 230 V default."""
+        metric = self._lookup_metric(Measurand.voltage.value, conn_id)
+        if metric is not None:
+            try:
+                voltage = float(metric.value)
+            except (TypeError, ValueError):
+                voltage = 0.0
+            if 50.0 <= voltage <= 500.0:
+                return voltage
+        return _DEFAULT_LINE_VOLTAGE
+
+    def _phase_count(self, conn_id: int) -> int:
+        """Count explicitly reported phases; conservatively default to one."""
+        measurands = (
+            Measurand.voltage.value,
+            Measurand.current_import.value,
+            Measurand.current_offered.value,
+        )
+        best = 0
+        for measurand in measurands:
+            metric = self._lookup_metric(measurand, conn_id)
+            if metric is None:
+                continue
+            keys = {str(k) for k in (metric.extra_attr or {})}
+            for group in _PHASE_KEY_GROUPS:
+                n = len(keys & group)
+                if n > best:
+                    best = n
+        return best if best > 0 else _DEFAULT_PHASES
+
+    def _amps_to_watts(self, amps: float, conn_id: int) -> float:
+        """Convert a current limit to watts for Power-only chargers."""
+        return float(
+            round(amps * self._line_voltage(conn_id) * self._phase_count(conn_id))
+        )
+
+    def _watts_to_amps(self, watts: float, conn_id: int) -> float:
+        """Convert a power limit to amps for Current-only chargers."""
+        denom = self._line_voltage(conn_id) * self._phase_count(conn_id)
+        if denom <= 0:
+            return float(_DEFAULT_LIMIT_AMPS)
+        return round(watts / denom, 1)
+
     async def set_charge_rate(
         self,
-        limit_amps: int = 32,
-        limit_watts: int = 22000,
+        limit_amps: int | float | None = None,
+        limit_watts: int | float | None = None,
         conn_id: int = 0,
         profile: dict | None = None,
     ) -> bool:
@@ -440,10 +541,37 @@ class ChargePoint(cp):
         )
         if not units_resp:
             _LOGGER.debug("Charging rate unit not reported; assuming Amps")
-            units_resp = om.current.value
 
-        use_amps = om.current.value in units_resp
-        limit_value = float(limit_amps if use_amps else limit_watts)
+        supports_amps, supports_watts = _allowed_charging_rate_units(units_resp)
+        # Watt-only chargers (Huawei FusionCharge reports "Power") must not
+        # fall back to the old limit_watts=22000 default when the HA number
+        # entity passes only limit_amps.
+        if supports_amps and not supports_watts:
+            use_amps = True
+        elif supports_watts and not supports_amps:
+            use_amps = False
+        else:
+            use_amps = limit_amps is not None or limit_watts is None
+
+        if use_amps:
+            if limit_amps is not None:
+                limit_value = float(limit_amps)
+            elif limit_watts is not None:
+                limit_value = self._watts_to_amps(float(limit_watts), conn_id)
+            else:
+                limit_value = float(_DEFAULT_LIMIT_AMPS)
+        elif limit_watts is not None:
+            limit_value = float(limit_watts)
+        elif limit_amps is not None:
+            limit_value = self._amps_to_watts(float(limit_amps), conn_id)
+            _LOGGER.debug(
+                "Converted %.1f A to %.0f W for Power-only charger",
+                float(limit_amps),
+                limit_value,
+            )
+        else:
+            limit_value = float(_DEFAULT_LIMIT_WATTS)
+
         units_value = (
             ChargingRateUnitType.amps.value
             if use_amps
@@ -655,6 +783,12 @@ class ChargePoint(cp):
             connector_id=connector_id, id_tag=self._remote_id_tag
         )
         resp = await self.call(req)
+        _LOGGER.debug(
+            "RemoteStartTransaction to %s connector=%s answered: %s",
+            self.id,
+            connector_id,
+            resp,
+        )
         if resp.status == RemoteStartStopStatus.accepted:
             return True
         else:
@@ -958,8 +1092,23 @@ class ChargePoint(cp):
         recorded_tx = int(self._metrics[tx_key].value or 0)
         active_tx = int(self._active_tx.get(connector_id, 0) or 0)
 
+        # A transaction's closing values arrive after its StopTransaction, so
+        # adopting their id below would revive the session that just ended. A
+        # charger says so with a Transaction.End context, but OCPP leaves that
+        # field optional, so fall back to the id of the transaction we last saw
+        # stop on this connector.
+        tx_ended: bool = bool(transaction_id) and (
+            transaction_id == int(self._ended_tx.get(connector_id, 0) or 0)
+            or any(
+                sampled_value.get(om.context.value)
+                == ReadingContext.transaction_end.value
+                for bucket in meter_value
+                for sampled_value in bucket.get(om.sampled_value.name, [])
+            )
+        )
+
         # Self-heal after restart: adopt incoming txId if we have none recorded yet
-        if transaction_id and (recorded_tx == 0 and active_tx == 0):
+        if transaction_id and not tx_ended and (recorded_tx == 0 and active_tx == 0):
             self._metrics[tx_key].value = transaction_id
             self._active_tx[connector_id] = transaction_id
             active_tx = transaction_id
@@ -987,6 +1136,12 @@ class ChargePoint(cp):
         transaction_matches: bool = False
         # Match is also false if no transaction is in progress, i.e. active_tx==transaction_id==0
         if transaction_id == active_tx and transaction_id != 0:
+            transaction_matches = True
+        elif transaction_id != 0 and tx_ended:
+            # The closing values arrive once the transaction has been cleared, but
+            # they belong to it and carry its final energy figures. Treating them
+            # as outside a transaction would file session energy as lifetime
+            # energy on chargers that report the two in the same measurand.
             transaction_matches = True
         elif transaction_id != 0 and active_tx != 0 and transaction_id != active_tx:
             _LOGGER.warning(
@@ -1017,6 +1172,12 @@ class ChargePoint(cp):
             meter_values.append(measurands)
 
         self.process_measurands(meter_values, transaction_matches, connector_id)
+
+        # The closing values are the last thing a charger sends for a session and
+        # they still carry the final current and power, so they would otherwise
+        # leave those sensors reading as though charging never stopped.
+        if tx_ended:
+            self._zero_flow_measurands(connector_id)
 
         if tx_has_id and transaction_matches:
             try:
@@ -1054,6 +1215,14 @@ class ChargePoint(cp):
     @on(Action.status_notification)
     def on_status_notification(self, connector_id, error_code, status, **kwargs):
         """Handle a status notification."""
+        _LOGGER.debug(
+            "Status notification from %s: connector=%s status=%s error_code=%s %s",
+            self.id,
+            connector_id,
+            status,
+            error_code,
+            kwargs,
+        )
 
         if connector_id == 0 or connector_id is None:
             self._metrics[(0, cstat.status.value)].value = status
@@ -1068,16 +1237,7 @@ class ChargePoint(cp):
                 ChargePointStatus.suspended_ev.value,
                 ChargePointStatus.suspended_evse.value,
             ):
-                for meas in [
-                    Measurand.current_import.value,
-                    Measurand.power_active_import.value,
-                    Measurand.power_reactive_import.value,
-                    Measurand.current_export.value,
-                    Measurand.power_active_export.value,
-                    Measurand.power_reactive_export.value,
-                ]:
-                    if meas in self._metrics[connector_id]:
-                        self._metrics[(connector_id, meas)].value = 0
+                self._zero_flow_measurands(connector_id)
 
         self.hass.async_create_task(self.update(self.settings.cpid))
         return call_result.StatusNotification()
@@ -1127,6 +1287,7 @@ class ChargePoint(cp):
         auth_status = self.get_authorization_status(id_tag)
         if auth_status == AuthorizationStatus.accepted.value:
             tx_id = int(time.time())
+            self._ended_tx.pop(connector_id, None)
             self._active_tx[connector_id] = tx_id
             self.active_transaction_id = tx_id
             self._metrics[(connector_id, cstat.id_tag.value)].value = id_tag
@@ -1179,6 +1340,7 @@ class ChargePoint(cp):
             conn = 1  # conservative fallback
 
         # Reset active transaction (global + per-connector)
+        self._ended_tx[conn] = int(transaction_id or 0)
         self._active_tx[conn] = 0
         self.active_transaction_id = 0
         self._metrics[(conn, cstat.id_tag.value)].value = ""
@@ -1200,17 +1362,7 @@ class ChargePoint(cp):
                 session_kwh = 0.0
             self._metrics[(conn, csess.session_energy.value)].value = session_kwh
 
-        for meas in [
-            Measurand.current_import.value,
-            Measurand.power_active_import.value,
-            Measurand.power_reactive_import.value,
-            Measurand.current_export.value,
-            Measurand.power_active_export.value,
-            Measurand.power_reactive_export.value,
-        ]:
-            key = (conn, meas)
-            if key in self._metrics:
-                self._metrics[key].value = 0
+        self._zero_flow_measurands(conn)
 
         self.hass.async_create_task(self.update(self.settings.cpid))
         return call_result.StopTransaction(
@@ -1232,3 +1384,17 @@ class ChargePoint(cp):
         self._metrics[0][cstat.heartbeat.value].value = now
         self._async_refresh_metric_entities([cstat.heartbeat.value])
         return call_result.Heartbeat(current_time=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+    def _zero_flow_measurands(self, connector_id: int) -> None:
+        """Clear the readings that only have meaning while current is flowing."""
+        for meas in [
+            Measurand.current_import.value,
+            Measurand.power_active_import.value,
+            Measurand.power_reactive_import.value,
+            Measurand.current_export.value,
+            Measurand.power_active_export.value,
+            Measurand.power_reactive_export.value,
+        ]:
+            key = (connector_id, meas)
+            if key in self._metrics:
+                self._metrics[key].value = 0
