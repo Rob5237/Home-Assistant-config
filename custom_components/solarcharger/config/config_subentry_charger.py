@@ -31,8 +31,10 @@ from homeassistant.util import slugify
 from ..const import (
     DOMAIN_BYD_VEHICLE,
     DOMAIN_ESPHOME,
+    DOMAIN_GEELY_CONNECT,
     DOMAIN_GWM_ORA,
     DOMAIN_KIA_UVO,
+    DOMAIN_MG_SAIC,
     DOMAIN_MQTT,
     DOMAIN_MYSKODA,
     DOMAIN_OCPP,
@@ -40,6 +42,7 @@ from ..const import (
     DOMAIN_TESLA_FLEET,
     DOMAIN_TESLEMETRY,
     DOMAIN_TESSIE,
+    DOMAIN_VOLVO,
     ERROR_DEVICE_ALREADY_ADDED,
     ERROR_MISSING_DEVICE_NAME,
     ERROR_SELECT_CHARGER,
@@ -352,6 +355,9 @@ def _get_supported_devices(
         DeviceFilterSelectorConfig(integration=DOMAIN_BYD_VEHICLE),
         DeviceFilterSelectorConfig(integration=DOMAIN_GWM_ORA),
         DeviceFilterSelectorConfig(integration=DOMAIN_KIA_UVO),
+        DeviceFilterSelectorConfig(integration=DOMAIN_GEELY_CONNECT),
+        DeviceFilterSelectorConfig(integration=DOMAIN_VOLVO),
+        DeviceFilterSelectorConfig(integration=DOMAIN_MG_SAIC),
     ]
 
     # 2. Query the Device Registry to explicitly find allowed OCPP models.

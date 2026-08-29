@@ -24,7 +24,10 @@
     "myskoda",
     "byd_vehicle",
     "gwm_ora",
-    "kia_uvo"
+    "kia_uvo",
+    "geely_connect",
+    "volvo",
+    "mg_saic"
   ],
   "codeowners": [
     "@flashg1"
@@ -37,5 +40,5 @@
   "loggers": ["custom_components.solarcharger", "solarcharger"],
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.10.5"
+  "version": "0.10.6"
 }
