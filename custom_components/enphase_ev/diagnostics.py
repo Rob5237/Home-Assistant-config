@@ -14,6 +14,7 @@ from .device_types import parse_type_identifier
 from .energy import SiteEnergyFlow
 from .log_redaction import redact_text
 from .runtime_data import EnphaseConfigEntry, get_runtime_data
+from .scalar_helpers import coerce_snapshot_bool
 
 DIAGNOSTIC_CAPTURE_ERRORS = (RuntimeError, TypeError, ValueError, AttributeError)
 
@@ -239,20 +240,7 @@ def _text(value: Any) -> str | None:
     return out or None
 
 
-def _optional_bool(value: Any) -> bool | None:
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in ("true", "1", "yes", "y", "enabled", "on"):
-            return True
-        if normalized in ("false", "0", "no", "n", "disabled", "off"):
-            return False
-    return None
+_optional_bool = coerce_snapshot_bool
 
 
 def _normalize_gateway_status(value: Any) -> str:
@@ -727,6 +715,10 @@ async def async_get_config_entry_diagnostics(
                     "source_unit": flow.source_unit,
                     "last_reset_at": flow.last_reset_at,
                     "interval_minutes": flow.interval_minutes,
+                    "latest_bucket_wh": flow.latest_bucket_wh,
+                    "previous_bucket_wh": flow.previous_bucket_wh,
+                    "raw_bucket_count": flow.raw_bucket_count,
+                    "power_sample_error": flow.power_sample_error,
                 }
             elif hasattr(flow, "__dict__"):
                 raw = flow.__dict__
@@ -753,6 +745,7 @@ async def async_get_config_entry_diagnostics(
             "flows": site_energy or None,
             "meta": meta,
             "cache_age_s": cache_age,
+            "consumption_power": getattr(energy, "consumption_power_diagnostics", {}),
         }
 
     return _redact_diagnostics_payload(diag, site_ids=site_ids)
