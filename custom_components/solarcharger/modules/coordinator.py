@@ -107,17 +107,19 @@ class SolarChargerCoordinator(ScOptionState):
         self._tracking_weather: bool = False
 
     # ----------------------------------------------------------------------------
-    @cached_property
-    def _device(self) -> dr.DeviceEntry:
-        """Get the device entry for the coordinator."""
+    # Not used.  To be remvoed in future.
+    #
+    # @cached_property
+    # def _device(self) -> dr.DeviceEntry:
+    #     """Get the device entry for the coordinator."""
 
-        device_registry = dr.async_get(self._hass)
-        device = device_registry.async_get_device(
-            identifiers={(DOMAIN, self._entry.entry_id)}
-        )
-        if device is None:
-            raise RuntimeError("SolarCharger device entry not found.")
-        return device
+    #     device_registry = dr.async_get(self._hass)
+    #     device = device_registry.async_get_device(
+    #         identifiers={(DOMAIN, self._entry.entry_id)}
+    #     )
+    #     if device is None:
+    #         raise RuntimeError("SolarCharger device entry not found.")
+    #     return device
 
     # ----------------------------------------------------------------------------
     @property
@@ -443,7 +445,7 @@ class SolarChargerCoordinator(ScOptionState):
             except Exception as e:
                 _LOGGER.exception(
                     "%s: Failed to synchronise charge current update for net power %s W: %s",
-                    self.solarcharge.caller,
+                    self.caller,
                     new_state.state,
                     e,
                 )

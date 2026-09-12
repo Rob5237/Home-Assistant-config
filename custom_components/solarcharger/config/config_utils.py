@@ -28,6 +28,7 @@ from homeassistant.util import slugify
 
 from ..const import (
     CHARGE_API_DEFAULT_VALUES,
+    CHARGE_API_DOMAIN,
     CHARGE_API_ENTITIES,
     CONFIG_DEVICE_DOMAIN,
     CONFIG_DEVICE_ID,
@@ -40,6 +41,7 @@ from ..const import (
     DELETE_STRING_MARKER,
     DEVICE_NAME_MARKER,
     DOMAIN,
+    DOMAIN_OCPP,
     DOMAIN_WITH_SUBDOMAINS,
     ENTITY_DEVICE_GET_CHARGE_LIMIT,
     ENTITY_DEVICE_LOCATION_SENSOR,
@@ -60,6 +62,7 @@ from ..const import (
     STORAGE_VERSION,
     SUBENTRY_CHARGER_DEVICE_DOMAIN,
     SUBENTRY_CHARGER_DEVICE_SUBDOMAIN,
+    Modifiable,
 )
 
 # ----------------------------------------------------------------------------
@@ -136,6 +139,19 @@ NUMBER_ENTITY_SELECTOR_READ_ONLY = EntitySelector(
     EntitySelectorConfig(
         multiple=False,
         domain=["number", "input_number", "sensor"],
+        read_only=True,
+    )
+)
+TEXT_ENTITY_SELECTOR = EntitySelector(
+    EntitySelectorConfig(
+        multiple=False,
+        domain=["text", "input_text"],
+    )
+)
+TEXT_ENTITY_SELECTOR_READ_ONLY = EntitySelector(
+    EntitySelectorConfig(
+        multiple=False,
+        domain=["text", "input_text"],
         read_only=True,
     )
 )
@@ -239,30 +255,80 @@ def _is_solarcharger_entity(entity_id: str) -> bool:
 
 
 # ----------------------------------------------------------------------------
+# def choose_selector(
+#     api_entities: dict[str, str | None] | None,
+#     config_item: str,
+#     read_only_selector: EntitySelector,
+#     default_selector: EntitySelector,
+#     modifiable_if_solarcharger_entity: bool = False,
+# ) -> EntitySelector:
+#     """Entity selector is readonly if API entity is a local device entity, ie. user cannot change it.
+
+#     Local device entities are not modifiable. Local config entities are modifiable is modifiable_if_local=True.
+#     eg. chargee_charge_limit is modifiable for OCPP because it is a local config entity.
+#     """
+
+#     if api_entities:
+#         entity_id = api_entities.get(config_item)
+#         if entity_id is not None:
+#             if _is_solarcharger_entity(entity_id):
+#                 if not modifiable_if_solarcharger_entity:
+#                     return read_only_selector
+#             else:
+#                 # Local device entity, ie. non-configurable.
+#                 return read_only_selector
+
+#     return default_selector
+
+
+# ----------------------------------------------------------------------------
 def choose_selector(
     api_entities: dict[str, str | None] | None,
     config_item: str,
     read_only_selector: EntitySelector,
-    default_selector: EntitySelector,
-    modifiable_if_solarcharger_entity: bool = False,
+    modifiable_selector: EntitySelector,
+    modifiable_config: list[Modifiable],
 ) -> EntitySelector:
-    """Entity selector is readonly if API entity is a local device entity, ie. user cannot change it.
+    """Entity selector is readonly for all except for overridable entities.
 
-    Local device entities are not modifiable. Local config entities are modifiable is modifiable_if_local=True.
-    eg. chargee_charge_limit is modifiable for OCPP because it is a local config entity.
+    Local device entities are usually **NOT** overridable.
+    SC entities are usually overridable.
+    Overridable entity config must be one of ALWAYS, NEVER, IF_NONE or IF_SC_ENTITY.
+    eg. device_charge_limit is overridable for OCPP because it is a local config entity.
     """
 
-    if api_entities:
-        entity_id = api_entities.get(config_item)
-        if entity_id is not None:
-            if _is_solarcharger_entity(entity_id):
-                if not modifiable_if_solarcharger_entity:
-                    return read_only_selector
-            else:
-                # Local device entity, ie. non-configurable.
-                return read_only_selector
+    selector = modifiable_selector
 
-    return default_selector
+    if api_entities:
+        selector = read_only_selector
+        entity_id = api_entities.get(config_item)
+
+        if Modifiable.ALWAYS in modifiable_config:
+            selector = modifiable_selector
+
+        elif Modifiable.NEVER in modifiable_config:
+            selector = read_only_selector
+
+        elif Modifiable.IF_NONE in modifiable_config:
+            if entity_id is None:
+                selector = modifiable_selector
+
+        elif Modifiable.IF_SC_ENTITY in modifiable_config:
+            if entity_id is not None:
+                if _is_solarcharger_entity(entity_id):
+                    selector = modifiable_selector
+
+        else:
+            raise SystemError(
+                "Modifiable entity config must be one of ALWAYS, NEVER, IF_NONE or IF_SC_ENTITY."
+            )
+
+        if Modifiable.EXCLUDE_OCPP in modifiable_config:
+            device_domain = api_entities.get(CHARGE_API_DOMAIN)
+            if device_domain == DOMAIN_OCPP:
+                selector = read_only_selector
+
+    return selector
 
 
 # ----------------------------------------------------------------------------

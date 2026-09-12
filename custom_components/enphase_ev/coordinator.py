@@ -58,6 +58,9 @@ from .const import (
     AUTH_BLOCKED_COOLDOWN_S,
     BATTERY_MIN_SOC_FALLBACK,
     CONF_ACCESS_TOKEN,
+    CONF_AUTH_REFRESH_ATTEMPT_COUNT,
+    CONF_AUTH_REFRESH_FAILURE_COUNT,
+    CONF_AUTH_REFRESH_SUCCESS_COUNT,
     CONF_AUTH_BLOCK_REASON,
     CONF_AUTH_BLOCKED_UNTIL,
     CONF_AUTH_REFRESH_SUSPENDED_UNTIL,
@@ -310,6 +313,15 @@ def _coerce_epoch_seconds(value: object) -> int | None:
     if timestamp > 10**12:
         timestamp = timestamp // 1000
     return int(timestamp)
+
+
+def _coerce_nonnegative_counter(value: object) -> int:
+    """Return a persisted counter value or zero for invalid input."""
+
+    try:
+        return max(0, int(str(value)))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _charger_sample_datetime(value: object) -> datetime | None:
@@ -919,6 +931,15 @@ class EnphaseCoordinator(
         )
         object.__setattr__(self, "refresh_state", RefreshHealthState())
         self.auth_refresh_runtime = AuthRefreshRuntime(self)
+        self._auth_refresh_attempt_count = _coerce_nonnegative_counter(
+            config.get(CONF_AUTH_REFRESH_ATTEMPT_COUNT, 0)
+        )
+        self._auth_refresh_success_count = _coerce_nonnegative_counter(
+            config.get(CONF_AUTH_REFRESH_SUCCESS_COUNT, 0)
+        )
+        self._auth_refresh_failure_count = _coerce_nonnegative_counter(
+            config.get(CONF_AUTH_REFRESH_FAILURE_COUNT, 0)
+        )
         object.__setattr__(self, "inventory_state", InventoryState())
         object.__setattr__(self, "heatpump_state", HeatpumpState())
         self.evse_runtime = EvseRuntime(self)
@@ -1219,6 +1240,13 @@ class EnphaseCoordinator(
 
         snapshot = self._build_integration_snapshot(data)
         super().async_set_updated_data(CoordinatorData(data, snapshot))
+
+    def publish_auth_refresh_update(self) -> None:
+        """Notify auth observers without marking telemetry fresh or rescheduling polls."""
+
+        current = dict(self.data)
+        self.data = CoordinatorData(current, self._build_integration_snapshot(current))
+        self.async_update_listeners()
 
     def publish_runtime_state_update(self, source: str) -> None:
         """Publish a manager-owned state transition with unchanged charger data."""
@@ -4136,16 +4164,6 @@ class EnphaseCoordinator(
         first_refresh = context.first_refresh
 
         if self._auth_block_active():
-            self._last_error = "auth_blocked"
-            self.last_failure_utc = dt_util.utcnow()
-            self.last_failure_status = None
-            self.last_failure_description = self._blocked_auth_failure_message()
-            self.last_failure_response = self.last_failure_description
-            self.last_failure_source = "auth"
-            self.last_failure_endpoint = None
-            self._network_errors = 0
-            self._http_errors = 0
-            self._payload_errors = 0
             self.diagnostics.create_auth_block_issue()
             raise self._auth_block_update_failed()
 
@@ -5676,6 +5694,25 @@ class EnphaseCoordinator(
             reason="auth_refresh_suspension",
         )
 
+    def _persist_auth_refresh_counters(self) -> None:
+        """Persist cumulative stored-credential authentication counters."""
+
+        config_entry = getattr(self, "config_entry", None)
+        if not config_entry:
+            return
+        merged = dict(config_entry.data)
+        merged.update(
+            {
+                CONF_AUTH_REFRESH_ATTEMPT_COUNT: self._auth_refresh_attempt_count,
+                CONF_AUTH_REFRESH_SUCCESS_COUNT: self._auth_refresh_success_count,
+                CONF_AUTH_REFRESH_FAILURE_COUNT: self._auth_refresh_failure_count,
+            }
+        )
+        self._async_update_config_entry_data_internal(
+            merged,
+            reason="auth_refresh_counters",
+        )
+
     def _persist_hems_auth_circuit_state(self) -> None:
         """Persist optional HEMS auth circuit metadata on the config entry."""
 
@@ -6196,6 +6233,18 @@ class EnphaseCoordinator(
     def _auth_block_update_failed(self) -> UpdateFailed:
         """Return a recoverable update failure while Enphase auth is blocked."""
 
+        self._last_error = "auth_blocked"
+        self.last_failure_utc = dt_util.utcnow()
+        self.last_failure_status = None
+        self.last_failure_description = self._blocked_auth_failure_message()
+        self.last_failure_response = self.last_failure_description
+        self.last_failure_source = "auth"
+        self.last_failure_endpoint = None
+        self._network_errors = 0
+        self._http_errors = 0
+        self._payload_errors = 0
+        self.payload_failure_kind = None
+
         return UpdateFailed(
             self._blocked_auth_failure_message(),
             retry_after=self._auth_block_retry_after_s(),
@@ -6316,6 +6365,15 @@ class EnphaseCoordinator(
             CONF_ACCESS_TOKEN: tokens.access_token,
             CONF_SESSION_ID: tokens.session_id,
             CONF_TOKEN_EXPIRES_AT: tokens.token_expires_at,
+            CONF_AUTH_REFRESH_ATTEMPT_COUNT: getattr(
+                self, "_auth_refresh_attempt_count", 0
+            ),
+            CONF_AUTH_REFRESH_SUCCESS_COUNT: getattr(
+                self, "_auth_refresh_success_count", 0
+            ),
+            CONF_AUTH_REFRESH_FAILURE_COUNT: getattr(
+                self, "_auth_refresh_failure_count", 0
+            ),
             CONF_AUTH_REFRESH_SUSPENDED_UNTIL: None,
             CONF_AUTH_BLOCKED_UNTIL: None,
             CONF_AUTH_BLOCK_REASON: None,

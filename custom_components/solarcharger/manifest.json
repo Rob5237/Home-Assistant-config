@@ -10,6 +10,7 @@
     "select",
     "sensor",
     "switch",
+    "text",
     "time",
     "sun",
     "weather",
@@ -40,5 +41,5 @@
   "loggers": ["custom_components.solarcharger", "solarcharger"],
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.10.7"
+  "version": "0.11.0"
 }

@@ -60,7 +60,7 @@ from ..const import (
     RunState,
     StartState,
 )
-from ..helpers.utils import log_is_event_loop
+from ..helpers.utils import is_ha_version_at_least, log_is_event_loop
 from ..models.model_charge_control import ControlEntities
 from ..models.model_charge_stats import ChargeStats
 from ..models.model_config import ConfigValueDict
@@ -156,15 +156,37 @@ class SolarCharge(ScOptionState):
         self.set_machine_state(StateStart())
 
     # ----------------------------------------------------------------------------
+    # 2026-09-08 14:45:36.884 WARNING (MainThread) [homeassistant.helpers.frame]
+    # Detected that custom integration 'solarcharger' calls `device_registry.async_get_device`,
+    # which is deprecated because device identifiers and connections are no longer unique across
+    # config entries; use `async_get_device_by_identifier`, `async_get_device_by_connection`
+    # or `async_get_devices` instead at custom_components/solarcharger/state_machine/solar_charge.py,
+    # line 163: device = device_registry.async_get_device(.
+    # This will stop working in Home Assistant 2027.8.0,
+    # please create a bug report at https://github.com/flashg1/solarcharger/issues
+    #
+    # Used in emit_solarcharger_event() to get device ID for event.
+
     @cached_property
     def _device(self) -> dr.DeviceEntry:
         """Get the device entry for the controller."""
+
         device_registry = dr.async_get(self._hass)
-        device = device_registry.async_get_device(
-            identifiers={(DOMAIN, self._subentry.subentry_id)}
-        )
+        if is_ha_version_at_least("2026.9.1"):
+            # Call the new method
+            device = device_registry.async_get_device_by_identifier(
+                identifier=(DOMAIN, self._subentry.subentry_id),
+                config_entry_id=self._entry.entry_id,
+            )
+        else:
+            # Fallback to the legacy method
+            device = device_registry.async_get_device(
+                identifiers={(DOMAIN, self._subentry.subentry_id)}
+            )
+
         if device is None:
             raise RuntimeError(f"{self.caller} device entry not found.")
+
         return device
 
     # ----------------------------------------------------------------------------
@@ -555,6 +577,27 @@ class SolarCharge(ScOptionState):
         return max_current
 
     # ----------------------------------------------------------------------------
+    def get_charger_step_current_list(self) -> list[float]:
+        """Get charger step current list."""
+
+        # A list or a blank list will always be returned, so no need to check.
+        # Below checks for a blank list, ie. [] will trigger ValueError!
+        # if not step_current_list:
+        #     raise ValueError("Failed to get charger step current list")
+        return self.charger.get_step_current_list()
+
+    # ----------------------------------------------------------------------------
+    def get_charger_step_power_list(self) -> list[float]:
+        """Get charger step power list."""
+
+        step_current_list = self.get_charger_step_current_list()
+        effective_voltage = self.get_charger_effective_voltage()
+        power_factor = self.get_charger_power_factor()
+        return [
+            current * effective_voltage * power_factor for current in step_current_list
+        ]
+
+    # ----------------------------------------------------------------------------
     def validate_current(
         self, current: float, max_current: float | None = None
     ) -> float:
@@ -578,8 +621,8 @@ class SolarCharge(ScOptionState):
             NUMBER_CHARGER_POWER_FACTOR
         )
 
-        # Power factor can in theory be 0.
-        if 0 > power_factor > 1:
+        # Power factor of 0 is not physically meaningful for an active charger.
+        if not 0 < power_factor <= 1:
             raise ValueError(f"Invalid charger power factor {power_factor}")
 
         return power_factor
@@ -1101,6 +1144,7 @@ class SolarCharge(ScOptionState):
 
         continue_pause = (
             context.connected
+            and context.below_charge_limit
             and (not (context.goal.end_on_condition and context.goal.exit_condition))
             and (
                 not context.goal.sun_trigger

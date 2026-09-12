@@ -17,6 +17,8 @@ class PowerAllocation:
     max_power: float
     # Not used. FYI only.
     max_current: float
+    # Charger step power list.
+    step_power_list: list[float]
     # Minimum power required for the charger to operate. Must be -ve for surplus power.
     activation_power: float
     adjusted_activation_power: float
@@ -64,6 +66,10 @@ class PowerAllocation:
     # final_power is used by paused chargers to determine when to exit paused state.
     allocation_final_weight: float = 0.0  # Use this weight for allocation.
     deallocation_final_weight: float = 0.0  # Use this weight for deallocation.
+
+    # Delta allocated power: -ve = allocation. +ve = deallocation.
+    # Rebalance available power with 0 consumed power will always result in final_power being -ve or 0. It is never +ve.
+    # It is then combined with consumed_power to get the final power for the charger, which can be -ve, 0 or +ve.
     final_power: float = 0.0
 
     # ----------------------------------------------------------------------------
@@ -73,6 +79,7 @@ class PowerAllocation:
             f"name={self.name}, "
             f"max_power={self.max_power}, "
             f"max_current={self.max_current}, "
+            f"step_power_list={self.step_power_list}, "
             f"adjusted_activation_power={self.adjusted_activation_power} ("
             f"{self.activation_power}), "
             f"priority={self.priority}, "
