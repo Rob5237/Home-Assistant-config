@@ -26,7 +26,6 @@ from .const import (
     DOMAIN_TESLEMETRY,
     DOMAIN_TESSIE,
     DOMAIN_VOLVO,
-    ICON,
     MANUFACTURER,
     SUBDOMAIN_ESPHOME_TESLA_BLE,
     SUBDOMAIN_MQTT_TESLA_BLE,
@@ -61,13 +60,13 @@ class SolarChargerEntityType(Enum):
     #####################################
     # Create global default entities for all devices
     #####################################
-    TYPE_GLOBAL = "global_default"
+    TYPE_GLOBAL_ONLY = "global_default"
 
     #####################################
     # Create local device entities
     #####################################
     # For all devices
-    TYPE_LOCAL = "local_default"
+    TYPE_LOCAL_ONLY = "local_default"
     TYPE_LOCALHIDDEN = "local_hidden"  # Only hidden if replaced by device entity
 
     # For specify device
@@ -187,7 +186,7 @@ def is_create_entity(
             if (
                 entity_type
                 in (
-                    SolarChargerEntityType.TYPE_LOCAL,
+                    SolarChargerEntityType.TYPE_LOCAL_ONLY,
                     SolarChargerEntityType.TYPE_LOCALHIDDEN,
                     SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBALHIDDEN,
                     SolarChargerEntityType.TYPE_LOCAL_GLOBAL,
@@ -204,7 +203,7 @@ def is_create_entity(
     else:  # noqa: PLR5501
         # Global defaults subentry types
         if entity_type in (
-            SolarChargerEntityType.TYPE_GLOBAL,
+            SolarChargerEntityType.TYPE_GLOBAL_ONLY,
             SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBALHIDDEN,
             SolarChargerEntityType.TYPE_LOCAL_GLOBAL,
             SolarChargerEntityType.TYPE_LOCALHIDDEN_GLOBAL,
@@ -219,7 +218,7 @@ def is_create_entity(
 class SolarChargerEntity(Entity):
     """SolarCharger base entity class."""
 
-    _attr_icon = ICON
+    # _attr_icon = ICON_FLASH
     _attr_has_entity_name = True
 
     _entity_key: str

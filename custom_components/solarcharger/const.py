@@ -12,7 +12,7 @@ NAME = "SolarCharger"
 DOMAIN = "solarcharger"
 DOMAIN_DATA = f"{DOMAIN}_data"
 # Also need to set version in manifest.json, README.md and CHANGELOG.md.
-VERSION = "0.11.0"
+VERSION = "0.12.0"
 STORAGE_VERSION = 1
 ISSUE_URL = "https://github.com/flashg1/SolarCharger/issues"
 CONFIG_URL = "https://github.com/flashg1/SolarCharger"
@@ -20,16 +20,30 @@ CONFIG_URL = "https://github.com/flashg1/SolarCharger"
 TRANSLATION_KEY_PREFIX = f"{DOMAIN}"
 
 # Icons
-ICON = "mdi:flash"
+ICON_FLASH = "mdi:flash"
+ICON_WEATHER_FORECAST = "mdi:cloud-question-outline"
 ICON_BATTERY_50 = "mdi:battery-50"
 ICON_CASH = "mdi:cash"
 ICON_CONNECTION = "mdi:connection"
 ICON_MIN_SOC = "mdi:battery-charging-30"
+ICON_STATE_MACHINE = "mdi:state-machine"
+ICON_RUN = "mdi:run"
+ICON_SHARE = "mdi:share-variant"
+ICON_DELTA = "mdi:delta"
+ICON_ALLOCATION = "mdi:table-arrow-right"
+ICON_DATA_READY = "mdi:database-check-outline"
+ICON_STAIRS_DOWN = "mdi:stairs-down"
 ICON_START = "mdi:play-circle-outline"
 ICON_STOP = "mdi:stop-circle-outline"
+ICON_PAUSE = "mdi:pause"
+ICON_MOTION_PAUSE = "mdi:motion-pause-outline"
+ICON_TIMER_PAUSE = "mdi:timer-pause-outline"
 ICON_TIME = "mdi:clock-time-four-outline"
 ICON_TIMER = "mdi:camera-timer"
 ICON_POWER = "mdi:power"
+ICON_UPDATE = "mdi:update"
+ICON_BATTERY_TIME = "mdi:battery-clock-outline"
+ICON_EV_STATION = "mdi:ev-station"
 
 # HA entities
 HA_SUN_ENTITY = "sun.sun"
@@ -140,16 +154,22 @@ MODIFIABLE_ALWAYS: list[Modifiable] = [Modifiable.ALWAYS]
 MODIFIABLE_IF_SC_ENTITY: list[Modifiable] = [Modifiable.IF_SC_ENTITY]
 MODIFIABLE_EXCEPT_OCPP: list[Modifiable] = [Modifiable.ALWAYS, Modifiable.EXCLUDE_OCPP]
 
-# class ChargeControlApi(Enum):
-#     """Enumeration of supported ChargeControl APIs."""
+#######################################################
+# SC events
+#######################################################
+# COORDINATOR_STATE_STOPPED = "stopped"
+# COORDINATOR_STATE_CHARGING = "charging"
+# COORDINATOR_STATES: tuple[str, ...] = (
+#     COORDINATOR_STATE_STOPPED,
+#     COORDINATOR_STATE_CHARGING,
+# )
 
-#     OCPP_CHARGER_API = "ocpp_charger_api"
-#     TESLA_CUSTOM_API = "tesla_custom_api"
-#     TESLA_MQTTBLE_API = "tesla_mqtt_ble_api"
-#     TESLA_FLEET_API = "tesla_fleet_api"
-#     TESLA_TESSIE_API = "tesla_tessie_api"
-#     USER_CUSTOM_API = "user_custom_api"
-
+# Event constants
+SOLAR_CHARGER_COORDINATOR_EVENT = f"{DOMAIN}_coordinator_event"
+EVENT_ACTION_NEW_CHARGE_CURRENT = "new_charge_current"
+EVENT_ATTR_ACTION = "action"
+EVENT_ATTR_NEW_VALUE = "new_value"
+EVENT_ATTR_OLD_VALUE = "old_value"
 
 #######################################################
 # Constants
@@ -295,88 +315,12 @@ ERROR_SUBENTRY_CREATED = "device_subentry_created"
 ERROR_SINGLE_INSTANCE_ALLOWED = "single_instance_allowed"
 
 #######################################################
-# Make sure the entity key names are unique.
+# OPTION_* => Option values saved in subentry config.
+# ENTITY_* => Entity IDs saved in subentry config for control entities.
+# BUTTON/NUMBER/SELECT/SENSOR/SWITCH/TEXT/TIME => SolarCharger entities.
 #######################################################
-#####################################
-# Internal non-configurable entities
-#####################################
-# Sensors
-SENSOR_RUN_STATE = "run_state"
-
-# Delta allocated power = Net grid power * (Allocation weight / Total weight)
-SENSOR_DELTA_ALLOCATED_POWER = "delta_allocated_power"
-SENSOR_NET_ALLOCATED_POWER = "net_allocated_power"
-
-SENSOR_CONSUMED_POWER = "consumed_power"
-SENSOR_CONSUMED_ENERGY_TODAY = "consumed_energy_today"
-SENSOR_INSTANCE_COUNT = "instance_count"  # 0 or 1
-SENSOR_SHARE_ALLOCATION = "share_allocation"  # 1=shared or 0=not shared
-# Count the number of time device reduce power by itself today
-SENSOR_SELF_DEPOWER_TODAY = "self_depower_today"
-# Count the number of time device increase power by itself today
-# SENSOR_SELF_REPOWER_TODAY = "self_repower_today"
-# Pause count per session
-SENSOR_PAUSE_COUNT = "pause_count"
-# Pause avg duration per session
-SENSOR_AVERAGE_PAUSE_DURATION = "average_pause_duration"
-SENSOR_LAST_PAUSE_DURATION = "last_pause_duration"
-SENSOR_LAST_CHECK = "last_check"
-
-# Boolean switches
-# Global defaults
-SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE = "reduce_charge_limit_difference"
-# Local device switches
-SWITCH_FAST_CHARGE_MODE = "fast_charge_mode"
-SWITCH_POLL_CHARGER_UPDATE = "poll_charger_update"
-SWITCH_END_ON_CONDITION = "end_on_condition"
-
-# Action switches
-# Switch on to start charging, and switch off to stop charging.
-SWITCH_CHARGE = "charge"
-SWITCH_SCHEDULE_CHARGE = "schedule_charge"
-SWITCH_PLUGIN_TRIGGER = "plugin_trigger"
-SWITCH_PRESENCE_TRIGGER = "presence_trigger"
-SWITCH_SUN_TRIGGER = "sun_trigger"
-SWITCH_CALIBRATE_MAX_CHARGE_SPEED = "calibrate_max_charge_speed"
-
-# Buttons
-BUTTON_RESET_CHARGE_LIMIT_AND_TIME = "reset_charge_limit_and_time"
-
-# Datetime triggers
-# Schedule time for next charge session
-DATETIME_NEXT_CHARGE_TIME = "next_charge_time"
-
-# Calibrate max charge speed configs
-CALIBRATE_MAX_SOC = 91
-CALIBRATE_SOC_INCREASE = 4
-TIME_DEFAULT_STR = "00:00:00"
-
-
+# Config flow
 #######################################################
-# Make sure the entity key names are unique.
-#######################################################
-
-# COORDINATOR_STATE_STOPPED = "stopped"
-# COORDINATOR_STATE_CHARGING = "charging"
-# COORDINATOR_STATES: tuple[str, ...] = (
-#     COORDINATOR_STATE_STOPPED,
-#     COORDINATOR_STATE_CHARGING,
-# )
-
-# Event constants
-SOLAR_CHARGER_COORDINATOR_EVENT = f"{DOMAIN}_coordinator_event"
-EVENT_ACTION_NEW_CHARGE_CURRENT = "new_charge_current"
-EVENT_ATTR_ACTION = "action"
-EVENT_ATTR_NEW_VALUE = "new_value"
-EVENT_ATTR_OLD_VALUE = "old_value"
-
-#######################################################
-# Option constants
-#######################################################
-
-#####################################
-# Power import/export sensor
-#####################################
 CONFIG_NET_POWER_SENSOR = "net_power_sensor"
 
 CONFIG_CHARGER_CURRENT_UPDATE_PERIOD = "charger_current_update_period"
@@ -386,106 +330,106 @@ DELTA_CHARGER_CURRENT_UPDATE_PERIOD = 5  # +/- 5%
 
 OPTION_SELECT_SETTINGS = "select_global_or_local_settings"
 
-#####################################
-# Charger general configs
-#####################################
-NUMBER_CHARGER_EFFECTIVE_VOLTAGE = "charger_effective_voltage"  # No defaults
-NUMBER_CHARGER_MAX_SPEED = "charger_max_speed"  # 6.1448 %/hr
-NUMBER_CHARGER_POWER_FACTOR = "charger_power_factor"  # 1
-NUMBER_CHARGER_MIN_CURRENT = "charger_min_current"  # 1 Amps
-NUMBER_CHARGER_MIN_WORKABLE_CURRENT = "charger_min_workable_current"  # 1 Amps
-NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD = (
-    "charger_min_workable_power_pause_threshold"  # 0 %
-)
-NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD = (
-    "charger_min_workable_power_resume_threshold"  # 10 %
-)
-# 0=highest priority, 0-4 reserved for system. User priority starts from 5.
-NUMBER_CHARGER_PRIORITY = "charger_priority"  # 8
-MAX_SPEED_CHARGE_PRIORITY = 3
-MAX_SPEED_CHARGE_PRIORITY_WEIGHT = 1
-USER_DEVICE_PRIORITY_START = 5
-USER_DEVICE_PRIORITY_END = 100
-NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT = "charger_power_allocation_weight"  # 1
-NUMBER_DEVICE_MIN_CHARGE_LIMIT = "device_min_charge_limit"
-NUMBER_DEVICE_MAX_CHARGE_LIMIT = "device_max_charge_limit"
+#######################################################
+# Global defaults device entities only
+#######################################################
+SENSOR_SYNC_UPDATE = "sync_update"
+SELECT_WEATHER_PROVIDER = "weather_provider"
+SENSOR_WEATHER_FORECAST = "weather_forecast"
 
-NUMBER_SUNRISE_ELEVATION_START_TRIGGER = "sunrise_elevation_start_trigger"  # 3
-NUMBER_SUNSET_ELEVATION_END_TRIGGER = "sunset_elevation_end_trigger"  # 6
+#######################################################
+# Global defaults and local device configs
+#######################################################
+NUMBER_CHARGER_EFFECTIVE_VOLTAGE = "charger_effective_voltage"
+NUMBER_SUNRISE_ELEVATION_START_TRIGGER = "sunrise_elevation_start_trigger"
+NUMBER_SUNSET_ELEVATION_END_TRIGGER = "sunset_elevation_end_trigger"
 
 # Wait times
-NUMBER_WAIT_DEVICE_WAKEUP = "wait_device_wakeup"  # 40 seconds
-NUMBER_WAIT_DEVICE_UPDATE_HA = "wait_device_update_ha"  # 5 seconds
-NUMBER_WAIT_DEVICE_LIMIT_CHANGE = "wait_device_limit_change"  # 5 seconds
-NUMBER_WAIT_CHARGER_ON = "wait_charger_on"  # 11 seconds
-NUMBER_WAIT_CHARGER_OFF = "wait_charger_off"  # 5 seconds
+NUMBER_WAIT_DEVICE_WAKEUP = "wait_device_wakeup"
+NUMBER_WAIT_DEVICE_UPDATE_HA = "wait_device_update_ha"
+NUMBER_WAIT_DEVICE_LIMIT_CHANGE = "wait_device_limit_change"
+NUMBER_WAIT_CHARGER_ON = "wait_charger_on"
+NUMBER_WAIT_CHARGER_OFF = "wait_charger_off"
 
 # Time to wait after switching on charger and set initial current.  Default 1 second.
-NUMBER_WAIT_CHARGER_AMP_CHANGE = "wait_charger_amp_change"  # 1 second
+NUMBER_WAIT_CHARGER_AMP_CHANGE = "wait_charger_amp_change"
 
 # 0 minutes=disabled, suggest 15 minutes to capture allocated power and turn off if average is below min power.
-NUMBER_POWER_MONITOR_DURATION = "power_monitor_duration"  # 10 minutes
+NUMBER_POWER_MONITOR_DURATION = "power_monitor_duration"
 DELTA_POWER_MONITOR_DURATION = 20  # +/- 20%
 
+#######################################################
+# Local device internal non-configurable entities
+#######################################################
 #####################################
-# Charger control entities
-# OPTION_* => Option values saved in subentry config.
-# ENTITY_* => Entity IDs saved in subentry config for control entities.
-# BUTTON/NUMBER/SELECT/SENSOR/SWITCH/TEXT/TIME => SolarCharger entities.
+# Monitor window entities
 #####################################
-OPTION_CHARGER_NAME = "charger_name"
-ENTITY_CHARGER_PLUGGED_IN_SENSOR = "charger_plugged_in_sensor"
-OPTION_CHARGER_CONNECT_TRIGGER_LIST = "charger_connect_trigger_list"
-OPTION_CHARGER_CONNECT_STATE_LIST = "charger_connect_state_list"
-ENTITY_CHARGER_ON_OFF_SWITCH = "charger_on_off_switch"
-ENTITY_CHARGER_CHARGING_SENSOR = "charger_charging_sensor"
-OPTION_CHARGER_CHARGING_STATE_LIST = "charger_charging_state_list"
-NUMBER_CHARGER_MAX_CURRENT = "charger_max_current"
-TEXT_CHARGER_STEP_CURRENT_LIST = "charger_step_current_list"
-ENTITY_CHARGER_GET_CHARGE_CURRENT = "charger_get_charge_current"
-ENTITY_CHARGER_SET_CHARGE_CURRENT = "charger_set_charge_current"
+SENSOR_INSTANCE_COUNT = "instance_count"  # 0 or 1
+SENSOR_RUN_STATE = "run_state"
+SENSOR_SHARE_ALLOCATION = "share_allocation"  # 1=shared or 0=not shared
 
-# OCPP entities
-ENTITY_OCPP_CHARGER_ID = "charger_specific_id"
-ENTITY_OCPP_TRANSACTION_ID = "charger_transaction_id"
-NUMBER_OCPP_PROFILE_ID = "ocpp_profile_id"
-NUMBER_OCPP_PROFILE_STACK_LEVEL = "ocpp_profile_stack_level"
+# Delta allocated power = Net grid power * (Allocation weight / Total weight)
+SENSOR_DELTA_ALLOCATED_POWER = "delta_allocated_power"
+SENSOR_NET_ALLOCATED_POWER = "net_allocated_power"
 
-# BYD entities
-ENTITY_BYD_START_CHARGE_BUTTON = "byd_start_charge"
-ENTITY_BYD_STOP_CHARGE_BUTTON = "byd_stop_charge"
-
-#####################################
-# Chargeable device control entities
-#####################################
-ENTITY_DEVICE_SOC_SENSOR = "device_soc_sensor"
-# Used for OCPP and user custom chargers only
-NUMBER_DEVICE_CHARGE_LIMIT = "device_charge_limit"
-ENTITY_DEVICE_GET_CHARGE_LIMIT = "device_get_charge_limit"
-ENTITY_DEVICE_SET_CHARGE_LIMIT = "device_set_charge_limit"
-ENTITY_DEVICE_LOCATION_SENSOR = "device_location_sensor"
-OPTION_DEVICE_LOCATION_STATE_LIST = "device_location_state_list"
-ENTITY_DEVICE_WAKE_UP_BUTTON = "device_wake_up_button"
-ENTITY_DEVICE_UPDATE_HA_BUTTON = "device_update_ha_button"
-
-#####################################
-# Internal control entities
-#####################################
-SENSOR_SYNC_UPDATE = "sync_update"
 SENSOR_NET_ALLOCATED_POWER_SAMPLE_SIZE = "net_allocated_power_sample_size"
 SENSOR_NET_ALLOCATED_POWER_DATA_SET = "net_allocated_power_data_set"
 SENSOR_MEDIAN_NET_ALLOCATED_POWER = "median_net_allocated_power"
 SENSOR_MEDIAN_NET_ALLOCATED_POWER_PERIOD = "median_net_allocated_power_period"
 SENSOR_SMA_NET_ALLOCATED_POWER = "sma_net_allocated_power"
-SELECT_DEVICE_PRESENCE_SENSOR = "device_presence_sensor"
+
+# Pause count per session
+SENSOR_PAUSE_COUNT = "pause_count"
+# Pause average duration per session
+SENSOR_AVERAGE_PAUSE_DURATION = "average_pause_duration"
+SENSOR_LAST_PAUSE_DURATION = "last_pause_duration"
+
+SENSOR_CONSUMED_POWER = "consumed_power"
+SENSOR_CONSUMED_ENERGY_TODAY = "consumed_energy_today"
+# Count the number of time device reduce power by itself today
+SENSOR_SELF_DEPOWER_TODAY = "self_depower_today"
+# Count the number of time device increase power by itself today
+# SENSOR_SELF_REPOWER_TODAY = "self_repower_today"
+
+SENSOR_LAST_CHECK = "last_check"  # To be removed
+
+#####################################
+# Config entities
+#####################################
 SELECT_START_STATE = "start_state"
+NUMBER_DEVICE_MIN_CHARGE_LIMIT = "device_min_charge_limit"
+NUMBER_DEVICE_MAX_CHARGE_LIMIT = "device_max_charge_limit"
+
+# Boolean switches
+SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE = "reduce_charge_limit_difference"
+SWITCH_FAST_CHARGE_MODE = "fast_charge_mode"
+SWITCH_POLL_CHARGER_UPDATE = "poll_charger_update"
 SELECT_EXIT_CONDITION_SENSOR = "exit_condition_sensor"
-SELECT_WEATHER_PROVIDER = "weather_provider"
-SENSOR_WEATHER_FORECAST = "weather_forecast"
+SWITCH_EXIT_CONDITION_TRIGGER = "exit_condition_trigger"
+
+# Action switches
+# Switch on to start charging, and switch off to stop charging.
+SWITCH_CHARGE = "charge"
+SWITCH_SCHEDULE_CHARGE = "schedule_charge"
+SWITCH_PLUGIN_TRIGGER = "plugin_trigger"
+SELECT_DEVICE_PRESENCE_SENSOR = "device_presence_sensor"
+SWITCH_DEVICE_PRESENCE_TRIGGER = "device_presence_trigger"
+SWITCH_SUN_TRIGGER = "sun_trigger"
+SWITCH_CALIBRATE_MAX_CHARGE_SPEED = "calibrate_max_charge_speed"
+
+# Schedule time for next charge session
+DATETIME_NEXT_CHARGE_TIME = "next_charge_time"
+
+# Calibrate max charge speed configs
+CALIBRATE_MAX_SOC = 91
+CALIBRATE_SOC_INCREASE = 4
+TIME_DEFAULT_STR = "00:00:00"
 
 #####################################
 # Charge schedule entities
 #####################################
+BUTTON_RESET_CHARGE_LIMIT_AND_TIME = "reset_charge_limit_and_time"
+
 NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY = "default_charge_limit_monday"
 NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY = "default_charge_limit_tuesday"
 NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY = "default_charge_limit_wednesday"
@@ -540,14 +484,6 @@ WEEKLY_DAY_NAMES: list[str] = [
     "Sunday",
 ]
 
-#######################################################
-# Non-entity configs
-#######################################################
-# Non-entity configs with actual values.
-NON_ENTITY_CONFIGS: list[str] = [
-    OPTION_CHARGER_NAME,
-]
-
 # Linking default value configs to charge limit configs.
 DEFAULT_CHARGE_LIMIT_MAP: dict[str, str] = {
     NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY: NUMBER_CHARGE_LIMIT_MONDAY,
@@ -558,6 +494,77 @@ DEFAULT_CHARGE_LIMIT_MAP: dict[str, str] = {
     NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY: NUMBER_CHARGE_LIMIT_SATURDAY,
     NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY: NUMBER_CHARGE_LIMIT_SUNDAY,
 }
+
+#####################################
+# Charger general configs
+#####################################
+NUMBER_CHARGER_MAX_SPEED = "charger_max_speed"  # 6.1448 %/hr
+NUMBER_CHARGER_POWER_FACTOR = "charger_power_factor"  # 1
+NUMBER_CHARGER_MIN_CURRENT = "charger_min_current"  # 1 Amps
+NUMBER_CHARGER_MIN_WORKABLE_CURRENT = "charger_min_workable_current"  # 1 Amps
+NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD = (
+    "charger_min_workable_power_pause_threshold"  # 0 %
+)
+NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD = (
+    "charger_min_workable_power_resume_threshold"  # 10 %
+)
+# 0=highest priority, 0-4 reserved for system. User priority starts from 5.
+NUMBER_CHARGER_PRIORITY = "charger_priority"  # 8
+MAX_SPEED_CHARGE_PRIORITY = 3
+MAX_SPEED_CHARGE_PRIORITY_WEIGHT = 1
+USER_DEVICE_PRIORITY_START = 5
+USER_DEVICE_PRIORITY_END = 100
+NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT = "charger_power_allocation_weight"  # 1
+
+#####################################
+# Charger control entities
+#####################################
+OPTION_CHARGER_NAME = "charger_name"
+ENTITY_CHARGER_PLUGGED_IN_SENSOR = "charger_plugged_in_sensor"
+OPTION_CHARGER_CONNECT_TRIGGER_LIST = "charger_connect_trigger_list"
+OPTION_CHARGER_CONNECT_STATE_LIST = "charger_connect_state_list"
+ENTITY_CHARGER_ON_OFF_SWITCH = "charger_on_off_switch"
+ENTITY_CHARGER_CHARGING_SENSOR = "charger_charging_sensor"
+OPTION_CHARGER_CHARGING_STATE_LIST = "charger_charging_state_list"
+NUMBER_CHARGER_MAX_CURRENT = "charger_max_current"
+TEXT_CHARGER_STEP_CURRENT_LIST = "charger_step_current_list"
+ENTITY_CHARGER_GET_CHARGE_CURRENT = "charger_get_charge_current"
+ENTITY_CHARGER_SET_CHARGE_CURRENT = "charger_set_charge_current"
+
+#####################################
+# Chargeable device control entities
+#####################################
+ENTITY_DEVICE_SOC_SENSOR = "device_soc_sensor"
+# Used for OCPP and user custom chargers only
+NUMBER_DEVICE_CHARGE_LIMIT = "device_charge_limit"
+ENTITY_DEVICE_GET_CHARGE_LIMIT = "device_get_charge_limit"
+ENTITY_DEVICE_SET_CHARGE_LIMIT = "device_set_charge_limit"
+ENTITY_DEVICE_LOCATION_SENSOR = "device_location_sensor"
+OPTION_DEVICE_LOCATION_STATE_LIST = "device_location_state_list"
+ENTITY_DEVICE_WAKE_UP_BUTTON = "device_wake_up_button"
+ENTITY_DEVICE_UPDATE_HA_BUTTON = "device_update_ha_button"
+
+#####################################
+# Device specific entities
+#####################################
+# OCPP entities
+ENTITY_OCPP_CHARGER_ID = "charger_specific_id"
+ENTITY_OCPP_TRANSACTION_ID = "charger_transaction_id"
+NUMBER_OCPP_PROFILE_ID = "ocpp_profile_id"
+NUMBER_OCPP_PROFILE_STACK_LEVEL = "ocpp_profile_stack_level"
+
+# BYD entities
+ENTITY_BYD_START_CHARGE_BUTTON = "byd_start_charge"
+ENTITY_BYD_STOP_CHARGE_BUTTON = "byd_stop_charge"
+
+#######################################################
+# Non-entity configs
+#######################################################
+# Non-entity configs with actual values.
+# TODO: Check why only charger name. What about text lists?
+NON_ENTITY_CONFIGS: list[str] = [
+    OPTION_CHARGER_NAME,
+]
 
 #######################################################
 # Lists for debug logging of entity configuration
@@ -574,10 +581,10 @@ CONFIG_ENTITY_ID_LIST: list[str] = [
     NUMBER_CHARGER_MIN_WORKABLE_CURRENT,
     NUMBER_CHARGER_MIN_WORKABLE_POWER_PAUSE_THRESHOLD,
     NUMBER_CHARGER_MIN_WORKABLE_POWER_RESUME_THRESHOLD,
-    NUMBER_CHARGER_PRIORITY,
-    NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
     NUMBER_DEVICE_MIN_CHARGE_LIMIT,
     NUMBER_DEVICE_MAX_CHARGE_LIMIT,
+    NUMBER_CHARGER_PRIORITY,
+    NUMBER_CHARGER_POWER_ALLOCATION_WEIGHT,
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
     NUMBER_SUNSET_ELEVATION_END_TRIGGER,
     NUMBER_WAIT_DEVICE_WAKEUP,
@@ -635,6 +642,31 @@ CONFIG_ENTITY_ID_LIST: list[str] = [
     TIME_CHARGE_ENDTIME_FRIDAY,
     TIME_CHARGE_ENDTIME_SATURDAY,
     TIME_CHARGE_ENDTIME_SUNDAY,
+    #####################################
+    # Charger config
+    #####################################
+    SENSOR_INSTANCE_COUNT,
+    SENSOR_SHARE_ALLOCATION,
+    SENSOR_SELF_DEPOWER_TODAY,
+    SENSOR_CONSUMED_POWER,
+    SENSOR_CONSUMED_ENERGY_TODAY,
+    SWITCH_CHARGE,
+    SWITCH_FAST_CHARGE_MODE,
+    DATETIME_NEXT_CHARGE_TIME,
+    SELECT_DEVICE_PRESENCE_SENSOR,
+    SWITCH_DEVICE_PRESENCE_TRIGGER,
+    SWITCH_PLUGIN_TRIGGER,
+    SWITCH_SUN_TRIGGER,
+    SWITCH_SCHEDULE_CHARGE,
+    SWITCH_POLL_CHARGER_UPDATE,
+    SELECT_START_STATE,
+    SELECT_EXIT_CONDITION_SENSOR,
+    SWITCH_EXIT_CONDITION_TRIGGER,
+    SWITCH_CALIBRATE_MAX_CHARGE_SPEED,
+    #####################################
+    # global default entities
+    #####################################
+    SELECT_WEATHER_PROVIDER,
 ]
 
 # Config option with local values, ie. not stored by entities.
@@ -645,8 +677,6 @@ CONFIG_LOCAL_OPTION_LIST: list[str] = [
     OPTION_CHARGER_CHARGING_STATE_LIST,
     OPTION_DEVICE_LOCATION_STATE_LIST,
 ]
-
-# See OPTION_LOCAL_INTERNAL_ENTITIES for internal non-configurable entities
 
 #######################################################
 # Default value for entities only
@@ -727,10 +757,10 @@ OPTION_COMMON_DEFAULT_VALUES: dict[str, Any] = {
     SWITCH_CHARGE: DEFAULT_OFF,
     SWITCH_FAST_CHARGE_MODE: DEFAULT_OFF,
     SWITCH_POLL_CHARGER_UPDATE: DEFAULT_OFF,
-    SWITCH_END_ON_CONDITION: DEFAULT_OFF,
+    SWITCH_EXIT_CONDITION_TRIGGER: DEFAULT_OFF,
     SWITCH_SCHEDULE_CHARGE: DEFAULT_OFF,
     SWITCH_PLUGIN_TRIGGER: DEFAULT_ON,
-    SWITCH_PRESENCE_TRIGGER: DEFAULT_OFF,
+    SWITCH_DEVICE_PRESENCE_TRIGGER: DEFAULT_OFF,
     SWITCH_SUN_TRIGGER: DEFAULT_ON,
     SWITCH_CALIBRATE_MAX_CHARGE_SPEED: DEFAULT_OFF,
     #####################################
@@ -851,33 +881,6 @@ OPTION_GLOBAL_DEFAULT_ENTITIES: dict[str, str] = {
     #####################################
     NUMBER_CHARGER_EFFECTIVE_VOLTAGE: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGER_EFFECTIVE_VOLTAGE}",
     #####################################
-    # Charge scheduling
-    #####################################
-    NUMBER_DEVICE_MIN_CHARGE_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEVICE_MIN_CHARGE_LIMIT}",
-    NUMBER_DEVICE_MAX_CHARGE_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEVICE_MAX_CHARGE_LIMIT}",
-    SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY}",
-    NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY}",
-    NUMBER_CHARGE_LIMIT_MONDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_MONDAY}",
-    NUMBER_CHARGE_LIMIT_TUESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_TUESDAY}",
-    NUMBER_CHARGE_LIMIT_WEDNESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_WEDNESDAY}",
-    NUMBER_CHARGE_LIMIT_THURSDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_THURSDAY}",
-    NUMBER_CHARGE_LIMIT_FRIDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_FRIDAY}",
-    NUMBER_CHARGE_LIMIT_SATURDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_SATURDAY}",
-    NUMBER_CHARGE_LIMIT_SUNDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_CHARGE_LIMIT_SUNDAY}",
-    TIME_CHARGE_ENDTIME_MONDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_MONDAY}",
-    TIME_CHARGE_ENDTIME_TUESDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_TUESDAY}",
-    TIME_CHARGE_ENDTIME_WEDNESDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_WEDNESDAY}",
-    TIME_CHARGE_ENDTIME_THURSDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_THURSDAY}",
-    TIME_CHARGE_ENDTIME_FRIDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_FRIDAY}",
-    TIME_CHARGE_ENDTIME_SATURDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_SATURDAY}",
-    TIME_CHARGE_ENDTIME_SUNDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{TIME_CHARGE_ENDTIME_SUNDAY}",
-    #####################################
     # Sunrise/sunset triggers
     #####################################
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{NUMBER_SUNRISE_ELEVATION_START_TRIGGER}",
@@ -898,37 +901,70 @@ OPTION_GLOBAL_DEFAULT_ENTITIES: dict[str, str] = {
 }
 
 #####################################
-# Internal non-configurable entities
-# Link between config_name and entity name for debug listing.
+# SC local device internal non-configurable entities.
 #####################################
-# Non-configurable entities: Local device internal control entities.
-# No point in listing sensors since they have no config to show.
-OPTION_LOCAL_INTERNAL_ENTITIES: dict[str, str] = {
+DEVICE_INTERNAL_ENTITIES: dict[str, str] = {
     #####################################
-    # Global entities
+    # Global defaults entities
     #####################################
-    # SENSOR_SYNC_UPDATE: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{SENSOR_SYNC_UPDATE}",
+    SENSOR_SYNC_UPDATE: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{SENSOR_SYNC_UPDATE}",
     SELECT_WEATHER_PROVIDER: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_GLOBAL_DEFAULTS}_{SELECT_WEATHER_PROVIDER}",
     #####################################
-    # Local entities
+    # Local device entities
     #####################################
-    # Pause sensors
-    # Allocation sensors
+    # Sensors
+    SENSOR_INSTANCE_COUNT: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_INSTANCE_COUNT}",
+    SENSOR_SHARE_ALLOCATION: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_SHARE_ALLOCATION}",
+    SENSOR_SELF_DEPOWER_TODAY: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_SELF_DEPOWER_TODAY}",
+    SENSOR_CONSUMED_POWER: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_CONSUMED_POWER}",
+    SENSOR_CONSUMED_ENERGY_TODAY: f"{SENSOR}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SENSOR_CONSUMED_ENERGY_TODAY}",
+    # Charge control entities
     SWITCH_CHARGE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_CHARGE}",
     SWITCH_FAST_CHARGE_MODE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_FAST_CHARGE_MODE}",
     DATETIME_NEXT_CHARGE_TIME: f"{DATETIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{DATETIME_NEXT_CHARGE_TIME}",
     SELECT_DEVICE_PRESENCE_SENSOR: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SELECT_DEVICE_PRESENCE_SENSOR}",
-    SWITCH_PRESENCE_TRIGGER: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_PRESENCE_TRIGGER}",
+    SWITCH_DEVICE_PRESENCE_TRIGGER: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_DEVICE_PRESENCE_TRIGGER}",
     SWITCH_PLUGIN_TRIGGER: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_PLUGIN_TRIGGER}",
     SWITCH_SUN_TRIGGER: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_SUN_TRIGGER}",
     SWITCH_SCHEDULE_CHARGE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_SCHEDULE_CHARGE}",
     SWITCH_POLL_CHARGER_UPDATE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_POLL_CHARGER_UPDATE}",
     SELECT_START_STATE: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SELECT_START_STATE}",
     SELECT_EXIT_CONDITION_SENSOR: f"{SELECT}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SELECT_EXIT_CONDITION_SENSOR}",
-    SWITCH_END_ON_CONDITION: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_END_ON_CONDITION}",
+    SWITCH_EXIT_CONDITION_TRIGGER: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_EXIT_CONDITION_TRIGGER}",
     SWITCH_CALIBRATE_MAX_CHARGE_SPEED: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_CALIBRATE_MAX_CHARGE_SPEED}",
     #####################################
-    # OCPP entities
+    # ID available in sc_option_state.py but not cached
+    #####################################
+    NUMBER_DEVICE_MIN_CHARGE_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEVICE_MIN_CHARGE_LIMIT}",
+    NUMBER_DEVICE_MAX_CHARGE_LIMIT: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEVICE_MAX_CHARGE_LIMIT}",
+    SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE: f"{SWITCH}.{DOMAIN}_{CONFIG_NAME_MARKER}_{SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_MONDAY}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_TUESDAY}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_WEDNESDAY}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_THURSDAY}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_FRIDAY}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_SATURDAY}",
+    NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_DEFAULT_CHARGE_LIMIT_SUNDAY}",
+    BUTTON_RESET_CHARGE_LIMIT_AND_TIME: f"{BUTTON}.{DOMAIN}_{CONFIG_NAME_MARKER}_{BUTTON_RESET_CHARGE_LIMIT_AND_TIME}",
+    #####################################
+    # Charge scheduling
+    #####################################
+    NUMBER_CHARGE_LIMIT_MONDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_MONDAY}",
+    NUMBER_CHARGE_LIMIT_TUESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_TUESDAY}",
+    NUMBER_CHARGE_LIMIT_WEDNESDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_WEDNESDAY}",
+    NUMBER_CHARGE_LIMIT_THURSDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_THURSDAY}",
+    NUMBER_CHARGE_LIMIT_FRIDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_FRIDAY}",
+    NUMBER_CHARGE_LIMIT_SATURDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_SATURDAY}",
+    NUMBER_CHARGE_LIMIT_SUNDAY: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_CHARGE_LIMIT_SUNDAY}",
+    TIME_CHARGE_ENDTIME_MONDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_MONDAY}",
+    TIME_CHARGE_ENDTIME_TUESDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_TUESDAY}",
+    TIME_CHARGE_ENDTIME_WEDNESDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_WEDNESDAY}",
+    TIME_CHARGE_ENDTIME_THURSDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_THURSDAY}",
+    TIME_CHARGE_ENDTIME_FRIDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_FRIDAY}",
+    TIME_CHARGE_ENDTIME_SATURDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_SATURDAY}",
+    TIME_CHARGE_ENDTIME_SUNDAY: f"{TIME}.{DOMAIN}_{CONFIG_NAME_MARKER}_{TIME_CHARGE_ENDTIME_SUNDAY}",
+    #####################################
+    # OCPP entities: ID not cached in sc_option_state.py
     #####################################
     NUMBER_OCPP_PROFILE_ID: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_OCPP_PROFILE_ID}",
     NUMBER_OCPP_PROFILE_STACK_LEVEL: f"{NUMBER}.{DOMAIN}_{CONFIG_NAME_MARKER}_{NUMBER_OCPP_PROFILE_STACK_LEVEL}",
