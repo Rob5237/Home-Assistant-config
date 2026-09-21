@@ -32,7 +32,9 @@ from .const import (
 )
 from .enums import (
     HAChargerServices as csvcs,
+    HAChargerSession as csess,
     HAChargerStatuses as cstat,
+    Profiles as prof,
 )
 from .chargepoint import SetVariableResult
 
@@ -478,6 +480,27 @@ class CentralSystem:
 
         return None
 
+    def is_transaction_indeterminate(
+        self, id: str, connector_id: int | None = None
+    ) -> bool:
+        """Return whether a connector's transaction state is held as unresolved.
+
+        An OCPP 1.6 charge point holds a connector when a StopTransaction
+        could not be attributed to it with certainty; controls that act on
+        the connector's transaction stay unavailable until the charger's
+        next status report settles it.
+        """
+        cp_id = self.cpids.get(id, id)
+        cp = self.charge_points.get(cp_id)
+        unsafe = getattr(cp, "transaction_is_unsafe", None)
+        if unsafe is None:
+            held = getattr(cp, "_tx_indeterminate", None)
+            return bool(held) and connector_id in held
+        # The same rule stop_transaction applies: held, or sharing its id
+        # with a held connector, so the entity never offers a stop that the
+        # charge point would refuse.
+        return bool(unsafe(connector_id))
+
     def get_availability_status(self, id: str):
         """Return the status that drives the charger availability switch.
 
@@ -712,16 +735,81 @@ class CentralSystem:
             return self.charge_points[cp_id].supported_features
         return 0
 
+    def session_transaction_id(self, id: str, connector_id: int) -> str | None:
+        """Return the transaction id displayed for a connector, or None."""
+        cp_id, m, cp, _n = self._get_metrics(id)
+        if cp is None:
+            return None
+        value = None
+        with contextlib.suppress(Exception):
+            value = m[(self._norm_conn(connector_id), csess.transaction_id)].value
+        if value in (None, "", 0):
+            return None
+        return str(value)
+
+    def charger_generation(self, id: str) -> int:
+        """Return how many BootNotifications the charger has sent, or 0."""
+        _cp_id, _m, cp, _n = self._get_metrics(id)
+        return int(getattr(cp, "charger_generation", 0) or 0) if cp else 0
+
+    def session_limit_available(self, id: str, connector_id: int) -> bool:
+        """Whether a connector's session limit can be set right now.
+
+        The charger must be up with SmartCharging, the connector must read
+        Charging or Suspended, a transaction id must be displayed, and on 1.6
+        the connector must not be held after an unattributed stop. The charger
+        itself rejects a TxProfile whose transaction id no longer matches, so
+        this is a filter, not a guarantee.
+        """
+        cp_id, m, cp, _n = self._get_metrics(id)
+        if cp is None or cp.status != STATE_OK:
+            return False
+        if not bool(cp.supported_features & prof.SMART):
+            return False
+        conn = self._norm_conn(connector_id)
+        status_val = None
+        with contextlib.suppress(Exception):
+            status_val = m[(conn, cstat.status_connector)].value
+        if _norm(str(status_val or "")) not in {
+            "charging",
+            "suspendedev",
+            "suspendedevse",
+        }:
+            return False
+        if self.session_transaction_id(id, conn) is None:
+            return False
+        unsafe = getattr(cp, "transaction_is_unsafe", None)
+        if unsafe is not None and unsafe(conn):
+            return False
+        return True
+
+    async def set_session_charge_rate_amps(
+        self,
+        id: str,
+        connector_id: int,
+        value: float,
+    ) -> bool:
+        """Set a connector's session limit; the maximum is a limit like any other."""
+        cp_id = self.cpids.get(id, id)
+        cp = self.charge_points.get(cp_id)
+        if cp is None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="unavailable",
+                translation_placeholders={"message": id},
+            )
+        return await cp.set_session_limit(int(connector_id), float(value))
+
     async def set_max_charge_rate_amps(
         self, id: str, value: float, connector_id: int = 0
     ):
-        """Set the maximum charge rate in amps."""
+        """Set the station maximum in amps; connector_id is retained but unused."""
         # allow id to be either cpid or cp_id
         cp_id = self.cpids.get(id, id)
 
         if cp_id in self.charge_points:
-            return await self.charge_points[cp_id].set_charge_rate(
-                limit_amps=value, conn_id=connector_id
+            return await self.charge_points[cp_id].set_station_charge_rate(
+                limit_amps=value
             )
         return False
 
