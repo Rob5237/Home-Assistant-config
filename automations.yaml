@@ -163,10 +163,14 @@
   description: >
     Bij groot teruglevering (P1 < -4000W voor 10 min) en boiler al in
     zonne-overschot boost-modus (setpoint 55-60°C), verhoog setpoint naar
-    62°C voor extra opslag. DHW-mode tijdelijk op "Party" om de hysterese
-    (10K) te overrulen — anders zou de WP niet opnieuw starten bij DHW>52.
-    Reset volgt via zonne_overschot_extra_opslag_reset bij DHW > 58°C
-    (zet setpoint→50 en mode→Automatic, of →Holidays tijdens vakantie).
+    62°C voor extra opslag. Dhw_hysteresis tijdelijk 10K → 3K zodat de
+    compressor daadwerkelijk start (bevestigd 23-09-2026: Party alléén
+    negeert de hysterese NIET op deze firmware — bij DHW ≥ 52 bleef de WP
+    9u stil ondanks Party+62). Setpoint 62 - 3K = 59 dekt DHW-niveaus die
+    klein-overschot achterlaat (~55-58). DHW-mode Party overrulet het
+    tijdschema en interne Sperrzeit; hysterese-verlaging overrulet de
+    start-drempel. Reset volgt via zonne_overschot_extra_opslag_reset bij
+    DHW > 58°C (zet setpoint→50, mode→Automatic/Holidays, hysterese→10K).
     Veiligheidsreset (interne delay 45 min): als de reguliere reset niet is
     geactiveerd binnen 45 min (bv. omdat user via display dhw_mode handmatig
     heeft gewijzigd zodat de Party-conditie in de reset-automation faalt),
@@ -196,6 +200,11 @@
     state: "on"
   actions:
   - target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 3
+    action: number.set_value
+  - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
       value: 62
@@ -221,6 +230,11 @@
         entity_id: number.luxtronik_280807_0450_dhw_target_temperature
       data:
         value: 50
+      action: number.set_value
+    - target:
+        entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+      data:
+        value: 10
       action: number.set_value
     - if:
       - condition: state
@@ -254,23 +268,18 @@
     resterende uur is op basis van Zonneplan tarieven. Klokprogramma 09:30-16:00
     (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).
 
-    dhw_mode wordt op Party gezet (i.p.v. Automatic) om de 10K-hysterese te
-    negeren: bij DHW al > 52°C door een eerdere zonne-cyclus zou Automatic +
-    setpoint 62 niet starten (62-10=52), en de TDI-cyclus zou pas later op de
-    dag autonoom beginnen — buiten het goedkoopste-uur venster. Reset via
-    tdi_einde_reset zet mode terug naar Automatic.
+    dhw_mode wordt op Party gezet én dhw_hysteresis tijdelijk 10K → 3K:
+    Party overrulet het tijdschema, hysterese-verlaging overrulet de
+    start-drempel. Bevestigd 23-09-2026: Party respecteert wél 10K-hysterese
+    op deze firmware — TDI met setpoint 62 en DHW=56 startte niet omdat
+    62-10=52 nooit werd geraakt, compressor bleef 9u stil. Met hysterese 3K
+    start de cyclus zodra DHW < 59, wat het volledige klein-overschot-bereik
+    (~55-58) dekt. Reset via tdi_einde_reset (setpoint→50, hysterese→10K).
 
-    Startguard DHW ≥ 58: op 07-05 zetten we Party+62 met DHW al 58°C door
-    eerdere zonne-boost. Empirisch: Party respecteert wél 10K-hysterese in
-    deze Luxtronik-firmware, dus compressor startte pas 16u later bij DHW ~52
-    (autonoom, niet op goedkoopste uur). Party+62 hing overnight, opgelost
-    door 21:55 watchdog maar niet ideaal. Nieuwe aanpak: bij DHW ≥ 58 slaan
-    we het setpoint-boost over (WP zou toch niet starten binnen goedkoopste
-    uur), tdi_laatste_start-update slaan we óók over zodat de TDI-check
-    volgende dag opnieuw activeert zodra DHW voldoende is gezakt (< 58 = ~2-3
-    dagen later door natuurlijk warmteverlies). Aanname: DHW ≥ 58 hoge deel
-    van de tank betekent recente warmtecyclus, legionella-risico beperkt tot
-    volgende poging.
+    Startguard DHW ≥ 58: bij DHW al ≥ 58 slaan we de cyclus over — de
+    resterende delta naar 62 is te klein om economisch te maken binnen het
+    goedkoopste-uur venster. tdi_laatste_start-update slaan we óók over
+    zodat de check volgende dag opnieuw activeert.
   triggers:
   - trigger: time_pattern
     minutes: '0'
@@ -307,6 +316,11 @@
     data:
       option: Party
     action: select.select_option
+  - target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 3
+    action: number.set_value
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
@@ -361,6 +375,11 @@
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
       value: 50
+    action: number.set_value
+  - target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 10
     action: number.set_value
   # Dhw_mode terug: Holidays als vakantie + lock=on, anders Automatic. Single
   # write i.p.v. eerst Automatic dan eventueel Holidays.
@@ -446,6 +465,11 @@
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
       value: 50
+    action: number.set_value
+  - target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 10
     action: number.set_value
   - action: input_boolean.turn_off
     target:
@@ -1134,6 +1158,43 @@
         Bij herhaling: controleer reset-automaties en Party-safety timing.
   mode: parallel
   max: 3
+
+- id: dhw_hysteresis_watchdog
+  alias: "Tapwater: hysterese-watchdog (herstel naar 10K)"
+  description: >
+    Vangnet voor de 3K-hysterese-verlaging in groot-overschot boost en TDI.
+    Beide zetten dhw_hysteresis tijdelijk op 3K om Party+62 daadwerkelijk
+    te laten starten (bevestigd 23-09-2026: Party alléén negeert hysterese
+    niet op deze firmware). Reset-automaties zetten hem terug op 10K, maar
+    als een reset gemist wordt (bv. user-intervention op dhw_mode) blijft
+    3K staan. Bij rust-setpoint 50 zou de autonome cyclus dan starten bij
+    DHW=47 i.p.v. 40 = veel meer korte cycli. Deze watchdog herstelt naar
+    10K als hysterese > 60 min onder 8K staat.
+  triggers:
+  - trigger: numeric_state
+    entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    below: 8
+    for:
+      minutes: 60
+  actions:
+  - target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 10
+    action: number.set_value
+  - action: persistent_notification.create
+    data:
+      title: "Tapwater: hysterese teruggezet naar 10K"
+      notification_id: dhw_hysteresis_watchdog
+      message: >-
+        dhw_hysteresis stond > 60 min onder 8K zonder terug te keren naar
+        10K. Watchdog heeft geforceerd hersteld. Controleer of een reset-
+        automation (zonne_overschot_extra_opslag_reset / tdi_einde_reset /
+        veiligheidsreset in tapwater_extra_opslag_groot_overschot) is
+        gemist. DHW {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }}°C |
+        Setpoint {{ states('number.luxtronik_280807_0450_dhw_target_temperature') }}°C |
+        Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}.
+  mode: single
 
 - id: compressor_starts_monthly_reset
   alias: "Warmtepomp: maandelijkse reset compressor-tellers"
