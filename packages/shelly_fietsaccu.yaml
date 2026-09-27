@@ -1,0 +1,56 @@
+# Shelly Plug S Gen3 – fietsaccu, via MQTT
+mqtt:
+  sensor:
+    - name: "Fietsaccu vermogen"
+      unique_id: shelly_fietsaccu_power
+      state_topic: "shelly/fietsaccu/status/switch:0"
+      value_template: "{{ value_json.apower }}"
+      unit_of_measurement: "W"
+      device_class: power
+      state_class: measurement
+      availability_topic: "shelly/fietsaccu/online"
+      payload_available: "true"
+      payload_not_available: "false"
+
+    - name: "Fietsaccu energie"
+      unique_id: shelly_fietsaccu_energy
+      state_topic: "shelly/fietsaccu/status/switch:0"
+      value_template: "{{ (value_json.aenergy.total / 1000) | round(3) }}"
+      unit_of_measurement: "kWh"
+      device_class: energy
+      state_class: total_increasing
+      availability_topic: "shelly/fietsaccu/online"
+      payload_available: "true"
+      payload_not_available: "false"
+
+  switch:
+    - name: "Fietsaccu"
+      unique_id: shelly_fietsaccu_switch
+      command_topic: "shelly/fietsaccu/rpc"
+      payload_on: '{"id":1,"src":"ha","method":"Switch.Set","params":{"id":0,"on":true}}'
+      payload_off: '{"id":1,"src":"ha","method":"Switch.Set","params":{"id":0,"on":false}}'
+      state_topic: "shelly/fietsaccu/status/switch:0"
+      value_template: "{{ 'ON' if value_json.output else 'OFF' }}"
+      state_on: "ON"
+      state_off: "OFF"
+      availability_topic: "shelly/fietsaccu/online"
+      payload_available: "true"
+      payload_not_available: "false"
+
+automation:
+  - id: fietsaccu_uit_bij_80_procent
+    alias: "Fietsaccu uit bij ca. 80%"
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.fietsaccu_vermogen
+        above: 180.0
+        for: "00:02:00"
+    conditions:
+      - condition: state
+        entity_id: switch.fietsaccu
+        state: "on"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.fietsaccu
+    mode: single
