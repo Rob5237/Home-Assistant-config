@@ -1,0 +1,192 @@
+# =====================================================================
+# config/dashboards/ev_laden.yaml  – YAML-dashboard "Laden"
+# Hoort bij packages/ev_laden.yaml. Alleen standaardkaarten, geen HACS.
+#
+# Eenmalig in configuration.yaml (NIET in een package):
+#   lovelace:
+#     dashboards:
+#       dashboard-laden:
+#         mode: yaml
+#         title: Laden
+#         icon: mdi:ev-station
+#         show_in_sidebar: true
+#         filename: dashboards/ev_laden.yaml
+# Daarna 1x herstarten; latere wijzigingen: browser verversen.
+# Lader A = Sonia (charger2), Lader B = Rob (charger3).
+# =====================================================================
+views:
+  - title: Laden
+    path: laden
+    icon: mdi:ev-station
+    type: sections
+    max_columns: 3
+    sections:
+      # ---------------------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Algemeen
+            icon: mdi:home-lightning-bolt
+          - type: tile
+            entity: input_boolean.ev_slimme_sturing
+            name: Slimme sturing
+            color: green
+            tap_action:
+              action: toggle
+          - type: tile
+            entity: sensor.zonneplan_current_electricity_tariff
+            name: Stroomprijs nu
+          - type: tile
+            entity: sensor.ev_pv_overschot
+            name: PV-overschot
+            color: amber
+          - type: tile
+            entity: input_select.ev_prioriteit
+            name: Prioriteit
+          - type: entities
+            title: Load balancing
+            show_header_toggle: false
+            entities:
+              - entity: sensor.ev_ruimte_l1
+                name: Ruimte L1
+              - entity: sensor.ev_ruimte_l2
+                name: Ruimte L2
+              - entity: sensor.ev_ruimte_l3
+                name: Ruimte L3
+              - type: divider
+              - entity: input_number.ev_hoofdzekering
+                name: Hoofdzekering
+              - entity: input_number.ev_marge
+                name: Marge
+              - entity: input_number.ev_prijsdrempel
+                name: Altijd laden onder
+              - entity: input_boolean.ev_1fase_ondersteund
+                name: 1/3-fase wissel
+          - type: history-graph
+            title: Laatste 24 uur
+            hours_to_show: 24
+            entities:
+              - entity: sensor.charger2_power_active_import
+                name: Lader A
+              - entity: sensor.charger3_power_active_import
+                name: Lader B
+              - entity: sensor.ev_pv_overschot
+                name: PV-overschot
+
+      # ---------------------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lader A – Sonia
+            icon: mdi:ev-plug-type2
+          - type: tile
+            entity: sensor.charger2_status_connector
+            name: Status
+          - type: tile
+            entity: input_select.ev_a_auto
+            name: Auto
+            icon: mdi:car-electric
+          - type: tile
+            entity: sensor.charger2_power_active_import
+            name: Vermogen
+            color: blue
+          - type: tile
+            entity: sensor.charger2_energy_session
+            name: Deze sessie
+            color: blue
+          - type: tile
+            entity: input_boolean.ev_a_direct_laden
+            name: Boost – nu laden
+            color: red
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: full
+          - type: entities
+            title: Planning
+            show_header_toggle: false
+            entities:
+              - entity: input_number.ev_a_benodigde_kwh
+                name: Benodigd
+              - entity: input_datetime.ev_a_vertrek
+                name: Vertrek
+              - entity: sensor.ev_a_laadplan
+                name: Nog te laden
+              - type: attribute
+                entity: sensor.ev_a_laadplan
+                attribute: plan_leesbaar
+                name: Geplande slots
+              - entity: binary_sensor.ev_a_goedkoop_slot
+                name: Nu goedkoop slot
+          - type: entities
+            title: Techniek
+            show_header_toggle: false
+            state_color: true
+            entities:
+              - entity: input_number.ev_a_laatst_gezet
+                name: Toegewezen stroom (A)
+              - entity: input_number.ev_a_fasen
+                name: Actieve fasen
+              - entity: input_number.ev_a_max_stroom
+                name: Max laadstroom
+              - entity: input_select.ev_a_eenfase_op
+                name: 1-fase laden op
+
+      # ---------------------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lader B – Rob
+            icon: mdi:ev-plug-type2
+          - type: tile
+            entity: sensor.charger3_status_connector
+            name: Status
+          - type: tile
+            entity: input_select.ev_b_auto
+            name: Auto
+            icon: mdi:car-electric
+          - type: tile
+            entity: sensor.charger3_power_active_import
+            name: Vermogen
+            color: blue
+          - type: tile
+            entity: sensor.charger3_energy_session
+            name: Deze sessie
+            color: blue
+          - type: tile
+            entity: input_boolean.ev_b_direct_laden
+            name: Boost – nu laden
+            color: red
+            tap_action:
+              action: toggle
+            grid_options:
+              columns: full
+          - type: entities
+            title: Planning
+            show_header_toggle: false
+            entities:
+              - entity: input_number.ev_b_benodigde_kwh
+                name: Benodigd
+              - entity: input_datetime.ev_b_vertrek
+                name: Vertrek
+              - entity: sensor.ev_b_laadplan
+                name: Nog te laden
+              - type: attribute
+                entity: sensor.ev_b_laadplan
+                attribute: plan_leesbaar
+                name: Geplande slots
+              - entity: binary_sensor.ev_b_goedkoop_slot
+                name: Nu goedkoop slot
+          - type: entities
+            title: Techniek
+            show_header_toggle: false
+            state_color: true
+            entities:
+              - entity: input_number.ev_b_laatst_gezet
+                name: Toegewezen stroom (A)
+              - entity: input_number.ev_b_fasen
+                name: Actieve fasen
+              - entity: input_number.ev_b_max_stroom
+                name: Max laadstroom
+              - entity: input_select.ev_b_eenfase_op
+                name: 1-fase laden op

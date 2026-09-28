@@ -17,3 +17,12 @@ scene: !include scenes.yaml
 
 shell_command:
   git_backup: "bash /config/git_push.sh"
+
+lovelace:
+  dashboards:
+    dashboard-laden:
+      mode: yaml
+      title: Laden
+      icon: mdi:ev-station
+      show_in_sidebar: true
+      filename: dashboards/ev_laden.yaml

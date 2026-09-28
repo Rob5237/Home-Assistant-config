@@ -273,13 +273,21 @@
     start-drempel. Bevestigd 23-09-2026: Party respecteert wél 10K-hysterese
     op deze firmware — TDI met setpoint 62 en DHW=56 startte niet omdat
     62-10=52 nooit werd geraakt, compressor bleef 9u stil. Met hysterese 3K
-    start de cyclus zodra DHW < 59, wat het volledige klein-overschot-bereik
-    (~55-58) dekt. Reset via tdi_einde_reset (setpoint→50, hysterese→10K).
+    start de cyclus zodra DHW < 62 (65-3), wat het volledige klein-overschot-
+    bereik (~55-58) dekt. Reset via tdi_einde_reset (setpoint→50, hysterese→10K).
 
-    Startguard DHW ≥ 58: bij DHW al ≥ 58 slaan we de cyclus over — de
-    resterende delta naar 62 is te klein om economisch te maken binnen het
-    goedkoopste-uur venster. tdi_laatste_start-update slaan we óók over
-    zodat de check volgende dag opnieuw activeert.
+    Setpoint 65 i.p.v. 62 (compressor-maximum): 25-09-2026 test toonde dat
+    de WP stopt zodra zijn interne top-sensor het setpoint raakt — bij
+    setpoint 62 stopte de compressor met mid-sensor op 59.0°C (top vermoedelijk
+    62). Met setpoint 65 loopt de compressor door tot top ≈ 65, wat door
+    stratificatie mid richting 60+ trekt. tdi_einde_reset wacht op mid ≥ 60
+    voor 15 min als Legionella-borging voor de midden-tanklaag. Discriminator
+    tegen extra-opslag (setpoint 62): zonne_overschot_extra_opslag_reset
+    negeert nu setpoint > 63.
+
+    Startguard DHW ≥ 60: bij DHW al ≥ 60 is Legionella-drempel voor mid
+    vermoedelijk gehaald; sla de cyclus over. tdi_laatste_start-update slaan
+    we óók over zodat de check volgende dag opnieuw activeert wanneer nodig.
   triggers:
   - trigger: time_pattern
     minutes: '0'
@@ -296,7 +304,7 @@
     state: "on"
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 58
+    below: 60
   actions:
   - action: input_datetime.set_datetime
     target:
@@ -324,7 +332,7 @@
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     data:
-      value: 62
+      value: 65
     action: number.set_value
   - if:
     - condition: state
@@ -341,35 +349,33 @@
 - id: tdi_einde_reset
   alias: "TDI: reset na cyclus"
   description: >
-    Reset na TDI-cyclus: setpoint terug naar 50°C zodra DHW ≥ 61°C voor 10 min.
-    De "voor 10 min" eis borgt Legionella-protocol (afdoding bij ≥60°C vereist
-    minimaal 10-11 min houdtijd) — een eenmalig passeren van 60°C door stratificatie
-    is onvoldoende. Drempel op 61°C (i.p.v. exact 62°C-setpoint) voorkomt dat
-    we eindeloos wachten als de WP bij hoge tank-temperatuur stagneert vlak
-    onder setpoint.
+    Reset na TDI-cyclus: setpoint terug naar 50°C zodra DHW ≥ 60°C voor 15 min.
+    De "voor 15 min" eis borgt Legionella-protocol óók voor de mid-tank sensor:
+    de WP-interne top-sensor stopt bij setpoint (top hits 65°C snel), maar de
+    HA-exposed mid-sensor loopt achter door stratificatie. Wachten tot mid ≥ 60
+    voor 15 min zorgt dat óók mid en (via warmtegeleiding) een groot deel van
+    onder de Legionella-drempel halen. Vervangt de vorige "> 61 voor 10 min"-
+    aanpak die bij setpoint 62 nooit haalbaar was (mid piekte op 59).
+    Discriminator setpoint > 63: onderscheidt TDI (setpoint 65) van extra-
+    opslag (setpoint 62); die laatste heeft zijn eigen reset op DHW>58.
+    Setpoint 62 vs 65 is bewust: TDI mikt op de compressor-max (65°C) om óók
+    mid/onder te bereiken; extra-opslag blijft 62°C omdat het slechts een
+    energiebuffer is (top mag hoog, mid/onder hoeft niet legionella-safe).
     Verwarmingsswitch alleen uit als buitentemp ≥ stookdrempel — anders zou
     ruimteverwarming bij koud weer ten onrechte uitgaan na TDI.
-    TDI start nu in Party-mode (om 10K-hysterese te negeren bij hoge DHW),
-    dus de mode-conditie staat zowel Party als Automatic toe. Onderscheid van
-    zonne-overschot extra-opslag (ook Party, ook setpoint 62): de
-    zonne_overschot_extra_opslag_reset triggert al bij DHW > 58 en zou
-    setpoint al naar 50 hebben gezet voordat DHW > 61 voor 10 min haalbaar
-    is — dus in praktijk activeert deze automation alleen na een TDI-cyclus.
-    Setpoint > 60 voorkomt onbedoelde trigger bij gewone bijverwarm-cycli
-    (setpoint 57) waar restwarmte/overshoot DHW boven 60°C kan duwen.
     Actie zet dhw_mode altijd terug naar Automatic (idempotent als al
     Automatic).
   triggers:
   - id: tdi_klaar
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    above: 61
+    above: 60
     for:
-      minutes: 10
+      minutes: 15
     trigger: numeric_state
   conditions:
   - condition: numeric_state
     entity_id: number.luxtronik_280807_0450_dhw_target_temperature
-    above: 60
+    above: 63
   actions:
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
@@ -439,13 +445,22 @@
   - condition: state
     entity_id: select.luxtronik_280807_0450_dhw_mode
     state: Party
-  - condition: numeric_state
-    entity_id: number.luxtronik_280807_0450_dhw_target_temperature
-    above: 55
+  # DHW>58-tak: alleen voor extra-opslag range (setpoint 56-63). TDI-setpoint
+  # 65 mag NIET via deze route resetten — die moet doorstoken tot mid ≥ 60
+  # voor 15 min (tdi_einde_reset).
+  # 21:55 watchdog: catch-all voor ELKE hangende Party (setpoint > 55) —
+  # dus ook een TDI die de mid-drempel niet haalde. In dat geval fire
+  # tdi_einde_reset niet (voorwaarde niet vervuld) en deze watchdog vangt op.
   - condition: or
     conditions:
-    - condition: trigger
-      id: dhw_boven_58
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: dhw_boven_58
+      - condition: numeric_state
+        entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+        above: 55
+        below: 64
     - condition: and
       conditions:
       - condition: trigger
@@ -453,6 +468,9 @@
       - condition: state
         entity_id: input_boolean.tapwater_overschot_lock
         state: "on"
+      - condition: numeric_state
+        entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+        above: 55
   actions:
   - target:
       entity_id: select.luxtronik_280807_0450_dhw_mode
