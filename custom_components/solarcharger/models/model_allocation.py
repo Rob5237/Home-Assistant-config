@@ -1,6 +1,9 @@
+# ruff: noqa: TID252
 """Power allocation data model."""
 
 from dataclasses import dataclass
+
+from ..const import RunState
 
 
 # ----------------------------------------------------------------------------
@@ -12,7 +15,12 @@ class PowerAllocation:
     subentry_id: str
     name: str
 
+    #####################################
+    # Charger variables
+    #####################################
     # Environment data:
+    # Run state
+    run_state: RunState
     # Maximum power the charger can consume.
     max_power: float
     # Not used. FYI only.
@@ -41,6 +49,8 @@ class PowerAllocation:
     # Device can set current?
     can_set_current: bool
 
+    # Run state
+    # run_state: RunState = RunState.END
     # Device allows pause state?
     max_speed_charge: bool = False
     # Device depower by itself, eg. themostat.
@@ -72,11 +82,28 @@ class PowerAllocation:
     # It is then combined with consumed_power to get the final power for the charger, which can be -ve, 0 or +ve.
     final_power: float = 0.0
 
+    #####################################
+    # Power source variables
+    #####################################
+    cap_supply_power: bool = False
+    supply_net_power: float = 0.0  # -ve or +ve
+    # +ve (>=0) = output power limit , -ve (<0) = No output power limit
+    supply_power_limit: float = 0.0
+    # Amount of output power to reduce so as not to exceed supply_power_limit.
+    supply_depower: float = 0.0  # 0 or +ve
+    below_charge_limit: bool = False
+
     # ----------------------------------------------------------------------------
     def __repr__(self) -> str:
         """Return string representation of PowerAllocation."""
         return (
             f"name={self.name}, "
+            f"run_state={self.run_state}, "
+            f"cap_supply_power={self.cap_supply_power}, "
+            f"supply_net_power={self.supply_net_power}, "
+            f"supply_power_limit={self.supply_power_limit}, "
+            f"supply_depower={self.supply_depower}, "
+            f"below_charge_limit={self.below_charge_limit}, "
             f"max_power={self.max_power}, "
             f"max_current={self.max_current}, "
             f"step_power_list={self.step_power_list}, "
@@ -126,11 +153,17 @@ class AllocationGroup:
     # Total running instances including paused chargers.
     total_instance: int = 0
 
+    #####################################
+    # Power source variables
+    #####################################
+    total_supply_depower: float = 0  # +ve
+
     # ----------------------------------------------------------------------------
     def __repr__(self) -> str:
         """Return string representation of AllocationGroup."""
         return (
             f"priority={self.priority}, "
+            f"total_supply_depower={self.total_supply_depower}, "
             f"total_max_power={self.total_max_power}, "
             f"total_consumed_power={self.total_consumed_power}, "
             f"total_need_power={self.total_need_power}, "
@@ -188,10 +221,16 @@ class AllocationBook:
     # So must keep doing deallocation until device is paused and power released.
     need_rebalance: bool = False  # Not used, to be removed.
 
+    #####################################
+    # Power source variables
+    #####################################
+    total_supply_depower: float = 0.0  # +ve
+
     # ----------------------------------------------------------------------------
     def __repr__(self) -> str:
         """Return string representation of AllocationBook."""
         return (
+            f"supply_depower={self.total_supply_depower}, "
             f"active_instance={self.total_active_instance}, "
             f"paused_instance={self.total_paused_instance}, "
             f"total_instance={self.total_instance}, "

@@ -10,7 +10,7 @@ from typing import Any
 from propcache.api import cached_property
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, State
 from homeassistant.util import slugify
 
@@ -38,10 +38,12 @@ from ..const import (
     NUMBER_POWER_MONITOR_DURATION,
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
     NUMBER_SUNSET_ELEVATION_END_TRIGGER,
+    NUMBER_SUPPLY_POWER_LIMIT,
     OPTION_CHARGER_NAME,
     SELECT_DEVICE_PRESENCE_SENSOR,
     SELECT_EXIT_CONDITION_SENSOR,
     SELECT_START_STATE,
+    SELECT_SUPPLY_NET_POWER_SENSOR,
     SELECT_WEATHER_PROVIDER,
     SENSOR_CONSUMED_ENERGY_TODAY,
     SENSOR_CONSUMED_POWER,
@@ -60,6 +62,7 @@ from ..const import (
     SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE,
     SWITCH_SCHEDULE_CHARGE,
     SWITCH_SUN_TRIGGER,
+    SWITCH_SUPPLY_CAP,
     TIME_CHARGE_ENDTIME_FRIDAY,
     TIME_CHARGE_ENDTIME_MONDAY,
     TIME_CHARGE_ENDTIME_SATURDAY,
@@ -130,6 +133,11 @@ class ScOptionState(ScConfigState):
     # Non-modifiable local device internal entities, ie.
     # not defined in config_options_flow _charger_control_entities_schema().
     # ----------------------------------------------------------------------------
+    @cached_property
+    def supply_net_power_sensor_selector_entity_id(self) -> str:
+        """Return supply net power sensor selector entity ID."""
+        return self._internal_entity_ids[SELECT_SUPPLY_NET_POWER_SENSOR]
+
     @cached_property
     def share_allocation_entity_id(self) -> str:
         """Return the share allocation entity ID."""
@@ -701,7 +709,7 @@ class ScOptionState(ScConfigState):
             self._subentry.unique_id,
             config_item,
             entity_id,
-            "on" if turn_on else "off",
+            STATE_ON if turn_on else STATE_OFF,
         )
 
         if entity_id:
@@ -844,15 +852,61 @@ class ScOptionState(ScConfigState):
         return entity_id
 
     # ----------------------------------------------------------------------------
-    def is_reduce_charge_limit_difference_between_days(self) -> bool:
-        """Return True if reduce charge limit difference between days is enabled."""
+    # Local device control entities: Readers
+    # ----------------------------------------------------------------------------
+    def _is_supply_cap(
+        self,
+        val_dict: ConfigValueDict | None = None,
+    ) -> bool:
+        """Is power supply cap enabled?"""
 
-        return self.option_get_entity_boolean_or_abort(
-            SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE
+        return self.option_get_entity_boolean_or_abort(SWITCH_SUPPLY_CAP, val_dict)
+
+    # ----------------------------------------------------------------------------
+    def get_supply_net_power_sensor_entity_id(self) -> str | None:
+        """Get supply net power sensor entity ID."""
+
+        entity_id = self.get_string(self.supply_net_power_sensor_selector_entity_id)
+        if entity_id in [STATE_UNKNOWN, STATE_UNAVAILABLE]:
+            entity_id = None
+
+        return entity_id
+
+    # ----------------------------------------------------------------------------
+    def get_supply_net_power(self) -> float | None:
+        """Get power source net power."""
+
+        power = None
+        entity_id = self.get_supply_net_power_sensor_entity_id()
+        if entity_id:
+            power = self.get_number(entity_id)
+            # if power < 0:
+            #     raise ValueError(
+            #         f"{self._subentry.unique_id}: Invalid supply power {power}"
+            #     )
+
+        return power
+
+    # ----------------------------------------------------------------------------
+    def is_cap_supply_power(self) -> bool:
+        """Is supply cap on and supply power sensor is set?"""
+
+        return (
+            self._is_supply_cap()
+            and self.get_supply_net_power_sensor_entity_id() is not None
         )
 
     # ----------------------------------------------------------------------------
-    # Local device control entities: Readers
+    def get_supply_power_limit(
+        self,
+        val_dict: ConfigValueDict | None = None,
+    ) -> float:
+        """Get power source output power limit."""
+
+        return self.option_get_entity_number_or_abort(
+            NUMBER_SUPPLY_POWER_LIMIT, val_dict
+        )
+
     # ----------------------------------------------------------------------------
     def get_min_charge_limit(
         self,
@@ -873,6 +927,14 @@ class ScOptionState(ScConfigState):
 
         return self.option_get_entity_number_or_abort(
             NUMBER_DEVICE_MAX_CHARGE_LIMIT, val_dict
+        )
+
+    # ----------------------------------------------------------------------------
+    def is_reduce_charge_limit_difference_between_days(self) -> bool:
+        """Return True if reduce charge limit difference between days is enabled."""
+
+        return self.option_get_entity_boolean_or_abort(
+            SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE
         )
 
     # ----------------------------------------------------------------------------

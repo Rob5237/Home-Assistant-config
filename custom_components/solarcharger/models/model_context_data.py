@@ -8,7 +8,7 @@ from typing import Any
 
 from ..chargers.chargeable import Chargeable
 from ..chargers.charger import Charger
-from ..const import ChargeStatus, RunState
+from ..const import RunState, RunStep
 from .model_charge_stats import ChargeStats
 from .model_median_data import MedianData
 from .model_schedule_data import ScheduleData
@@ -30,12 +30,13 @@ class ContextData:
     goal: ScheduleData
     net_allocations: MedianData
     stats: ChargeStats
+    net_allocated_power: float = 0.0
 
     #####################################
     # Outputs
     #####################################
     continue_state: bool = False  # Continue current state
-    next_step: ChargeStatus = ChargeStatus.CHARGE_END
+    next_step: RunStep = RunStep.END
     enough_power: bool | None = None  # None=not enough data points.
 
     #####################################
@@ -43,10 +44,16 @@ class ContextData:
     #####################################
     connected: bool = False
     below_charge_limit: bool = False
+    real_soc: bool = False  # Real SOC, not faked.
     charging: bool = False
     charging_status: Any = ""
     fast_charge: bool = False
     calibrate_max_charge_speed: bool = False
+
+    #####################################
+    # Power source
+    #####################################
+    cap_supply_power: bool = False
 
     # ----------------------------------------------------------------------------
     def __repr__(self) -> str:
@@ -59,7 +66,8 @@ class ContextData:
             f"enough_power={self.enough_power}, "
             f"median_net_allocated_power={self.net_allocations.median_value}, "
             f"sample_size={self.net_allocations.sample_size}), "
-            f"net_allocated_power={0 if self.net_allocations.last_data_point is None else self.net_allocations.last_data_point.value}, "
+            f"net_allocated_power={self.net_allocated_power}, "
+            # f"net_allocated_power={0 if self.net_allocations.last_data_point is None else self.net_allocations.last_data_point.value}, "
             f"connected={self.connected}, "
             f"below_charge_limit={self.below_charge_limit} ({self.goal.battery_soc}/{self.goal.new_charge_limit}), "
             f"end_on_condition={self.goal.end_on_condition}, "
@@ -69,6 +77,7 @@ class ContextData:
             f"sun_above_start_end_elevations={self.goal.sun_above_start_end_elevations} ({self.goal.sun_elevation}), "
             f"fast_charge={self.fast_charge}, "
             f"calibrate_max_charge_speed={self.calibrate_max_charge_speed}, "
+            f"cap_supply_power={self.cap_supply_power}, "
             f"timer_session={self.goal.timer_session}, "
             f"has_charge_endtime={self.goal.has_charge_endtime}, "
             f"started_max_charge={self.goal.started_max_charge}, "

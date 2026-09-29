@@ -92,6 +92,7 @@
                 "title": "Charger options",
                 "description": "These are entities controlling charger behaviour with values defined in \"Configuration\" section. Replace with your own entities if required. Greyed-out entries are FYI only.\n\nTo delete an entity, select a dummy entity with name *.deleteme, eg. sensor.deleteme\n\nTo delete a string, replace string with 2 spaces.",
                 "data": {
+                    "supply_power_limit": "Supply power limit (W) (-1 = No limit)",
                     "charger_effective_voltage": "Charger effective voltage (V)",
                     "default_charge_limit_monday": "Monday default charge limit (%)",
                     "default_charge_limit_tuesday": "Tuesday default charge limit (%)",
@@ -178,6 +179,9 @@
             }
         },
         "number": {
+            "supply_power_limit": {
+                "name": "Supply power limit"
+            },
             "charger_effective_voltage": {
                 "name": "Effective voltage"
             },
@@ -294,6 +298,9 @@
             }
         },
         "select": {
+            "supply_net_power_sensor": {
+                "name": "Supply net power sensor"
+            },
             "weather_provider": {
                 "name": "Weather provider"
             },
@@ -320,6 +327,7 @@
                     "initialise": "Initialise",
                     "charge": "Charge",
                     "self-depower": "Self-depower",
+                    "discharge": "Discharge",
                     "pause": "Pause",
                     "tidy-up": "Tidy-up",
                     "end": "End"
@@ -356,8 +364,8 @@
             "consumed_energy_today": {
                 "name": "Consumed energy today"
             },
-            "instance_count": {
-                "name": "Instance count"
+            "instance": {
+                "name": "Instance"
             },
             "share_allocation": {
                 "name": "Share allocation"
@@ -365,14 +373,14 @@
             "self_depower_today": {
                 "name": "Self-depower today"
             },
-            "pause_count": {
-                "name": "Pause count"
+            "stall_charge": {
+                "name": "Stall charge"
             },
-            "average_pause_duration": {
-                "name": "Average pause duration"
+            "stall_average_duration": {
+                "name": "Stall average duration"
             },
-            "last_pause_duration": {
-                "name": "Last pause duration"
+            "stall_last_duration": {
+                "name": "Stall last duration"
             },
             "sync_update": {
                 "name": "Sync update"
@@ -385,6 +393,9 @@
             }
         },
         "switch": {
+            "supply_cap": {
+                "name": "Supply cap"
+            },
             "charge": {
                 "name": "Charge"
             },

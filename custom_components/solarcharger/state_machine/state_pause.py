@@ -1,18 +1,18 @@
 # ruff: noqa: TRY401, TID252
 """State machine state."""
 
-from datetime import timedelta
 import logging
 
 from ..chargers.chargeable import Chargeable
 from ..chargers.charger import Charger
-from ..const import ChargeStatus, RunState
+from ..const import PAUSE_STATE_CHARGER_ON_LIST, RunState, RunStep
 from ..models.model_charge_stats import ChargeStats
 from ..models.model_context_data import ContextData
 
 # Import Modules, Not Classes: Instead of from machine import StateA, use
 # import machine and refer to machine.StateA. This breaks the cycle because
 # Python only needs to locate the module, not resolve its contents immediately.
+# from .state_initialise import StateInitialise
 from . import state_initialise
 from .solar_charge_state import SolarChargeState
 
@@ -33,23 +33,6 @@ class StatePause(SolarChargeState):
         self.state = RunState.PAUSE
 
     # ----------------------------------------------------------------------------
-    def _update_pause_stats(
-        self, stats: ChargeStats, paused_duration: timedelta
-    ) -> None:
-        """Update pause stats."""
-
-        stats.pause_last_duration = paused_duration
-        stats.pause_total_duration += paused_duration
-        stats.pause_total_count += 1
-        stats.pause_average_duration = timedelta(
-            seconds=(
-                stats.pause_total_duration.total_seconds() / stats.pause_total_count
-            )
-        )
-
-        self.solarcharge.set_pause_stats(stats)
-
-    # ----------------------------------------------------------------------------
     async def _async_pause_charge(
         self,
         charger: Charger,
@@ -68,24 +51,26 @@ class StatePause(SolarChargeState):
         # Initialise counts before starting loop
         stats.loop_success_count = 0
         stats.loop_consecutive_fail_count = 0
-        done_switch_off_charger = False
+        done_power_down_charger = False
         while True:
             self.solarcharge.abort_if_exceed_max_consecutive_failure()
 
             try:
                 # Turn off charger if looping for the first time.
-                if not done_switch_off_charger:
-                    await self.solarcharge.async_turn_off_charger(charger, chargeable)
-                    done_switch_off_charger = True
+                if not done_power_down_charger:
+                    await self.solarcharge.async_power_down_charger(
+                        charger, chargeable, PAUSE_STATE_CHARGER_ON_LIST
+                    )
+                    done_power_down_charger = True
 
                 context = await self.solarcharge.async_set_charge_status(
                     charger, chargeable, state, stats
                 )
-                if context.next_step != ChargeStatus.CHARGE_PAUSE:
+                if context.next_step != RunStep.PAUSE:
                     break
 
                 # Show running pause duration.
-                self.solarcharge.set_last_pause_duration(
+                self.solarcharge.set_stall_last_duration(
                     self.solarcharge.get_local_datetime() - start_time
                 )
 
@@ -103,11 +88,11 @@ class StatePause(SolarChargeState):
             stats.loop_total_count += 1
 
         end_time = self.solarcharge.get_local_datetime()
-        paused_duration = end_time - start_time
+        stall_duration = end_time - start_time
 
         # Think about only update stats when pause exit was due to having enough power.
         # if next_step == ChargeStatus.CHARGE_CONTINUE:
-        self._update_pause_stats(stats, paused_duration)
+        self.solarcharge.update_stall_stats(stats, stall_duration)
 
         return context
 

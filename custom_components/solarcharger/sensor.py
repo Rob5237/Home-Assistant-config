@@ -28,7 +28,7 @@ from homeassistant.helpers.typing import StateType
 from homeassistant.util.dt import as_local
 
 from .const import (
-    DOMAIN,
+    DOMAIN_SC,
     ICON_ALLOCATION,
     ICON_DATA_READY,
     ICON_DELTA,
@@ -44,23 +44,23 @@ from .const import (
     RESTORE_ON_START_TRUE,
     RUN_STATE_LIST,
     SENSOR,
-    SENSOR_AVERAGE_PAUSE_DURATION,
     SENSOR_CONSUMED_ENERGY_TODAY,
     SENSOR_CONSUMED_POWER,
     SENSOR_DELTA_ALLOCATED_POWER,
-    SENSOR_INSTANCE_COUNT,
+    SENSOR_INSTANCE,
     SENSOR_LAST_CHECK,
-    SENSOR_LAST_PAUSE_DURATION,
     SENSOR_MEDIAN_NET_ALLOCATED_POWER,
     SENSOR_MEDIAN_NET_ALLOCATED_POWER_PERIOD,
     SENSOR_NET_ALLOCATED_POWER,
     SENSOR_NET_ALLOCATED_POWER_DATA_SET,
     SENSOR_NET_ALLOCATED_POWER_SAMPLE_SIZE,
-    SENSOR_PAUSE_COUNT,
     SENSOR_RUN_STATE,
     SENSOR_SELF_DEPOWER_TODAY,
     SENSOR_SHARE_ALLOCATION,
     SENSOR_SMA_NET_ALLOCATED_POWER,
+    SENSOR_STALL_AVERAGE_DURATION,
+    SENSOR_STALL_CHARGE,
+    SENSOR_STALL_LAST_DURATION,
     SENSOR_SYNC_UPDATE,
     SENSOR_WEATHER_FORECAST,
     MedianDataState,
@@ -611,11 +611,11 @@ CONFIG_SENSOR_LIST: tuple[
     # entity_category=EntityCategory.DIAGNOSTIC
     #####################################
     (
-        SENSOR_INSTANCE_COUNT,
+        SENSOR_INSTANCE,
         SolarChargerSensorStateEntity,
         SolarChargerEntityType.TYPE_LOCAL_ONLY,
         SensorEntityDescription(
-            key=SENSOR_INSTANCE_COUNT,
+            key=SENSOR_INSTANCE,
             icon=ICON_RUN,
             state_class=SensorStateClass.TOTAL,
             entity_category=EntityCategory.DIAGNOSTIC,
@@ -650,11 +650,11 @@ CONFIG_SENSOR_LIST: tuple[
         RESTORE_ON_START_TRUE,
     ),
     (
-        SENSOR_PAUSE_COUNT,
+        SENSOR_STALL_CHARGE,
         SolarChargerSensorStateEntity,
         SolarChargerEntityType.TYPE_LOCAL_ONLY,
         SensorEntityDescription(
-            key=SENSOR_PAUSE_COUNT,
+            key=SENSOR_STALL_CHARGE,
             icon=ICON_MOTION_PAUSE,
             state_class=SensorStateClass.TOTAL,
             entity_category=EntityCategory.DIAGNOSTIC,
@@ -663,11 +663,11 @@ CONFIG_SENSOR_LIST: tuple[
         RESTORE_ON_START_FALSE,
     ),
     (
-        SENSOR_AVERAGE_PAUSE_DURATION,
+        SENSOR_STALL_AVERAGE_DURATION,
         SolarChargerSensorStateEntity,
         SolarChargerEntityType.TYPE_LOCAL_ONLY,
         SensorEntityDescription(
-            key=SENSOR_AVERAGE_PAUSE_DURATION,
+            key=SENSOR_STALL_AVERAGE_DURATION,
             icon=ICON_TIMER_PAUSE,
             state_class=SensorStateClass.MEASUREMENT,
             device_class=SensorDeviceClass.DURATION,
@@ -678,11 +678,11 @@ CONFIG_SENSOR_LIST: tuple[
         RESTORE_ON_START_FALSE,
     ),
     (
-        SENSOR_LAST_PAUSE_DURATION,
+        SENSOR_STALL_LAST_DURATION,
         SolarChargerSensorStateEntity,
         SolarChargerEntityType.TYPE_LOCAL_ONLY,
         SensorEntityDescription(
-            key=SENSOR_LAST_PAUSE_DURATION,
+            key=SENSOR_STALL_LAST_DURATION,
             icon=ICON_TIMER_PAUSE,
             state_class=SensorStateClass.MEASUREMENT,
             device_class=SensorDeviceClass.DURATION,
@@ -703,7 +703,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up sensors based on config entry."""
-    coordinator: SolarChargerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: SolarChargerCoordinator = hass.data[DOMAIN_SC][config_entry.entry_id]
 
     for subentry in config_entry.subentries.values():
         # For charger subentries only

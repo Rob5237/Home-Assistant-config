@@ -1,4 +1,4 @@
-# ruff: noqa: TRY401, TID252
+# ruff: noqa: TRY401, TID252, PLR5501
 """Solar charge state machine implementation to manage solar charging."""
 
 import asyncio
@@ -20,9 +20,10 @@ from homeassistant.helpers.typing import StateType
 from ..chargers.chargeable import Chargeable
 from ..chargers.charger import Charger
 from ..chargers.sc_option_state import ScOptionState
+from ..config.config_utils import get_device_domain
 from ..const import (
     CURRENT_VARIATION_PERCENTAGE,
-    DOMAIN,
+    DOMAIN_SC,
     ENTITY_CHARGER_CHARGING_SENSOR,
     ENTITY_CHARGER_GET_CHARGE_CURRENT,
     ENTITY_CHARGER_ON_OFF_SWITCH,
@@ -41,23 +42,23 @@ from ..const import (
     NUMBER_WAIT_DEVICE_LIMIT_CHANGE,
     NUMBER_WAIT_DEVICE_UPDATE_HA,
     NUMBER_WAIT_DEVICE_WAKEUP,
-    SENSOR_AVERAGE_PAUSE_DURATION,
     SENSOR_CONSUMED_ENERGY_TODAY,
     SENSOR_CONSUMED_POWER,
-    SENSOR_LAST_PAUSE_DURATION,
     SENSOR_MEDIAN_NET_ALLOCATED_POWER,
     SENSOR_MEDIAN_NET_ALLOCATED_POWER_PERIOD,
     SENSOR_NET_ALLOCATED_POWER,
     SENSOR_NET_ALLOCATED_POWER_DATA_SET,
     SENSOR_NET_ALLOCATED_POWER_SAMPLE_SIZE,
-    SENSOR_PAUSE_COUNT,
     SENSOR_RUN_STATE,
     SENSOR_SELF_DEPOWER_TODAY,
     SENSOR_SHARE_ALLOCATION,
     SENSOR_SMA_NET_ALLOCATED_POWER,
-    ChargeStatus,
+    SENSOR_STALL_AVERAGE_DURATION,
+    SENSOR_STALL_CHARGE,
+    SENSOR_STALL_LAST_DURATION,
     MedianDataState,
     RunState,
+    RunStep,
     StartState,
 )
 from ..helpers.utils import is_ha_version_at_least, log_is_event_loop
@@ -151,6 +152,7 @@ class SolarCharge(ScOptionState):
         # Entity backed by variable for efficiency. Ok if re-direction is not required.
         self._share_allocation: int = 0
         self._consumed_power: float = 0.0
+        self._net_allocated_power: float = 0.0
 
         # Initialise state machine self._state variable.
         self.set_machine_state(StateStart())
@@ -175,13 +177,13 @@ class SolarCharge(ScOptionState):
         if is_ha_version_at_least("2026.9.1"):
             # Call the new method
             device = device_registry.async_get_device_by_identifier(
-                identifier=(DOMAIN, self._subentry.subentry_id),
+                identifier=(DOMAIN_SC, self._subentry.subentry_id),
                 config_entry_id=self._entry.entry_id,
             )
         else:
             # Fallback to the legacy method
             device = device_registry.async_get_device(
-                identifiers={(DOMAIN, self._subentry.subentry_id)}
+                identifiers={(DOMAIN_SC, self._subentry.subentry_id)}
             )
 
         if device is None:
@@ -338,7 +340,14 @@ class SolarCharge(ScOptionState):
     def set_net_allocated_power(self, val: float) -> None:
         """Set net allocated power."""
 
+        self._net_allocated_power = val
         self.update_sensor(SENSOR_NET_ALLOCATED_POWER, val)
+
+    # ----------------------------------------------------------------------------
+    def get_net_allocated_power(self) -> float:
+        """Get net allocated power."""
+
+        return self._net_allocated_power
 
     # ----------------------------------------------------------------------------
     def set_net_allocated_power_sample_size(self, val: int) -> None:
@@ -392,32 +401,47 @@ class SolarCharge(ScOptionState):
         self.update_sensor(SENSOR_SELF_DEPOWER_TODAY, val)
 
     # ----------------------------------------------------------------------------
-    def set_pause_count(self, val: int) -> None:
-        """Set pause count."""
+    def set_stall_charge_count(self, val: int) -> None:
+        """Set stall count."""
 
-        self.update_sensor(SENSOR_PAUSE_COUNT, val)
+        self.update_sensor(SENSOR_STALL_CHARGE, val)
 
     # ----------------------------------------------------------------------------
-    def set_last_pause_duration(self, val: timedelta) -> None:
-        """Set last pause duration."""
+    def set_stall_last_duration(self, val: timedelta) -> None:
+        """Set stall last duration."""
 
         # native_unit_of_measurement=UnitOfTime.MINUTES
-        self.update_sensor(SENSOR_LAST_PAUSE_DURATION, val.total_seconds() / 60)
+        self.update_sensor(SENSOR_STALL_LAST_DURATION, val.total_seconds() / 60)
 
     # ----------------------------------------------------------------------------
-    def set_average_pause_duration(self, val: timedelta) -> None:
-        """Set average pause duration."""
+    def set_stall_average_duration(self, val: timedelta) -> None:
+        """Set stall average duration."""
 
         # native_unit_of_measurement=UnitOfTime.MINUTES
-        self.update_sensor(SENSOR_AVERAGE_PAUSE_DURATION, val.total_seconds() / 60)
+        self.update_sensor(SENSOR_STALL_AVERAGE_DURATION, val.total_seconds() / 60)
 
     # ----------------------------------------------------------------------------
-    def set_pause_stats(self, val: ChargeStats) -> None:
-        """Set pause stats."""
+    def set_stall_stats(self, val: ChargeStats) -> None:
+        """Set stall charging stats."""
 
-        self.set_pause_count(val.pause_total_count)
-        self.set_last_pause_duration(val.pause_last_duration)
-        self.set_average_pause_duration(val.pause_average_duration)
+        self.set_stall_charge_count(val.stall_total_count)
+        self.set_stall_last_duration(val.stall_last_duration)
+        self.set_stall_average_duration(val.stall_average_duration)
+
+    # ----------------------------------------------------------------------------
+    def update_stall_stats(self, stats: ChargeStats, stall_duration: timedelta) -> None:
+        """Update stall charging stats."""
+
+        stats.stall_last_duration = stall_duration
+        stats.stall_total_duration += stall_duration
+        stats.stall_total_count += 1
+        stats.stall_average_duration = timedelta(
+            seconds=(
+                stats.stall_total_duration.total_seconds() / stats.stall_total_count
+            )
+        )
+
+        self.set_stall_stats(stats)
 
     # ----------------------------------------------------------------------------
     async def async_charger_sleep(self) -> None:
@@ -537,13 +561,16 @@ class SolarCharge(ScOptionState):
     def get_start_state(self) -> StartState:
         """Get preferred start state from config."""
 
-        state_str = self.get_string(self.start_state_selector_entity_id)
-        start_state = StartState(state_str)
-        if start_state == StartState.AUTO:
-            if self.is_daytime():
-                start_state = StartState.CHARGE
-            else:
-                start_state = StartState.PAUSE
+        if self.is_cap_supply_power():
+            start_state = StartState.CHARGE
+        else:
+            state_str = self.get_string(self.start_state_selector_entity_id)
+            start_state = StartState(state_str)
+            if start_state == StartState.AUTO:
+                if self.is_daytime():
+                    start_state = StartState.CHARGE
+                else:
+                    start_state = StartState.PAUSE
 
         return start_state
 
@@ -571,7 +598,7 @@ class SolarCharge(ScOptionState):
         """Get charger max current."""
 
         max_current = self.charger.get_max_charge_current()
-        if max_current is None or max_current <= 0:
+        if max_current is None or max_current < 0:
             raise ValueError("Failed to get charger max current")
 
         return max_current
@@ -791,15 +818,23 @@ class SolarCharge(ScOptionState):
             )
 
     # ----------------------------------------------------------------------------
-    async def async_turn_off_charger(
-        self, charger: Charger, chargeable: Chargeable
+    async def async_power_down_charger(
+        self,
+        charger: Charger,
+        chargeable: Chargeable,
+        do_not_turn_off_list: list[str] | None = None,
     ) -> None:
         """Turn off charger."""
 
         switched_on = charger.is_charger_switch_on()
         if switched_on:
             await self.async_set_charge_current(charger, 0)
-            await self.async_turn_charger_switch(charger, turn_on=False)
+            if do_not_turn_off_list is not None:
+                device_domain = get_device_domain(self._subentry)
+                if device_domain not in do_not_turn_off_list:
+                    await self.async_turn_charger_switch(charger, turn_on=False)
+            else:
+                await self.async_turn_charger_switch(charger, turn_on=False)
             await self.async_update_ha(chargeable)
 
         # Must reset time here to avoid possible wrong energy calculation if pausing.
@@ -814,25 +849,6 @@ class SolarCharge(ScOptionState):
 
         await chargeable.async_set_charge_limit(charge_limit)
         await self.async_option_sleep(NUMBER_WAIT_DEVICE_LIMIT_CHANGE)
-
-    # ----------------------------------------------------------------------------
-    # async def async_set_charge_limit_if_required(
-    #     self, chargeable: Chargeable, goal: ScheduleData
-    # ) -> bool:
-    #     """Set new charge limit if changed, otherwise use existing charge limit."""
-
-    #     if charge_limit_changed := (goal.old_charge_limit != goal.new_charge_limit):
-    #         _LOGGER.warning(
-    #             "%s: Changing charge limit from %.1f %% to %.1f %% for %s",
-    #             self.caller,
-    #             goal.old_charge_limit,
-    #             goal.new_charge_limit,
-    #             # now_time.strftime("%A"),
-    #             goal.weekly_schedule[goal.day_index].charge_day,
-    #         )
-    #         await self.async_set_charge_limit(chargeable, goal.new_charge_limit)
-
-    #     return charge_limit_changed
 
     # ----------------------------------------------------------------------------
     async def async_set_charge_limit_if_required(
@@ -861,7 +877,9 @@ class SolarCharge(ScOptionState):
         return charge_limit_changed
 
     # ----------------------------------------------------------------------------
-    def is_below_charge_limit(self, chargeable: Chargeable) -> bool:
+    def _is_below_charge_limit(
+        self, chargeable: Chargeable, val_dict: ConfigValueDict | None = None
+    ) -> bool:
         """Is device SOC below charge limit? Always return true if SOC entity ID is not defined."""
 
         is_below_limit = True
@@ -870,7 +888,8 @@ class SolarCharge(ScOptionState):
             charge_limit = chargeable.get_charge_limit()
 
             config_item = ENTITY_DEVICE_SOC_SENSOR
-            val_dict = ConfigValueDict(config_item, {})
+            if val_dict is None:
+                val_dict = ConfigValueDict(config_item, {})
             soc = chargeable.get_state_of_charge(val_dict)
             if val_dict.config_values[config_item].entity_id is None:
                 return True
@@ -892,6 +911,12 @@ class SolarCharge(ScOptionState):
             )
 
         return is_below_limit
+
+    # ----------------------------------------------------------------------------
+    def is_below_charge_limit(self, val_dict: ConfigValueDict | None = None) -> bool:
+        """Is device SOC below charge limit? Always return true if SOC entity ID is not defined."""
+
+        return self._is_below_charge_limit(self.chargeable, val_dict)
 
     # ----------------------------------------------------------------------------
     def is_charging(
@@ -922,7 +947,7 @@ class SolarCharge(ScOptionState):
             # If device cannot set current, then ignore this condition.
             # (min_current == max_current and self.can_set_current)
             # Time-based min current using template helper.
-            (min_current == max_current)
+            (min_current == max_current and max_current > 0)
             # Note running goal is updated in both charging and paused states.
             or (
                 # Running goal is not ready to the allocator for a brief period.
@@ -937,19 +962,39 @@ class SolarCharge(ScOptionState):
 
         return max_speed_charge
 
+    # # ----------------------------------------------------------------------------
+    # def _allow_pause_state(self) -> bool:
+    #     """Check if charger is allowed to go into pause state."""
+    #     allow_pause_state = False
+
+    #     if self.power_monitor_duration > 0:
+    #         # Yes, monitor config switched on.
+    #         allow_pause_state = True
+
+    #         if self.is_max_speed_charge():
+    #             allow_pause_state = False
+
+    #     return allow_pause_state
+
     # ----------------------------------------------------------------------------
-    def _is_allow_pause_state(self) -> bool:
-        """Check if charger is allowed to go into pause state."""
-        allow_pause_state = False
+    def _is_allowed_to_pause(self) -> bool:
+        """Check if charger is allowed to pause."""
+        allow_to_pause = True
 
-        if self.power_monitor_duration > 0:
-            # Yes, monitor config switched on.
-            allow_pause_state = True
+        if self.is_max_speed_charge():
+            allow_to_pause = False
 
-            if self.is_max_speed_charge():
-                allow_pause_state = False
+        return allow_to_pause
 
-        return allow_pause_state
+    # ----------------------------------------------------------------------------
+    def _is_allowed_to_discharge(self) -> bool:
+        """Check if power source is allowed to discharge."""
+        allow_to_discharge = True
+
+        if self.is_max_speed_charge():
+            allow_to_discharge = False
+
+        return allow_to_discharge
 
     # ----------------------------------------------------------------------------
     # Machine state functions
@@ -984,11 +1029,14 @@ class SolarCharge(ScOptionState):
 
         # Init variables
         context = ContextData(charger, chargeable, state, goal, net_allocations, stats)
-
+        context.net_allocated_power = self.get_net_allocated_power()
         context.connected = self.is_connected(charger)
 
         # Device charge limit must have already been set before this check.
-        context.below_charge_limit = self.is_below_charge_limit(chargeable)
+        soc_tag = ENTITY_DEVICE_SOC_SENSOR
+        val_dict = ConfigValueDict(soc_tag, {})
+        context.below_charge_limit = self._is_below_charge_limit(chargeable, val_dict)
+        context.real_soc = val_dict.config_values[soc_tag].entity_id is not None
 
         val_dict = ConfigValueDict(ENTITY_CHARGER_CHARGING_SENSOR, {})
         context.charging = self.is_charging(charger, val_dict=val_dict)
@@ -998,6 +1046,9 @@ class SolarCharge(ScOptionState):
 
         context.fast_charge = self.is_fast_charge_mode()
         context.calibrate_max_charge_speed = self.is_calibrate_max_charge_speed()
+
+        # Power source
+        context.cap_supply_power = self.is_cap_supply_power()
 
         self._log_power_allocations(context)
 
@@ -1026,21 +1077,21 @@ class SolarCharge(ScOptionState):
         # If device can set current, make it harder to exit pause state by raising the requirement to exit pause state.
         # Min workable current enter pause percent = 0%
         # Min workable current exit pause percent = 10% (ie. harder to change from paused to charging state)
-        if run_state == RunState.PAUSE:
-            #####################################
-            # For exiting out of paused state.
-            #####################################
-            # Device is currently paused.
-            extra_percent = (
-                self.get_charger_min_workable_power_resume_charge_threshold()
-            )
-
-        else:
+        if run_state in [RunState.CHARGE, RunState.SELF_DEPOWER]:
             #####################################
             # For entering pause state.
             #####################################
             # Device is currently charging.
             extra_percent = self.get_charger_min_workable_power_pause_charge_threshold()
+
+        else:
+            #####################################
+            # For exiting out of paused or discharge state.
+            #####################################
+            # Device is currently paused.
+            extra_percent = (
+                self.get_charger_min_workable_power_resume_charge_threshold()
+            )
 
         adjusted_activation_power = activation_power * (100 + extra_percent) / 100
 
@@ -1057,47 +1108,138 @@ class SolarCharge(ScOptionState):
         return (adjusted_activation_power, activation_power)
 
     # ----------------------------------------------------------------------------
+    def _is_allocated_power_more_than_min_workable_power(
+        self,
+        allocated_power: float,
+        realtime_allocated_power: float,
+        run_state: RunState,
+    ) -> bool:
+        """Is allocated power more than minimum workable power?"""
+
+        adjusted_activation_power, _ = self.get_adjusted_activation_power(run_state)
+
+        if run_state in [RunState.CHARGE, RunState.SELF_DEPOWER]:
+            #####################################
+            # For entering pause state.
+            #####################################
+            # Device is currently charging.
+            # Note surplus power is negative.
+            enough_power = (
+                allocated_power <= adjusted_activation_power
+                # Make it harder to go into pause state if near realtime net_allocated_power has enough power.
+                or realtime_allocated_power <= adjusted_activation_power
+            )
+
+        else:
+            #####################################
+            # For exiting out of paused or discharge state.
+            #####################################
+            # Device is currently paused.
+            # Note surplus power is negative.
+            enough_power = allocated_power <= adjusted_activation_power
+
+        return enough_power
+
+    # ----------------------------------------------------------------------------
     def _is_median_net_allocated_power_more_than_min_workable_power(
         self,
         net_allocations: MedianData,
         run_state: RunState,
     ) -> bool | None:
         """Is median net allocated power more than minimum workable power? None=not enough data."""
-        is_enough_power = None
+        enough_power = None
 
         if net_allocations.window_seconds > 0 and net_allocations.data_set_ready:
-            net_allocated_power = net_allocations.last_data_point.value
             median_net_allocated_power = net_allocations.median_value
-            adjusted_activation_power, _ = self.get_adjusted_activation_power(run_state)
+            realtime_allocated_power = net_allocations.last_data_point.value
 
-            if run_state == RunState.PAUSE:
-                #####################################
-                # For exiting out of paused state.
-                #####################################
-                # Device is currently paused.
-                # Note surplus power is negative.
-                is_enough_power = (
-                    median_net_allocated_power <= adjusted_activation_power
-                )
-            else:
-                #####################################
-                # For entering pause state.
-                #####################################
-                # Device is currently charging.
-                # Note surplus power is negative.
-                is_enough_power = (
-                    median_net_allocated_power <= adjusted_activation_power
-                    # Make it harder to go into pause state if near realtime net_allocated_power has enough power.
-                    or net_allocated_power <= adjusted_activation_power
-                )
+            enough_power = self._is_allocated_power_more_than_min_workable_power(
+                median_net_allocated_power, realtime_allocated_power, run_state
+            )
 
-        return is_enough_power
+        return enough_power
+
+    # ----------------------------------------------------------------------------
+    # _is_median_net_allocated_power_more_than_min_workable_power
+    def _is_enough_power(
+        self,
+        net_allocations: MedianData,
+        run_state: RunState,
+    ) -> bool | None:
+        """Is there enough power to start charging?"""
+        enough_power = None
+
+        if net_allocations.window_seconds > 0:
+            # Monitor window enabled, so compare against median net allocated power.
+            enough_power = (
+                self._is_median_net_allocated_power_more_than_min_workable_power(
+                    net_allocations, run_state
+                )
+            )
+        else:
+            # Monitor window disabled, so compare against net allocated power.
+            net_allocated_power = self.get_net_allocated_power()
+            enough_power = self._is_allocated_power_more_than_min_workable_power(
+                net_allocated_power, net_allocated_power, run_state
+            )
+
+        return enough_power
+
+    # ----------------------------------------------------------------------------
+    # def _set_is_continue_charge_state(self, context: ContextData) -> None:
+    #     """Is continue charge state?"""
+
+    #     context.next_step = RunStep.CHARGE
+    #     context.continue_state = True
+
+    #     # Charge just-in-time feature:
+    #     # If end time is set, charge can still stop at end elevation trigger,
+    #     # and then start again closer to end time to complete charge.
+    #     continue_charge = (
+    #         context.connected
+    #         and context.below_charge_limit
+    #         and (not (context.goal.end_on_condition and context.goal.exit_condition))
+    #         and (context.stats.loop_success_count == 0 or context.charging)
+    #         and (
+    #             # Sun trigger off, continue.
+    #             not context.goal.sun_trigger
+    #             # Sun trigger on, continue if between start and end elevations.
+    #             or context.goal.sun_above_start_end_elevations
+    #             or context.fast_charge
+    #             or context.calibrate_max_charge_speed
+    #             or (context.goal.has_charge_endtime and context.goal.max_charge_now)
+    #         )
+    #     )
+
+    #     if continue_charge:
+    #         if self._allow_pause_state():
+    #             # To keep power source in pause mode, set max current=0 and min workable current>0.
+    #             # Note: A paused power source will still get theoretical allocation.
+    #             context.enough_power = (
+    #                 self._is_median_net_allocated_power_more_than_min_workable_power(
+    #                     context.net_allocations, context.state
+    #                 )
+    #             )
+
+    #             if context.enough_power is not None and not context.enough_power:
+    #                 context.next_step = RunStep.PAUSE
+    #                 context.continue_state = False
+
+    #         # What to do if there is no monitor window and not enough power?
+    #         # Continue charging or stop?
+
+    #     else:
+    #         context.next_step = RunStep.END
+    #         context.continue_state = False
 
     # ----------------------------------------------------------------------------
     def _set_is_continue_charge_state(self, context: ContextData) -> None:
-        """Is continue charge state?"""
+        """Is continue charge state?
 
-        context.next_step = ChargeStatus.CHARGE_CONTINUE
+        Power source needs to know charge limit.
+        """
+
+        context.next_step = RunStep.CHARGE
         context.continue_state = True
 
         # Charge just-in-time feature:
@@ -1105,67 +1247,173 @@ class SolarCharge(ScOptionState):
         # and then start again closer to end time to complete charge.
         continue_charge = (
             context.connected
-            and context.below_charge_limit
+            # Can continue when above charge limit, so don't test here.
+            # and context.below_charge_limit
+            # Can continue if not charging, so don't test here.
+            # and (context.stats.loop_success_count == 0 or context.charging)
             and (not (context.goal.end_on_condition and context.goal.exit_condition))
-            and (context.stats.loop_success_count == 0 or context.charging)
             and (
-                not context.goal.sun_trigger  # Sun trigger off, continue.
-                or context.goal.sun_above_start_end_elevations  # Sun trigger on, continue if between start and end elevations.
-                or context.fast_charge
-                or context.calibrate_max_charge_speed
-                or (context.goal.has_charge_endtime and context.goal.max_charge_now)
+                # Sun trigger off, continue.
+                not context.goal.sun_trigger
+                # Sun trigger on, continue if between start and end elevations.
+                or context.goal.sun_above_start_end_elevations
+                # or context.fast_charge
+                # or context.calibrate_max_charge_speed
+                # or (context.goal.has_charge_endtime and context.goal.max_charge_now)
+                # Charge at max speed.
+                or self.is_max_speed_charge()
             )
         )
 
-        if continue_charge:
-            if self._is_allow_pause_state():
-                context.enough_power = (
-                    self._is_median_net_allocated_power_more_than_min_workable_power(
-                        context.net_allocations, context.state
-                    )
-                )
+        if not continue_charge:
+            context.next_step = RunStep.END
+            context.continue_state = False
 
-                if context.enough_power is not None and not context.enough_power:
-                    context.next_step = ChargeStatus.CHARGE_PAUSE
+        else:
+            # To keep power source in pause mode, set max current=0 and min workable current>0.
+            # Note: A paused power source will still get theoretical allocation.
+            # Only consulted when its result can actually change the outcome below, otherwise need to fake data for unit tests.
+            context.enough_power = (
+                self._is_enough_power(context.net_allocations, context.state)
+                if context.cap_supply_power or self._is_allowed_to_pause()
+                else None
+            )
+
+            #####################################
+            # Power source.
+            #####################################
+            if context.cap_supply_power:
+                # Discharge power if any of the following conditions are true.
+                if (
+                    # Real SOC and SOC at or above limit.
+                    # (context.real_soc and not context.below_charge_limit)
+                    not context.below_charge_limit
+                    # Power source stopped charging by itself after first loop.
+                    or (context.stats.loop_success_count > 0 and not context.charging)
+                    # Not enough power.
+                    or (
+                        self._is_allowed_to_discharge()
+                        and (
+                            context.enough_power is not None
+                            and not context.enough_power
+                        )
+                    )
+                ):
+                    context.next_step = RunStep.DISCHARGE
                     context.continue_state = False
 
-            # What to do if there is no monitor window and not enough power?
-            # Continue charging or stop?
-        else:
-            context.next_step = ChargeStatus.CHARGE_END
-            context.continue_state = False
+            #####################################
+            # Not a power source.
+            #####################################
+            elif (
+                # SOC at or above limit.
+                not context.below_charge_limit
+                # Charger stopped charging by itself after first loop.
+                or (context.stats.loop_success_count > 0 and not context.charging)
+            ):
+                context.next_step = RunStep.END
+                context.continue_state = False
+
+            # Pause if not enough power.
+            elif self._is_allowed_to_pause() and (
+                context.enough_power is not None and not context.enough_power
+            ):
+                context.next_step = RunStep.PAUSE
+                context.continue_state = False
 
     # ----------------------------------------------------------------------------
     def _set_is_continue_pause_state(self, context: ContextData) -> None:
         """Is continue pause state?"""
 
-        context.next_step = ChargeStatus.CHARGE_CONTINUE
+        context.next_step = RunStep.CHARGE
         context.continue_state = False
 
         continue_pause = (
             context.connected
-            and context.below_charge_limit
+            # Continue pause if not power source.
+            and not self.is_cap_supply_power()
+            # Below charge limit, continue pause.
+            and (context.below_charge_limit)
+            # Continue pause if not exit.
             and (not (context.goal.end_on_condition and context.goal.exit_condition))
             and (
+                # Sun trigger off, continue pause.
                 not context.goal.sun_trigger
+                # Sun trigger on, continue pause if between start and end elevations.
                 or context.goal.sun_above_start_end_elevations
             )
-            and not context.fast_charge
-            and not context.calibrate_max_charge_speed
-            and not (context.goal.has_charge_endtime and context.goal.max_charge_now)
+            # and not context.fast_charge
+            # and not context.calibrate_max_charge_speed
+            # and not (context.goal.has_charge_endtime and context.goal.max_charge_now)
+            # Not charge at max speed.
+            and not self.is_max_speed_charge()
         )
 
         if continue_pause:
-            if self._is_allow_pause_state():
-                context.enough_power = (
-                    self._is_median_net_allocated_power_more_than_min_workable_power(
-                        context.net_allocations, context.state
-                    )
+            if self._is_allowed_to_pause():
+                context.enough_power = self._is_enough_power(
+                    context.net_allocations, context.state
                 )
 
-                if context.enough_power is None or not context.enough_power:
-                    context.next_step = ChargeStatus.CHARGE_PAUSE
+                if (
+                    # Not enough data to determine enough power.
+                    context.enough_power is None
+                    # Enough data and not enough power.
+                    or not context.enough_power
+                ):
+                    context.next_step = RunStep.PAUSE
                     context.continue_state = True
+
+    # ----------------------------------------------------------------------------
+    def _set_is_continue_discharge_state(self, context: ContextData) -> None:
+        """Is continue discharge state?
+
+        Power source needs to know charge limit.
+        """
+
+        context.next_step = RunStep.DISCHARGE
+        context.continue_state = True
+
+        continue_discharge = (
+            context.connected
+            # Continue discharge if power source.
+            and self.is_cap_supply_power()
+            # Continue discharge if not exit.
+            and (not (context.goal.end_on_condition and context.goal.exit_condition))
+            and (
+                # Sun trigger off, continue discharge.
+                not context.goal.sun_trigger
+                # Sun trigger on, continue discharge if between start and end elevations.
+                or context.goal.sun_above_start_end_elevations
+            )
+        )
+
+        if not continue_discharge:
+            context.next_step = RunStep.CHARGE
+            context.continue_state = False
+
+        else:
+            #####################################
+            # Power source.
+            #####################################
+            if context.cap_supply_power:
+                context.enough_power = self._is_enough_power(
+                    context.net_allocations, context.state
+                )
+
+                if (
+                    # Real SOC and SOC below limit.
+                    # (context.real_soc and context.below_charge_limit)
+                    context.below_charge_limit
+                    and (
+                        # Enough power.
+                        (context.enough_power is not None and context.enough_power)
+                        # Charge at max speed.
+                        or self.is_max_speed_charge()
+                    )
+                ):
+                    context.next_step = RunStep.CHARGE
+                    context.continue_state = False
 
     # ----------------------------------------------------------------------------
     def _set_is_continue_state(
@@ -1178,6 +1426,8 @@ class SolarCharge(ScOptionState):
             self._set_is_continue_charge_state(context)
         elif context.state == RunState.PAUSE:
             self._set_is_continue_pause_state(context)
+        elif context.state == RunState.DISCHARGE:
+            self._set_is_continue_discharge_state(context)
 
     # ----------------------------------------------------------------------------
     async def async_set_charge_status(
@@ -1337,6 +1587,9 @@ class SolarCharge(ScOptionState):
             _LOGGER.warning(
                 "%s: Action state: %s", self.caller, self.get_state_classname()
             )
+
+            # Testing only, to slow down logging.
+            # await asyncio.sleep(2)
 
             current_state = self.machine_state.state
             await self.async_action_state()

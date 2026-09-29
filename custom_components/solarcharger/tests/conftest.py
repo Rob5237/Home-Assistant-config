@@ -41,7 +41,7 @@ from custom_components.solarcharger.config.config_options_flow import (  # noqa:
 )
 from custom_components.solarcharger.const import (  # noqa: E402
     CURRENT_VARIATION_PERCENTAGE,
-    DOMAIN,
+    DOMAIN_SC,
     OPTION_GLOBAL_DEFAULTS_ID,
     RunState,
 )
@@ -85,6 +85,14 @@ class FakeSolarCharge:
     rebalance_needed: bool = False
     step_power_list: list[float] = field(default_factory=list)
     self_depower_today: int = 0
+
+    #####################################
+    # Power source variables
+    #####################################
+    cap_supply_power: bool = False
+    supply_net_power: float = 0.0
+    supply_power_limit: float = 0.0
+    below_charge_limit: bool = True
 
     def get_charger_priority(self) -> int:
         """Return configured priority."""
@@ -167,6 +175,22 @@ class FakeSolarCharge:
         """Return configured net power."""
         return self.net_power
 
+    def is_cap_supply_power(self) -> bool:
+        """Return configured cap_supply_power flag."""
+        return self.cap_supply_power
+
+    def get_supply_net_power(self) -> float | None:
+        """Get power source net power."""
+        return self.supply_net_power
+
+    def get_supply_power_limit(self) -> float:
+        """Get power source output power limit."""
+        return self.supply_power_limit
+
+    def is_below_charge_limit(self) -> bool:
+        """Return below-charge-limit flag."""
+        return self.below_charge_limit
+
     @property
     def machine_state(self) -> SimpleNamespace:
         """Return an object exposing .state, like SolarChargeState."""
@@ -233,6 +257,7 @@ def make_power_allocation(**overrides: Any) -> PowerAllocation:
     defaults: dict[str, Any] = {
         "subentry_id": "member",
         "name": "Member",
+        "run_state": RunState.CHARGE,
         "max_power": 2000.0,
         "max_current": 8.7,
         "step_power_list": [],
@@ -388,7 +413,7 @@ def make_options_flow(
     """
     flow = ConfigOptionsFlowHandler()
     flow.handler = config_entry.entry_id
-    data = {DOMAIN: {config_entry.entry_id: coordinator}} if coordinator else {}
+    data = {DOMAIN_SC: {config_entry.entry_id: coordinator}} if coordinator else {}
     flow.hass = SimpleNamespace(
         data=data,
         config_entries=SimpleNamespace(

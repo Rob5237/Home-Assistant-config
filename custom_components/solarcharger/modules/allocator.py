@@ -111,6 +111,7 @@ class PowerAllocator:
         step_power_list = control.controller.solar_charge.get_charger_step_power_list()
 
         # Participate in power allocation.
+        run_state = control.controller.solar_charge.machine_state.state
         instance = control.controller.charge_control.instance_count
         can_set_current = control.controller.solar_charge.can_set_current
         # Device pause state.
@@ -118,10 +119,12 @@ class PowerAllocator:
         self_depower = control.controller.solar_charge.is_self_depower
 
         adjusted_activation_power, activation_power = (
-            control.controller.solar_charge.get_adjusted_activation_power(
-                RunState.PAUSE if share_allocation == 0 else RunState.CHARGE
-            )
+            control.controller.solar_charge.get_adjusted_activation_power(run_state)
         )
+
+        # Power supply
+        cap_supply_power = control.controller.solar_charge.is_cap_supply_power()
+        below_charge_limit = control.controller.solar_charge.is_below_charge_limit()
 
         if instance > 0:
             #####################################
@@ -159,6 +162,19 @@ class PowerAllocator:
                     else 0
                 )
 
+            #####################################
+            # Power source fully charged.
+            #####################################
+            if (
+                cap_supply_power
+                and not below_charge_limit
+                and run_state == RunState.DISCHARGE
+            ):
+                # Device should be in discharge state.
+                # Get 0 allocated power in virtual allocation.
+                max_power = 0
+                max_current = 0
+
         max_speed_charge = control.controller.solar_charge.is_max_speed_charge()
 
         # Chargers that requires charging at max speed has system priority and equal weight.
@@ -171,6 +187,7 @@ class PowerAllocator:
         member = PowerAllocation(
             subentry_id=control.subentry_id,
             name=control.config_name,
+            run_state=run_state,
             max_power=max_power,
             max_current=max_current,
             step_power_list=step_power_list,
@@ -187,6 +204,29 @@ class PowerAllocator:
             power_factor=power_factor,
         )
         member.consumed_power = consumed_power
+
+        #####################################
+        # Power source
+        #####################################
+        if cap_supply_power:
+            supply_net_power = control.controller.solar_charge.get_supply_net_power()
+            supply_power_limit = (
+                control.controller.solar_charge.get_supply_power_limit()
+            )
+
+            member.supply_depower = 0
+            if supply_net_power < 0:
+                # Power source outputting power.
+                if supply_power_limit < 0:
+                    # Accept whatever output power.
+                    member.supply_depower = 0
+                elif abs(supply_net_power) > supply_power_limit:
+                    # Output more than max power, so depower difference.
+                    member.supply_depower = abs(supply_net_power) - supply_power_limit
+
+            member.cap_supply_power = cap_supply_power
+            member.supply_net_power = supply_net_power
+            member.supply_power_limit = supply_power_limit
 
         return member
 
@@ -267,6 +307,11 @@ class PowerAllocator:
         group.total_deallocation_final_weight += member.deallocation_final_weight
         group.total_instance += member.instance
 
+        #####################################
+        # Power source
+        #####################################
+        group.total_supply_depower += member.supply_depower
+
     # ----------------------------------------------------------------------------
     def _get_allocation_pool(self, net_power: float = 0.0) -> AllocationBook:
         """Get allocation pool for active and paused devices."""
@@ -290,7 +335,17 @@ class PowerAllocator:
 
             # Get final consumed power from member and then reset to 0.
             consumed_power = control.controller.solar_charge.get_consumed_power()
-            all_member = self._create_group_member(book, control, consumed_power)
+            try:
+                # Use try block to avoid exception for one member aborting allocation for all.
+                all_member = self._create_group_member(book, control, consumed_power)
+            except Exception as e:
+                # Will try again next cycle.
+                _LOGGER.exception(
+                    "%s: Failed allocation: %s",
+                    control.config_name,
+                    e,
+                )
+                continue
             consumed_power = all_member.consumed_power
             all_member.consumed_power = 0
 
@@ -315,6 +370,10 @@ class PowerAllocator:
             book.total_instance += 1
             book.total_max_power += all_member.max_power
 
+            # Only all member group has complete group information.
+            # member.source_depower is already set for members including active_member.
+            book.total_supply_depower += all_member.supply_depower
+
             #####################################
             # Populate active member group with active chargers only.
             # For source of rebalance allocation.
@@ -329,6 +388,9 @@ class PowerAllocator:
 
             book.total_consumed_power += active_member.consumed_power
 
+            # member.source_depower is already set for members including active_member.
+            # book.total_source_depower += active_member.source_depower
+
             #####################################
             # Populate rebalance member group with active chargers only.
             # For target of rebalance allocation.
@@ -341,7 +403,9 @@ class PowerAllocator:
             )
 
         book.net_power = net_power
-        book.gross_power = net_power - book.total_consumed_power
+        book.gross_power = (
+            net_power - book.total_consumed_power + book.total_supply_depower
+        )
 
         return book
 
@@ -656,15 +720,7 @@ class PowerAllocator:
     def _get_member_state(self, member: PowerAllocation) -> str:
         """Get member state string."""
 
-        if member.share_allocation == 0:
-            if member.self_depower:
-                member_state = "Self-depower"
-            else:
-                member_state = "Pause"
-        else:
-            member_state = "Active"
-
-        return member_state
+        return member.run_state.value
 
     # ----------------------------------------------------------------------------
     async def _async_send_allocations(

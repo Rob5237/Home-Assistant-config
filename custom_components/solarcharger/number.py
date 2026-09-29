@@ -16,6 +16,7 @@ from homeassistant.const import (
     PERCENTAGE,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
+    UnitOfPower,
     # UnitOfEnergy,
     UnitOfTime,
 )
@@ -24,7 +25,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .config.config_utils import get_device_config_default_value
 from .const import (
-    DOMAIN,
+    DOMAIN_SC,
     NUMBER,
     NUMBER_CHARGE_LIMIT_FRIDAY,
     NUMBER_CHARGE_LIMIT_MONDAY,
@@ -58,6 +59,7 @@ from .const import (
     NUMBER_POWER_MONITOR_DURATION,
     NUMBER_SUNRISE_ELEVATION_START_TRIGGER,
     NUMBER_SUNSET_ELEVATION_END_TRIGGER,
+    NUMBER_SUPPLY_POWER_LIMIT,
     NUMBER_WAIT_CHARGER_AMP_CHANGE,
     NUMBER_WAIT_CHARGER_OFF,
     NUMBER_WAIT_CHARGER_ON,
@@ -248,6 +250,12 @@ CONFIG_NUMBER_LIST: tuple[
             native_step=1,
         ),
     ),
+    #####################################
+    # Local device config or control entities
+    # Must haves, ie. not hidden for all
+    # entity_category=None
+    # entity_category=EntityCategory.CONFIG
+    #####################################
     # Used as local device entity.
     # OCPP comes with own entity, but should also use this to avoid reading from OCPP.
     # So will make this configurable.
@@ -264,12 +272,6 @@ CONFIG_NUMBER_LIST: tuple[
             native_step=0.01,
         ),
     ),
-    #####################################
-    # Local device config or control entities
-    # Must haves, ie. not hidden for all
-    # entity_category=None
-    # entity_category=EntityCategory.CONFIG
-    #####################################
     (
         NUMBER_CHARGER_MAX_SPEED,
         SolarChargerEntityType.TYPE_LOCAL_ONLY,
@@ -362,6 +364,19 @@ CONFIG_NUMBER_LIST: tuple[
             native_min_value=0,
             native_max_value=100,
             native_step=1,
+        ),
+    ),
+    (
+        NUMBER_SUPPLY_POWER_LIMIT,
+        SolarChargerEntityType.TYPE_LOCAL_ONLY,
+        NumberEntityDescription(
+            key=NUMBER_SUPPLY_POWER_LIMIT,
+            entity_category=EntityCategory.CONFIG,
+            device_class=NumberDeviceClass.POWER,
+            native_unit_of_measurement=UnitOfPower.WATT,
+            native_min_value=-1,
+            native_max_value=+20000.0,
+            native_step=1.0,
         ),
     ),
     #####################################
@@ -740,7 +755,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up numbers based on config entry."""
-    coordinator: SolarChargerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: SolarChargerCoordinator = hass.data[DOMAIN_SC][config_entry.entry_id]
 
     for subentry in config_entry.subentries.values():
         # if subentry.subentry_type == SUBENTRY_TYPE_CHARGER:

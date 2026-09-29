@@ -14,7 +14,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .config.config_utils import get_device_config_default_value
 from .const import (
-    DOMAIN,
+    DOMAIN_SC,
     # RESTORE_ON_START_FALSE,
     RESTORE_ON_START_TRUE,
     SWITCH,
@@ -28,6 +28,7 @@ from .const import (
     SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE,
     SWITCH_SCHEDULE_CHARGE,
     SWITCH_SUN_TRIGGER,
+    SWITCH_SUPPLY_CAP,
 )
 from .entity import (
     SolarChargerEntity,
@@ -191,7 +192,7 @@ async def async_setup_entry(
     # async_add_entities: Callable,
 ) -> None:
     """Set up buttons based on config entry."""
-    coordinator: SolarChargerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator: SolarChargerCoordinator = hass.data[DOMAIN_SC][config_entry.entry_id]
 
     config_switch_list: tuple[
         tuple[
@@ -211,6 +212,17 @@ async def async_setup_entry(
         #####################################
         # Boolean switches
         #####################################
+        (
+            SWITCH_SUPPLY_CAP,
+            SolarChargerSwitchEntity,
+            RESTORE_ON_START_TRUE,
+            coordinator.async_switch_dummy,
+            SolarChargerEntityType.TYPE_LOCAL_ONLY,
+            SwitchEntityDescription(
+                key=SWITCH_SUPPLY_CAP,
+                entity_category=EntityCategory.CONFIG,
+            ),
+        ),
         (
             SWITCH_REDUCE_CHARGE_LIMIT_DIFFERENCE,
             SolarChargerSwitchEntity,

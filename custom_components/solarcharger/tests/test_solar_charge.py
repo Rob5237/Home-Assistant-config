@@ -20,8 +20,8 @@ from custom_components.solarcharger.const import (
     MAX_CONSECUTIVE_FAILURE_COUNT,
     NUMBER_CHARGER_EFFECTIVE_VOLTAGE,
     NUMBER_CHARGER_MIN_CURRENT,
-    ChargeStatus,
     RunState,
+    RunStep,
 )
 from custom_components.solarcharger.models.model_charge_stats import ChargeStats
 from custom_components.solarcharger.models.model_config import ConfigValue
@@ -86,6 +86,17 @@ def make_bare_solar_charge(
     return solar_charge
 
 
+def make_continue_state_solar_charge(
+    *, allow_pause_state: bool, max_speed_charge: bool = False
+) -> SolarCharge:
+    """Build a SolarCharge for the continue-state handlers with their collaborators stubbed."""
+    solar_charge = make_bare_solar_charge()
+    solar_charge._is_allowed_to_pause = lambda: allow_pause_state
+    solar_charge.is_max_speed_charge = lambda: max_speed_charge
+    solar_charge.is_cap_supply_power = lambda: False
+    return solar_charge
+
+
 def make_fake_charger(max_current: float) -> SimpleNamespace:
     """Minimal stand-in for a Charger: only get_max_charge_current() is read here."""
     return SimpleNamespace(get_max_charge_current=lambda: max_current)
@@ -96,16 +107,12 @@ def make_context(
     connected: bool = True,
     below_charge_limit: bool = True,
     charging: bool = False,
-    fast_charge: bool = False,
-    calibrate_max_charge_speed: bool = False,
     state: RunState = RunState.CHARGE,
     loop_success_count: int = 0,
     end_on_condition: bool = False,
     exit_condition: bool = False,
     sun_trigger: bool = False,
     sun_above_start_end_elevations: bool = True,
-    has_charge_endtime: bool = False,
-    max_charge_now: bool = False,
 ) -> ContextData:
     """Build a ContextData with a real ScheduleData/ChargeStats, defaults tuned to pass every gate."""
     goal = ScheduleData(
@@ -114,8 +121,6 @@ def make_context(
         exit_condition=exit_condition,
         sun_trigger=sun_trigger,
         sun_above_start_end_elevations=sun_above_start_end_elevations,
-        has_charge_endtime=has_charge_endtime,
-        max_charge_now=max_charge_now,
     )
     context = ContextData(
         charger=None,  # type: ignore[arg-type]
@@ -128,8 +133,6 @@ def make_context(
     context.connected = connected
     context.below_charge_limit = below_charge_limit
     context.charging = charging
-    context.fast_charge = fast_charge
-    context.calibrate_max_charge_speed = calibrate_max_charge_speed
     return context
 
 
@@ -322,7 +325,8 @@ def test_get_charger_min_current_direct_reads_control_entity_state_instead() -> 
     "reported_max_current",
     [
         pytest.param(None, id="charger_reports_none"),
-        pytest.param(0, id="charger_reports_zero"),
+        # Max current can be 0.
+        # pytest.param(0, id="charger_reports_zero"),
         pytest.param(-5, id="charger_reports_negative"),
     ],
 )
@@ -461,8 +465,11 @@ def test_adjusted_activation_power_for_any_non_pause_state_uses_the_pause_thresh
 # ----------------------------------------------------------------------------
 # _is_median_net_allocated_power_more_than_min_workable_power()
 # ----------------------------------------------------------------------------
-def _make_solar_charge_for_power_check(adjusted_activation_power: float) -> SolarCharge:
+def _make_solar_charge_for_power_check(
+    adjusted_activation_power: float, net_allocated_power: float = -1000
+) -> SolarCharge:
     solar_charge = make_bare_solar_charge()
+    solar_charge.get_net_allocated_power = lambda: net_allocated_power
     solar_charge.get_adjusted_activation_power = lambda run_state: (
         adjusted_activation_power,
         adjusted_activation_power,
@@ -471,32 +478,35 @@ def _make_solar_charge_for_power_check(adjusted_activation_power: float) -> Sola
 
 
 @pytest.mark.parametrize(
-    "data",
+    ("median_data", "expected"),
     [
         pytest.param(
             make_ready_median_data(
                 median_value=-500, last_value=-500, window_seconds=0
             ),
-            id="monitoring_window_disabled",
+            False,
+            id="monitoring_window_disabled_so_use_net_allocated_power",
         ),
         pytest.param(
             make_ready_median_data(
                 median_value=-500, last_value=-500, data_set_ready=False
             ),
+            None,
             id="data_set_not_ready_yet",
         ),
     ],
 )
-def test_median_power_check_returns_none_when_not_enough_data(data: MedianData) -> None:
+def test_median_power_check_returns_none_when_not_enough_data(
+    median_data: MedianData, expected: bool | None
+) -> None:
     """No usable data (window off, or not enough samples yet) means 'unknown', not False."""
-    solar_charge = _make_solar_charge_for_power_check(adjusted_activation_power=-3105.0)
-
-    assert (
-        solar_charge._is_median_net_allocated_power_more_than_min_workable_power(
-            data, RunState.CHARGE
-        )
-        is None
+    solar_charge = _make_solar_charge_for_power_check(
+        adjusted_activation_power=-3105.0, net_allocated_power=-1000.0
     )
+
+    result = solar_charge._is_enough_power(median_data, RunState.CHARGE)
+
+    assert result is expected
 
 
 @pytest.mark.parametrize(
@@ -513,9 +523,7 @@ def test_median_power_check_while_paused_only_looks_at_the_median(
     solar_charge = _make_solar_charge_for_power_check(adjusted_activation_power=-3105.0)
     data = make_ready_median_data(median_value=median_value, last_value=-1000)
 
-    result = solar_charge._is_median_net_allocated_power_more_than_min_workable_power(
-        data, RunState.PAUSE
-    )
+    result = solar_charge._is_enough_power(data, RunState.PAUSE)
 
     assert result is expected
 
@@ -525,9 +533,7 @@ def test_median_power_check_while_charging_median_alone_is_enough() -> None:
     solar_charge = _make_solar_charge_for_power_check(adjusted_activation_power=-3105.0)
     data = make_ready_median_data(median_value=-4000, last_value=-1000)
 
-    result = solar_charge._is_median_net_allocated_power_more_than_min_workable_power(
-        data, RunState.CHARGE
-    )
+    result = solar_charge._is_enough_power(data, RunState.CHARGE)
 
     assert result is True
 
@@ -543,9 +549,7 @@ def test_median_power_check_while_charging_a_realtime_surplus_also_counts() -> N
     solar_charge = _make_solar_charge_for_power_check(adjusted_activation_power=-3105.0)
     data = make_ready_median_data(median_value=-1000, last_value=-4000)
 
-    result = solar_charge._is_median_net_allocated_power_more_than_min_workable_power(
-        data, RunState.CHARGE
-    )
+    result = solar_charge._is_enough_power(data, RunState.CHARGE)
 
     assert result is True
 
@@ -555,9 +559,7 @@ def test_median_power_check_while_charging_neither_value_is_enough() -> None:
     solar_charge = _make_solar_charge_for_power_check(adjusted_activation_power=-3105.0)
     data = make_ready_median_data(median_value=-1000, last_value=-1000)
 
-    result = solar_charge._is_median_net_allocated_power_more_than_min_workable_power(
-        data, RunState.CHARGE
-    )
+    result = solar_charge._is_enough_power(data, RunState.CHARGE)
 
     assert result is False
 
@@ -629,27 +631,28 @@ def test_max_speed_charge_true_while_calibrating() -> None:
     assert solar_charge.is_max_speed_charge() is True
 
 
-def test_allow_pause_state_false_when_power_monitoring_is_off() -> None:
-    """No monitor window configured means pausing is never considered."""
+def test_allow_to_pause_true_not_depends_on_power_monitoring_off() -> None:
+    """Whether or not allowed to pause no longer depends on monitor window."""
     solar_charge = make_bare_solar_charge(power_monitor_duration=0.0)
+    solar_charge.is_max_speed_charge = lambda: False
 
-    assert solar_charge._is_allow_pause_state() is False
+    assert solar_charge._is_allowed_to_pause() is True
 
 
-def test_allow_pause_state_true_when_monitoring_on_and_not_at_max_speed() -> None:
+def test_allow_to_pause_true_when_monitoring_on_and_not_at_max_speed() -> None:
     """Monitoring on, and not forced to max speed: pausing is allowed."""
     solar_charge = make_bare_solar_charge(power_monitor_duration=300.0)
     solar_charge.is_max_speed_charge = lambda: False
 
-    assert solar_charge._is_allow_pause_state() is True
+    assert solar_charge._is_allowed_to_pause() is True
 
 
-def test_allow_pause_state_false_when_at_max_speed_even_with_monitoring_on() -> None:
+def test_allow_to_pause_false_when_at_max_speed_even_with_monitoring_on() -> None:
     """Max-speed charging overrides monitoring: never pause while racing a deadline."""
     solar_charge = make_bare_solar_charge(power_monitor_duration=300.0)
     solar_charge.is_max_speed_charge = lambda: True
 
-    assert solar_charge._is_allow_pause_state() is False
+    assert solar_charge._is_allowed_to_pause() is False
 
 
 # ----------------------------------------------------------------------------
@@ -812,7 +815,7 @@ def test_below_charge_limit_true_without_a_configured_soc_sensor() -> None:
     solar_charge = make_bare_solar_charge()
     chargeable = make_fake_soc_chargeable(soc_entity_id=None, soc=None)
 
-    assert solar_charge.is_below_charge_limit(chargeable) is True
+    assert solar_charge._is_below_charge_limit(chargeable) is True
 
 
 def test_below_charge_limit_true_when_soc_has_room_left() -> None:
@@ -820,7 +823,7 @@ def test_below_charge_limit_true_when_soc_has_room_left() -> None:
     solar_charge = make_bare_solar_charge()
     chargeable = make_fake_soc_chargeable(charge_limit=80.0, soc=50.0)
 
-    assert solar_charge.is_below_charge_limit(chargeable) is True
+    assert solar_charge._is_below_charge_limit(chargeable) is True
 
 
 def test_below_charge_limit_false_when_soc_has_reached_the_limit() -> None:
@@ -828,7 +831,7 @@ def test_below_charge_limit_false_when_soc_has_reached_the_limit() -> None:
     solar_charge = make_bare_solar_charge()
     chargeable = make_fake_soc_chargeable(charge_limit=80.0, soc=80.0)
 
-    assert solar_charge.is_below_charge_limit(chargeable) is False
+    assert solar_charge._is_below_charge_limit(chargeable) is False
 
 
 def test_below_charge_limit_fails_open_when_charge_limit_lookup_errors() -> None:
@@ -836,7 +839,7 @@ def test_below_charge_limit_fails_open_when_charge_limit_lookup_errors() -> None
     solar_charge = make_bare_solar_charge()
     chargeable = make_fake_soc_chargeable(raise_on_charge_limit=RuntimeError("boom"))
 
-    assert solar_charge.is_below_charge_limit(chargeable) is True
+    assert solar_charge._is_below_charge_limit(chargeable) is True
 
 
 def test_below_charge_limit_fails_open_on_soc_timeout() -> None:
@@ -844,7 +847,7 @@ def test_below_charge_limit_fails_open_on_soc_timeout() -> None:
     solar_charge = make_bare_solar_charge()
     chargeable = make_fake_soc_chargeable(raise_on_soc=TimeoutError("slow device"))
 
-    assert solar_charge.is_below_charge_limit(chargeable) is True
+    assert solar_charge._is_below_charge_limit(chargeable) is True
 
 
 # ----------------------------------------------------------------------------
@@ -896,97 +899,69 @@ def test_continue_charge_state_ends_the_session_when_a_gate_fails(
     context_overrides: dict[str, object],
 ) -> None:
     """Any one of these conditions failing ends the charge session outright."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=False)
     context = make_context(**context_overrides)
 
     solar_charge._set_is_continue_charge_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_END
+    assert context.next_step is RunStep.END
     assert context.continue_state is False
 
 
-@pytest.mark.parametrize(
-    "override",
-    [
-        pytest.param({"fast_charge": True}, id="fast_charge_overrides_sun_gate"),
-        pytest.param(
-            {"calibrate_max_charge_speed": True}, id="calibration_overrides_sun_gate"
-        ),
-        pytest.param(
-            {"has_charge_endtime": True, "max_charge_now": True},
-            id="charge_deadline_overrides_sun_gate",
-        ),
-    ],
-)
-def test_continue_charge_state_sun_gate_has_overrides(
-    override: dict[str, object],
-) -> None:
-    """Fast charge, calibration or an urgent deadline all bypass the sun-elevation gate."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
-    context = make_context(
-        sun_trigger=True, sun_above_start_end_elevations=False, **override
+def test_continue_charge_state_max_speed_charge_overrides_sun_gate() -> None:
+    """Max-speed charging (fast charge, calibration, urgent deadline) bypasses the sun-elevation gate."""
+    solar_charge = make_continue_state_solar_charge(
+        allow_pause_state=False, max_speed_charge=True
     )
+    context = make_context(sun_trigger=True, sun_above_start_end_elevations=False)
 
     solar_charge._set_is_continue_charge_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_CONTINUE
+    assert context.next_step is RunStep.CHARGE
     assert context.continue_state is True
 
 
 def test_continue_charge_state_first_loop_continues_even_if_not_yet_charging() -> None:
     """The very first loop iteration is exempt from the 'must already be charging' gate."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=False)
     context = make_context(loop_success_count=0, charging=False)
 
     solar_charge._set_is_continue_charge_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_CONTINUE
+    assert context.next_step is RunStep.CHARGE
 
 
 def test_continue_charge_state_skips_the_power_check_when_pausing_is_not_allowed() -> (
     None
 ):
     """With pausing disallowed, the power-sufficiency check is never even consulted."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=False)
 
     def _fail_if_called(*_args: object) -> bool:
         raise AssertionError("should not be called when pausing is not allowed")
 
-    solar_charge._is_median_net_allocated_power_more_than_min_workable_power = (
-        _fail_if_called
-    )
+    solar_charge._is_enough_power = _fail_if_called
     context = make_context()
 
     solar_charge._set_is_continue_charge_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_CONTINUE
+    assert context.next_step is RunStep.CHARGE
 
 
 @pytest.mark.parametrize(
     ("enough_power", "expected_next_step"),
     [
-        pytest.param(False, ChargeStatus.CHARGE_PAUSE, id="not_enough_power_pauses"),
-        pytest.param(
-            None, ChargeStatus.CHARGE_CONTINUE, id="unknown_data_keeps_charging"
-        ),
-        pytest.param(
-            True, ChargeStatus.CHARGE_CONTINUE, id="enough_power_keeps_charging"
-        ),
+        pytest.param(False, RunStep.PAUSE, id="not_enough_power_pauses"),
+        pytest.param(None, RunStep.CHARGE, id="unknown_data_keeps_charging"),
+        pytest.param(True, RunStep.CHARGE, id="enough_power_keeps_charging"),
     ],
 )
 def test_continue_charge_state_pause_decision_when_monitoring_enabled(
-    enough_power: bool | None, expected_next_step: ChargeStatus
+    enough_power: bool | None, expected_next_step: RunStep
 ) -> None:
     """Only a definite 'not enough power' (False, not None) triggers a pause."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: True
-    solar_charge._is_median_net_allocated_power_more_than_min_workable_power = (
-        lambda *_args: enough_power
-    )
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=True)
+    solar_charge._is_enough_power = lambda *_args: enough_power
     context = make_context()
 
     solar_charge._set_is_continue_charge_state(context)
@@ -1009,14 +984,6 @@ def test_continue_charge_state_pause_decision_when_monitoring_enabled(
             {"sun_trigger": True, "sun_above_start_end_elevations": False},
             id="sun_below_trigger",
         ),
-        pytest.param({"fast_charge": True}, id="fast_charge_forces_a_resume"),
-        pytest.param(
-            {"calibrate_max_charge_speed": True}, id="calibration_forces_a_resume"
-        ),
-        pytest.param(
-            {"has_charge_endtime": True, "max_charge_now": True},
-            id="charge_deadline_forces_a_resume",
-        ),
     ],
 )
 def test_continue_pause_state_resumes_immediately_when_a_stay_paused_condition_fails(
@@ -1028,25 +995,36 @@ def test_continue_pause_state_resumes_immediately_when_a_stay_paused_condition_f
     means 'exit pause' (CHARGE_CONTINUE) -- pausing was never mandatory in
     the first place, only permitted when conditions actively call for it.
     """
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: True
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=True)
     context = make_context(state=RunState.PAUSE, **context_overrides)
 
     solar_charge._set_is_continue_pause_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_CONTINUE
+    assert context.next_step is RunStep.CHARGE
+    assert context.continue_state is False
+
+
+def test_continue_pause_state_resumes_immediately_when_max_speed_charge() -> None:
+    """Max-speed charging (fast charge, calibration, urgent deadline) forces a resume."""
+    solar_charge = make_continue_state_solar_charge(
+        allow_pause_state=True, max_speed_charge=True
+    )
+    context = make_context(state=RunState.PAUSE)
+
+    solar_charge._set_is_continue_pause_state(context)
+
+    assert context.next_step is RunStep.CHARGE
     assert context.continue_state is False
 
 
 def test_continue_pause_state_exits_pause_when_pausing_is_no_longer_allowed() -> None:
     """If monitoring got turned off (or max-speed kicked in) mid-pause, resume immediately."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=False)
     context = make_context(state=RunState.PAUSE)
 
     solar_charge._set_is_continue_pause_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_CONTINUE
+    assert context.next_step is RunStep.CHARGE
     assert context.continue_state is False
 
 
@@ -1067,31 +1045,25 @@ def test_continue_pause_state_stays_paused_without_a_confirmed_surplus(
     "don't change behavior on uncertain data" -- it just reads differently
     because CHARGE_CONTINUE means something different in each state.
     """
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: True
-    solar_charge._is_median_net_allocated_power_more_than_min_workable_power = (
-        lambda *_args: enough_power
-    )
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=True)
+    solar_charge._is_enough_power = lambda *_args: enough_power
     context = make_context(state=RunState.PAUSE)
 
     solar_charge._set_is_continue_pause_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_PAUSE
+    assert context.next_step is RunStep.PAUSE
     assert context.continue_state is expected_continue_state
 
 
 def test_continue_pause_state_resumes_once_a_surplus_is_confirmed() -> None:
     """A confirmed surplus (True) is the only thing that actually ends the pause."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: True
-    solar_charge._is_median_net_allocated_power_more_than_min_workable_power = (
-        lambda *_args: True
-    )
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=True)
+    solar_charge._is_enough_power = lambda *_args: True
     context = make_context(state=RunState.PAUSE)
 
     solar_charge._set_is_continue_pause_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_CONTINUE
+    assert context.next_step is RunStep.CHARGE
     assert context.continue_state is False
 
 
@@ -1100,34 +1072,30 @@ def test_continue_pause_state_resumes_once_a_surplus_is_confirmed() -> None:
 # ----------------------------------------------------------------------------
 def test_set_is_continue_state_dispatches_charge_state_to_the_charge_handler() -> None:
     """RunState.CHARGE is routed to _set_is_continue_charge_state()."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=False)
     context = make_context(state=RunState.CHARGE, connected=False)
 
     solar_charge._set_is_continue_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_END  # the charge-state gate fired
+    assert context.next_step is RunStep.END  # the charge-state gate fired
 
 
 def test_set_is_continue_state_dispatches_pause_state_to_the_pause_handler() -> None:
     """RunState.PAUSE is routed to _set_is_continue_pause_state()."""
-    solar_charge = make_bare_solar_charge()
-    solar_charge._is_allow_pause_state = lambda: False
+    solar_charge = make_continue_state_solar_charge(allow_pause_state=False)
     context = make_context(state=RunState.PAUSE)
 
     solar_charge._set_is_continue_state(context)
 
-    assert (
-        context.next_step is ChargeStatus.CHARGE_CONTINUE
-    )  # the pause-state gate fired
+    assert context.next_step is RunStep.CHARGE  # the pause-state gate fired
 
 
 def test_set_is_continue_state_leaves_context_untouched_for_other_states() -> None:
     """Any other run state (eg. START, INITIALISE) is not this method's concern."""
     solar_charge = make_bare_solar_charge()
     context = make_context(state=RunState.START)
-    context.next_step = ChargeStatus.CHARGE_END  # sentinel: must stay untouched
+    context.next_step = RunStep.END  # sentinel: must stay untouched
 
     solar_charge._set_is_continue_state(context)
 
-    assert context.next_step is ChargeStatus.CHARGE_END
+    assert context.next_step is RunStep.END
