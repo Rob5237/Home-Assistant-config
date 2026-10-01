@@ -11,15 +11,15 @@
 #  - Load balancing per fase over beide laders (prioriteit of gelijk verdelen)
 #
 # KOPPELING (ingevuld):
-#   Lader A = EV-Lader Sonia = OCPP charger2
-#   Lader B = EV-Lader Rob   = OCPP charger3
+#   Lader A = EV-Lader 1 Sonia = HA entity charger1_* (OCPP chargePointId charger2, van leverancier)
+#   Lader B = EV-Lader 2 Rob   = HA entity charger3_* (OCPP chargePointId charger3, van leverancier)
 #   P1 = HomeWizard, sensor.p1_meter_power_phase_1..3 (W, negatief = teruglevering)
 #   Prijs = sensor.zonneplan_current_electricity_tariff
 #   Aanname: 1-fase laden op L1 (per lader aan te passen via select).
 #
 # 1/3-FASE WISSEL STAAT UIT tot je hem getest hebt:
 #   action: script.ev_zet_laadprofiel
-#   data: {devid: charger2, amps: 10, fasen: 1}
+#   data: {devid: charger2, amps: 10, fasen: 1}   # devid = OCPP-id, blijft charger2
 #   (met input_boolean.ev_1fase_ondersteund tijdelijk aan)
 # Regelaar optimaliseert per 30 s; noodrem grijpt binnen ~3-5 s in bij overbelasting.
 # =====================================================================
@@ -184,7 +184,7 @@ template:
         availability: "{{ has_value('sensor.ev_p1_net_l1') and has_value('sensor.ev_p1_net_l2') and has_value('sensor.ev_p1_net_l3') }}"
         state: >
           {% set net = states('sensor.ev_p1_net_l1')|float + states('sensor.ev_p1_net_l2')|float + states('sensor.ev_p1_net_l3')|float %}
-          {% set laders = (states('sensor.charger2_power_active_import')|float(0)
+          {% set laders = (states('sensor.charger1_power_active_import')|float(0)
                          + states('sensor.charger3_power_active_import')|float(0)) * 1000 %}
           {{ [laders - net, 0] | max | round(0) }}
 
@@ -196,7 +196,7 @@ template:
         state: >
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
-            {% set p = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
+            {% set p = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
             {% set een = is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') or states('input_number.ev_' ~ x ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
             {% elif is_state('input_select.ev_' ~ x ~ '_eenfase_op', 'L1') %}{% set ns.w = ns.w + p %}{% endif %}
@@ -209,7 +209,7 @@ template:
         state: >
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
-            {% set p = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
+            {% set p = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
             {% set een = is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') or states('input_number.ev_' ~ x ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
             {% elif is_state('input_select.ev_' ~ x ~ '_eenfase_op', 'L2') %}{% set ns.w = ns.w + p %}{% endif %}
@@ -222,7 +222,7 @@ template:
         state: >
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
-            {% set p = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
+            {% set p = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
             {% set een = is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') or states('input_number.ev_' ~ x ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
             {% elif is_state('input_select.ev_' ~ x ~ '_eenfase_op', 'L3') %}{% set ns.w = ns.w + p %}{% endif %}
@@ -259,7 +259,7 @@ template:
         state: >
           {% set x = 'a' %}
           {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
-          {% set done = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+          {% set done = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
           forecast_ok: &forecast_ok >
@@ -277,7 +277,7 @@ template:
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
             {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
-            {% set done = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+            {% set done = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {# kW per A: 3-fase 0,65 / 1-fase 0,215 (incl. marge voor verliezen) #}
             {% set kwa = 0.215 if is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') else 0.65 %}
@@ -302,7 +302,7 @@ template:
         state: >
           {% set x = 'b' %}
           {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
-          {% set done = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+          {% set done = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
           forecast_ok: *forecast_ok
@@ -315,7 +315,7 @@ template:
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
             {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
-            {% set done = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+            {% set done = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {% set kwa = 0.215 if is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') else 0.65 %}
             {% set kw = states('input_number.ev_' ~ x ~ '_max_stroom') | float(16) * kwa %}
@@ -399,7 +399,7 @@ automation:
         id: periodiek
       - trigger: state
         entity_id:
-          - sensor.charger2_status_connector
+          - sensor.charger1_status_connector
           - sensor.charger3_status_connector
         id: plug
       - trigger: state
@@ -429,7 +429,7 @@ automation:
                                 <= states('input_number.ev_prijsdrempel') | float(-99) %}
             {% set prio = states('input_select.ev_prioriteit') %}
             {% set volgorde = ['b', 'a'] if prio == 'Lader B' else ['a', 'b'] %}
-            {% set beide = states('sensor.charger2_status_connector') not in niet_aan
+            {% set beide = states('sensor.charger1_status_connector') not in niet_aan
                            and states('sensor.charger3_status_connector') not in niet_aan %}
             {% set gelijk = prio == 'Gelijk verdelen' and beide %}
             {% set t = now().timestamp() %}
@@ -440,7 +440,7 @@ automation:
                                   s=states('sensor.ev_pv_overschot') | float(0),
                                   a_amps=0, a_fasen=3, b_amps=0, b_fasen=3) %}
             {% for x in volgorde %}
-              {% set actief = states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[x] ~ '_status_connector') not in niet_aan %}
+              {% set actief = states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[x] ~ '_status_connector') not in niet_aan %}
               {% set auto = states('input_select.ev_' ~ x ~ '_auto') %}
               {% set drie = auto != '1-fase' %}
               {% set max_a = states('input_number.ev_' ~ x ~ '_max_stroom') | int(16) %}
@@ -525,7 +525,7 @@ automation:
                 fasen: "{{ besluit[repeat.item ~ '_fasen'] | int }}"
                 huidig_f: "{{ states('input_number.ev_' ~ repeat.item ~ '_fasen') | int(3) }}"
                 laatst: "{{ states('input_number.ev_' ~ repeat.item ~ '_laatst_gezet') | int(-1) }}"
-                actief: "{{ states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[repeat.item] ~ '_status_connector') not in niet_aan }}"
+                actief: "{{ states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[repeat.item] ~ '_status_connector') not in niet_aan }}"
             - if:
                 - condition: template
                   value_template: >
@@ -677,12 +677,12 @@ automation:
           sequence:
             - variables:
                 x: "{{ repeat.item }}"
-                p: "{{ states('sensor.' ~ {'a': 'charger2', 'b': 'charger3'}[repeat.item] ~ '_power_active_import') | float(0) * 1000 }}"
+                p: "{{ states('sensor.' ~ {'a': 'charger1', 'b': 'charger3'}[repeat.item] ~ '_power_active_import') | float(0) * 1000 }}"
                 i: "{{ states('input_number.ev_' ~ repeat.item ~ '_laatst_gezet') | int(0) }}"
             - if:
                 - condition: template
                   value_template: >
-                    {% set st = states.sensor[{'a': 'charger2', 'b': 'charger3'}[x] ~ '_status_connector'] %}
+                    {% set st = states.sensor[{'a': 'charger1', 'b': 'charger3'}[x] ~ '_status_connector'] %}
                     {{ is_state('input_select.ev_' ~ x ~ '_auto', 'Onbekend')
                        and st is not none and st.state == 'Charging'
                        and (now() - st.last_changed).total_seconds() > 60
@@ -715,7 +715,7 @@ automation:
     mode: queued
     triggers:
       - trigger: state
-        entity_id: sensor.charger2_status_connector
+        entity_id: sensor.charger1_status_connector
         from: "Available"
         not_to: ["Unavailable", "unavailable", "unknown", "Faulted"]
         id: a_in
@@ -725,7 +725,7 @@ automation:
         not_to: ["Unavailable", "unavailable", "unknown", "Faulted"]
         id: b_in
       - trigger: state
-        entity_id: sensor.charger2_status_connector
+        entity_id: sensor.charger1_status_connector
         to: "Available"
         id: a_uit
       - trigger: state
