@@ -36,16 +36,14 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import DistanceConverter
 
-from .ac_battery_support import (
-    ac_battery_entities_available,
-    ac_battery_last_reported_snapshot,
-)
 from .battery_schedule_editor import (
     BatteryScheduleRecord,
     battery_schedule_inventory,
     battery_scheduler_enabled,
 )
 from .entity import evse_safe_limit_active, evse_charging_active
+from .control_updates import current_control_value
+from .labels import battery_profile_label
 from .const import (
     DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
     DEFAULT_MICROINVERTER_POWER_ENABLED,
@@ -59,6 +57,7 @@ from .const import (
     SAFE_LIMIT_AMPS,
 )
 from .coordinator import EnphaseCoordinator
+from .cloud_errors import cloud_error_code
 from .device_info_helpers import _cloud_device_info
 from .entity import (
     EnphaseBaseEntity,
@@ -66,6 +65,7 @@ from .entity import (
     evse_resolved_charge_mode,
 )
 from .log_redaction import redact_text
+from .export_limit_runtime import ExportLimitRuntime
 from .grid_profile_runtime import (
     SUPPORT_READ_ONLY,
     SUPPORT_UNKNOWN,
@@ -77,21 +77,19 @@ from .scalar_helpers import (
 )
 from .runtime_data import EnphaseConfigEntry, get_runtime_data
 from .sensor_snapshot_helpers import restore_power_w
+from .sensor_cloud_metadata import (
+    EnphaseAccountAccessSensor,
+    EnphaseSiteInformationSensor,
+)
 from .sensor_base import EnphaseSiteSensorEntity as _SiteBaseEntity
+from .sensor_inverter_array import setup_array_sensors
 from .sensor_battery import (
     BATTERY_LED_STATUS_STATE_MAP as BATTERY_LED_STATUS_STATE_MAP,
-    EnphaseAcBatteryStorageChargeSensor,
-    EnphaseAcBatteryStorageCycleCountSensor,
-    EnphaseAcBatteryStorageLastReportedSensor,
-    EnphaseAcBatteryStorageOperatingModeSensor,
-    EnphaseAcBatteryStoragePowerSensor,
-    EnphaseAcBatteryStorageStatusSensor,
     EnphaseBatteryStorageChargeSensor,
     EnphaseBatteryStorageCycleCountSensor,
     EnphaseBatteryStorageHealthSensor,
     EnphaseBatteryStorageLastReportedSensor as EnphaseBatteryStorageLastReportedSensor,
     EnphaseBatteryStorageStatusSensor,
-    _EnphaseAcBatteryStorageBaseSensor as _EnphaseAcBatteryStorageBaseSensor,
     _EnphaseBatteryStorageBaseSensor as _EnphaseBatteryStorageBaseSensor,
 )
 from .sensor_heatpump import (
@@ -124,16 +122,18 @@ from .runtime_helpers import (
     normalize_evse_session_energy,
 )
 from .serial_discovery import (
-    active_ac_battery_serials_for_cleanup,
     active_battery_serials_for_cleanup,
     active_charger_serials_for_cleanup,
     active_inverter_serials_for_cleanup,
 )
+from .sensor_control_updates import (
+    EnphaseChargerUpdateStatusSensor,
+    EnphaseDeviceUpdateStatusSensor,
+    tariff_updates_use_cloud_device,
+)
 from .sensor_registry import EnphaseSensorRegistrySetup
 from .sensor_vpp import VPP_SENSOR_KEYS, vpp_sensor_entities
 from .serial_entity_metadata import (
-    AC_BATTERY_ENTITY_UNIQUE_SUFFIXES as AC_BATTERY_ENTITY_UNIQUE_SUFFIXES,
-    AC_BATTERY_RETIRED_UNIQUE_SUFFIXES as AC_BATTERY_RETIRED_UNIQUE_SUFFIXES,
     BATTERY_ENTITY_UNIQUE_SUFFIXES as BATTERY_ENTITY_UNIQUE_SUFFIXES,
     BATTERY_RETIRED_UNIQUE_SUFFIXES as BATTERY_RETIRED_UNIQUE_SUFFIXES,
     HISTORICAL_CHARGER_SENSOR_UNIQUE_SUFFIXES as HISTORICAL_CHARGER_SENSOR_UNIQUE_SUFFIXES,
@@ -201,6 +201,7 @@ from .sensor_gateway import (
     _gateway_terminal_values as _gateway_terminal_values,
     _is_dry_contact_type_key as _is_dry_contact_type_key,
 )
+from .sensor_array_capacity import EnphaseArrayCapacitySensor, capacity_sensor_keys
 from .sensor_inverter import (
     EnphaseInverterLifetimeEnergySensor as EnphaseInverterLifetimeEnergySensor,
     EnphaseInverterTelemetrySensor as EnphaseInverterTelemetrySensor,
@@ -280,30 +281,6 @@ _battery_optional_bool = _battery_helpers.battery_optional_bool
 _battery_snapshot_last_reported = _battery_helpers.battery_snapshot_last_reported
 
 
-def _ac_battery_status_fallback_serials_for_setup(
-    coord: EnphaseCoordinator,
-) -> set[str] | None:
-    """Return AC Battery serials seeded by battery status for non-destructive setup."""
-
-    if not ac_battery_entities_available(coord):
-        return None
-    details = getattr(coord, "ac_battery_status_summary", None)
-    if (
-        not isinstance(details, dict)
-        or details.get("status_source") != "battery_status"
-    ):
-        return None
-    iter_ac_batteries = getattr(coord, "iter_ac_battery_serials", None)
-    if not callable(iter_ac_batteries):
-        return None
-    try:
-        return {
-            serial for sn in iter_ac_batteries() if sn and (serial := str(sn).strip())
-        }
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def _site_has_battery(coord: EnphaseCoordinator) -> bool:
     has_encharge = getattr(coord, "battery_has_encharge", None)
     return has_encharge is not False
@@ -361,17 +338,9 @@ async def async_setup_entry(
             DEFAULT_MICROINVERTER_POWER_ENABLED,
         )
     )
-    registry_setup.sync_inverter_sensor_enabled_defaults(
-        lifetime_energy_enabled=(
-            microinverter_lifetime_energy_enabled
-            if OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED in entry.options
-            else None
-        ),
-        power_enabled=(
-            microinverter_power_enabled
-            if OPT_MICROINVERTER_POWER_ENABLED in entry.options
-            else None
-        ),
+    registry_setup.sync_inverter_sensor_options(
+        lifetime_energy_enabled=microinverter_lifetime_energy_enabled,
+        power_enabled=microinverter_power_enabled,
     )
     known_site_entity_keys = registry_setup.known_site_entity_keys
     known_type_keys = registry_setup.known_type_keys
@@ -395,7 +364,6 @@ async def async_setup_entry(
     known_storm_guard_serials: set[str] = set()
     last_type_key_set: set[str] | None = None
     last_battery_serial_set: set[str] | None = None
-    last_ac_battery_serial_set: set[str] | None = None
     last_charger_serial_set: set[str] | None = None
     last_inverter_serial_set: set[str] | None = None
     last_entity_shape_signature: tuple[object, ...] | None = None
@@ -407,7 +375,6 @@ async def async_setup_entry(
         site_has_battery = _site_has_battery(coord)
         gateway_available = _type_available(coord, "envoy")
         battery_device_available = _type_available(coord, "encharge")
-        ac_battery_device_available = ac_battery_entities_available(coord)
         inventory_ready = bool(getattr(coord, "_devices_inventory_ready", False))
         battery_schedules_enabled = battery_scheduler_enabled(entry)
         current_router_keys: set[str] = set()
@@ -528,6 +495,8 @@ async def async_setup_entry(
 
         _add_site_entity("site_last_update", EnphaseSiteLastUpdateSensor(coord))
         _add_site_entity("site_cloud_latency", EnphaseCloudLatencySensor(coord))
+        _add_site_entity("site_information", EnphaseSiteInformationSensor(coord))
+        _add_site_entity("account_access", EnphaseAccountAccessSensor(coord))
         for counter_key, translation_key, state_attr in (
             (
                 "auth_refresh_attempts",
@@ -554,6 +523,38 @@ async def async_setup_entry(
                     state_attr=state_attr,
                 ),
             )
+        if getattr(coord, "control_updates", None) is not None:
+            if gateway_available:
+                _add_site_entity(
+                    "envoy_update_status",
+                    EnphaseDeviceUpdateStatusSensor(coord, "envoy"),
+                )
+            elif inventory_ready:
+                _async_remove_site_sensor_entity("envoy_update_status")
+            if site_has_battery and battery_device_available:
+                _add_site_entity(
+                    "encharge_update_status",
+                    EnphaseDeviceUpdateStatusSensor(coord, "encharge"),
+                )
+            elif inventory_ready:
+                _async_remove_site_sensor_entity("encharge_update_status")
+            if tariff_updates_use_cloud_device(coord) and (
+                getattr(coord, "tariff_import_rate", None) is not None
+                or getattr(coord, "tariff_export_rate", None) is not None
+                or getattr(coord, "tariff_billing", None) is not None
+                or ("tariff", None) in coord.control_updates.updates
+            ):
+                _add_site_entity(
+                    "cloud_update_status",
+                    EnphaseDeviceUpdateStatusSensor(coord, "cloud"),
+                )
+            else:
+                _async_remove_site_sensor_entity("cloud_update_status")
+        export_runtime = getattr(coord, "export_limit_runtime", None)
+        if export_runtime is not None and export_runtime.enabled:
+            _add_site_entity("export_limit", EnphaseExportLimitSensor(coord))
+        else:
+            _async_remove_site_sensor_entity("export_limit")
         if _retain_grid_profile_sensors(coord):
             _add_site_entity(
                 "current_grid_profile",
@@ -740,6 +741,13 @@ async def async_setup_entry(
                 EnphaseSiteEnergySensor(coord, flow_key, translation_key, name),
             )
         if microinverter_available:
+            for capacity_key in capacity_sensor_keys(coord):
+                _add_site_entity(
+                    f"total_{capacity_key}",
+                    EnphaseArrayCapacitySensor(
+                        coord, inverter=capacity_key == "inverter_capacity"
+                    ),
+                )
             _add_site_entity(
                 "microinverter_connectivity_status",
                 EnphaseMicroinverterConnectivityStatusSensor(coord),
@@ -879,23 +887,6 @@ async def async_setup_entry(
             _async_remove_site_sensor_entity("battery_power")
             for entity_key in battery_schedule_sensor_keys:
                 _async_remove_site_sensor_entity(entity_key)
-        if ac_battery_device_available:
-            _add_site_entity(
-                "ac_battery_overall_status",
-                EnphaseAcBatteryOverallStatusSensor(coord),
-            )
-            _add_site_entity("ac_battery_power", EnphaseAcBatteryPowerSensor(coord))
-            _add_site_entity(
-                "ac_battery_last_reported",
-                EnphaseAcBatteryLastReportedSensor(coord),
-            )
-        elif inventory_ready:
-            for entity_key in (
-                "ac_battery_overall_status",
-                "ac_battery_power",
-                "ac_battery_last_reported",
-            ):
-                _async_remove_site_sensor_entity(entity_key)
         vpp_enabled = bool(
             entry.options.get(OPT_VPP_EVENTS_ENABLED, DEFAULT_VPP_EVENTS_ENABLED)
         )
@@ -935,7 +926,6 @@ async def async_setup_entry(
             not in {
                 "envoy",
                 "encharge",
-                "ac_battery",
                 "iqevse",
                 "microinverter",
                 "heatpump",
@@ -972,6 +962,8 @@ async def async_setup_entry(
             per_serial_entities.append(EnphaseChargeModeSensor(coord, sn))
             per_serial_entities.append(EnphaseChargerAuthenticationSensor(coord, sn))
             per_serial_entities.append(EnphaseStatusSensor(coord, sn))
+            if getattr(coord, "control_updates", None) is not None:
+                per_serial_entities.append(EnphaseChargerUpdateStatusSensor(coord, sn))
             per_serial_entities.append(EnphaseLifetimeEnergySensor(coord, sn))
             if site_has_battery:
                 per_serial_entities.append(EnphaseStormGuardStateSensor(coord, sn))
@@ -1027,44 +1019,6 @@ async def async_setup_entry(
             registry_setup.known_battery_serials.update(serials)
 
     @callback
-    def _async_sync_ac_batteries() -> None:
-        active_ac_battery_serials = active_ac_battery_serials_for_cleanup(coord)
-        cleanup_authoritative = active_ac_battery_serials is not None
-        if active_ac_battery_serials is None:
-            active_ac_battery_serials = _ac_battery_status_fallback_serials_for_setup(
-                coord
-            )
-            if active_ac_battery_serials is None:
-                return
-        current_serials = sorted(active_ac_battery_serials)
-        current_set = active_ac_battery_serials
-
-        if cleanup_authoritative:
-            registry_setup.prune_ac_battery_registry_once(current_set)
-            registry_setup.remove_missing_ac_battery_entities(current_set)
-
-        serials = [
-            sn
-            for sn in current_serials
-            if sn not in registry_setup.known_ac_battery_serials
-        ]
-        if serials:
-            entities: list[SensorEntity] = []
-            for sn in serials:
-                entities.extend(
-                    [
-                        EnphaseAcBatteryStorageChargeSensor(coord, sn),
-                        EnphaseAcBatteryStorageStatusSensor(coord, sn),
-                        EnphaseAcBatteryStoragePowerSensor(coord, sn),
-                        EnphaseAcBatteryStorageOperatingModeSensor(coord, sn),
-                        EnphaseAcBatteryStorageCycleCountSensor(coord, sn),
-                        EnphaseAcBatteryStorageLastReportedSensor(coord, sn),
-                    ]
-                )
-            async_add_entities(entities, update_before_add=False)
-            registry_setup.known_ac_battery_serials.update(serials)
-
-    @callback
     def _async_sync_inverters() -> None:
         active_inverter_serials = active_inverter_serials_for_cleanup(coord)
         if active_inverter_serials is None:
@@ -1078,7 +1032,8 @@ async def async_setup_entry(
         serials = [
             sn
             for sn in current_serials
-            if sn not in registry_setup.known_inverter_serials
+            if microinverter_lifetime_energy_enabled
+            and sn not in registry_setup.known_inverter_serials
         ]
         if serials:
             entities = [
@@ -1094,7 +1049,8 @@ async def async_setup_entry(
         telemetry_serials = [
             sn
             for sn in current_serials
-            if sn not in registry_setup.known_inverter_telemetry_serials
+            if microinverter_power_enabled
+            and sn not in registry_setup.known_inverter_telemetry_serials
             and isinstance(coord.inverter_data(sn), dict)
             and bool((coord.inverter_data(sn) or {}).get("telemetry"))
         ]
@@ -1117,7 +1073,6 @@ async def async_setup_entry(
         nonlocal last_entity_shape_signature
         nonlocal last_type_key_set
         nonlocal last_battery_serial_set
-        nonlocal last_ac_battery_serial_set
         nonlocal last_charger_serial_set
         nonlocal last_inverter_serial_set
         nonlocal last_inverter_telemetry_set
@@ -1126,11 +1081,6 @@ async def async_setup_entry(
             key for key in coord.inventory_view.iter_type_keys() if key
         }
         current_battery_serials = active_battery_serials_for_cleanup(coord)
-        current_ac_battery_serials = active_ac_battery_serials_for_cleanup(coord)
-        if current_ac_battery_serials is None:
-            current_ac_battery_serials = _ac_battery_status_fallback_serials_for_setup(
-                coord
-            )
         current_charger_serials = active_charger_serials_for_cleanup(coord)
         if current_charger_serials is None:
             current_charger_serials = {sn for sn in coord.iter_serials() if sn}
@@ -1156,9 +1106,6 @@ async def async_setup_entry(
             _async_sync_batteries()
             _async_sync_chargers()
             last_battery_serial_set = current_battery_serials
-        if current_ac_battery_serials != last_ac_battery_serial_set:
-            _async_sync_ac_batteries()
-            last_ac_battery_serial_set = current_ac_battery_serials
         if current_charger_serials != last_charger_serial_set:
             _async_sync_chargers()
             last_charger_serial_set = current_charger_serials
@@ -1225,8 +1172,8 @@ async def async_setup_entry(
             bool(getattr(coord, "include_inverters", True)),
             _type_available(coord, "envoy"),
             _type_available(coord, "encharge"),
-            _type_available(coord, "ac_battery"),
             _type_available(coord, "microinverter"),
+            capacity_sensor_keys(coord),
             _type_available(coord, "heatpump"),
             _type_available(coord, "enpower"),
             _heatpump_runtime_device_uid(coord),
@@ -1245,6 +1192,8 @@ async def async_setup_entry(
             getattr(coord, "tariff_import_rate", None) is not None,
             getattr(coord, "tariff_export_rate", None) is not None,
             getattr(coord, "tariff_rates_last_refresh_utc", None) is not None,
+            ("tariff", None)
+            in getattr(getattr(coord, "control_updates", None), "updates", {}),
             frozenset(site_energy) if isinstance(site_energy, dict) else frozenset(),
             populated_bucket_keys,
             known_channels,
@@ -1275,6 +1224,7 @@ async def async_setup_entry(
     # every coordinator update.
     _async_prune_dry_contact_type_inventory_entities()
     _async_prune_blocked_type_inventory_entities({"encharge"})
+    _async_remove_site_sensor_entity("control_update_status")
     _async_remove_site_sensor_entity("current_power_consumption")
     _async_remove_site_sensor_entity("grid_import_power")
     _async_remove_site_sensor_entity("grid_export_power")
@@ -1285,6 +1235,7 @@ async def async_setup_entry(
     registry_setup.prune_historical_charger_sensor_entities()
     registry_setup.prune_removed_site_entities()
     _async_sync_topology()
+    setup_array_sensors(entry, coord, async_add_entities)
 
 
 class _BaseEVSensor(EnphaseBaseEntity, SensorEntity):  # type: ignore[misc]
@@ -2677,10 +2628,23 @@ class EnphaseChargeModeSensor(EnphaseBaseEntity, SensorEntity):  # type: ignore[
         self._attr_unique_id = f"{DOMAIN}_{sn}_charge_mode"
 
     @property
+    def _requested_mode(self) -> str | None:
+        pending = getattr(
+            getattr(self._coord, "evse_state", None), "_charge_mode_pending", {}
+        ).get(self._sn)
+        return pending[0] if pending else None
+
+    @property
     def native_value(self) -> Any:
         d = self.data
         # Prefer scheduler preference when available for consistency with selector
-        return d.get("charge_mode_pref") or d.get("charge_mode")
+        return current_control_value(
+            self._coord,
+            "charge_mode",
+            "mode",
+            d.get("charge_mode_pref") or d.get("charge_mode"),
+            self._sn,
+        )
 
     @property
     def icon(self) -> str | None:
@@ -2717,6 +2681,7 @@ class EnphaseChargeModeSensor(EnphaseBaseEntity, SensorEntity):  # type: ignore[
         applicable = evse_amp_control_applicable(self._coord, self._sn)
         resolved_mode = evse_resolved_charge_mode(self._coord, self._sn)
         return {
+            "requested_mode": self._requested_mode,
             "preferred_mode": self.data.get("charge_mode_pref"),
             "effective_mode": self.data.get("charge_mode"),
             "charge_mode_supported": self._as_bool(
@@ -2760,14 +2725,10 @@ class EnphaseStormGuardStateSensor(EnphaseBaseEntity, SensorEntity):  # type: ig
     def available(self) -> bool:
         if not super().available:
             return False
-        if bool(getattr(self._coord, "storm_guard_update_pending", False)):
-            return True
         return self.data.get("storm_guard_state") is not None
 
     @property
     def native_value(self) -> Any:
-        if bool(getattr(self._coord, "storm_guard_update_pending", False)):
-            return "Updating"
         raw = self.data.get("storm_guard_state")
         if raw is None:
             return None
@@ -3320,6 +3281,40 @@ class EnphaseAuthRefreshCounterSensor(_SiteBaseEntity):
         return _cloud_device_info(self._coord.site_id)  # pragma: no cover
 
 
+class EnphaseExportLimitSensor(_SiteBaseEntity):
+    """Show gateway-confirmed export limiting separately from command progress."""
+
+    _attr_translation_key = "export_limit"
+    _attr_icon = "mdi:transmission-tower-export"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [
+        "disabled",
+        "zero_export",
+        "limited",
+        "unsupported",
+    ]
+
+    def __init__(self, coord: EnphaseCoordinator) -> None:
+        super().__init__(coord, "export_limit", "Export Limit", type_key="envoy")
+
+    @property
+    def available(self) -> bool:
+        runtime = self._coord.export_limit_runtime
+        return bool(
+            super().available and runtime.enabled and runtime.snapshot is not None
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        runtime = self._coord.export_limit_runtime
+        snapshot = runtime.snapshot
+        return snapshot.state if snapshot else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        return cast(ExportLimitRuntime, self._coord.export_limit_runtime).attributes()
+
+
 class _GridProfileSensor(_SiteBaseEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -3369,62 +3364,9 @@ class EnphaseSiteLastErrorCodeSensor(_SiteBaseEntity):
     def __init__(self, coord: EnphaseCoordinator) -> None:
         super().__init__(coord, "last_error_code", "Cloud Error Code", type_key=None)
 
-    def _auth_block_is_active(self) -> bool:
-        """Return True when auth is currently blocked without mutating coordinator state."""
-
-        if getattr(self._coord, "_last_error", None) == "auth_blocked":
-            return True
-        blocked_until = getattr(self._coord, "_auth_blocked_until_utc", None)
-        if isinstance(blocked_until, datetime):
-            return blocked_until > dt_util.utcnow()  # type: ignore[no-any-return]
-        return False
-
     @property
     def native_value(self) -> Any:
-        failure_ts = self._coord.last_failure_utc
-        success_ts = self._coord.last_success_utc
-        failure_active = bool(
-            failure_ts and (success_ts is None or failure_ts > success_ts)
-        )
-        if not failure_active:
-            return STATE_NONE
-        failure_source = getattr(self._coord, "last_failure_source", None)
-        if (
-            failure_source == "payload"
-            or getattr(self._coord, "payload_failure_kind", None) is not None
-        ):
-            return "invalid_payload"
-        if failure_source == "auth" and self._auth_block_is_active():
-            return "auth_blocked"
-        code = getattr(self._coord, "last_failure_status", None)
-        if code is None:
-            if failure_source == "auth":
-                return "authentication_error"
-            description = (
-                getattr(self._coord, "last_failure_description", None) or ""
-            ).lower()
-            if failure_source == "network":
-                dns_tokens = (
-                    "dns",
-                    "name or service not known",
-                    "temporary failure in name resolution",
-                    "resolv",
-                )
-                if any(token in description for token in dns_tokens):
-                    return "dns_error"
-                return "network_error"
-            return STATE_NONE
-        try:
-            status = int(code)
-        except (TypeError, ValueError):
-            return "request_error"
-        if status == 429:
-            return "rate_limited"
-        if status in (401, 403):
-            return "authentication_error"
-        if 500 <= status < 600:
-            return "service_unavailable"
-        return "request_error"
+        return cloud_error_code(self._coord)
 
     @property
     def extra_state_attributes(self) -> Any:
@@ -3583,7 +3525,9 @@ class EnphaseSiteBackoffEndsSensor(_SiteBaseEntity):
 
     @property
     def native_value(self) -> Any:
-        ends = self._coord.backoff_ends_utc
+        ends = getattr(
+            self._coord, "cloud_next_retry_utc", self._coord.backoff_ends_utc
+        )
         if ends is None:
             return None
         try:
@@ -3596,7 +3540,19 @@ class EnphaseSiteBackoffEndsSensor(_SiteBaseEntity):
 
     @property
     def extra_state_attributes(self) -> Any:
-        return {}
+        runtime = getattr(self._coord, "_evse_status_health", None)
+        if (
+            self._coord.backoff_ends_utc is not None
+            or runtime is None
+            or runtime.available
+        ):
+            return {}
+        health = runtime.diagnostics()
+        return {
+            "endpoint": "charger_status" if not health["available"] else None,
+            "http_status": health["http_status"],
+            "last_success_utc": health["last_success_utc"],
+        }
 
     @property
     def device_info(self) -> Any:
@@ -3609,7 +3565,9 @@ class EnphaseSiteBackoffEndsSensor(_SiteBaseEntity):
     def _ensure_expiry_timer(self) -> None:
         if self.hass is None:
             return
-        ends = self._coord.backoff_ends_utc
+        ends = getattr(
+            self._coord, "cloud_next_retry_utc", self._coord.backoff_ends_utc
+        )
         try:
             now = dt_util.utcnow()
         except Exception:  # noqa: BLE001
@@ -3694,7 +3652,7 @@ class EnphaseBatteryOverallChargeSensor(_SiteBaseEntity):
         if value is None:
             return None
         try:
-            return round(float(value), 1)
+            return math.floor(float(value))
         except Exception:  # noqa: BLE001
             return None
 
@@ -3863,6 +3821,7 @@ class EnphaseBatteryAvailablePowerSensor(_SiteBaseEntity):
     _attr_device_class = SensorDeviceClass.POWER
     _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coord: EnphaseCoordinator) -> None:
         super().__init__(
@@ -3937,125 +3896,10 @@ class EnphaseBatteryLastReportedSensor(_SiteBaseEntity):
         }
 
 
-class EnphaseAcBatteryOverallStatusSensor(_SiteBaseEntity):
-    _attr_translation_key = "ac_battery_overall_status"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, coord: EnphaseCoordinator) -> None:
-        super().__init__(
-            coord,
-            "ac_battery_overall_status",
-            "AC Battery Overall Status",
-            type_key="ac_battery",
-        )
-
-    @property
-    def available(self) -> bool:
-        if not super().available:
-            return False
-        return self._coord.ac_battery_aggregate_status is not None
-
-    @property
-    def native_value(self) -> Any:
-        return self._coord.ac_battery_aggregate_status
-
-    @property
-    def extra_state_attributes(self) -> Any:
-        summary = self._coord.ac_battery_status_summary
-        return {
-            "battery_count": summary.get("battery_count"),
-            "worst_storage_key": summary.get("worst_storage_key"),
-            "worst_status": summary.get("worst_status"),
-            "sleep_state": summary.get("sleep_state"),
-            "sleep_state_map": summary.get("sleep_state_map"),
-            "sleep_state_raw": summary.get("sleep_state_raw"),
-            "last_command": getattr(self._coord, "_ac_battery_last_command", None),
-        }
-
-
-class EnphaseAcBatteryPowerSensor(_SiteBaseEntity):
-    _attr_translation_key = "ac_battery_power"
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, coord: EnphaseCoordinator) -> None:
-        super().__init__(
-            coord,
-            "ac_battery_power",
-            "AC Battery Power",
-            type_key="ac_battery",
-        )
-
-    @property
-    def available(self) -> bool:
-        if not super().available:
-            return False
-        return self.native_value is not None
-
-    @property
-    def native_value(self) -> Any:
-        summary = self._coord.ac_battery_status_summary
-        value = summary.get("power_w")
-        if value is None:
-            return None
-        try:
-            return round(float(cast(Any, value)), 3)
-        except Exception:  # noqa: BLE001
-            return None
-
-    @property
-    def extra_state_attributes(self) -> Any:
-        sampled_at = getattr(self._coord, "ac_battery_summary_sample_utc", None)
-        return {
-            "sampled_at_utc": (
-                sampled_at.isoformat() if sampled_at is not None else None
-            ),
-            "power_map_w": self._coord.ac_battery_status_summary.get("power_map_w"),
-        }
-
-
-class EnphaseAcBatteryLastReportedSensor(_SiteBaseEntity):
-    _attr_translation_key = "ac_battery_last_reported"
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
-    _unrecorded_attributes = _SiteBaseEntity._unrecorded_attributes.union(
-        {"latest_reported_device"}
-    )
-
-    def __init__(self, coord: EnphaseCoordinator) -> None:
-        super().__init__(
-            coord,
-            "ac_battery_last_reported",
-            "AC Battery Last Reported",
-            type_key="ac_battery",
-        )
-
-    @property
-    def available(self) -> bool:
-        if not super().available:
-            return False
-        snapshot = ac_battery_last_reported_snapshot(self._coord)
-        return snapshot.get("latest_reported") is not None
-
-    @property
-    def native_value(self) -> Any:
-        return ac_battery_last_reported_snapshot(self._coord).get("latest_reported")
-
-    @property
-    def extra_state_attributes(self) -> Any:
-        snapshot = ac_battery_last_reported_snapshot(self._coord)
-        return {
-            "latest_reported_device": snapshot.get("latest_reported_device"),
-            "without_last_report_count": snapshot.get("without_last_report_count"),
-            "total_batteries": snapshot.get("total_batteries"),
-        }
-
-
 class EnphaseBatteryModeSensor(_SiteBaseEntity):
     _attr_translation_key = "battery_mode"
     _attr_icon = "mdi:battery"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coord: EnphaseCoordinator) -> None:
         super().__init__(coord, "battery_mode", "Battery Mode", type_key="encharge")
@@ -4189,7 +4033,7 @@ class EnphaseSystemProfileStatusSensor(_SiteBaseEntity):
         super().__init__(
             coord,
             "system_profile_status",
-            "System Profile Status",
+            "System Profile",
             type_key="envoy",
         )
 
@@ -4203,26 +4047,60 @@ class EnphaseSystemProfileStatusSensor(_SiteBaseEntity):
 
     @property
     def native_value(self) -> Any:
-        if self._coord.battery_profile_pending:
-            return (
-                self._coord.battery_profile_display
-                or self._coord.battery_effective_profile_display
-            )
-        return self._coord.battery_effective_profile_display
+        profile = current_control_value(
+            self._coord,
+            "system_profile",
+            "profile_key",
+            self._coord.battery_live_profile or self._coord.battery_profile,
+        )
+        return (
+            self._coord.battery_profile_option_labels.get(profile)
+            or battery_profile_label(profile, hass=getattr(self._coord, "hass", None))
+            if profile
+            else None
+        )
 
     @property
     def extra_state_attributes(self) -> Any:
         labels = self._coord.battery_profile_option_labels
         attrs = {
-            "effective_profile": self._coord.battery_effective_profile,
-            "effective_profile_label": self._coord.battery_effective_profile_display,
-            "configured_profile": self._coord.battery_profile,
+            "effective_profile": current_control_value(
+                self._coord,
+                "system_profile",
+                "profile_key",
+                self._coord.battery_live_profile or self._coord.battery_profile,
+            ),
+            "effective_profile_label": self.native_value,
+            "configured_profile": current_control_value(
+                self._coord,
+                "system_profile",
+                "configured_profile",
+                self._coord.battery_profile,
+            ),
             "live_profile": self._coord.battery_live_profile,
             "live_profile_label": getattr(
                 self._coord, "_battery_live_profile_label", None
             ),
-            "effective_reserve_percentage": self._coord.battery_effective_backup_percentage,
-            "effective_operation_mode_sub_type": self._coord.battery_effective_operation_mode_sub_type,
+            "effective_reserve_percentage": current_control_value(
+                self._coord,
+                "battery_reserve",
+                "reserve",
+                getattr(
+                    self._coord,
+                    "_battery_backup_percentage",
+                    self._coord.battery_effective_backup_percentage,
+                ),
+            ),
+            "effective_operation_mode_sub_type": current_control_value(
+                self._coord,
+                "system_profile",
+                "operation_mode_sub_type",
+                getattr(
+                    self._coord,
+                    "_battery_operation_mode_sub_type",
+                    self._coord.battery_effective_operation_mode_sub_type,
+                ),
+            ),
             "requested_profile": self._coord.battery_pending_profile,
             "requested_profile_label": labels.get(
                 self._coord.battery_pending_profile or ""

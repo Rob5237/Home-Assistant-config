@@ -1,0 +1,17 @@
+{
+  "domain": "ratio",
+  "name": "Ratio EV Charging",
+  "after_dependencies": ["recorder"],
+  "bluetooth": [
+    {"local_name": "RATIO_*", "manufacturer_id": 3071, "connectable": true}
+  ],
+  "codeowners": ["@aaearon"],
+  "config_flow": true,
+  "dependencies": ["bluetooth"],
+  "documentation": "https://github.com/aaearon/home-assistant-ratio",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/aaearon/home-assistant-ratio/issues",
+  "requirements": ["aioratio[ble]==0.13.0"],
+  "version": "0.16.2"
+}

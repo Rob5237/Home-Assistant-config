@@ -1,0 +1,687 @@
+"""Sensor platform for Ratio EV Charging."""
+
+from __future__ import annotations
+
+# Note on ``# pyright: ignore[reportIncompatibleVariableOverride]`` below:
+# HA's ``Entity`` base declares ``available`` (and platform classes declare
+# ``is_on``/``native_value``/``options``/``current_option``/``extra_state_attributes``/etc.)
+# as ``cached_property``. ``CoordinatorEntity.available`` overrides ``Entity``'s
+# with a plain ``@property`` — leaving the two bases declaring the same name in
+# incompatible ways. Our overrides use ``@property`` to match the dynamic
+# semantics that ``CoordinatorEntity`` already relies on; using
+# ``@cached_property`` here would cache values across coordinator updates and
+# break tests. Official HA core integrations (fyta, reolink, snoo, etc.) use
+# the same dynamic-property pattern. The variance error is structurally
+# unavoidable from this side of the HA boundary.
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any, cast
+
+from aioratio.models import ChargerOverview, InstallerOcppSettings
+from aioratio.models.diagnostics import ChargerDiagnostics
+from aioratio.models.history import Session
+from homeassistant.components.bluetooth.passive_update_coordinator import (
+    PassiveBluetoothCoordinatorEntity,
+)
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
+from homeassistant.const import (
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    EntityCategory,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfPower,
+    UnitOfTime,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from . import RatioConfigEntry
+from .ble import BleSnapshot, RatioBleCoordinator
+from .const import DOMAIN
+from .coordinator import RatioCoordinator, RatioHistoryCoordinator
+
+PARALLEL_UPDATES = 0
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioSensorEntityDescription(SensorEntityDescription):
+    """Describes a Ratio sensor."""
+
+    value_fn: Callable[[ChargerOverview], Any]
+
+
+SENSOR_DESCRIPTIONS: tuple[RatioSensorEntityDescription, ...] = (
+    RatioSensorEntityDescription(
+        key="actual_charging_power",
+        translation_key="actual_charging_power",
+        name="Charging power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda ov: (
+            ov.charge_session_status.actual_charging_power
+            if ov.charge_session_status is not None
+            else None
+        ),
+    ),
+    RatioSensorEntityDescription(
+        key="cloud_connection_state",
+        translation_key="cloud_connection_state",
+        name="Cloud connection state",
+        value_fn=lambda ov: ov.cloud_connection_state,
+    ),
+    RatioSensorEntityDescription(
+        key="charging_state",
+        translation_key="charging_state",
+        name="Charging state",
+        value_fn=lambda ov: (
+            ov.charger_status.indicators.charging_state
+            if ov.charger_status is not None
+            and ov.charger_status.indicators is not None
+            else None
+        ),
+    ),
+)
+
+
+def _fw(ov: ChargerOverview) -> Any:
+    return ov.charger_firmware_status
+
+
+FIRMWARE_SENSOR_DESCRIPTIONS: tuple[RatioSensorEntityDescription, ...] = (
+    RatioSensorEntityDescription(
+        key="firmware_update_status",
+        translation_key="firmware_update_status",
+        name="Firmware update status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda ov: (
+            _fw(ov).firmware_update_status if _fw(ov) is not None else None
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioDiagnosticSensorDescription(SensorEntityDescription):
+    """Describes a Ratio diagnostic sensor backed by ChargerDiagnostics."""
+
+    value_fn: Callable[[ChargerDiagnostics], Any] = field(default=lambda _: None)
+
+
+def _mc(d: ChargerDiagnostics) -> Any:
+    pi = d.product_information
+    return pi.main_controller if pi is not None else None
+
+
+def _cc(d: ChargerDiagnostics) -> Any:
+    pi = d.product_information
+    return pi.connectivity_controller if pi is not None else None
+
+
+def _ns(d: ChargerDiagnostics) -> Any:
+    return d.network_status
+
+
+DIAGNOSTIC_SENSOR_DESCRIPTIONS: tuple[RatioDiagnosticSensorDescription, ...] = (
+    RatioDiagnosticSensorDescription(
+        key="cpc_serial_number",
+        translation_key="cpc_serial_number",
+        name="CPC serial number",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: _mc(d).serial_number if _mc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="connectivity_serial_number",
+        translation_key="connectivity_serial_number",
+        name="Connectivity serial number",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: _cc(d).serial_number if _cc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="hardware_type",
+        translation_key="hardware_type",
+        name="Hardware type",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: _mc(d).hardware_type if _mc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="hardware_version",
+        translation_key="hardware_version",
+        name="Hardware version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: _mc(d).hardware_version if _mc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="firmware_version",
+        translation_key="firmware_version",
+        name="Firmware version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: _mc(d).firmware_version if _mc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="connectivity_firmware_version",
+        translation_key="connectivity_firmware_version",
+        name="Connectivity firmware version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: _cc(d).firmware_version if _cc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="connectivity_hardware_version",
+        translation_key="connectivity_hardware_version",
+        name="Connectivity hardware version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: _cc(d).hardware_version if _cc(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="wifi_ssid",
+        translation_key="wifi_ssid",
+        name="WiFi SSID",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: _ns(d).wifi.ssid if _ns(d) and _ns(d).wifi else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="wifi_rssi",
+        translation_key="wifi_rssi",
+        name="WiFi signal strength",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: _ns(d).wifi.rssi if _ns(d) and _ns(d).wifi else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="wifi_ip",
+        translation_key="wifi_ip",
+        name="WiFi IP address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: (
+            _ns(d).wifi.ipv4.address
+            if _ns(d) and _ns(d).wifi and _ns(d).wifi.ipv4
+            else None
+        ),
+    ),
+    RatioDiagnosticSensorDescription(
+        key="ethernet_ip",
+        translation_key="ethernet_ip",
+        name="Ethernet IP address",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: (
+            _ns(d).ethernet.ipv4.address
+            if _ns(d) and _ns(d).ethernet and _ns(d).ethernet.ipv4
+            else None
+        ),
+    ),
+    RatioDiagnosticSensorDescription(
+        key="connection_medium",
+        translation_key="connection_medium",
+        name="Connection medium",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: _ns(d).connection_medium if _ns(d) else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="cpms_name",
+        translation_key="cpms_name",
+        name="CPMS name",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.ocpp_status.cpms_name if d.ocpp_status else None,
+    ),
+    RatioDiagnosticSensorDescription(
+        key="cpms_url",
+        translation_key="cpms_url",
+        name="CPMS URL",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: d.ocpp_status.cpms_url if d.ocpp_status else None,
+    ),
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioOcppSensorDescription(SensorEntityDescription):
+    """Describes a Ratio OCPP settings sensor."""
+
+    value_fn: Callable[[Any], Any] = field(default=lambda _: None)
+
+
+OCPP_SENSOR_DESCRIPTIONS: tuple[RatioOcppSensorDescription, ...] = (
+    RatioOcppSensorDescription(
+        key="charge_point_identifier",
+        translation_key="charge_point_identifier",
+        name="Charge point identifier",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda s: s.charge_point_identifier if s else None,
+    ),
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioLastSessionSensorDescription(SensorEntityDescription):
+    """Describes a last-session sensor backed by the history coordinator."""
+
+    value_fn: Callable[[Session], Any] = field(default=lambda _: None)
+
+
+def _last_session(history: RatioHistoryCoordinator, serial: str) -> Session | None:
+    data: dict[str, list[Session]] | None = getattr(history, "data", None)
+    if not data:
+        return None
+    sessions = data.get(serial)
+    if not sessions:
+        return None
+    # Sessions are stored sorted ascending by begin time.
+    return sessions[-1]
+
+
+def _ts(epoch: int | None) -> datetime | None:
+    if epoch is None or epoch <= 0:
+        return None
+    return datetime.fromtimestamp(int(epoch), tz=UTC)
+
+
+def _session_duration(s: Session) -> int | None:
+    if s.begin is None or s.end is None:
+        return None
+    if not s.begin.time or not s.end.time:
+        return None
+    return int(s.end.time) - int(s.begin.time)
+
+
+LAST_SESSION_DESCRIPTIONS: tuple[RatioLastSessionSensorDescription, ...] = (
+    RatioLastSessionSensorDescription(
+        key="last_session_energy",
+        translation_key="last_session_energy",
+        name="Last session energy",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        # Intentionally NO state_class — value resets each session, not monotonic.
+        value_fn=lambda s: s.total_charging_energy,
+    ),
+    RatioLastSessionSensorDescription(
+        key="last_session_duration",
+        translation_key="last_session_duration",
+        name="Last session duration",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        value_fn=_session_duration,
+    ),
+    RatioLastSessionSensorDescription(
+        key="last_session_started_at",
+        translation_key="last_session_started_at",
+        name="Last session started",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda s: _ts(s.begin.time if s.begin else None),
+    ),
+    RatioLastSessionSensorDescription(
+        key="last_session_ended_at",
+        translation_key="last_session_ended_at",
+        name="Last session ended",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda s: _ts(s.end.time if s.end else None),
+    ),
+    RatioLastSessionSensorDescription(
+        key="last_session_vehicle",
+        translation_key="last_session_vehicle",
+        name="Last session vehicle",
+        value_fn=lambda s: s.vehicle.vehicle_name if s.vehicle else None,
+    ),
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioBleSensorEntityDescription(SensorEntityDescription):
+    """Describes a BLE-only Ratio sensor backed by BleSnapshot."""
+
+    value_fn: Callable[[BleSnapshot], float | int | None]
+
+
+BLE_SENSOR_DESCRIPTIONS: tuple[RatioBleSensorEntityDescription, ...] = (
+    RatioBleSensorEntityDescription(
+        key="voltage_phase_1",
+        translation_key="voltage_phase_1",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.voltage_phase_1,
+    ),
+    RatioBleSensorEntityDescription(
+        key="voltage_phase_2",
+        translation_key="voltage_phase_2",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.voltage_phase_2,
+    ),
+    RatioBleSensorEntityDescription(
+        key="voltage_phase_3",
+        translation_key="voltage_phase_3",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.voltage_phase_3,
+    ),
+    RatioBleSensorEntityDescription(
+        key="current_phase_1",
+        translation_key="current_phase_1",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.current_phase_1,
+    ),
+    RatioBleSensorEntityDescription(
+        key="current_phase_2",
+        translation_key="current_phase_2",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.current_phase_2,
+    ),
+    RatioBleSensorEntityDescription(
+        key="current_phase_3",
+        translation_key="current_phase_3",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.current_phase_3,
+    ),
+    RatioBleSensorEntityDescription(
+        key="ble_protocol_version",
+        translation_key="ble_protocol_version",
+        native_unit_of_measurement=None,
+        device_class=None,
+        state_class=None,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda snap: snap.protocol_version,
+    ),
+)
+
+
+def _build_sensor_entities(
+    coordinator: RatioCoordinator, serial: str
+) -> list[RatioSensor]:
+    return [
+        RatioSensor(coordinator, serial, desc)
+        for desc in (*SENSOR_DESCRIPTIONS, *FIRMWARE_SENSOR_DESCRIPTIONS)
+    ]
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: RatioConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Ratio sensors from a config entry."""
+    coordinator = entry.runtime_data.coordinator
+    history: RatioHistoryCoordinator | None = entry.runtime_data.history_coordinator
+    known: set[str] = set()
+
+    @callback
+    def _add_new() -> None:
+        if coordinator.data is None:
+            return
+        new = set(coordinator.data.chargers) - known
+        if not new:
+            return
+        entities: list[SensorEntity] = []
+        for serial in new:
+            entities.extend(_build_sensor_entities(coordinator, serial))
+            entities.extend(
+                RatioDiagnosticSensor(coordinator, serial, desc)
+                for desc in DIAGNOSTIC_SENSOR_DESCRIPTIONS
+            )
+            entities.extend(
+                RatioOcppSensor(coordinator, serial, desc)
+                for desc in OCPP_SENSOR_DESCRIPTIONS
+            )
+            if history is not None:
+                entities.extend(
+                    RatioLastSessionSensor(history, serial, desc)
+                    for desc in LAST_SESSION_DESCRIPTIONS
+                )
+        known.update(new)
+        async_add_entities(entities)
+
+    _add_new()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new))
+
+    # BLE-only sensors — only created when BLE is enabled for this charger.
+    ble_coordinators: dict[str, RatioBleCoordinator] = getattr(
+        entry.runtime_data, "ble_coordinators", {}
+    )
+    ble_entities: list[SensorEntity] = [
+        RatioBleSensor(ble_coordinator, description)
+        for ble_coordinator in ble_coordinators.values()
+        for description in BLE_SENSOR_DESCRIPTIONS
+    ]
+    if ble_entities:
+        async_add_entities(ble_entities)
+
+
+class RatioSensor(CoordinatorEntity[RatioCoordinator], SensorEntity):
+    """A single sensor backed by the Ratio coordinator."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        serial: str,
+        description: RatioSensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self._serial = serial
+        self.entity_description = description
+        self._attr_unique_id = f"{serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def _overview(self) -> ChargerOverview | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.chargers.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available and self._overview is not None
+
+    @property
+    def native_value(self) -> Any:  # pyright: ignore[reportIncompatibleVariableOverride]
+        ov = self._overview
+        if ov is None:
+            return None
+        desc = cast(RatioSensorEntityDescription, self.entity_description)
+        try:
+            return desc.value_fn(ov)
+        except AttributeError:
+            return None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        super()._handle_coordinator_update()
+
+
+class RatioDiagnosticSensor(CoordinatorEntity[RatioCoordinator], SensorEntity):
+    """Sensor reading diagnostics data for a charger."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        serial: str,
+        description: RatioDiagnosticSensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self._serial = serial
+        self.entity_description = description
+        self._attr_unique_id = f"{serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def _diagnostics(self) -> ChargerDiagnostics | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.diagnostics.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available and self._diagnostics is not None
+
+    @property
+    def native_value(self) -> Any:  # pyright: ignore[reportIncompatibleVariableOverride]
+        diag = self._diagnostics
+        if diag is None:
+            return None
+        desc = cast(RatioDiagnosticSensorDescription, self.entity_description)
+        try:
+            return desc.value_fn(diag)
+        except AttributeError:
+            return None
+
+
+class RatioOcppSensor(CoordinatorEntity[RatioCoordinator], SensorEntity):
+    """Sensor reading OCPP settings for a charger."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        serial: str,
+        description: RatioOcppSensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self._serial = serial
+        self.entity_description = description
+        self._attr_unique_id = f"{serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def _ocpp_settings(self) -> InstallerOcppSettings | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.ocpp_settings.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available and self._ocpp_settings is not None
+
+    @property
+    def native_value(self) -> Any:  # pyright: ignore[reportIncompatibleVariableOverride]
+        settings = self._ocpp_settings
+        if settings is None:
+            return None
+        desc = cast(RatioOcppSensorDescription, self.entity_description)
+        try:
+            return desc.value_fn(settings)
+        except AttributeError:
+            return None
+
+
+class RatioLastSessionSensor(CoordinatorEntity[RatioHistoryCoordinator], SensorEntity):
+    """Sensor reading the most-recent completed session for a charger."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        history: RatioHistoryCoordinator,
+        serial: str,
+        description: RatioLastSessionSensorDescription,
+    ) -> None:
+        super().__init__(history)
+        self._serial = serial
+        self.entity_description = description
+        self._attr_unique_id = f"{serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        # Gate on the *main* coordinator's view of the charger, not on the
+        # history coordinator's data: a freshly-added charger with no
+        # completed sessions yet is a perfectly valid entity that should
+        # render its state as ``unknown``, not ``unavailable``.
+        if not super().available:
+            return False
+        main = self.coordinator._main_coordinator
+        return main.data is not None and self._serial in main.data.chargers
+
+    @property
+    def native_value(self) -> Any:  # pyright: ignore[reportIncompatibleVariableOverride]
+        session = _last_session(self.coordinator, self._serial)
+        if session is None:
+            return None
+        desc = cast(RatioLastSessionSensorDescription, self.entity_description)
+        try:
+            return desc.value_fn(session)
+        except AttributeError:
+            return None
+
+
+class RatioBleSensor(
+    PassiveBluetoothCoordinatorEntity[RatioBleCoordinator], SensorEntity
+):
+    """Sensor reading per-phase voltage/current from BLE polling."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioBleCoordinator,
+        description: RatioBleSensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{coordinator.serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.serial)},
+        )
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available
+
+    @property
+    def native_value(self) -> float | int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return None
+        desc = cast(RatioBleSensorEntityDescription, self.entity_description)
+        return desc.value_fn(self.coordinator.data)

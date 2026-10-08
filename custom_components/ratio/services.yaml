@@ -1,0 +1,139 @@
+start_charge:
+  name: Start charge
+  description: Start a charge session on the targeted Ratio charger.
+  target:
+  fields:
+    vehicle_id:
+      name: Vehicle ID
+      description: Optional vehicle ID to associate with the session.
+      required: false
+      example: "abc-123"
+      selector:
+        text:
+
+stop_charge:
+  name: Stop charge
+  description: Stop the active charge session on the targeted Ratio charger.
+  target:
+
+set_schedule:
+  name: Set schedule
+  description: >-
+    Replace the weekly charge schedule for the targeted Ratio charger.
+    Each slot must include a start time and an end time in HH:MM 24-hour
+    format (e.g. "07:30") and a list of days (Monday-Sunday or 3-letter
+    abbreviations like Mon/Tue).
+  target:
+  fields:
+    slots:
+      name: Slots
+      description: >-
+        List of schedule slots. Each slot is an object with the keys
+        `start` (HH:MM), `end` (HH:MM), and `days` (list of weekday names).
+      required: true
+      example: |
+        - start: "07:00"
+          end: "09:00"
+          days: [Mon, Tue, Wed, Thu, Fri]
+      selector:
+        object:
+    enabled:
+      name: Enabled
+      description: >-
+        Whether the schedule is active after the times are written. Defaults to
+        true, which activates the schedule. Set to false to store the times
+        without arming them, or to deactivate a currently active schedule.
+      required: false
+      default: true
+      example: true
+      selector:
+        boolean:
+
+add_vehicle:
+  name: Add vehicle
+  description: Register a new vehicle on the Ratio account.
+  fields:
+    vehicle_name:
+      name: Vehicle name
+      description: Display name for the vehicle.
+      required: true
+      example: "Tesla Model 3"
+      selector:
+        text:
+    license_plate:
+      name: License plate
+      description: Optional license plate.
+      required: false
+      example: "AB-12-CD"
+      selector:
+        text:
+
+remove_vehicle:
+  name: Remove vehicle
+  description: Remove a vehicle from the Ratio account.
+  fields:
+    vehicle_id:
+      name: Vehicle
+      description: The vehicle to remove.
+      required: true
+      selector:
+        text:
+
+import_session_history:
+  name: Import session history
+  description: >-
+    Backfill external statistics from completed charge sessions in the
+    chosen window. Only accepted when the affected charger's energy
+    statistic series is still empty: the call is rejected if begin_time
+    predates the history-import baseline (the latest imported session
+    timestamp, advanced by the live polling coordinator), or if the
+    charger already has any external energy statistics recorded at all,
+    regardless of where the window falls relative to them. Re-adding the
+    integration does not reset this, since the statistic id is derived
+    from the charger serial number, not the config entry.
+  fields:
+    begin_time:
+      name: Begin time
+      description: Start of the window to import.
+      required: true
+      selector:
+        datetime:
+    end_time:
+      name: End time
+      description: Optional end of the window. Defaults to now.
+      required: false
+      selector:
+        datetime:
+
+reconfigure_wifi:
+  name: Reconfigure Wi-Fi
+  description: Reconnect the Ratio charger to a different Wi-Fi network via Bluetooth.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: ratio
+    ssid:
+      required: true
+      selector:
+        text:
+    password:
+      required: false
+      selector:
+        text:
+          type: password
+
+ble_probe:
+  name: Probe BLE connectivity (diagnostic)
+  description: >-
+    Diagnostic-only. Looks up the strongest current advertisement for
+    `RATIO_<serial>` and attempts one BLE connect + read, bypassing the
+    coordinator's locked address. Returns a structured response naming the
+    scanner used and the outcome.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: ratio

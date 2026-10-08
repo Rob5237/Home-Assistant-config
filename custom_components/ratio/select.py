@@ -1,0 +1,488 @@
+"""Select platform for Ratio EV Charging."""
+
+from __future__ import annotations
+
+# Note on ``# pyright: ignore[reportIncompatibleVariableOverride]`` below:
+# HA's ``Entity`` base declares ``available`` (and platform classes declare
+# ``is_on``/``native_value``/``options``/``current_option``/``extra_state_attributes``/etc.)
+# as ``cached_property``. ``CoordinatorEntity.available`` overrides ``Entity``'s
+# with a plain ``@property`` — leaving the two bases declaring the same name in
+# incompatible ways. Our overrides use ``@property`` to match the dynamic
+# semantics that ``CoordinatorEntity`` already relies on; using
+# ``@cached_property`` here would cache values across coordinator updates and
+# break tests. Official HA core integrations (fyta, reolink, snoo, etc.) use
+# the same dynamic-property pattern. The variance error is structurally
+# unavoidable from this side of the HA boundary.
+import logging
+from typing import Any
+
+from aioratio import RatioClient
+from aioratio.models import CpmsConfig, OcppSettingsUpdate
+from homeassistant.components.select import SelectEntity
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from . import RatioConfigEntry
+from .const import DOMAIN
+from .coordinator import RatioCoordinator
+
+PARALLEL_UPDATES = 1
+
+_LOGGER = logging.getLogger(__name__)
+
+# The cloud may omit allowedValues for chargingMode; this fallback mirrors
+# the modes returned for live accounts. Update if Ratio adds modes.
+_CHARGE_MODE_FALLBACK = ["Smart", "SmartSolar", "PureSolar"]
+
+
+def _is_writable(opt: CpmsConfig) -> bool:
+    """Return True when a CPMS entry can be serialised for a PUT.
+
+    ``CpmsConfig.to_dict`` raises ``ValueError`` unless both ``central_system``
+    and ``url`` are set (``ConfiguredCpms$$serializer.java``:40-47 marks both
+    required and non-nullable). The test is against ``None``, not truthiness:
+    an empty ``centralSystem`` serialises fine and stays selectable.
+    """
+    return opt.central_system is not None and opt.url is not None
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: RatioConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Ratio selects from a config entry."""
+    coordinator = entry.runtime_data.coordinator
+    client = entry.runtime_data.client
+
+    known: set[str] = set()
+
+    @callback
+    def _add_new() -> None:
+        if coordinator.data is None:
+            return
+        new = set(coordinator.data.chargers) - known
+        if not new:
+            return
+        entities: list[SelectEntity] = []
+        for serial in new:
+            entities.append(RatioChargeModeSelect(coordinator, client, serial))
+            entities.append(RatioStartModeSelect(coordinator, client, serial))
+            entities.append(RatioCableSettingsSelect(coordinator, client, serial))
+            entities.append(RatioActiveVehicleSelect(coordinator, client, serial))
+            entities.append(RatioCpmsSelect(coordinator, client, serial))
+        known.update(new)
+        async_add_entities(entities)
+
+    _add_new()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new))
+
+
+class _RatioSelectBase(CoordinatorEntity[RatioCoordinator], SelectEntity):
+    """Common boilerplate for Ratio select entities."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+        key: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._client = client
+        self._serial = serial
+        self._attr_unique_id = f"{serial}_{key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if not super().available:
+            return False
+        if self.coordinator.data is None:
+            return False
+        return self._serial in self.coordinator.data.chargers
+
+
+class RatioChargeModeSelect(_RatioSelectBase):
+    """Select for the charging mode."""
+
+    _attr_translation_key = "charge_mode"
+    _attr_name = "Charge mode"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator, client, serial, "charge_mode")
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Unavailable while the charger refuses charging-mode changes.
+
+        ``ChargeModeSettings$$serializer.java``:41-43 declares
+        ``isChangeAllowed`` a required element, so a charger that locks the
+        setting says so on every GET. HA filters unavailable entities out of
+        ``entity_service_call``, which is what actually blocks the write —
+        the same treatment ``RatioCpmsSelect``,
+        ``RatioChargePointIdentifierText`` and ``RatioOcppEnabledSwitch``
+        already give their own flags.
+
+        A *missing* settings document is not a statement that the setting is
+        locked; only an explicit ``False`` blocks. ``is_change_allowed``
+        itself defaults to ``True`` in the library when the key is absent.
+        """
+        if not super().available or self.coordinator.data is None:
+            return False
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.charging_mode is None:
+            return True
+        return settings.charging_mode.is_change_allowed
+
+    @property
+    def options(self) -> list[str]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return list(_CHARGE_MODE_FALLBACK)
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.charging_mode is None:
+            return list(_CHARGE_MODE_FALLBACK)
+        return settings.charging_mode.allowed_values or list(_CHARGE_MODE_FALLBACK)
+
+    @property
+    def current_option(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return None
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.charging_mode is None:
+            return None
+        return settings.charging_mode.value
+
+    async def async_select_option(self, option: str) -> None:
+        # Enum settings on PUT take the raw string value, not the GET shape.
+        await self.coordinator.request_command(
+            self._client.set_user_settings,
+            self._serial,
+            {"chargingMode": option},
+        )
+
+
+class RatioStartModeSelect(_RatioSelectBase):
+    """Select for the start mode (``Auto`` vs ``Manual``).
+
+    Deliberately not folded into a shared parameterised class with
+    :class:`RatioChargeModeSelect`: that one carries a hardcoded option
+    fallback for a cloud that sometimes omits ``allowedValues``, and we have
+    no evidence the same omission — or the same fallback list — applies here.
+    """
+
+    _attr_translation_key = "start_mode"
+    _attr_name = "Start mode"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator, client, serial, "start_mode")
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Unavailable only on an explicit ``isChangeAllowed: false``.
+
+        ``EnumDataClass$$serializer.java``:36-38 declares ``isChangeAllowed``
+        required, so a charger that locks the setting says so on every GET. A
+        *missing* settings document is not such a statement; only an explicit
+        ``False`` blocks, matching :class:`RatioChargeModeSelect`.
+        """
+        if not super().available or self.coordinator.data is None:
+            return False
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.start_mode is None:
+            return True
+        return settings.start_mode.is_change_allowed
+
+    @property
+    def options(self) -> list[str]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """The charger's reported ``allowedValues``, verbatim and in order.
+
+        No fallback list: the live charger reports ``[Manual, Auto]``, the
+        reverse of the ``StartMode.java`` enum ordinals, so ordinals are not a
+        safe source. An empty list is honest about knowing nothing.
+        """
+        if self.coordinator.data is None:
+            return []
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.start_mode is None:
+            return []
+        return list(settings.start_mode.allowed_values)
+
+    @property
+    def current_option(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return None
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.start_mode is None:
+            return None
+        return settings.start_mode.value
+
+    async def async_select_option(self, option: str) -> None:
+        # Sparse PUT: ``SetUserSettings$$serializer.java``:42 names the key
+        # ``startMode`` and declares every element optional, so sending the
+        # whole cached document would reassert values this entity does not own.
+        await self.coordinator.request_command(
+            self._client.set_user_settings,
+            self._serial,
+            {"startMode": option},
+        )
+
+
+class RatioCableSettingsSelect(_RatioSelectBase):
+    """Select for the cable-lock behaviour.
+
+    The effect of each option — ``LockAlways`` in particular — is
+    uncharacterised; they are exposed because the charger reports them as
+    allowed, not because their behaviour has been verified.
+    """
+
+    _attr_translation_key = "cable_settings"
+    _attr_name = "Cable settings"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator, client, serial, "cable_settings")
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Unavailable only on an explicit ``isChangeAllowed: false``."""
+        if not super().available or self.coordinator.data is None:
+            return False
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.cable_settings is None:
+            return True
+        return settings.cable_settings.is_change_allowed
+
+    @property
+    def options(self) -> list[str]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """The charger's reported ``allowedValues``, verbatim and in order.
+
+        No fallback list: we have observed exactly one charger, and offering
+        an unverified option would invite a write the charger may reject.
+        """
+        if self.coordinator.data is None:
+            return []
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.cable_settings is None:
+            return []
+        return list(settings.cable_settings.allowed_values)
+
+    @property
+    def current_option(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return None
+        settings = self.coordinator.data.user_settings.get(self._serial)
+        if settings is None or settings.cable_settings is None:
+            return None
+        return settings.cable_settings.value
+
+    async def async_select_option(self, option: str) -> None:
+        # Sparse PUT: ``SetUserSettings$$serializer.java``:43 names the key
+        # ``cableSettings``, typed ``String?`` and optional.
+        await self.coordinator.request_command(
+            self._client.set_user_settings,
+            self._serial,
+            {"cableSettings": option},
+        )
+
+
+class RatioActiveVehicleSelect(_RatioSelectBase):
+    """Select for the active vehicle.
+
+    The cloud has no per-charger "default vehicle" setting; this is a
+    HA-side preference used as the default vehicle for ``start_charge``
+    when no explicit ``vehicle_id`` is provided, persisted across
+    restarts via ``async_save_preferences()``.
+    """
+
+    _attr_translation_key = "active_vehicle"
+    _attr_name = "Active vehicle"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator, client, serial, "active_vehicle")
+
+    def _display_names(self) -> dict[str, str]:
+        """Map vehicle_id -> display name, disambiguating duplicates."""
+        if self.coordinator.data is None:
+            return {}
+        raw_names: dict[str, str] = {}
+        for v in self.coordinator.data.vehicles:
+            if (vid := v.vehicle_id) is None:
+                continue
+            raw_names[vid] = v.vehicle_name or vid
+        # Find duplicates
+        from collections import Counter
+
+        counts = Counter(raw_names.values())
+        result: dict[str, str] = {}
+        for vid, name in raw_names.items():
+            if counts[name] > 1:
+                result[vid] = f"{name} ({vid})"
+            else:
+                result[vid] = name
+        return result
+
+    def _name_for(self, vehicle_id: str | None) -> str | None:
+        if vehicle_id is None:
+            return None
+        names = self._display_names()
+        return names.get(vehicle_id, vehicle_id)
+
+    @property
+    def options(self) -> list[str]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return list(self._display_names().values())
+
+    @property
+    def current_option(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        preferred = self.coordinator.preferred_vehicle.get(self._serial)
+        if preferred is not None:
+            return self._name_for(preferred)
+        if self.coordinator.data is None:
+            return None
+        ov = self.coordinator.data.chargers.get(self._serial)
+        if ov is None or ov.charge_session_status is None:
+            return None
+        return self._name_for(ov.charge_session_status.vehicle_id)
+
+    async def async_select_option(self, option: str) -> None:
+        names = self._display_names()
+        for vid, display in names.items():
+            if display == option:
+                await self.coordinator.async_set_preferred_vehicle(self._serial, vid)
+                self.async_write_ha_state()
+                return
+        _LOGGER.warning(
+            "active_vehicle option %s did not match any known vehicle", option
+        )
+
+
+class RatioCpmsSelect(_RatioSelectBase):
+    """Select for the configured CPMS (Central Point Management System).
+
+    Options come from the operator-provided list endpoint. Falls back to
+    showing the currently-configured CPMS as the sole option when the list
+    endpoint returns empty or errors.
+    """
+
+    _attr_translation_key = "cpms"
+    _attr_name = "CPMS"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator, client, serial, "cpms")
+
+    def _available_options(self) -> list[CpmsConfig]:
+        if self.coordinator.data is None:
+            return []
+        opts = self.coordinator.data.cpms_options.get(self._serial)
+        if opts:
+            return [opt for opt in opts if _is_writable(opt)]
+        # Fallback: use the currently-configured CPMS as a single option.
+        settings = self.coordinator.data.ocpp_settings.get(self._serial)
+        if (
+            settings is not None
+            and settings.cpms is not None
+            and _is_writable(settings.cpms)
+        ):
+            return [settings.cpms]
+        return []
+
+    @property
+    def available(self) -> bool:
+        if not super().available or self.coordinator.data is None:
+            return False
+        settings = self.coordinator.data.ocpp_settings.get(self._serial)
+        if settings is None:
+            return False
+        return settings.cpms_status.is_change_allowed
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return None
+        settings = self.coordinator.data.ocpp_settings.get(self._serial)
+        if settings is None:
+            return None
+        reason = settings.cpms_status.change_not_allowed_reason
+        if reason is not None:
+            return {"change_not_allowed_reason": reason}
+        return None
+
+    def _option_label(self, opt: CpmsConfig) -> str:
+        """Return a unique human-readable label for a CPMS option."""
+        label = opt.central_system or opt.url or ""
+        # Disambiguate duplicate central_system names by appending the URL.
+        others = [o for o in self._available_options() if o is not opt]
+        if any((o.central_system or o.url or "") == label for o in others):
+            label = f"{label} ({opt.url})" if opt.url else label
+        return label
+
+    @property
+    def options(self) -> list[str]:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return [self._option_label(opt) for opt in self._available_options()]
+
+    @property
+    def current_option(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if self.coordinator.data is None:
+            return None
+        settings = self.coordinator.data.ocpp_settings.get(self._serial)
+        if settings is None or settings.cpms is None:
+            return None
+        configured_url = settings.cpms.url
+        for opt in self._available_options():
+            if opt.url == configured_url:
+                return self._option_label(opt)
+        return settings.cpms.central_system or settings.cpms.url
+
+    async def async_select_option(self, option: str) -> None:
+        for opt in self._available_options():
+            if self._option_label(opt) == option:
+                # Sparse PUT: only ``cpms``. ``SetInstallerOcppSettings``
+                # declares all three elements optional and nullable, so
+                # re-sending the cached document would reassert values this
+                # entity does not own.
+                await self.coordinator.request_command(
+                    self._client.set_ocpp_settings,
+                    self._serial,
+                    OcppSettingsUpdate(cpms=opt),
+                )
+                return
+        _LOGGER.warning("cpms option %s did not match any known CPMS", option)

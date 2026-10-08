@@ -1,0 +1,308 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ratio EV Charging",
+        "description": "Sign in with the email and password you use in the Ratio mobile app.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        },
+        "data_description": {
+          "email": "The email address you use to sign in to the Ratio mobile app.",
+          "password": "The password for your Ratio account."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Ratio",
+        "description": "Re-enter the password for {email}.",
+        "data": {
+          "password": "Password"
+        },
+        "data_description": {
+          "password": "The updated password for your Ratio account."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Ratio EV Charging",
+        "description": "Update the credentials for your Ratio account.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        },
+        "data_description": {
+          "email": "The email address you use to sign in to the Ratio mobile app.",
+          "password": "The password for your Ratio account."
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Enable Bluetooth for Ratio charger {serial}? This allows per-phase voltage and current sensors and local Wi-Fi recovery. You must have already paired the charger with this device via Bluetooth settings.",
+        "title": "Ratio Charger Bluetooth"
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Failed to connect to the Ratio cloud.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Ratio account is already configured.",
+      "reauth_successful": "Re-authentication successful.",
+      "account_mismatch": "The email address does not match the original account. To use a different account, remove and re-add the integration.",
+      "not_supported": "This device is not a Ratio EV charger.",
+      "cloud_account_required": "No Ratio cloud account is configured for this charger. Set up the Ratio integration first.",
+      "ble_already_configured": "Bluetooth is already enabled for charger {serial}.",
+      "ble_configured": "Bluetooth enabled for charger {serial}. The integration will reload."
+    }
+  },
+  "options": {
+    "step": {
+      "charger": {
+        "title": "Ratio Charger {serial}",
+        "description": "Uncheck Enable Bluetooth to disable BLE for this charger. Poll period controls how often BLE sensor values refresh; default 3 s matches the Ratio app.",
+        "data": {
+          "enabled": "Enable Bluetooth",
+          "poll_period_s": "BLE poll period (seconds)"
+        },
+        "data_description": {
+          "poll_period_s": "Lower values give faster sensor refresh on capable proxy setups; higher values reduce radio activity."
+        }
+      }
+    },
+    "abort": {
+      "no_ble_chargers": "No Bluetooth-enabled chargers configured."
+    }
+  },
+  "issues": {
+    "ble_not_bonded": {
+      "title": "Ratio charger {serial} not bonded",
+      "description": "Home Assistant cannot connect to the Ratio charger via Bluetooth. Please pair the charger ({serial}) with this device using your operating system's Bluetooth settings, then re-enable Bluetooth in the integration options."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "actual_charging_power": { "name": "Charging power" },
+      "cloud_connection_state": { "name": "Cloud connection state" },
+      "charging_state": { "name": "Charging state" },
+      "firmware_update_status": { "name": "Firmware update status" },
+      "last_session_energy": { "name": "Last session energy" },
+      "last_session_duration": { "name": "Last session duration" },
+      "last_session_started_at": { "name": "Last session started" },
+      "last_session_ended_at": { "name": "Last session ended" },
+      "last_session_vehicle": { "name": "Last session vehicle" },
+      "cpc_serial_number": { "name": "CPC serial number" },
+      "connectivity_serial_number": { "name": "Connectivity serial number" },
+      "hardware_type": { "name": "Hardware type" },
+      "hardware_version": { "name": "Hardware version" },
+      "firmware_version": { "name": "Firmware version" },
+      "connectivity_firmware_version": { "name": "Connectivity firmware version" },
+      "connectivity_hardware_version": { "name": "Connectivity hardware version" },
+      "wifi_ssid": { "name": "WiFi SSID" },
+      "wifi_rssi": { "name": "WiFi signal strength" },
+      "wifi_ip": { "name": "WiFi IP address" },
+      "ethernet_ip": { "name": "Ethernet IP address" },
+      "connection_medium": { "name": "Connection medium" },
+      "cpms_name": { "name": "CPMS name" },
+      "cpms_url": { "name": "CPMS URL" },
+      "charge_point_identifier": { "name": "Charge point identifier" },
+      "voltage_phase_1": { "name": "Voltage phase 1" },
+      "voltage_phase_2": { "name": "Voltage phase 2" },
+      "voltage_phase_3": { "name": "Voltage phase 3" },
+      "current_phase_1": { "name": "Current phase 1" },
+      "current_phase_2": { "name": "Current phase 2" },
+      "current_phase_3": { "name": "Current phase 3" },
+      "ble_protocol_version": { "name": "BLE protocol version" }
+    },
+    "binary_sensor": {
+      "vehicle_connected": { "name": "Vehicle connected" },
+      "charging": { "name": "Charging" },
+      "charge_session_active": { "name": "Session active" },
+      "charging_paused": { "name": "Charging paused" },
+      "error": { "name": "Error" },
+      "charging_disabled": {
+        "name": "Charging disabled",
+        "state_attributes": {
+          "reason": {
+            "name": "Disable reason"
+          }
+        }
+      },
+      "charging_authorized": { "name": "Charging authorized" },
+      "power_reduced_by_dso": { "name": "Power reduced by DSO" },
+      "firmware_update_available": { "name": "Firmware update available" },
+      "firmware_update_allowed": { "name": "Firmware update allowed" },
+      "wifi_connected": { "name": "WiFi connected" },
+      "ethernet_connected": { "name": "Ethernet connected" },
+      "backend_connected": { "name": "Backend connected" },
+      "ocpp_connected": { "name": "OCPP connected" },
+      "time_synchronized": { "name": "Time synchronized" }
+    },
+    "button": {
+      "grant_upgrade_permission": { "name": "Grant upgrade permission" }
+    },
+    "switch": {
+      "charging": { "name": "Charging" },
+      "ocpp_enabled": {
+        "name": "OCPP enabled",
+        "state_attributes": {
+          "change_not_allowed_reason": {
+            "name": "Change not allowed reason"
+          }
+        }
+      }
+    },
+    "select": {
+      "charge_mode": { "name": "Charge mode" },
+      "start_mode": { "name": "Start mode" },
+      "cable_settings": { "name": "Cable settings" },
+      "active_vehicle": { "name": "Active vehicle" },
+      "cpms": {
+        "name": "CPMS",
+        "state_attributes": {
+          "change_not_allowed_reason": {
+            "name": "Change not allowed reason"
+          }
+        }
+      }
+    },
+    "text": {
+      "charge_point_identifier": {
+        "name": "Charge point identifier",
+        "state_attributes": {
+          "change_not_allowed_reason": {
+            "name": "Change not allowed reason"
+          }
+        }
+      }
+    },
+    "number": {
+      "sun_on_delay_minutes": { "name": "Sun on delay" },
+      "sun_off_delay_minutes": { "name": "Sun off delay" },
+      "pure_solar_starting_current": { "name": "Pure solar starting current" },
+      "smart_solar_starting_current": { "name": "Smart solar starting current" },
+      "maximum_charging_current": { "name": "Maximum charging current" },
+      "minimum_charging_current": { "name": "Minimum charging current" }
+    }
+  },
+  "exceptions": {
+    "unknown_device": {
+      "message": "Unknown device {device_id}."
+    },
+    "not_ratio_charger": {
+      "message": "Device {device_id} is not a Ratio charger."
+    },
+    "no_active_config_entry": {
+      "message": "No active Ratio config entry for device {device_id}."
+    },
+    "config_entry_not_found": {
+      "message": "Config entry {entry_id} not found."
+    },
+    "no_config_entry_loaded": {
+      "message": "No Ratio config entry is loaded."
+    },
+    "multiple_accounts": {
+      "message": "Multiple Ratio accounts are configured; this service does not yet support targeting a specific account."
+    },
+    "single_device_required": {
+      "message": "{service} accepts only one device per call; {count} were provided."
+    },
+    "rate_limited": {
+      "message": "{command}: rate limited: {error}"
+    },
+    "connection_error": {
+      "message": "{command}: connection error: {error}"
+    },
+    "command_failed": {
+      "message": "{command} failed: {error}"
+    },
+    "charge_start_not_allowed": {
+      "message": "Charger reports start not allowed (state={state})."
+    },
+    "charge_stop_not_allowed": {
+      "message": "Charger reports stop not allowed (state={state})."
+    },
+    "backfill_overlap": {
+      "message": "Cannot backfill session history: begin_time {begin_time} predates the latest history-import baseline ({baseline}) across affected charger(s) {serials}. Per-charger baselines may differ; choose a begin_time after this latest baseline to satisfy all listed chargers and avoid non-monotonic energy statistics."
+    },
+    "backfill_existing_series": {
+      "message": "Cannot backfill session history for charger(s) {serials}: an external energy statistic series already exists for them. Manual import is only permitted into an empty series, because the recorder overwrites rows by (metadata_id, start) without recalculating later rows -- backfilling into an existing series could silently desynchronize its cumulative sum from reality. Re-adding the integration does not reset this: the statistic id is derived from the charger serial, not the config entry, so the recorder series survives a remove-and-re-add."
+    },
+    "ble_not_enabled": {
+      "message": "Bluetooth is not enabled for charger {serial}."
+    },
+    "ssid_not_found": {
+      "message": "SSID {ssid} was not found in the Wi-Fi scan results."
+    },
+    "ble_connect_failed": {
+      "message": "Could not connect to charger {serial} via Bluetooth: {error}"
+    },
+    "number_value_not_finite": {
+      "message": "{setting}: {value} is not a finite number."
+    },
+    "number_value_not_integer": {
+      "message": "{setting}: {value} must be a whole number; this setting only accepts integers."
+    },
+    "number_value_out_of_range": {
+      "message": "{setting}: {value} is outside the allowed range {minimum}-{maximum}; the request was not applied."
+    },
+    "number_bounds_unknown": {
+      "message": "{setting}: the charger has not reported the allowed range for this setting yet, so {value} was not sent. Wait for the next update from the charger and try again."
+    }
+  },
+  "services": {
+    "start_charge": {
+      "name": "Start charge",
+      "description": "Start a charge session on the targeted Ratio charger."
+    },
+    "stop_charge": {
+      "name": "Stop charge",
+      "description": "Stop the active charge session on the targeted Ratio charger."
+    },
+    "set_schedule": {
+      "name": "Set schedule",
+      "description": "Replace the weekly charge schedule for the targeted Ratio charger.",
+      "fields": {
+        "slots": {
+          "name": "Slots",
+          "description": "List of schedule slots, each with a start time, an end time and a list of weekdays."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether the schedule is active after the times are written. Defaults to true. Set to false to store the times without arming them, or to deactivate a currently active schedule."
+        }
+      }
+    },
+    "add_vehicle": {
+      "name": "Add vehicle",
+      "description": "Register a new vehicle on the Ratio account.",
+      "fields": {
+        "vehicle_name": { "name": "Vehicle name", "description": "Display name for the vehicle." },
+        "license_plate": { "name": "License plate", "description": "Optional license plate." }
+      }
+    },
+    "remove_vehicle": {
+      "name": "Remove vehicle",
+      "description": "Remove a vehicle from the Ratio account.",
+      "fields": {
+        "vehicle_id": { "name": "Vehicle", "description": "The vehicle to remove." }
+      }
+    },
+    "import_session_history": {
+      "name": "Import session history",
+      "description": "Backfill external statistics from completed charge sessions in the chosen window. Only accepted when the charger's energy statistic series is still empty: rejected if begin_time predates the history-import baseline, or if the charger already has any recorder statistics at all. Re-adding the integration does not reset this.",
+      "fields": {
+        "begin_time": { "name": "Begin time", "description": "Start of the window to import." },
+        "end_time": { "name": "End time", "description": "Optional end of the window. Defaults to now." }
+      }
+    },
+    "reconfigure_wifi": {
+      "name": "Reconfigure Wi-Fi",
+      "description": "Reconnect the Ratio charger to a different Wi-Fi network via Bluetooth.",
+      "fields": {
+        "device_id": { "name": "Device", "description": "The Ratio charger to reconfigure." },
+        "ssid": { "name": "SSID", "description": "The Wi-Fi network name (SSID) to connect to." },
+        "password": { "name": "Password", "description": "The Wi-Fi password (leave empty for open networks)." }
+      }
+    }
+  }
+}

@@ -1,0 +1,369 @@
+"""Binary sensor platform for Ratio EV Charging."""
+
+from __future__ import annotations
+
+# Note on ``# pyright: ignore[reportIncompatibleVariableOverride]`` below:
+# HA's ``Entity`` base declares ``available`` (and platform classes declare
+# ``is_on``/``native_value``/``options``/``current_option``/``extra_state_attributes``/etc.)
+# as ``cached_property``. ``CoordinatorEntity.available`` overrides ``Entity``'s
+# with a plain ``@property`` — leaving the two bases declaring the same name in
+# incompatible ways. Our overrides use ``@property`` to match the dynamic
+# semantics that ``CoordinatorEntity`` already relies on; using
+# ``@cached_property`` here would cache values across coordinator updates and
+# break tests. Official HA core integrations (fyta, reolink, snoo, etc.) use
+# the same dynamic-property pattern. The variance error is structurally
+# unavoidable from this side of the HA boundary.
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, cast
+
+from aioratio.models import ChargerOverview
+from aioratio.models.diagnostics import ChargerDiagnostics
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
+)
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from . import RatioConfigEntry
+from .const import ACTIVE_CHARGING_STATES, DOMAIN
+from .coordinator import RatioCoordinator
+
+PARALLEL_UPDATES = 0
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioBinarySensorEntityDescription(BinarySensorEntityDescription):
+    """Describes a Ratio binary sensor."""
+
+    value_fn: Callable[[ChargerOverview], bool | None]
+    attrs_fn: Callable[[ChargerOverview], dict[str, Any]] | None = None
+
+
+def _ind(ov: ChargerOverview) -> Any:
+    return (
+        ov.charger_status.indicators
+        if ov.charger_status is not None and ov.charger_status.indicators is not None
+        else None
+    )
+
+
+def _is_actively_charging(ov: ChargerOverview) -> bool | None:
+    ind = _ind(ov)
+    if ind is None or ind.charging_state is None:
+        return None
+    if ind.is_charging_disabled:
+        return False
+    return ind.charging_state in ACTIVE_CHARGING_STATES
+
+
+BINARY_SENSOR_DESCRIPTIONS: tuple[RatioBinarySensorEntityDescription, ...] = (
+    RatioBinarySensorEntityDescription(
+        key="vehicle_connected",
+        translation_key="vehicle_connected",
+        name="Vehicle connected",
+        device_class=BinarySensorDeviceClass.PLUG,
+        value_fn=lambda ov: _ind(ov).is_vehicle_connected if _ind(ov) else None,
+    ),
+    # NEW (#40): reports whether current is actually flowing, mirroring the
+    # Android app's power-display logic. Distinct from ``charge_session_active``
+    # below, which exposes the raw cloud flag and stays ``on`` through the
+    # post-stop VehicleDetected window.
+    RatioBinarySensorEntityDescription(
+        key="charging",
+        translation_key="charging",
+        name="Charging",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=_is_actively_charging,
+    ),
+    # RENAMED (#40): was user-facing "Charging" — that name now belongs to
+    # the new ``charging`` entity above. Value (``isChargeSessionActive``) is
+    # unchanged, so existing automations referencing the entity continue to
+    # see the same flag they always did. Existing installs keep their
+    # registry-stored entity_id (``..._charging``); fresh installs get
+    # ``..._session_active`` from the new name slug.
+    RatioBinarySensorEntityDescription(
+        key="charge_session_active",
+        translation_key="charge_session_active",
+        name="Session active",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=lambda ov: _ind(ov).is_charge_session_active if _ind(ov) else None,
+    ),
+    RatioBinarySensorEntityDescription(
+        key="charging_paused",
+        translation_key="charging_paused",
+        name="Charging paused",
+        value_fn=lambda ov: _ind(ov).is_charging_paused if _ind(ov) else None,
+    ),
+    RatioBinarySensorEntityDescription(
+        key="error",
+        translation_key="error",
+        name="Error",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=lambda ov: bool(_ind(ov).errors) if _ind(ov) is not None else None,
+    ),
+    RatioBinarySensorEntityDescription(
+        key="charging_disabled",
+        translation_key="charging_disabled",
+        name="Charging disabled",
+        value_fn=lambda ov: _ind(ov).is_charging_disabled if _ind(ov) else None,
+        attrs_fn=lambda ov: (
+            {"reason": _ind(ov).is_charging_disabled_reason}
+            if _ind(ov) is not None and _ind(ov).is_charging_disabled_reason is not None
+            else {}
+        ),
+    ),
+    RatioBinarySensorEntityDescription(
+        key="charging_authorized",
+        translation_key="charging_authorized",
+        name="Charging authorized",
+        value_fn=lambda ov: _ind(ov).is_charging_authorized if _ind(ov) else None,
+    ),
+    RatioBinarySensorEntityDescription(
+        key="power_reduced_by_dso",
+        translation_key="power_reduced_by_dso",
+        name="Power reduced by DSO",
+        value_fn=lambda ov: _ind(ov).is_power_reduced_by_dso if _ind(ov) else None,
+    ),
+)
+
+
+def _fw(ov: ChargerOverview) -> Any:
+    return ov.charger_firmware_status
+
+
+FIRMWARE_BINARY_SENSOR_DESCRIPTIONS: tuple[RatioBinarySensorEntityDescription, ...] = (
+    RatioBinarySensorEntityDescription(
+        key="firmware_update_available",
+        translation_key="firmware_update_available",
+        name="Firmware update available",
+        device_class=BinarySensorDeviceClass.UPDATE,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda ov: (
+            _fw(ov).is_firmware_update_available if _fw(ov) is not None else None
+        ),
+    ),
+    RatioBinarySensorEntityDescription(
+        key="firmware_update_allowed",
+        translation_key="firmware_update_allowed",
+        name="Firmware update allowed",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda ov: (
+            _fw(ov).is_firmware_update_allowed if _fw(ov) is not None else None
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RatioDiagnosticBinarySensorDescription(BinarySensorEntityDescription):
+    """Describes a Ratio diagnostic binary sensor backed by ChargerDiagnostics."""
+
+    value_fn: Callable[[ChargerDiagnostics], bool | None]
+
+
+DIAGNOSTIC_BINARY_SENSOR_DESCRIPTIONS: tuple[
+    RatioDiagnosticBinarySensorDescription, ...
+] = (
+    RatioDiagnosticBinarySensorDescription(
+        key="wifi_connected",
+        translation_key="wifi_connected",
+        name="WiFi connected",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: (
+            d.network_status.wifi.connected
+            if d.network_status and d.network_status.wifi
+            else None
+        ),
+    ),
+    RatioDiagnosticBinarySensorDescription(
+        key="ethernet_connected",
+        translation_key="ethernet_connected",
+        name="Ethernet connected",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: (
+            d.network_status.ethernet.connected
+            if d.network_status and d.network_status.ethernet
+            else None
+        ),
+    ),
+    RatioDiagnosticBinarySensorDescription(
+        key="backend_connected",
+        translation_key="backend_connected",
+        name="Backend connected",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.backend_status.connected if d.backend_status else None,
+    ),
+    RatioDiagnosticBinarySensorDescription(
+        key="ocpp_connected",
+        translation_key="ocpp_connected",
+        name="OCPP connected",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.ocpp_status.connected if d.ocpp_status else None,
+    ),
+    RatioDiagnosticBinarySensorDescription(
+        key="time_synchronized",
+        translation_key="time_synchronized",
+        name="Time synchronized",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        # The cloud diagnostics endpoint omits ``isTimeSynchronized`` on at
+        # least some charger firmwares (verified on a Solar charger). Disable
+        # by default; users on chargers that do report it can enable manually.
+        entity_registry_enabled_default=False,
+        value_fn=lambda d: (
+            d.network_status.is_time_synchronized if d.network_status else None
+        ),
+    ),
+)
+
+
+def _build_binary_sensor_entities(
+    coordinator: RatioCoordinator, serial: str
+) -> list[RatioBinarySensor]:
+    return [
+        RatioBinarySensor(coordinator, serial, desc)
+        for desc in (*BINARY_SENSOR_DESCRIPTIONS, *FIRMWARE_BINARY_SENSOR_DESCRIPTIONS)
+    ]
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: RatioConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Ratio binary sensors from a config entry."""
+    coordinator = entry.runtime_data.coordinator
+    known: set[str] = set()
+
+    @callback
+    def _add_new() -> None:
+        if coordinator.data is None:
+            return
+        new = set(coordinator.data.chargers) - known
+        if not new:
+            return
+        entities: list[BinarySensorEntity] = []
+        for serial in new:
+            entities.extend(_build_binary_sensor_entities(coordinator, serial))
+            entities.extend(
+                RatioDiagnosticBinarySensor(coordinator, serial, desc)
+                for desc in DIAGNOSTIC_BINARY_SENSOR_DESCRIPTIONS
+            )
+        known.update(new)
+        async_add_entities(entities)
+
+    _add_new()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new))
+
+
+class RatioDiagnosticBinarySensor(
+    CoordinatorEntity[RatioCoordinator], BinarySensorEntity
+):
+    """A diagnostic binary sensor reading ChargerDiagnostics data."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        serial: str,
+        description: RatioDiagnosticBinarySensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self._serial = serial
+        self.entity_description = description
+        self._attr_unique_id = f"{serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def _diagnostics(self) -> ChargerDiagnostics | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.diagnostics.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available and self._diagnostics is not None
+
+    @property
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        diag = self._diagnostics
+        if diag is None:
+            return None
+        desc = cast(RatioDiagnosticBinarySensorDescription, self.entity_description)
+        try:
+            return desc.value_fn(diag)
+        except AttributeError:
+            return None
+
+
+class RatioBinarySensor(CoordinatorEntity[RatioCoordinator], BinarySensorEntity):
+    """A single binary sensor backed by the Ratio coordinator."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        serial: str,
+        description: RatioBinarySensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self._serial = serial
+        self.entity_description = description
+        self._attr_unique_id = f"{serial}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def _overview(self) -> ChargerOverview | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.chargers.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available and self._overview is not None
+
+    @property
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        ov = self._overview
+        if ov is None:
+            return None
+        desc = cast(RatioBinarySensorEntityDescription, self.entity_description)
+        try:
+            return desc.value_fn(ov)
+        except AttributeError:
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        desc = cast(RatioBinarySensorEntityDescription, self.entity_description)
+        attrs_fn = desc.attrs_fn
+        if attrs_fn is None:
+            return None
+        ov = self._overview
+        if ov is None:
+            return None
+        try:
+            return attrs_fn(ov) or None
+        except AttributeError:
+            return None

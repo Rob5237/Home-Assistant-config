@@ -1,0 +1,1011 @@
+"""DataUpdateCoordinator for the Ratio integration."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+import random
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from datetime import datetime as _datetime_type
+from datetime import timedelta
+from typing import Any
+
+from aioratio import RatioClient
+from aioratio.exceptions import (
+    RatioApiError,
+    RatioAuthError,
+    RatioConnectionError,
+    RatioRateLimitError,
+)
+from aioratio.models import (
+    ChargerOverview,
+    CpmsConfig,
+    InstallerOcppSettings,
+    SolarSettings,
+    UserSettings,
+    Vehicle,
+)
+from aioratio.models.diagnostics import ChargerDiagnostics
+from aioratio.models.history import Session
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    HomeAssistantError,
+    ServiceValidationError,
+)
+from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.storage import Store
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
+
+from .const import (
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    POST_WRITE_SETTLE_SECONDS,
+    STORAGE_KEY_PREFERENCES,
+    STORAGE_VERSION,
+)
+from .statistics import (
+    async_get_last_statistic,
+    async_get_last_sum,
+    async_import_sessions,
+    floor_hour_ts,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _is_transient(err: Exception) -> bool:
+    """Whether ``err`` is a connection error or a 5xx API error worth retrying.
+
+    ``RatioRateLimitError`` is a subclass of ``RatioApiError`` but is
+    deliberately excluded even when it carries a 5xx-flavoured status — rate
+    limiting has its own backoff handling and must never be retried here.
+    """
+    if isinstance(err, RatioConnectionError):
+        return True
+    if isinstance(err, RatioRateLimitError):
+        return False
+    return (
+        isinstance(err, RatioApiError) and err.status is not None and err.status >= 500
+    )
+
+
+async def _retry_once[T](fetch: Callable[[], Awaitable[T]]) -> T:
+    """Attempt ``fetch``; on a transient error, sleep jittered and try once more.
+
+    The second attempt's error (transient or not) propagates to the caller.
+    """
+    try:
+        return await fetch()
+    except (RatioConnectionError, RatioApiError) as err:
+        if not _is_transient(err):
+            raise
+        await asyncio.sleep(random.uniform(1, 3))
+        return await fetch()
+
+
+class _TransientGraceMixin:
+    """Issue #88: suppress a single consecutive transient update failure.
+
+    ``last_update_stale`` is read by number entities (#69 guard) so a graced
+    cycle, which carries no fresh cloud read, does not clear their pending
+    post-write target. Grace is granted at
+    most once per consecutive run of transient failures — a failure that
+    follows an already-graced one raises ``UpdateFailed`` as usual, so a
+    genuine outage still surfaces. ``_note_success`` resets the counter and
+    records the timestamp used to report cache age in the warning log.
+    """
+
+    last_update_stale: bool
+    _grace_count: int
+    _last_success: _datetime_type | None
+
+    def _init_grace(self) -> None:
+        """Initialise grace state. Call from each subclass's ``__init__``."""
+        self.last_update_stale = False
+        self._grace_count = 0
+        self._last_success = None
+
+    def _note_success(self) -> None:
+        """Record a successful update, resetting the grace counter."""
+        self._grace_count = 0
+        self.last_update_stale = False
+        self._last_success = dt_util.utcnow()
+
+    def _try_grace(self, what: str, err: Exception, cached: object | None) -> bool:
+        """Return True if this failure is graced (caller must return its cached data)."""
+        if cached is None or not _is_transient(err) or self._grace_count != 0:
+            return False
+        self._grace_count += 1
+        self.last_update_stale = True
+        age = (
+            dt_util.utcnow() - self._last_success
+            if self._last_success is not None
+            else None
+        )
+        _LOGGER.warning(
+            "%s failed after retry, using cached data (age: %s): %s",
+            what,
+            age,
+            err,
+        )
+        return True
+
+
+@dataclass
+class RatioData:
+    """Aggregate state cached by the coordinator each cycle."""
+
+    chargers: dict[str, ChargerOverview] = field(default_factory=dict)
+    user_settings: dict[str, UserSettings] = field(default_factory=dict)
+    solar_settings: dict[str, SolarSettings] = field(default_factory=dict)
+    vehicles: list[Vehicle] = field(default_factory=list)
+    diagnostics: dict[str, ChargerDiagnostics] = field(default_factory=dict)
+    ocpp_settings: dict[str, InstallerOcppSettings] = field(default_factory=dict)
+    cpms_options: dict[str, list[CpmsConfig]] = field(default_factory=dict)
+
+
+class RatioCoordinator(_TransientGraceMixin, DataUpdateCoordinator[RatioData]):
+    """Coordinator that polls the Ratio cloud for charger state, settings, and vehicles."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: RatioClient,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=f"{DOMAIN}_{entry.entry_id}",
+            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+        )
+        self.client = client
+        self.entry = entry
+        # Per-charger HA-side preferred vehicle for the next start_charge call.
+        # Persisted via HA Store; loaded in async_load_preferences().
+        self.preferred_vehicle: dict[str, str] = {}
+        # Serialise mutate-then-save sequences so concurrent select-option
+        # changes (or a refresh-time prune racing a manual save) cannot leave
+        # the on-disk file out of sync with in-memory state.
+        self._prefs_lock = asyncio.Lock()
+        # Track last CPMS fetch time; refresh at most every 10 minutes.
+        self._cpms_last_fetch: _datetime_type | None = None
+        # Issue #88: grace a single consecutive transient chargers_overview
+        # failure (after its own retry) by returning cached data instead of
+        # flipping every entity to unavailable for one poll.
+        self._init_grace()
+        # Pending post-write settle refresh, if any. See POST_WRITE_SETTLE_SECONDS.
+        self._settle_unsub: CALLBACK_TYPE | None = None
+        self._prefs_store: Store[dict[str, Any]] = Store(
+            hass,
+            STORAGE_VERSION,
+            f"{DOMAIN}.{entry.entry_id}.{STORAGE_KEY_PREFERENCES}",
+        )
+
+    async def async_load_preferences(self) -> None:
+        """Load persisted preferred_vehicle map from disk. Empty store -> {}."""
+        stored = await self._prefs_store.async_load()
+        if isinstance(stored, dict):
+            pv = stored.get("preferred_vehicle")
+            if isinstance(pv, dict):
+                # Only keep string -> string entries to be defensive.
+                self.preferred_vehicle = {
+                    str(k): str(v) for k, v in pv.items() if isinstance(v, str)
+                }
+
+    async def async_save_preferences(self) -> None:
+        """Persist preferred_vehicle map to disk.
+
+        Holds ``_prefs_lock`` so a concurrent locked mutation cannot snapshot
+        the dict mid-update. Mutate-then-save callers should prefer one of
+        the dedicated helpers (``async_set_preferred_vehicle``,
+        ``async_remove_preferred_vehicle_id``) which keep the mutation and
+        the save inside a single critical section.
+        """
+        async with self._prefs_lock:
+            await self._prefs_store.async_save(
+                {"preferred_vehicle": dict(self.preferred_vehicle)}
+            )
+
+    async def async_set_preferred_vehicle(self, serial: str, vehicle_id: str) -> None:
+        """Atomically update and persist the preferred vehicle for ``serial``."""
+        async with self._prefs_lock:
+            self.preferred_vehicle[serial] = vehicle_id
+            await self._prefs_store.async_save(
+                {"preferred_vehicle": dict(self.preferred_vehicle)}
+            )
+
+    async def async_remove_preferred_vehicle_id(self, vehicle_id: str) -> None:
+        """Atomically drop every preferred_vehicle entry pointing at ``vehicle_id``.
+
+        Used by the ``remove_vehicle`` service handler to keep the mutation
+        and the persistence step inside the same lock-acquired critical
+        section.
+        """
+        async with self._prefs_lock:
+            stale = [
+                s for s, vid in self.preferred_vehicle.items() if vid == vehicle_id
+            ]
+            if not stale:
+                return
+            for s in stale:
+                self.preferred_vehicle.pop(s, None)
+            await self._prefs_store.async_save(
+                {"preferred_vehicle": dict(self.preferred_vehicle)}
+            )
+
+    async def _async_update_data(self) -> RatioData:
+        """Fetch chargers, then per-charger user/solar settings + vehicles in parallel."""
+        try:
+            overviews = await _retry_once(self.client.chargers_overview)
+        except RatioAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except RatioRateLimitError as err:
+            # Subclass of RatioApiError — must be caught first.
+            raise UpdateFailed(f"rate limited; backing off: {err}") from err
+        except (RatioConnectionError, RatioApiError) as err:
+            # Issue #88: a transient failure that survives the retry above is
+            # graced for one cycle (cached data kept, entities stay available).
+            if self._try_grace("chargers_overview", err, self.data):
+                return self.data
+            raise UpdateFailed(str(err)) from err
+
+        self._note_success()
+
+        chargers = {ov.serial_number: ov for ov in overviews}
+        prev: RatioData | None = self.data
+
+        async def _settings(serial: str) -> tuple[str, UserSettings | None]:
+            try:
+                return serial, await self.client.user_settings(serial)
+            except RatioRateLimitError:
+                # Re-raise so the whole cycle fails with UpdateFailed and HA
+                # applies its built-in backoff — better than silently dropping
+                # settings refreshes every poll.
+                raise
+            except (RatioConnectionError, RatioApiError) as err:
+                _LOGGER.debug("user_settings(%s) failed: %s", serial, err)
+                return serial, None
+
+        async def _solar(serial: str) -> tuple[str, SolarSettings | None]:
+            try:
+                return serial, await self.client.solar_settings(serial)
+            except RatioRateLimitError:
+                raise
+            except (RatioConnectionError, RatioApiError) as err:
+                _LOGGER.debug("solar_settings(%s) failed: %s", serial, err)
+                return serial, None
+
+        async def _vehicles() -> list[Vehicle] | None:
+            try:
+                return await self.client.vehicles()
+            except RatioRateLimitError:
+                raise
+            except (RatioConnectionError, RatioApiError) as err:
+                _LOGGER.debug("vehicles() failed: %s", err)
+                return None
+
+        async def _diagnostics(serial: str) -> tuple[str, ChargerDiagnostics | None]:
+            try:
+                return serial, await self.client.diagnostics(serial)
+            except RatioRateLimitError:
+                raise
+            except (RatioConnectionError, RatioApiError) as err:
+                _LOGGER.debug("diagnostics(%s) failed: %s", serial, err)
+                return serial, None
+
+        async def _ocpp_settings(
+            serial: str,
+        ) -> tuple[str, InstallerOcppSettings | None]:
+            try:
+                return serial, await self.client.ocpp_settings(serial)
+            except RatioRateLimitError:
+                raise
+            except (RatioConnectionError, RatioApiError) as err:
+                _LOGGER.debug("ocpp_settings(%s) failed: %s", serial, err)
+                return serial, None
+
+        async def _cpms_options(serial: str) -> tuple[str, list[CpmsConfig] | None]:
+            try:
+                return serial, await self.client.cpms_options(serial)
+            except RatioRateLimitError:
+                raise
+            except (RatioConnectionError, RatioApiError) as err:
+                _LOGGER.debug("cpms_options(%s) failed: %s", serial, err)
+                return serial, None
+
+        # Refresh CPMS at most every 10 minutes regardless of how many
+        # coordinator updates occur (command-triggered refreshes advance
+        # the old tick counter too quickly). Only commit the timestamp once
+        # the gather has actually returned — a rate-limit (or any failure)
+        # mid-gather must not consume the backoff window.
+        now = dt_util.utcnow()
+        fetch_cpms = self._cpms_last_fetch is None or (
+            now - self._cpms_last_fetch
+        ) >= timedelta(minutes=10)
+
+        try:
+            (
+                settings_results,
+                solar_results,
+                vehicles_result,
+                diagnostics_results,
+                ocpp_results,
+                cpms_results,
+            ) = await asyncio.gather(
+                asyncio.gather(*(_settings(s) for s in chargers)),
+                asyncio.gather(*(_solar(s) for s in chargers)),
+                _vehicles(),
+                asyncio.gather(*(_diagnostics(s) for s in chargers)),
+                asyncio.gather(*(_ocpp_settings(s) for s in chargers)),
+                asyncio.gather(*(_cpms_options(s) for s in chargers))
+                if fetch_cpms
+                else asyncio.gather(),
+            )
+        except RatioRateLimitError as err:
+            raise UpdateFailed(f"rate limited; backing off: {err}") from err
+
+        if fetch_cpms:
+            self._cpms_last_fetch = now
+
+        user_settings: dict[str, UserSettings] = {}
+        for serial, settings in settings_results:
+            if settings is not None:
+                user_settings[serial] = settings
+            elif prev is not None and serial in prev.user_settings:
+                user_settings[serial] = prev.user_settings[serial]
+
+        solar_settings: dict[str, SolarSettings] = {}
+        for solar_serial, solar_setting in solar_results:
+            if solar_setting is not None:
+                solar_settings[solar_serial] = solar_setting
+            elif prev is not None and solar_serial in prev.solar_settings:
+                solar_settings[solar_serial] = prev.solar_settings[solar_serial]
+
+        vehicles = (
+            vehicles_result
+            if vehicles_result is not None
+            else (prev.vehicles if prev is not None else [])
+        )
+
+        diagnostics: dict[str, ChargerDiagnostics] = {}
+        for serial, diag in diagnostics_results:
+            if diag is not None:
+                diagnostics[serial] = diag
+            elif prev is not None and serial in prev.diagnostics:
+                diagnostics[serial] = prev.diagnostics[serial]
+
+        ocpp_settings_map: dict[str, InstallerOcppSettings] = {}
+        for serial, ocpp in ocpp_results:
+            if ocpp is not None:
+                ocpp_settings_map[serial] = ocpp
+            elif prev is not None and serial in prev.ocpp_settings:
+                ocpp_settings_map[serial] = prev.ocpp_settings[serial]
+
+        cpms_options_map: dict[str, list[CpmsConfig]] = {}
+        if fetch_cpms:
+            for serial, opts in cpms_results:
+                if opts is not None:
+                    cpms_options_map[serial] = opts
+                elif prev is not None and serial in prev.cpms_options:
+                    cpms_options_map[serial] = prev.cpms_options[serial]
+        elif prev is not None:
+            cpms_options_map = dict(prev.cpms_options)
+
+        # Drop preferred_vehicle entries whose charger is no longer reported by
+        # the cloud — keeps the persisted dict bounded over years of polling
+        # as users add and remove devices from their account.
+        stale = set(self.preferred_vehicle) - set(chargers)
+        if stale:
+            async with self._prefs_lock:
+                for serial in stale:
+                    self.preferred_vehicle.pop(serial, None)
+                await self._prefs_store.async_save(
+                    {"preferred_vehicle": dict(self.preferred_vehicle)}
+                )
+
+        return RatioData(
+            chargers=chargers,
+            user_settings=user_settings,
+            solar_settings=solar_settings,
+            vehicles=vehicles,
+            diagnostics=diagnostics,
+            ocpp_settings=ocpp_settings_map,
+            cpms_options=cpms_options_map,
+        )
+
+    async def request_command(
+        self,
+        fn: Callable[..., Awaitable[Any]],
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any:
+        """Run a charger command and schedule an immediate refresh."""
+        name = getattr(fn, "__name__", "command")
+        try:
+            result = await fn(*args, **kwargs)
+        except RatioRateLimitError as err:
+            # Don't trigger an immediate refresh — it would just hit 429 again.
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="rate_limited",
+                translation_placeholders={"command": name, "error": str(err)},
+            ) from err
+        except RatioConnectionError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="connection_error",
+                translation_placeholders={"command": name, "error": str(err)},
+            ) from err
+        except RatioApiError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={"command": name, "error": str(err)},
+            ) from err
+        self._schedule_settle_refresh()
+        return result
+
+    @callback
+    def _schedule_settle_refresh(self) -> None:
+        """(Re)arm the confirming refresh for POST_WRITE_SETTLE_SECONDS from now.
+
+        Deliberately *not* routed through ``async_request_refresh()``. HA's
+        request-refresh debouncer is the wrong instrument for this in two
+        independent ways:
+
+        * Non-immediate, it anchors its timer to the **first** call of a burst
+          — ``Debouncer._async_schedule_or_call_now`` only flips
+          ``_execute_at_end_of_timer`` when a timer already exists and never
+          reschedules. Writes at t=0 and t=9 would refresh at t=10, one second
+          after the second write and still inside the propagation window.
+        * ``DataUpdateCoordinator._async_refresh`` calls
+          ``self._debounced_refresh.async_cancel()``, which clears
+          ``_execute_at_end_of_timer``. Any ordinary poll landing inside the
+          settle window would silently swallow the confirming read, leaving the
+          pre-write value on screen until the *next* poll.
+
+        A dedicated one-shot fixes both: it is re-armed from the latest write,
+        and a poll cannot consume it. It still delegates the actual refresh to
+        ``async_request_refresh()`` so the debouncer's execute lock continues
+        to serialise refreshes.
+        """
+        self._async_cancel_settle_refresh()
+        self._settle_unsub = async_call_later(
+            self.hass, POST_WRITE_SETTLE_SECONDS, self._async_settle_refresh
+        )
+
+    @callback
+    def _async_cancel_settle_refresh(self) -> None:
+        if self._settle_unsub is not None:
+            self._settle_unsub()
+            self._settle_unsub = None
+
+    async def _async_settle_refresh(self, _now: _datetime_type) -> None:
+        """Read back the written document once the cloud has propagated it."""
+        self._settle_unsub = None
+        await self.async_request_refresh()
+
+    async def async_shutdown(self) -> None:
+        """Cancel the pending settle refresh along with the usual teardown."""
+        self._async_cancel_settle_refresh()
+        await super().async_shutdown()
+
+
+# ---------------------------------------------------------------------------
+# History coordinator
+# ---------------------------------------------------------------------------
+
+HISTORY_SCAN_INTERVAL = 300  # 5 minutes
+STORAGE_KEY_HISTORY = "history"
+HISTORY_BACKFILL_DAYS = 30
+HISTORY_OVERLAP_SECONDS = 3600  # 1-hour overlap on incremental polls
+# Cap the dedup ID set so it can't grow unbounded across years of polling.
+DEDUP_ID_LIMIT = 2000
+# How many recent sessions to persist so they survive a HA restart.
+HISTORY_PERSIST_SESSIONS = 50
+
+
+def _session_begin(session: Session) -> int:
+    """Return the begin epoch-seconds for a session, defaulting to 0."""
+    if session.begin is not None and session.begin.time:
+        return int(session.begin.time)
+    return 0
+
+
+class RatioHistoryCoordinator(
+    _TransientGraceMixin, DataUpdateCoordinator[dict[str, list[Session]]]
+):
+    """Polls the Ratio cloud for completed charge sessions and feeds external statistics.
+
+    Keyed by charger serial; values are lists of recent ``Session`` objects sorted by
+    begin time. Pagination state and a small dedup set of recently-seen session IDs
+    are persisted in HA storage so restarts don't re-import or skip sessions.
+    """
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: RatioClient,
+        entry: ConfigEntry,
+        main_coordinator: RatioCoordinator,
+    ) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=f"{DOMAIN}_{entry.entry_id}_history",
+            update_interval=timedelta(seconds=HISTORY_SCAN_INTERVAL),
+        )
+        self.client = client
+        self.entry = entry
+        self._main_coordinator = main_coordinator
+        self._store: Store[dict[str, Any]] = Store(
+            hass,
+            STORAGE_VERSION,
+            f"{DOMAIN}.{entry.entry_id}.{STORAGE_KEY_HISTORY}",
+        )
+        # Per-serial state. Hydrated by ``async_load`` before first refresh.
+        self._last_imported_end_time: dict[str, int] = {}
+        # Fallback "how far back to look" anchor for chargers that have not
+        # yet produced any completed sessions. Distinct from the cursor above
+        # so an empty-poll advance never shrinks the fetch window past a real
+        # session's begin time (issue #26). Without this, a brand-new charger
+        # would re-fetch the full HISTORY_BACKFILL_DAYS window every poll.
+        self._empty_poll_watermark: dict[str, int] = {}
+        self._seen_ids: dict[str, list[str]] = {}
+        self._running_total: dict[str, float] = {}
+        # Recent sessions persisted to survive HA restarts (self.data is None
+        # on first refresh after restart; this seeds the surface list).
+        self._persisted_sessions: dict[str, list[Session]] = {}
+        self._loaded = False
+        # One-shot recovery is deferred until the first poll (background task)
+        # so config-entry setup is not blocked by a cloud fetch.
+        self._recovery_attempted = False
+        # Issue #88: grace a single consecutive transient session_history
+        # failure (after its own retry) by returning the cached sessions dict
+        # instead of flipping statistics/last-session sensors unavailable.
+        self._init_grace()
+
+    async def async_load(self) -> None:
+        """Hydrate persisted pagination + dedup + running-total state from disk."""
+        stored = await self._store.async_load()
+        if isinstance(stored, dict):
+            lie = stored.get("last_imported_end_time")
+            if isinstance(lie, dict):
+                self._last_imported_end_time = {
+                    str(k): int(v)
+                    for k, v in lie.items()
+                    if isinstance(v, (int, float))
+                }
+            seen = stored.get("seen_ids")
+            if isinstance(seen, dict):
+                self._seen_ids = {
+                    str(k): [str(x) for x in v]
+                    for k, v in seen.items()
+                    if isinstance(v, list)
+                }
+            rt = stored.get("running_total")
+            if isinstance(rt, dict):
+                self._running_total = {
+                    str(k): float(v)
+                    for k, v in rt.items()
+                    if isinstance(v, (int, float))
+                }
+            epw = stored.get("empty_poll_watermark")
+            if isinstance(epw, dict):
+                self._empty_poll_watermark = {
+                    str(k): int(v)
+                    for k, v in epw.items()
+                    if isinstance(v, (int, float))
+                }
+            raw_sessions = stored.get("sessions")
+            if isinstance(raw_sessions, dict):
+                for serial_key, raw_list in raw_sessions.items():
+                    if not isinstance(raw_list, list):
+                        continue
+                    parsed: list[Session] = []
+                    for raw_s in raw_list:
+                        if isinstance(raw_s, dict):
+                            with contextlib.suppress(Exception):
+                                parsed.append(Session.from_dict(raw_s))
+                    self._persisted_sessions[str(serial_key)] = parsed
+        # Self-heal for installs already affected by issue #26: pre-fix
+        # versions advanced ``_last_imported_end_time`` to ``now`` on empty
+        # polls, drifting the cursor arbitrarily far past any actual session.
+        # Snap it back to the latest persisted session end so the next poll's
+        # overlap window is anchored to real data, not stale drift.
+        for serial, sessions in self._persisted_sessions.items():
+            if not sessions:
+                continue
+            latest_end = max(
+                (int(s.end.time) for s in sessions if s.end and s.end.time),
+                default=0,
+            )
+            if latest_end and self._last_imported_end_time.get(serial, 0) > latest_end:
+                self._last_imported_end_time[serial] = latest_end
+        self._loaded = True
+
+    async def _recover_missing_sessions(self, serials: list[str]) -> None:
+        """One-shot backfill of the persisted-sessions cache after upgrade.
+
+        Older versions of the integration advanced ``_last_imported_end_time``
+        and populated ``_seen_ids`` but never persisted the surfaced
+        ``sessions`` list. After the persistence fix shipped, those users
+        ended up trapped: every poll fetched only the 1-hour overlap window,
+        dedup killed every result, and the empty list got re-persisted
+        forever — ``last_session_*`` sensors stuck on "unknown".
+
+        Detect the bad state (``seen_ids[serial]`` non-empty but
+        ``_persisted_sessions[serial]`` empty) and re-fetch with the full
+        backfill window to seed the cache. Statistics import is intentionally
+        skipped — the sessions already contributed to ``running_total`` in the
+        previous run, and re-importing would break monotonicity. Bookkeeping
+        (``_last_imported_end_time``, ``_seen_ids``, ``_running_total``) is
+        left untouched for the same reason.
+
+        Only serials present in ``serials`` (i.e. still in the user's account)
+        are considered; stale ``_seen_ids`` entries from removed chargers are
+        skipped to avoid unnecessary cloud calls.
+        """
+        now_ts = int(dt_util.utcnow().timestamp())
+        wide_begin = now_ts - HISTORY_BACKFILL_DAYS * 86400
+        for serial in serials:
+            if not self._seen_ids.get(serial):
+                continue
+            if self._persisted_sessions.get(serial):
+                continue
+            try:
+                fetched = await self._fetch_all_pages(serial, wide_begin)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("history recovery fetch failed for %s: %s", serial, err)
+                continue
+            if not fetched:
+                continue
+            recovered = sorted(fetched, key=_session_begin)
+            self._persisted_sessions[serial] = recovered[-HISTORY_PERSIST_SESSIONS:]
+            _LOGGER.info(
+                "history recovery: seeded %d session(s) for %s from cloud backfill",
+                len(self._persisted_sessions[serial]),
+                serial,
+            )
+
+    async def _async_save(self, latest_result: dict[str, list[Session]]) -> None:
+        sessions_to_persist: dict[str, list[dict[str, Any]]] = {
+            serial: [s.to_dict() for s in session_list[-HISTORY_PERSIST_SESSIONS:]]
+            for serial, session_list in latest_result.items()
+        }
+        await self._store.async_save(
+            {
+                "last_imported_end_time": dict(self._last_imported_end_time),
+                "empty_poll_watermark": dict(self._empty_poll_watermark),
+                "seen_ids": {k: list(v) for k, v in self._seen_ids.items()},
+                "running_total": dict(self._running_total),
+                "sessions": sessions_to_persist,
+            }
+        )
+
+    def _begin_time_for(self, serial: str, now_ts: int) -> int:
+        """Compute begin_time for the next session_history call for ``serial``."""
+        last = self._last_imported_end_time.get(serial)
+        if last is not None:
+            return max(0, last - HISTORY_OVERLAP_SECONDS)
+        # No imported sessions yet — use the empty-poll watermark to avoid
+        # re-running the full HISTORY_BACKFILL_DAYS fetch every cycle. The
+        # watermark is a separate field from ``_last_imported_end_time`` so
+        # advancing it here can never shrink the window past a real session
+        # (issue #26).
+        watermark = self._empty_poll_watermark.get(serial)
+        if watermark is not None:
+            return max(0, watermark - HISTORY_OVERLAP_SECONDS)
+        return now_ts - HISTORY_BACKFILL_DAYS * 86400
+
+    async def _fetch_all_pages(
+        self, serial: str, begin_time: int, end_time: int | None = None
+    ) -> list[Session]:
+        """Walk pagination tokens for one charger and return all sessions."""
+        sessions: list[Session] = []
+        next_token: str | None = None
+        while True:
+            kwargs: dict[str, Any] = {
+                "begin_time": begin_time,
+                "serial_number": serial,
+                "next_token": next_token,
+            }
+            if end_time is not None:
+                kwargs["end_time"] = end_time
+            page = await self.client.session_history(**kwargs)
+            sessions.extend(page.sessions)
+            if not page.next_token:
+                break
+            next_token = page.next_token
+        return sessions
+
+    async def async_import_window(
+        self,
+        begin_time: _datetime_type | int,
+        end_time: _datetime_type | int | None = None,
+    ) -> dict[str, int]:
+        """Manually backfill external statistics for the given window.
+
+        Iterates every charger known to the main coordinator, fetches sessions
+        in [begin_time, end_time], and imports them as external statistics.
+        Returns a per-serial count of sessions actually imported.
+
+        Does NOT mutate the regular polling state (``_last_imported_end_time``,
+        ``_seen_ids``, ``_running_total``) — manual imports are intended to fill
+        gaps without disturbing the running totals used by the live poll loop.
+
+        Manual backfill is only permitted into an *empty* statistic series: the
+        recorder overwrites rows by ``(metadata_id, start)`` without
+        recalculating later rows, so writing into a window that precedes (or
+        even follows) existing rows can silently desynchronize the ``sum``
+        column from reality. There is no "insert and recompute" path.
+
+        Raises:
+            ServiceValidationError: if ``begin_time`` predates
+                ``_last_imported_end_time`` for any charger known to the main
+                coordinator (precise message, store-derived), or if any such
+                charger already has recorder statistics at all (recorder-
+                derived — catches the case where the store's baseline was
+                lost, e.g. by a remove-and-re-add, but the recorder series,
+                keyed by serial rather than by config entry, survived).
+        """
+
+        def _to_epoch(v: _datetime_type | int) -> int:
+            if isinstance(v, _datetime_type):
+                return int(v.timestamp())
+            return int(v)
+
+        begin_ts = _to_epoch(begin_time)
+        end_ts = _to_epoch(end_time) if end_time is not None else None
+
+        serials: list[str] = []
+        if self._main_coordinator.data is not None:
+            serials = list(self._main_coordinator.data.chargers.keys())
+
+        overlaps = {
+            serial: last_end
+            for serial in serials
+            if (last_end := self._last_imported_end_time.get(serial, 0)) > 0
+            and begin_ts < last_end
+        }
+        if overlaps:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="backfill_overlap",
+                translation_placeholders={
+                    "serials": ", ".join(sorted(overlaps.keys())),
+                    "begin_time": dt_util.utc_from_timestamp(begin_ts).isoformat(),
+                    "baseline": dt_util.utc_from_timestamp(
+                        max(overlaps.values())
+                    ).isoformat(),
+                },
+            )
+
+        # Strengthened guard: reject whenever the serial's recorder statistic
+        # series already has any rows at all, regardless of where the
+        # requested window falls relative to them. This catches the case the
+        # store-based check above cannot: a store whose baseline was wiped
+        # (e.g. remove-and-re-add of the integration) while the recorder
+        # series — keyed by serial, not by config entry — survived intact.
+        existing_series = [
+            serial
+            for serial in serials
+            if await async_get_last_sum(self.hass, serial) is not None
+        ]
+        if existing_series:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="backfill_existing_series",
+                translation_placeholders={
+                    "serials": ", ".join(sorted(existing_series)),
+                },
+            )
+
+        imported: dict[str, int] = {}
+        for serial in serials:
+            fetched = await self._fetch_all_pages(serial, begin_ts, end_ts)
+            sessions = sorted(fetched, key=_session_begin)
+            if not sessions:
+                imported[serial] = 0
+                continue
+            # A fresh starting_total of 0.0 is correct here: the guard above
+            # proves this serial's statistic series is provably empty, so
+            # there is no existing baseline to preserve or poison.
+            await async_import_sessions(self.hass, serial, sessions, 0.0)
+            imported[serial] = sum(
+                1
+                for s in sessions
+                if s.begin is not None and getattr(s.begin, "time", None)
+            )
+        return imported
+
+    async def _async_update_data(self) -> dict[str, list[Session]]:
+        if not self._loaded:
+            await self.async_load()
+
+        # We need the list of charger serials from the main coordinator.
+        serials: list[str] = []
+        if self._main_coordinator.data is not None:
+            serials = list(self._main_coordinator.data.chargers.keys())
+
+        # First-poll recovery for pre-v0.9.1 storage that has populated
+        # seen_ids but no persisted sessions. Runs here (not in async_load)
+        # so config-entry setup is not blocked by a cloud fetch.
+        if not self._recovery_attempted:
+            await self._recover_missing_sessions(serials)
+            self._recovery_attempted = True
+
+        now_ts = int(dt_util.utcnow().timestamp())
+
+        # Phase 1: fetch every serial before processing any of them. Issue
+        # #88: if a later serial's fetch fails and is graced (or raises
+        # UpdateFailed), no earlier serial may have already had its
+        # statistics imported or its cursor/seen-ids advanced in memory --
+        # otherwise that mutation survives even though ``self.data`` (and the
+        # persisted store) is left holding the old, pre-cycle result, and the
+        # earlier serial's new session is silently dropped on the next
+        # successful cycle (it's in ``_seen_ids`` but not in ``self.data``).
+        # So fetching is fully separated from processing: the only in-memory
+        # write in this loop is the recorder seeding below, which is derived
+        # from the recorder alone (never from anything fetched this cycle).
+        fetch_results: dict[str, tuple[list[Session], int | None]] = {}
+
+        for serial in serials:
+            # Seed before computing the fetch window, so the window itself is
+            # already correct. A remove-and-re-add wipes the whole per-entry_id
+            # store while the per-serial recorder series survives (issue #84):
+            # without this the poll would refetch HISTORY_BACKFILL_DAYS of
+            # already-imported sessions and rewrite their rows. Safe to do
+            # here in the fetch phase even if a later serial's fetch fails
+            # this cycle: it is derived straight from the recorder, not from
+            # anything fetched this cycle, and idempotent to repeat.
+            seeded_hour_ts: int | None = None
+            if (
+                serial not in self._running_total
+                and serial not in self._last_imported_end_time
+            ):
+                # ``recorder`` ships in HA's ``default_config`` but is not a
+                # hard dependency of this integration, so a user running
+                # without ``default_config`` can legitimately have it absent.
+                # No statistics series can possibly exist if the recorder
+                # never ran, so 0.0 is the correct baseline -- short-circuit
+                # here rather than letting ``get_instance`` raise
+                # ``KeyError('recorder_instance')``. A genuine query failure
+                # (recorder loaded, query itself raises) is not caught here
+                # and must still propagate.
+                last = (
+                    await async_get_last_statistic(self.hass, serial)
+                    if "recorder" in self.hass.config.components
+                    else None
+                )
+                if last is not None:
+                    self._running_total[serial] = last.total
+                    seeded_hour_ts = last.start_ts
+                    # _begin_time_for subtracts HISTORY_OVERLAP_SECONDS, so add
+                    # it back to land exactly on the hour after the last row.
+                    self._last_imported_end_time[serial] = (
+                        last.start_ts + 3600 + HISTORY_OVERLAP_SECONDS
+                    )
+
+            begin_time = self._begin_time_for(serial, now_ts)
+
+            async def _fetch(
+                serial: str = serial, begin_time: int = begin_time
+            ) -> list[Session]:
+                return await self._fetch_all_pages(serial, begin_time)
+
+            try:
+                fetched = await _retry_once(_fetch)
+            except RatioAuthError as err:
+                raise ConfigEntryAuthFailed(str(err)) from err
+            except RatioRateLimitError as err:
+                raise UpdateFailed(f"rate limited; backing off: {err}") from err
+            except (RatioConnectionError, RatioApiError) as err:
+                # Issue #88: grace a transient failure for one whole cycle,
+                # same as the main coordinator. Fetching and processing are
+                # split into two phases, so nothing fetched this cycle has
+                # been imported, surfaced, or persisted for any serial and
+                # there is nothing to undo here.
+                if self._try_grace("session_history", err, self.data):
+                    return self.data
+                raise UpdateFailed(str(err)) from err
+
+            fetch_results[serial] = (fetched, seeded_hour_ts)
+
+        # Phase 2: process every successfully fetched serial. Reaching this
+        # point means every serial's fetch above succeeded.
+        result: dict[str, list[Session]] = {}
+
+        for serial, (fetched, seeded_hour_ts) in fetch_results.items():
+            seen = set(self._seen_ids.get(serial, []))
+            new_sessions: list[Session] = []
+            for s in fetched:
+                if s.session_id in seen:
+                    continue
+                seen.add(s.session_id)
+                new_sessions.append(s)
+
+            new_sessions.sort(key=_session_begin)
+            # All newly observed ids are remembered, including any dropped
+            # below, so a dropped session is never reconsidered.
+            new_ids = [s.session_id for s in new_sessions]
+
+            if seeded_hour_ts is not None:
+                # Belt and braces, independent of the cursor arithmetic above:
+                # never write into an hour the recorder already has a row for.
+                # Local to this poll only.
+                new_sessions = [
+                    s
+                    for s in new_sessions
+                    if floor_hour_ts(_session_begin(s)) > seeded_hour_ts
+                ]
+
+            if new_sessions:
+                # Import statistics for the newly observed sessions in chronological order.
+                # The store value is used verbatim -- the recorder is consulted
+                # only by the seeding above, and the two are never combined.
+                self._running_total[serial] = await async_import_sessions(
+                    self.hass,
+                    serial,
+                    new_sessions,
+                    self._running_total.get(serial, 0.0),
+                )
+                # Anchor the cursor to the latest actual session end. We never
+                # advance past data we've imported — see issue #26: an empty
+                # poll during a long charging session must not shrink the next
+                # fetch window past the in-progress session's begin time, or
+                # the completed session would fall outside the overlap window
+                # forever.
+                latest_end = max(
+                    (
+                        s.end.time if s.end and s.end.time else _session_begin(s)
+                        for s in new_sessions
+                    ),
+                    default=self._last_imported_end_time.get(serial, 0),
+                )
+                self._last_imported_end_time[serial] = max(
+                    self._last_imported_end_time.get(serial, 0), int(latest_end)
+                )
+                # Real cursor now anchored — drop the empty-poll fallback so
+                # subsequent polls use the session-end-based window.
+                self._empty_poll_watermark.pop(serial, None)
+            elif serial not in self._last_imported_end_time:
+                # No sessions imported yet for this charger. Advance the
+                # empty-poll watermark so the next poll uses a 1-hour overlap
+                # window instead of the full HISTORY_BACKFILL_DAYS backfill.
+                # Safe to advance freely: ``_last_imported_end_time`` is the
+                # only anchor consulted once a real session exists, so this
+                # cannot reintroduce the issue #26 cursor-drift bug.
+                self._empty_poll_watermark[serial] = now_ts
+
+            # Cap dedup IDs (FIFO).
+            id_list = list(self._seen_ids.get(serial, []))
+            id_list.extend(new_ids)
+            if len(id_list) > DEDUP_ID_LIMIT:
+                id_list = id_list[-DEDUP_ID_LIMIT:]
+            self._seen_ids[serial] = id_list
+
+            # Surface the most recent N sessions to consumers (sorted asc).
+            # Fall back to persisted sessions on first refresh after restart
+            # (self.data is None until the coordinator has completed at least
+            # one successful update).
+            prior = (self.data or self._persisted_sessions).get(serial, [])
+            combined = prior + new_sessions
+            # Deduplicate by session_id while preserving order.
+            unique: dict[str, Session] = {}
+            for s in combined:
+                unique[s.session_id] = s
+            merged = sorted(unique.values(), key=_session_begin)
+            result[serial] = merged[-DEDUP_ID_LIMIT:]
+
+        self._note_success()
+        await self._async_save(result)
+        return result

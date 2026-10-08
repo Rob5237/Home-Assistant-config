@@ -1,0 +1,99 @@
+{
+  "entity": {
+    "sensor": {
+      "cloud_connection_state": {
+        "default": "mdi:cloud-check-outline"
+      },
+      "charging_state": {
+        "default": "mdi:ev-station"
+      },
+      "last_session_vehicle": {
+        "default": "mdi:car"
+      }
+    },
+    "binary_sensor": {
+      "charging_paused": {
+        "default": "mdi:pause-circle-outline"
+      },
+      "charging_disabled": {
+        "default": "mdi:cancel"
+      },
+      "charging_authorized": {
+        "default": "mdi:shield-check-outline"
+      },
+      "power_reduced_by_dso": {
+        "default": "mdi:transmission-tower-off"
+      },
+      "firmware_update_allowed": {
+        "default": "mdi:cellphone-arrow-down"
+      },
+      "wifi_connected": {
+        "default": "mdi:wifi"
+      },
+      "ethernet_connected": {
+        "default": "mdi:ethernet"
+      },
+      "backend_connected": {
+        "default": "mdi:cloud-check-outline"
+      },
+      "ocpp_connected": {
+        "default": "mdi:ev-plug-ccs2"
+      },
+      "time_synchronized": {
+        "default": "mdi:clock-check-outline"
+      }
+    },
+    "select": {
+      "charge_mode": {
+        "default": "mdi:cog"
+      },
+      "start_mode": {
+        "default": "mdi:play-box-outline"
+      },
+      "cable_settings": {
+        "default": "mdi:lock-outline"
+      },
+      "active_vehicle": {
+        "default": "mdi:car-connected"
+      },
+      "cpms": {
+        "default": "mdi:server-network"
+      }
+    },
+    "number": {
+      "sun_on_delay_minutes": {
+        "default": "mdi:weather-sunny-alert"
+      },
+      "sun_off_delay_minutes": {
+        "default": "mdi:weather-sunny-off"
+      },
+      "pure_solar_starting_current": {
+        "default": "mdi:solar-power"
+      },
+      "smart_solar_starting_current": {
+        "default": "mdi:solar-power-variant"
+      },
+      "maximum_charging_current": {
+        "default": "mdi:current-ac"
+      },
+      "minimum_charging_current": {
+        "default": "mdi:current-ac"
+      }
+    },
+    "button": {
+      "grant_upgrade_permission": {
+        "default": "mdi:cellphone-arrow-down"
+      }
+    },
+    "switch": {
+      "ocpp_enabled": {
+        "default": "mdi:ev-plug-ccs2"
+      }
+    },
+    "text": {
+      "charge_point_identifier": {
+        "default": "mdi:identifier"
+      }
+    }
+  }
+}

@@ -6,7 +6,6 @@ from datetime import time as dt_time
 from typing import Any, TypeVar, cast
 
 from homeassistant.core import callback as ha_callback
-from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -15,11 +14,13 @@ from .scalar_helpers import coerce_snapshot_bool
 from .coordinator import EnphaseCoordinator
 from .device_info_helpers import (
     _compose_charger_model_display,
+    _site_configuration_url,
     _is_redundant_model_id,
     _normalize_evse_display_name,
     _normalize_evse_model_name,
 )
 from .log_redaction import redact_identifier, redact_text
+from .runtime_helpers import coerce_optional_text as _clean_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -117,7 +118,11 @@ class EnphaseBaseEntity(
 
     @property
     def available(self) -> bool:
-        return super().available and self._has_data
+        return (
+            super().available
+            and self._has_data
+            and getattr(self._coord, "evse_status_available", True)
+        )
 
     @property
     def data(self) -> dict[str, Any]:
@@ -193,11 +198,12 @@ class EnphaseBaseEntity(
             "manufacturer": "Enphase",
             "name": dev_name,
             "serial_number": str(self._sn),
+            "configuration_url": _site_configuration_url(self._coord.site_id),
         }
         # Optional enrichment when available
         if model_display:
             info_kwargs["model"] = model_display
-        model_id_value = d.get("model_id")
+        model_id_value = _clean_text(d.get("model_id") or model_name_raw)
         if model_id_value and not _is_redundant_model_id(
             info_kwargs.get("model"), model_id_value
         ):
@@ -206,14 +212,6 @@ class EnphaseBaseEntity(
             info_kwargs["hw_version"] = str(d.get("hw_version"))
         if d.get("sw_version"):
             info_kwargs["sw_version"] = str(d.get("sw_version"))
-        mac_address = d.get("mac_address")
-        if mac_address is not None:
-            try:
-                mac_clean = str(mac_address).strip().lower().replace("-", ":")
-            except Exception:  # noqa: BLE001
-                mac_clean = None
-            if mac_clean:
-                info_kwargs["connections"] = {(CONNECTION_NETWORK_MAC, mac_clean)}
         return DeviceInfo(**info_kwargs)
 
 

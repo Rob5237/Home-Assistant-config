@@ -121,6 +121,10 @@ class ActivationAccessDenied(OptionalEndpointUnavailable):
     """Raised when Activation explicitly denies installer-level access."""
 
 
+class ActivationSessionExpired(ActivationAccessDenied):
+    """Raised when the Enlighten session cannot bootstrap Activation access."""
+
+
 @dataclass(slots=True, frozen=True)
 class PayloadFailureSignature:
     """Structured metadata describing an invalid payload response."""
@@ -348,11 +352,14 @@ def _is_enphase_login_wall(
     *,
     endpoint: str | None,
     payload: object,
+    expected_html: bool = False,
 ) -> bool:
     """Return True when a JSON API request received the Enlighten browser login wall."""
 
     endpoint_text = str(endpoint or "").strip()
-    if not endpoint_text.startswith(("/service/", "/app-api/", "/systems/", "/pv/")):
+    if not expected_html and not endpoint_text.startswith(
+        ("/service/", "/app-api/", "/systems/", "/pv/")
+    ):
         return False
     try:
         body = str(payload or "")
@@ -361,6 +368,16 @@ def _is_enphase_login_wall(
     preview = body.lower()
     if "<!doctype html" not in preview and "<html" not in preview:
         return False
+    if expected_html:
+        # Normal authenticated pages share the Enphase branding and consent
+        # scripts. Only actual login controls identify a login wall here.
+        return bool(
+            re.search(
+                r"<form\b[^>]*\baction\s*=\s*['\"][^'\"]*/login(?:[/'\"?])"
+                r"|<input\b[^>]*\btype\s*=\s*['\"]password['\"]",
+                preview,
+            )
+        )
     markers = (
         "window.optanonwrapper",
         "var otlang",

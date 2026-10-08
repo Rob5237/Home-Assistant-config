@@ -16,12 +16,15 @@ import aiohttp
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import dt as dt_util
 
-from .ac_battery_runtime import AcBatteryRuntime
 from .battery_schedule_editor import (
     BatteryScheduleRecord,
     battery_schedule_overlap_message,
     battery_schedule_overlap_placeholders,
     battery_schedule_overlap_record,
+)
+from .battery_grid_helpers import (
+    grid_relay_candidates,
+    normalize_grid_mode_status_value,
 )
 from .battery_runtime_dry_contact import (
     copy_dry_contact_settings_entry,
@@ -35,6 +38,7 @@ from .battery_runtime_dry_contact import (
     normalize_dry_contact_schedule_windows,
     parse_dry_contact_settings_payload,
 )
+from .control_updates import control_readback, current_control_value, tracked_control
 from .const import (
     BATTERY_BACKUP_HISTORY_CACHE_TTL,
     BATTERY_BACKUP_HISTORY_FAILURE_CACHE_TTL,
@@ -49,6 +53,10 @@ from .const import (
     DRY_CONTACT_SETTINGS_FAILURE_CACHE_TTL,
     DRY_CONTACT_SETTINGS_STALE_AFTER_S,
     DOMAIN,
+    DEFAULT_FAST_POLL_INTERVAL,
+    DEFAULT_SLOW_POLL_INTERVAL,
+    OPT_FAST_POLL_INTERVAL,
+    OPT_SLOW_POLL_INTERVAL,
     FAST_TOGGLE_POLL_HOLD_S,
     GRID_CONTROL_CHECK_CACHE_TTL,
     GRID_CONTROL_CHECK_STALE_AFTER_S,
@@ -62,6 +70,7 @@ from .const import (
     STORM_GUARD_CACHE_TTL,
     STORM_GUARD_PENDING_HOLD_S,
 )
+from .runtime_helpers import normalize_poll_intervals
 from .device_types import member_is_retired, sanitize_member
 from .labels import battery_profile_label as translated_battery_profile_label
 from .log_redaction import redact_identifier, redact_site_id, redact_text
@@ -69,10 +78,10 @@ from .parsing_helpers import (
     coerce_optional_bool,
     coerce_optional_float,
     coerce_optional_text,
-    parse_inverter_last_report,
 )
 from .runtime_helpers import coerce_int, coerce_optional_int
 from .service_validation import raise_translated_service_validation
+from .runtime_health import RuntimeHealthServices
 from .state_models import BatteryControlCapability, BatteryState
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -107,8 +116,8 @@ class BatteryRuntime:
         self, coordinator: EnphaseCoordinator, *, state: BatteryState | None = None
     ) -> None:
         self.coordinator = coordinator
+        self.health = RuntimeHealthServices(coordinator)
         self._state = state
-        self._ac_battery_runtime = AcBatteryRuntime(self)
 
     @property
     def battery_state(self) -> BatteryState:
@@ -191,37 +200,6 @@ class BatteryRuntime:
         if callable(func):
             return cast(str | None, func(value))
         return None
-
-    def parse_ac_battery_devices_page(self, html_text: object) -> None:
-        self._ac_battery_runtime.parse_ac_battery_devices_page(html_text)
-
-    def parse_ac_battery_show_stat_data(
-        self,
-        serial: str,
-        battery_id: str | None,
-        html_text: object,
-    ) -> dict[str, object]:
-        return self._ac_battery_runtime.parse_ac_battery_show_stat_data(
-            serial, battery_id, html_text
-        )
-
-    def _refresh_ac_battery_summary(self) -> None:
-        self._ac_battery_runtime.refresh_ac_battery_summary()
-
-    async def async_refresh_ac_battery_devices(self, *, force: bool = False) -> None:
-        await self._ac_battery_runtime.async_refresh_ac_battery_devices(force=force)
-
-    async def async_refresh_ac_battery_telemetry(self, *, force: bool = False) -> None:
-        await self._ac_battery_runtime.async_refresh_ac_battery_telemetry(force=force)
-
-    async def async_refresh_ac_battery_events(self, *, force: bool = False) -> None:
-        await self._ac_battery_runtime.async_refresh_ac_battery_events(force=force)
-
-    async def async_set_ac_battery_sleep_mode(self, enabled: bool) -> None:
-        await self._ac_battery_runtime.async_set_ac_battery_sleep_mode(enabled)
-
-    async def async_set_ac_battery_target_soc(self, value: int) -> None:
-        await self._ac_battery_runtime.async_set_ac_battery_target_soc(value)
 
     def _refresh_cached_topology(self) -> None:
         func = getattr(self.coordinator, "_refresh_cached_topology", None)
@@ -613,6 +591,11 @@ class BatteryRuntime:
     ) -> None:
         coord = self.coordinator
         state = self.battery_state
+        # A response requested before this accepted write cannot confirm it or
+        # replace newer readback, even after local pending state has cleared.
+        state._battery_profile_read_generation = (
+            getattr(state, "_battery_profile_read_generation", 0) + 1
+        )
         state._battery_pending_profile = profile
         state._battery_pending_reserve = reserve
         state._battery_pending_sub_type = self._normalize_pending_sub_type(
@@ -626,6 +609,16 @@ class BatteryRuntime:
         state._battery_backend_not_pending_observed_at = None
         self.set_battery_optimistic_profile(profile, reserve, sub_type)
         self._sync_battery_profile_pending_issue()
+        coord.publish_runtime_state_update("system_profile")
+
+    @property
+    def profile_readback_fast(self) -> bool:
+        """Use the configured fast interval only within the confirmation window."""
+        age = getattr(self.coordinator, "battery_pending_age_seconds", None)
+        return bool(
+            getattr(self.battery_state, "_battery_pending_profile", None)
+            and (age is None or age < BATTERY_PROFILE_PENDING_TIMEOUT_S)
+        )
 
     def _backend_not_pending_clear_grace_seconds(self) -> int:
         polling_interval = self._coerce_optional_int(
@@ -636,6 +629,21 @@ class BatteryRuntime:
         return max(int(polling_interval), FAST_TOGGLE_POLL_HOLD_S)
 
     def _battery_profile_refresh_cache_ttl_seconds(self, default_ttl: float) -> float:
+        if getattr(self.battery_state, "_battery_pending_profile", None):
+            entry = getattr(self.coordinator, "config_entry", None)
+            options = entry.options if entry is not None else {}
+            fast, slow = normalize_poll_intervals(
+                options.get(OPT_FAST_POLL_INTERVAL, DEFAULT_FAST_POLL_INTERVAL),
+                options.get(
+                    OPT_SLOW_POLL_INTERVAL,
+                    getattr(
+                        self.coordinator,
+                        "_configured_slow_poll_interval",
+                        DEFAULT_SLOW_POLL_INTERVAL,
+                    ),
+                ),
+            )
+            return float(fast if self.profile_readback_fast else slow)
         current_interval = None
         update_interval = getattr(self.coordinator, "update_interval", None)
         total_seconds = getattr(update_interval, "total_seconds", None)
@@ -672,7 +680,7 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "battery_status", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run("battery_status", force=force)
+        return self.health.endpoint_family_should_run("battery_status", force=force)
 
     def battery_backup_history_refresh_due(self, *, force: bool = False) -> bool:
         coord = self.coordinator
@@ -684,12 +692,52 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "battery_backup_history", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run("battery_backup_history", force=force)
+        return self.health.endpoint_family_should_run(
+            "battery_backup_history", force=force
+        )
+
+    def control_refresh_should_run(
+        self, family: str, *, force: bool, pending: bool
+    ) -> bool:
+        coord = self.coordinator
+        health = getattr(coord, "_endpoint_family_health", {}).get(family)
+        if (
+            not force
+            and getattr(health, "consecutive_failures", 0) > 0
+            and coord._endpoint_family_wait_active(family)
+        ):
+            return False
+        return self.health.endpoint_family_should_run(family, force=force or pending)
+
+    def control_readback_fast(self, group: str) -> bool:
+        runtime = getattr(self.coordinator, "control_updates", None)
+        return bool(
+            runtime
+            and any(
+                update.status == "pending" and update.group == group
+                for (_control, serial), update in runtime.updates.items()
+                if serial is None
+            )
+        )
+
+    def invalidate_settings_control_observations(self) -> None:
+        """Require confirmation reads started after the accepted settings write."""
+        runtime = getattr(self.coordinator, "control_updates", None)
+        if runtime:
+            for (control, serial), update in runtime.updates.items():
+                if (
+                    serial is None
+                    and update.group == "battery_settings"
+                    and update.submitting
+                ):
+                    runtime.invalidate_observations(control)
 
     def battery_settings_refresh_due(self, *, force: bool = False) -> bool:
         coord = self.coordinator
         state = self.battery_state
-        pending_profile = getattr(state, "_battery_pending_profile", None)
+        pending_profile = self.profile_readback_fast or self.control_readback_fast(
+            "battery_settings"
+        )
         now = time.monotonic()
         if not force and not pending_profile and state._battery_settings_cache_until:
             if now < state._battery_settings_cache_until:
@@ -697,9 +745,10 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "battery_settings_details", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run(
+        return self.control_refresh_should_run(
             "battery_settings",
-            force=force or bool(pending_profile),
+            force=force,
+            pending=bool(pending_profile),
         )
 
     def battery_schedules_refresh_due(self, *, force: bool = False) -> bool:
@@ -707,7 +756,7 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "battery_schedules", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run("battery_schedules", force=force)
+        return self.health.endpoint_family_should_run("battery_schedules", force=force)
 
     def battery_site_settings_refresh_due(self, *, force: bool = False) -> bool:
         coord = self.coordinator
@@ -719,7 +768,9 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "battery_site_settings", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run("battery_site_settings", force=force)
+        return self.health.endpoint_family_should_run(
+            "battery_site_settings", force=force
+        )
 
     def grid_control_check_refresh_due(self, *, force: bool = False) -> bool:
         coord = self.coordinator
@@ -741,7 +792,7 @@ class BatteryRuntime:
         if not callable(fetcher):
             return state_present
         family = "grid_control_check"
-        if coord._endpoint_family_should_run(family, force=force):
+        if self.health.endpoint_family_should_run(family, force=force):
             return True
         return (
             state_present
@@ -768,7 +819,7 @@ class BatteryRuntime:
         if not callable(fetcher):
             return state_present
         family = "grid_mode_status"
-        if coord._endpoint_family_should_run(family, force=force):
+        if self.health.endpoint_family_should_run(family, force=force):
             return True
         return (
             state_present
@@ -797,7 +848,7 @@ class BatteryRuntime:
         if not callable(fetcher):
             return state_present
         family = "grid_outage_context"
-        if coord._endpoint_family_should_run(family, force=force):
+        if self.health.endpoint_family_should_run(family, force=force):
             return True
         return (
             state_present
@@ -819,7 +870,7 @@ class BatteryRuntime:
         if not callable(fetcher):
             return state_present
         family = "dry_contact_settings"
-        if coord._endpoint_family_should_run(family, force=force):
+        if self.health.endpoint_family_should_run(family, force=force):
             return True
         return (
             state_present
@@ -830,7 +881,9 @@ class BatteryRuntime:
     def storm_guard_refresh_due(self, *, force: bool = False) -> bool:
         coord = self.coordinator
         state = self.battery_state
-        pending_profile = getattr(state, "_battery_pending_profile", None)
+        pending_profile = self.profile_readback_fast or self.control_readback_fast(
+            "storm_guard"
+        )
         now = time.monotonic()
         if not force and not pending_profile and state._storm_guard_cache_until:
             if now < state._storm_guard_cache_until:
@@ -838,9 +891,10 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "storm_guard_profile", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run(
+        return self.control_refresh_should_run(
             "storm_guard",
-            force=force or bool(pending_profile),
+            force=force,
+            pending=bool(pending_profile),
         )
 
     def storm_alert_refresh_due(self, *, force: bool = False) -> bool:
@@ -853,10 +907,7 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "storm_guard_alert", None)
         if not callable(fetcher):
             return False
-        return coord._endpoint_family_should_run("storm_alert", force=force)
-
-    def ac_battery_devices_refresh_due(self, *, force: bool = False) -> bool:
-        return self._ac_battery_runtime.ac_battery_devices_refresh_due(force=force)
+        return self.health.endpoint_family_should_run("storm_alert", force=force)
 
     def _battery_control_state_settling(self) -> bool:
         coord = self.coordinator
@@ -872,6 +923,8 @@ class BatteryRuntime:
         return getattr(state, "_battery_cfg_pending_expires_mono", None) is not None
 
     def _battery_control_refresh_success_ttl_seconds(self, default_ttl: float) -> float:
+        if self.control_readback_fast("battery_settings"):
+            return 0.0
         if self._battery_control_state_settling():
             return 0.0
         return self._battery_profile_refresh_cache_ttl_seconds(default_ttl)
@@ -972,7 +1025,12 @@ class BatteryRuntime:
         return self.normalize_battery_reserve_for_profile(profile, default)
 
     def current_savings_sub_type(self) -> str | None:
-        selected_subtype = self.coordinator.battery_selected_operation_mode_sub_type
+        selected_subtype = current_control_value(
+            self.coordinator,
+            "system_profile",
+            "operation_mode_sub_type",
+            self.coordinator.battery_selected_operation_mode_sub_type,
+        )
         if selected_subtype == SAVINGS_OPERATION_MODE_SUBTYPE:
             return SAVINGS_OPERATION_MODE_SUBTYPE
         return None
@@ -1672,6 +1730,7 @@ class BatteryRuntime:
             except aiohttp.ClientResponseError as compat_err:
                 self.raise_schedule_update_validation_error(compat_err)
                 raise
+        self.invalidate_settings_control_observations()
 
     async def async_commit_cfg_schedule_write(
         self,
@@ -1858,6 +1917,21 @@ class BatteryRuntime:
                 message="Schedule update conflicts with an existing battery schedule.",
             )
 
+    @tracked_control(
+        "battery_schedule_update",
+        arguments=(
+            "schedule_id",
+            "schedule_type",
+            "start_time",
+            "end_time",
+            "limit",
+            "days",
+            "timezone",
+            "is_enabled",
+            "is_deleted",
+        ),
+        group="battery_settings",
+    )
     async def async_update_battery_schedule(
         self,
         schedule_id: str,
@@ -1871,6 +1945,7 @@ class BatteryRuntime:
         is_enabled: bool | None = None,
         is_deleted: bool | None = None,
         apply_settings: bool = True,
+        settings_override: tuple[str, str, bool | None] | None = None,
     ) -> None:
         normalized_schedule_type = str(schedule_type).lower()
         self._raise_schedule_overlap_validation_error(
@@ -1899,16 +1974,38 @@ class BatteryRuntime:
             and normalized_schedule_type in {"cfg", "dtg", "rbd"}
             and not is_deleted
         ):
+            # Service edits may target an inactive entry. Preserve the selected
+            # family's window while keeping its settings commit in this command.
+            settings_start, settings_end, settings_enabled = settings_override or (
+                start_time,
+                end_time,
+                is_enabled,
+            )
             if normalized_schedule_type == "cfg":
-                await self.async_commit_cfg_schedule_write(schedule_enabled=is_enabled)
+                await self.async_commit_cfg_schedule_write(
+                    schedule_enabled=settings_enabled
+                )
             else:
                 await self.async_apply_schedule_family_settings(
                     normalized_schedule_type,
-                    start_time=start_time,
-                    end_time=end_time,
-                    enabled=is_enabled,
+                    start_time=settings_start,
+                    end_time=settings_end,
+                    enabled=settings_enabled,
                 )
 
+    @tracked_control(
+        "battery_schedule_create",
+        arguments=(
+            "schedule_type",
+            "start_time",
+            "end_time",
+            "limit",
+            "days",
+            "timezone",
+            "is_enabled",
+        ),
+        group="battery_settings",
+    )
     async def async_create_battery_schedule(
         self,
         *,
@@ -1950,6 +2047,11 @@ class BatteryRuntime:
                     enabled=is_enabled,
                 )
 
+    @tracked_control(
+        "battery_schedule_delete",
+        arguments=("schedule_id", "schedule_type"),
+        group="battery_settings",
+    )
     async def async_delete_battery_schedule(
         self,
         schedule_id: str,
@@ -1974,6 +2076,31 @@ class BatteryRuntime:
                 start_time=start_time,
                 end_time=end_time,
                 enabled=enabled,
+            )
+
+    @tracked_control(
+        "battery_schedule_delete", arguments=("schedules",), group="battery_settings"
+    )
+    async def async_delete_battery_schedule_batch(
+        self,
+        schedules: list[tuple[str, str]],
+        remaining_schedules: dict[str, BatteryScheduleRecord | None],
+    ) -> None:
+        """Delete and commit all selected schedules as one guarded command."""
+        for schedule_id, schedule_type in schedules:
+            try:
+                await self.coordinator.client.delete_battery_schedule(
+                    schedule_id, schedule_type=schedule_type
+                )
+            except aiohttp.ClientResponseError as err:
+                self.raise_schedule_update_validation_error(err)
+                raise
+        for schedule_type, remaining in remaining_schedules.items():
+            await self.async_apply_schedule_family_settings(
+                schedule_type,
+                start_time=remaining.start_time if remaining is not None else None,
+                end_time=remaining.end_time if remaining is not None else None,
+                enabled=remaining.enabled if remaining is not None else False,
             )
 
     def _schedule_family_effective_enabled(
@@ -2142,6 +2269,7 @@ class BatteryRuntime:
                 merged_payload=True,
                 strip_devices=True,
             )
+        self.invalidate_settings_control_observations()
 
     async def async_apply_battery_profile(
         self,
@@ -2334,6 +2462,7 @@ class BatteryRuntime:
                         ),
                     )
                 raise
+        self.invalidate_settings_control_observations()
         self.parse_battery_settings_payload(
             payload,
             clear_missing_schedule_times=False,
@@ -2401,6 +2530,7 @@ class BatteryRuntime:
                         ),
                     )
                 raise
+        self.invalidate_settings_control_observations()
         self.parse_battery_settings_payload(
             payload,
             clear_missing_schedule_times=False,
@@ -2859,163 +2989,12 @@ class BatteryRuntime:
                 payload.get("excluded_count")
             ),
         }
-        self._sync_ac_battery_from_battery_status(snapshots)
         self._refresh_cached_topology()
         if (
             self.effective_profile_matches_pending()
             and self._pending_authoritative_confirmation_received()
         ):
             self.confirm_battery_pending()
-
-    def _sync_ac_battery_from_battery_status(
-        self, snapshots: dict[str, dict[str, object]]
-    ) -> None:
-        """Seed AC Battery records from battery status when the HTML page is empty."""
-
-        coord = self.coordinator
-        state = self.battery_state
-        if getattr(coord, "battery_has_acb", None) is not True:
-            return
-        inventory_view = getattr(coord, "inventory_view", None)
-        has_type_for_entities = getattr(inventory_view, "has_type_for_entities", None)
-        if callable(has_type_for_entities) and not has_type_for_entities("ac_battery"):
-            return
-
-        existing = getattr(state, "_ac_battery_data", None)
-        rows: dict[str, dict[str, object]] = (
-            {
-                str(key): dict(value)
-                for key, value in existing.items()
-                if isinstance(value, dict)
-            }
-            if isinstance(existing, dict)
-            else {}
-        )
-
-        known_ids: set[str] = {
-            str(snapshot.get("battery_id"))
-            for snapshot in rows.values()
-            if snapshot.get("battery_id") is not None
-        }
-        known_serials: set[str] = {
-            str(snapshot.get("serial_number"))
-            for snapshot in rows.values()
-            if snapshot.get("serial_number") is not None
-        }
-        type_bucket = (
-            inventory_view.type_bucket("ac_battery")
-            if inventory_view is not None
-            and callable(getattr(inventory_view, "type_bucket", None))
-            else None
-        )
-        members = type_bucket.get("devices") if isinstance(type_bucket, dict) else None
-        if isinstance(members, list):
-            for member in members:
-                for key in ("id", "device_id", "device_uid", "uid"):
-                    value = member.get(key)
-                    if value is not None:
-                        known_ids.add(str(value))
-                for key in ("serial_number", "serial", "serialNumber"):
-                    value = member.get(key)
-                    if value is not None:
-                        known_serials.add(str(value))
-
-        acb_only_site = getattr(
-            coord, "battery_has_encharge", None
-        ) is not True and bool(snapshots)
-        if not acb_only_site and not known_ids and not known_serials:
-            return
-
-        order = list(getattr(state, "_ac_battery_order", []) or [])
-        status_map: dict[str, str] = {}
-        status_text_map: dict[str, str | None] = {}
-        worst_key: str | None = None
-        worst_status: str | None = None
-        worst_severity = self._battery_status_severity_value("normal")
-        synced_count = 0
-
-        for key, source in snapshots.items():
-            battery_id = self._normalize_battery_id(source.get("battery_id"))
-            serial = self._coerce_optional_text(source.get("serial_number")) or key
-            if (
-                not acb_only_site
-                and battery_id not in known_ids
-                and serial not in known_serials
-                and key not in known_serials
-            ):
-                continue
-
-            row = dict(rows.get(key, {}))
-            row.setdefault("serial_number", serial)
-            if battery_id is not None:
-                row["battery_id"] = battery_id
-            # Keep this fallback to inventory/status fields. The battery-status
-            # endpoint's available_power/max_power values describe capability,
-            # not the AC Battery's current live power.
-            for source_key, target_key in (
-                ("current_charge_pct", "current_charge_pct"),
-                ("cycle_count", "cycle_count"),
-                ("status_text", "status_text"),
-                ("status_normalized", "status_normalized"),
-                ("available_energy_kwh", "available_energy_kwh"),
-                ("max_capacity_kwh", "max_capacity_kwh"),
-                ("battery_mode", "battery_mode"),
-                ("rated_power", "rated_power"),
-                ("battery_phase_count", "battery_phase_count"),
-            ):
-                if source.get(source_key) is not None:
-                    row[target_key] = source[source_key]
-            if source.get("last_report") is not None:
-                parsed_last_report = parse_inverter_last_report(
-                    source.get("last_report")
-                )
-                if parsed_last_report is not None:
-                    row["last_reported"] = parsed_last_report
-            rows[key] = row
-            synced_count += 1
-            if key not in order:
-                order.append(key)
-
-            normalized_status = self._coerce_optional_text(row.get("status_normalized"))
-            if normalized_status is None:
-                normalized_status = "unknown"
-            status_map[key] = normalized_status
-            status_text_map[key] = self._coerce_optional_text(row.get("status_text"))
-            severity = self._battery_status_severity_value(normalized_status)
-            if severity > worst_severity or worst_status is None:
-                worst_severity = severity
-                worst_status = normalized_status
-                worst_key = key
-
-        if synced_count == 0:
-            return
-
-        state._ac_battery_data = rows
-        state._ac_battery_order = list(dict.fromkeys(order))
-        details = dict(getattr(state, "_ac_battery_aggregate_status_details", {}) or {})
-        details.update(
-            {
-                "battery_count": len(rows),
-                "status_source": "battery_status",
-                "per_battery_status": status_map,
-                "per_battery_status_text": status_text_map,
-                "worst_storage_key": worst_key,
-                "worst_status": worst_status,
-                "battery_ids": {
-                    serial_key: snapshot.get("battery_id")
-                    for serial_key, snapshot in rows.items()
-                },
-            }
-        )
-        if "sleep_state" not in details:
-            details["sleep_state"] = getattr(state, "_ac_battery_sleep_state", None)
-        if "selected_sleep_min_soc" not in details:
-            details["selected_sleep_min_soc"] = getattr(
-                state, "_ac_battery_selected_sleep_min_soc", None
-            )
-        state._ac_battery_aggregate_status_details = details
-        state._ac_battery_aggregate_status = worst_status or "unknown"
-        self._ac_battery_runtime.refresh_ac_battery_summary()
 
     def parse_battery_site_settings_payload(self, payload: object) -> None:
         state = self.battery_state
@@ -3501,46 +3480,10 @@ class BatteryRuntime:
         )
 
     def _normalize_grid_mode_status_value(self, value: object) -> str | None:
-        text = self._coerce_optional_text(value)
-        if text is None:
-            return None
-        token = text.strip().upper()
-        if token in {
-            "OPER_RELAY_OPEN",
-            "OPER_RELAY_OFFGRID_AC_GRID_PRESENT",
-            "OPER_RELAY_OFFGRID_READY_FOR_RESYNC_CMD",
-        }:
-            return "off_grid"
-        if token in {
-            "OPER_RELAY_CLOSED",
-            "OPER_RELAY_WAITING_TO_INITIALIZE_ON_GRID",
-        }:
-            return "on_grid"
-        return None
+        return normalize_grid_mode_status_value(self._coerce_optional_text(value))
 
     def _grid_relay_candidates(self, payload: object) -> list[object]:
-        if isinstance(payload, dict):
-            candidates: list[object] = []
-            for key in ("gridRelay", "grid_relay"):
-                if key in payload:
-                    candidates.append(payload.get(key))
-            meters = payload.get("meters")
-            if isinstance(meters, dict):
-                candidates.extend(self._grid_relay_candidates(meters))
-            elif isinstance(meters, list):
-                for item in meters:
-                    candidates.extend(self._grid_relay_candidates(item))
-            for key in ("data", "payload", "message"):
-                nested = payload.get(key)
-                if isinstance(nested, (dict, list)):
-                    candidates.extend(self._grid_relay_candidates(nested))
-            return candidates
-        if isinstance(payload, list):
-            candidates = []
-            for item in payload:
-                candidates.extend(self._grid_relay_candidates(item))
-            return candidates
-        return []
+        return grid_relay_candidates(payload)
 
     def parse_grid_mode_status_payload(self, payload: object) -> bool:
         state = self.battery_state
@@ -3616,6 +3559,7 @@ class BatteryRuntime:
             return cast(_tz | ZoneInfo, default_tz)
         return _tz.utc
 
+    @control_readback("battery_status")
     async def async_refresh_battery_status(self, *, force: bool = False) -> None:
         coord = self.coordinator
         state = self.battery_state
@@ -3624,18 +3568,21 @@ class BatteryRuntime:
         if not force and state._battery_status_cache_until:
             if now < state._battery_status_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         fetcher = getattr(coord.client, "battery_status", None)
         if not callable(fetcher):
             return
+        read_generation = getattr(state, "_battery_profile_read_generation", 0)
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             state._battery_status_cache_until = coord._endpoint_family_next_retry_mono(
                 family
             )
+            return
+        if read_generation != getattr(state, "_battery_profile_read_generation", 0):
             return
         redacted_payload = coord.redact_battery_payload(payload)
         if isinstance(redacted_payload, dict):
@@ -3643,7 +3590,7 @@ class BatteryRuntime:
         else:
             state._battery_status_payload = {"value": redacted_payload}
         self.parse_battery_status_payload(payload)
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
         state._battery_status_cache_until = coord._endpoint_family_next_retry_mono(
             family
         )
@@ -3658,7 +3605,7 @@ class BatteryRuntime:
         if not force and state._battery_backup_history_cache_until:
             if now < state._battery_backup_history_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         fetcher = getattr(coord.client, "battery_backup_history", None)
         if not callable(fetcher):
@@ -3666,14 +3613,14 @@ class BatteryRuntime:
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             state._battery_backup_history_cache_until = (
                 now + BATTERY_BACKUP_HISTORY_FAILURE_CACHE_TTL
             )
             return
         parsed = self.parse_battery_backup_history_payload(payload)
         if parsed is None:
-            coord._note_endpoint_family_failure(
+            self.health.note_endpoint_family_failure(
                 family,
                 ValueError(
                     f"Battery backup history payload was invalid for site {coord.site_id}"
@@ -3692,29 +3639,36 @@ class BatteryRuntime:
         state._battery_backup_history_cache_until = (
             now + BATTERY_BACKUP_HISTORY_CACHE_TTL
         )
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
+    @control_readback("battery_settings")
     async def async_refresh_battery_settings(self, *, force: bool = False) -> bool:
         coord = self.coordinator
         state = self.battery_state
         now = time.monotonic()
         family = "battery_settings"
-        pending_profile = getattr(state, "_battery_pending_profile", None)
+        pending_profile = self.profile_readback_fast or self.control_readback_fast(
+            "battery_settings"
+        )
         if not force and not pending_profile and state._battery_settings_cache_until:
             if now < state._battery_settings_cache_until:
                 return True
-        if not coord._endpoint_family_should_run(
+        if not self.control_refresh_should_run(
             family,
-            force=force or bool(pending_profile),
+            force=force,
+            pending=bool(pending_profile),
         ):
             return False
         fetcher = getattr(coord.client, "battery_settings_details", None)
         if not callable(fetcher):
             return False
+        read_generation = getattr(state, "_battery_profile_read_generation", 0)
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
+            return False
+        if read_generation != getattr(state, "_battery_profile_read_generation", 0):
             return False
         redacted_payload = coord.redact_battery_payload(payload)
         if isinstance(redacted_payload, dict):
@@ -3731,14 +3685,15 @@ class BatteryRuntime:
             BATTERY_SETTINGS_CACHE_TTL
         )
         state._battery_settings_cache_until = now + success_ttl
-        coord._note_endpoint_family_success(family, success_ttl_s=success_ttl)
+        self.health.note_endpoint_family_success(family, success_ttl_s=success_ttl)
         return True
 
+    @control_readback("battery_schedules")
     async def async_refresh_battery_schedules(self, *, force: bool = False) -> None:
         coord = self.coordinator
         state = self.battery_state
         family = "battery_schedules"
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         fetcher = getattr(coord.client, "battery_schedules", None)
         if not callable(fetcher):
@@ -3746,10 +3701,10 @@ class BatteryRuntime:
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             return
         if not isinstance(payload, dict):
-            coord._note_endpoint_family_failure(
+            self.health.note_endpoint_family_failure(
                 family, ValueError("Battery schedules payload was not a dictionary")
             )
             return
@@ -3759,7 +3714,7 @@ class BatteryRuntime:
         else:
             state._battery_schedules_payload = {"value": redacted}
         self.parse_battery_schedules_payload(payload)
-        coord._note_endpoint_family_success(
+        self.health.note_endpoint_family_success(
             family,
             success_ttl_s=self._battery_control_refresh_success_ttl_seconds(
                 BATTERY_SETTINGS_CACHE_TTL
@@ -3774,7 +3729,7 @@ class BatteryRuntime:
         if not force and state._battery_site_settings_cache_until:
             if now < state._battery_site_settings_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         fetcher = getattr(coord.client, "battery_site_settings", None)
         if not callable(fetcher):
@@ -3782,7 +3737,7 @@ class BatteryRuntime:
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             return
         redacted_payload = coord.redact_battery_payload(payload)
         if isinstance(redacted_payload, dict):
@@ -3791,7 +3746,7 @@ class BatteryRuntime:
             state._battery_site_settings_payload = {"value": redacted_payload}
         self.parse_battery_site_settings_payload(payload)
         state._battery_site_settings_cache_until = now + BATTERY_SITE_SETTINGS_CACHE_TTL
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
     async def async_refresh_grid_control_check(self, *, force: bool = False) -> bool:
         """Refresh grid-control eligibility and report whether fresh data was loaded."""
@@ -3802,7 +3757,7 @@ class BatteryRuntime:
         state = self.battery_state
         now = time.monotonic()
         family = "grid_control_check"
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             if state._grid_control_supported is not None and (
                 coord._endpoint_family_state(family).cooldown_active
                 and not coord._endpoint_family_can_use_stale(family)
@@ -3826,7 +3781,7 @@ class BatteryRuntime:
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             state._grid_control_check_failures = max(
                 state._grid_control_check_failures + 1,
                 coord._endpoint_family_state(family).consecutive_failures,
@@ -3853,9 +3808,10 @@ class BatteryRuntime:
         state._grid_control_check_failures = 0
         state._grid_control_check_last_success_mono = now
         state._grid_control_check_cache_until = now + GRID_CONTROL_CHECK_CACHE_TTL
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
         return True
 
+    @control_readback("grid_mode_status")
     async def async_refresh_grid_mode_status(self, *, force: bool = False) -> None:
         coord = self.coordinator
         state = self.battery_state
@@ -3864,7 +3820,7 @@ class BatteryRuntime:
         if not force and state._grid_mode_status_cache_until:
             if now < state._grid_mode_status_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             if state._grid_mode_status_supported is not None and (
                 coord._endpoint_family_state(family).cooldown_active
                 and not coord._endpoint_family_can_use_stale(family)
@@ -3883,7 +3839,7 @@ class BatteryRuntime:
         try:
             payload = await fetcher(envoy_serial)
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             state._grid_mode_status_failures = max(
                 state._grid_mode_status_failures + 1,
                 coord._endpoint_family_state(family).consecutive_failures,
@@ -3908,7 +3864,7 @@ class BatteryRuntime:
         previous_status_raw = state._grid_mode_status_raw
         previous_last_success = state._grid_mode_status_last_success_mono
         if not self.parse_grid_mode_status_payload(payload):
-            coord._note_endpoint_family_failure(
+            self.health.note_endpoint_family_failure(
                 family,
                 ValueError("Live grid relay payload did not include meters.gridRelay"),
             )
@@ -3929,7 +3885,7 @@ class BatteryRuntime:
         state._grid_mode_status_failures = 0
         state._grid_mode_status_last_success_mono = now
         state._grid_mode_status_cache_until = now + GRID_MODE_STATUS_CACHE_TTL
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
     async def async_refresh_grid_outage_context(self, *, force: bool = False) -> None:
         coord = self.coordinator
@@ -3939,7 +3895,7 @@ class BatteryRuntime:
         if not force and state._grid_outage_context_cache_until:
             if now < state._grid_outage_context_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             if state._grid_outage_context_supported is not None and (
                 coord._endpoint_family_state(family).cooldown_active
                 and not coord._endpoint_family_can_use_stale(family)
@@ -3961,7 +3917,7 @@ class BatteryRuntime:
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             state._grid_outage_context_failures = max(
                 state._grid_outage_context_failures + 1,
                 coord._endpoint_family_state(family).consecutive_failures,
@@ -3989,7 +3945,7 @@ class BatteryRuntime:
         state._grid_outage_context_failures = 0
         state._grid_outage_context_last_success_mono = now
         state._grid_outage_context_cache_until = now + GRID_OUTAGE_CONTEXT_CACHE_TTL
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
     async def async_refresh_dry_contact_settings(self, *, force: bool = False) -> None:
         coord = self.coordinator
@@ -3999,7 +3955,7 @@ class BatteryRuntime:
         if not force and state._dry_contact_settings_cache_until:
             if now < state._dry_contact_settings_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             if state._dry_contact_settings_supported is not None and (
                 coord._endpoint_family_state(family).cooldown_active
                 and not coord._endpoint_family_can_use_stale(family)
@@ -4013,7 +3969,7 @@ class BatteryRuntime:
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             state._dry_contact_settings_failures = max(
                 state._dry_contact_settings_failures + 1,
                 coord._endpoint_family_state(family).consecutive_failures,
@@ -4039,7 +3995,7 @@ class BatteryRuntime:
         state._dry_contact_settings_failures = 0
         state._dry_contact_settings_last_success_mono = now
         state._dry_contact_settings_cache_until = now + DRY_CONTACT_SETTINGS_CACHE_TTL
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
     @staticmethod
     def normalize_storm_guard_state(value: object) -> str | None:
@@ -4183,18 +4139,22 @@ class BatteryRuntime:
             return derived_alert_active
         return critical_active or derived_alert_active
 
+    @control_readback("storm_guard")
     async def async_refresh_storm_guard_profile(self, *, force: bool = False) -> None:
         coord = self.coordinator
         state = self.battery_state
         now = time.monotonic()
         family = "storm_guard"
-        pending_profile = getattr(state, "_battery_pending_profile", None)
+        pending_profile = self.profile_readback_fast or self.control_readback_fast(
+            "storm_guard"
+        )
         if not force and not pending_profile and state._storm_guard_cache_until:
             if now < state._storm_guard_cache_until:
                 return
-        if not coord._endpoint_family_should_run(
+        if not self.control_refresh_should_run(
             family,
-            force=force or bool(pending_profile),
+            force=force,
+            pending=bool(pending_profile),
         ):
             return
         try:
@@ -4204,10 +4164,13 @@ class BatteryRuntime:
         fetcher = getattr(coord.client, "storm_guard_profile", None)
         if not callable(fetcher):
             return
+        read_generation = getattr(state, "_battery_profile_read_generation", 0)
         try:
             payload = await fetcher(locale=locale)
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
+            return
+        if read_generation != getattr(state, "_battery_profile_read_generation", 0):
             return
         redacted_payload = coord.redact_battery_payload(payload)
         if isinstance(redacted_payload, dict):
@@ -4224,7 +4187,12 @@ class BatteryRuntime:
         state._storm_guard_cache_until = now + (
             self._battery_profile_refresh_cache_ttl_seconds(STORM_GUARD_CACHE_TTL)
         )
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(
+            family,
+            success_ttl_s=self._battery_profile_refresh_cache_ttl_seconds(
+                STORM_GUARD_CACHE_TTL
+            ),
+        )
 
     async def async_refresh_storm_alert(
         self,
@@ -4239,27 +4207,36 @@ class BatteryRuntime:
         if not force and state._storm_alert_cache_until:
             if now < state._storm_alert_cache_until:
                 return
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         fetcher = getattr(coord.client, "storm_guard_alert", None)
         if not callable(fetcher):
             return
+        runtime = getattr(coord, "control_updates", None)
+        tokens = runtime.read_tokens() if runtime else {}
         try:
             payload = await fetcher()
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             if raise_on_error:
                 raise
             return
         active = self.parse_storm_alert(payload)
         if active is not None:
             state._storm_alert_active = active
+            if runtime:
+                runtime.observe(
+                    "storm_alert_opt_out", None, {"active_alerts": active}, tokens
+                )
         state._storm_alert_cache_until = now + STORM_ALERT_CACHE_TTL
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
+    @tracked_control("battery_reserve", arguments=("reserve",), group="battery_profile")
     async def async_set_battery_reserve(self, reserve: int) -> None:
         coord = self.coordinator
-        profile = coord.battery_selected_profile
+        profile = current_control_value(
+            coord, "system_profile", "profile_key", coord.battery_selected_profile
+        )
         if not profile:
             self._raise_validation(
                 "battery_profile_unavailable",
@@ -4281,14 +4258,26 @@ class BatteryRuntime:
                 message="Battery reserve is unavailable.",
             )
         normalized = self.normalize_battery_reserve_for_profile(profile, reserve)
+        runtime = getattr(coord, "control_updates", None)
+        if runtime:
+            runtime.set_requested(
+                "battery_reserve", {"reserve": normalized, "profile_ready": True}
+            )
         await self.async_apply_battery_reserve_only(
             profile=profile,
             reserve=normalized,
         )
 
+    @tracked_control(
+        "savings_use_battery_after_peak",
+        arguments=("enabled",),
+        group="battery_profile",
+    )
     async def async_set_savings_use_battery_after_peak(self, enabled: bool) -> None:
         coord = self.coordinator
-        profile = coord.battery_selected_profile
+        profile = current_control_value(
+            coord, "system_profile", "profile_key", coord.battery_selected_profile
+        )
         if profile != "cost_savings":
             self._raise_validation(
                 "savings_profile_required",
@@ -4303,7 +4292,12 @@ class BatteryRuntime:
                 "savings_profile_settings_unavailable",
                 message="Savings profile settings are unavailable.",
             )
-        reserve = coord.battery_selected_backup_percentage
+        reserve = current_control_value(
+            coord,
+            "battery_reserve",
+            "reserve",
+            coord.battery_selected_backup_percentage,
+        )
         if reserve is None:
             reserve = self.target_reserve_for_profile("cost_savings")
         sub_type = SAVINGS_OPERATION_MODE_SUBTYPE if enabled else None
@@ -4313,6 +4307,9 @@ class BatteryRuntime:
             sub_type=sub_type,
         )
 
+    @tracked_control(
+        "system_profile", arguments=("profile_key",), group="battery_profile"
+    )
     async def async_set_system_profile(self, profile_key: str) -> None:
         coord = self.coordinator
         profile = self.normalize_battery_profile_key(profile_key)
@@ -4344,15 +4341,28 @@ class BatteryRuntime:
             require_exact_pending_match=False,
         )
 
-    async def async_cancel_pending_profile_change(self) -> None:
+    async def async_cancel_pending_profile_change(
+        self, *, expected_requested_at: datetime | None = None
+    ) -> None:
         coord = self.coordinator
         state = self.battery_state
         if not coord.battery_profile_pending:
             self.clear_battery_pending()
             self.clear_battery_optimistic_profile()
+            runtime = getattr(coord, "control_updates", None)
+            if runtime:
+                runtime.cancel_group("battery_profile")
             return
         await self.async_assert_battery_profile_write_allowed()
         async with state._battery_profile_write_lock:
+            if expected_requested_at is not None and (
+                not coord.runtime_active
+                or state._battery_pending_requested_at != expected_requested_at
+            ):
+                self._raise_validation(
+                    "control_change_pending",
+                    message="The pending battery profile request changed. Reopen the repair.",
+                )
             state._battery_profile_last_write_mono = time.monotonic()
             try:
                 await coord.client.cancel_battery_profile_update()
@@ -4365,10 +4375,16 @@ class BatteryRuntime:
                 )
         self.clear_battery_pending()
         self.clear_battery_optimistic_profile()
+        runtime = getattr(coord, "control_updates", None)
+        if runtime:
+            runtime.cancel_group("battery_profile")
         state._storm_guard_cache_until = None
         coord.kick_fast(FAST_TOGGLE_POLL_HOLD_S)
         await coord.async_request_refresh()
 
+    @tracked_control(
+        "charge_from_grid", arguments=("enabled",), group="battery_settings"
+    )
     async def async_set_charge_from_grid(self, enabled: bool) -> None:
         coord = self.coordinator
         self._assert_battery_settings_feature_writable(
@@ -4403,6 +4419,7 @@ class BatteryRuntime:
             message="Charge from grid toggle was not applied by Enphase.",
         )
 
+    @tracked_control("power_match", arguments=("enabled",), group="battery_settings")
     async def async_set_power_match(self, enabled: bool) -> None:
         coord = self.coordinator
         state = self.battery_state
@@ -4471,6 +4488,7 @@ class BatteryRuntime:
                 await asyncio.sleep(0.75)
         return False, authoritative_refresh_observed
 
+    @tracked_control("cfg_schedule", arguments=("enabled",), group="battery_settings")
     async def async_set_charge_from_grid_schedule_enabled(self, enabled: bool) -> None:
         coord = self.coordinator
         self._assert_battery_settings_feature_writable(
@@ -4547,6 +4565,9 @@ class BatteryRuntime:
             message="Charge-from-grid schedule toggle was not applied by Enphase.",
         )
 
+    @tracked_control(
+        "cfg_schedule", arguments=("start", "end"), group="battery_settings"
+    )
     async def async_set_charge_from_grid_schedule_time(
         self,
         *,
@@ -4682,6 +4703,7 @@ class BatteryRuntime:
         }
         await self.async_apply_battery_settings(payload)
 
+    @tracked_control("cfg_schedule", arguments=("limit",), group="battery_settings")
     async def async_set_cfg_schedule_limit(self, limit: int) -> None:
         coord = self.coordinator
         state = self.battery_state
@@ -5218,6 +5240,7 @@ class BatteryRuntime:
                             payload,
                             schedule_type=normalized_schedule_type,
                         )
+                        self.invalidate_settings_control_observations()
                     except aiohttp.ClientResponseError as err:
                         if (
                             normalized_schedule_type in {"dtg", "rbd"}
@@ -5415,9 +5438,13 @@ class BatteryRuntime:
         coord.kick_fast(FAST_TOGGLE_POLL_HOLD_S)
         await coord.async_request_refresh()
 
+    @tracked_control("dtg_schedule", arguments=("enabled",), group="battery_settings")
     async def async_set_discharge_to_grid_schedule_enabled(self, enabled: bool) -> None:
         await self._async_set_schedule_family_enabled("dtg", enabled)
 
+    @tracked_control(
+        "dtg_schedule", arguments=("start", "end"), group="battery_settings"
+    )
     async def async_set_discharge_to_grid_schedule_time(
         self,
         *,
@@ -5426,14 +5453,19 @@ class BatteryRuntime:
     ) -> None:
         await self._async_set_schedule_family_time("dtg", start=start, end=end)
 
+    @tracked_control("dtg_schedule", arguments=("limit",), group="battery_settings")
     async def async_set_discharge_to_grid_schedule_limit(self, limit: int) -> None:
         await self._async_set_schedule_family_limit("dtg", limit)
 
+    @tracked_control("rbd_schedule", arguments=("enabled",), group="battery_settings")
     async def async_set_restrict_battery_discharge_schedule_enabled(
         self, enabled: bool
     ) -> None:
         await self._async_set_schedule_family_enabled("rbd", enabled)
 
+    @tracked_control(
+        "rbd_schedule", arguments=("start", "end"), group="battery_settings"
+    )
     async def async_set_restrict_battery_discharge_schedule_time(
         self,
         *,
@@ -5442,11 +5474,15 @@ class BatteryRuntime:
     ) -> None:
         await self._async_set_schedule_family_time("rbd", start=start, end=end)
 
+    @tracked_control("rbd_schedule", arguments=("limit",), group="battery_settings")
     async def async_set_restrict_battery_discharge_schedule_limit(
         self, limit: int
     ) -> None:
         await self._async_set_schedule_family_limit("rbd", limit)
 
+    @tracked_control(
+        "cfg_schedule", arguments=("start", "end", "limit"), group="battery_settings"
+    )
     async def async_update_cfg_schedule(
         self,
         *,
@@ -5628,6 +5664,7 @@ class BatteryRuntime:
             )
             self.raise_grid_validation("grid_control_unavailable")
 
+    @tracked_control("grid_mode", arguments=("mode",))
     async def async_set_grid_mode(self, mode: str, otp: str) -> None:
         coord = self.coordinator
         try:
@@ -5723,6 +5760,9 @@ class BatteryRuntime:
         mode = "on_grid" if bool(enabled) else "off_grid"
         await self.async_set_grid_mode(mode, otp)
 
+    @tracked_control(
+        "battery_shutdown_level", arguments=("level",), group="battery_settings"
+    )
     async def async_set_battery_shutdown_level(self, level: int) -> None:
         coord = self.coordinator
         self._assert_battery_settings_feature_writable(
@@ -5757,6 +5797,7 @@ class BatteryRuntime:
             )
         await self.async_apply_battery_settings({"veryLowSoc": normalized})
 
+    @tracked_control("storm_alert_opt_out", arguments=())
     async def async_opt_out_all_storm_alerts(self) -> None:
         coord = self.coordinator
         await coord.async_refresh_storm_alert(force=True)
@@ -5828,6 +5869,7 @@ class BatteryRuntime:
         if refresh_err is not None:
             raise refresh_err
 
+    @tracked_control("storm_guard", arguments=("enabled",), group="storm_guard")
     async def async_set_storm_guard_enabled(self, enabled: bool) -> None:
         coord = self.coordinator
         await self.async_ensure_battery_write_access_confirmed(
@@ -5881,6 +5923,7 @@ class BatteryRuntime:
         self.battery_state._storm_guard_cache_until = None
         self.sync_storm_guard_pending(getattr(coord, "_storm_guard_state", None))
 
+    @tracked_control("storm_evse", arguments=("enabled",), group="storm_guard")
     async def async_set_storm_evse_enabled(self, enabled: bool) -> None:
         coord = self.coordinator
         await self.async_ensure_battery_write_access_confirmed(
@@ -5926,6 +5969,4 @@ class BatteryRuntime:
                 )
             raise
         self.battery_state._storm_evse_enabled = bool(enabled)
-        self.battery_state._storm_guard_cache_until = (
-            time.monotonic() + STORM_GUARD_CACHE_TTL
-        )
+        self.battery_state._storm_guard_cache_until = None

@@ -43,8 +43,7 @@
           "type_iqevse": "Ladere",
           "type_microinverter": "Mikrovekselrettere",
           "scan_interval": "Skanningsintervall (s)",
-          "type_heatpump": "Varmepumpe",
-          "type_ac_battery": "AC-batteri"
+          "type_heatpump": "Varmepumpe"
         },
         "data_description": {
           "type_envoy": "Inkluderer gateway-tilkobling og målerdiagnostikk.",
@@ -52,8 +51,7 @@
           "type_iqevse": "Inkluderer EV-laderentiteter og kontroller.",
           "type_microinverter": "Inkluderer sensorer for mikrovekselretter-tilkobling, aktivt antall og livstidsproduksjon.",
           "scan_interval": "Sekunder mellom sky-statuspoller. Standard 60s.",
-          "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostikk og forbruk.",
-          "type_ac_battery": "Inkluderer AC-batterisensorer og kontroller for hvilemodus når de er tilgjengelige."
+          "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostikk og forbruk."
         }
       }
     },
@@ -138,9 +136,6 @@
     },
     "battery_schedule_overlap": {
       "message": "Tidsplanen overlapper den eksisterende {schedule_label}. Juster eller deaktiver den tidsplanen først."
-    },
-    "ac_battery_unavailable": {
-      "message": "Ingen AC Battery-enheter er tilgjengelige for øyeblikket."
     },
     "auth_settings_service_unavailable": {
       "message": "Autentiseringsinnstillinger er ikke tilgjengelige mens Enphase-tjenesten er nede."
@@ -358,9 +353,6 @@
     "scheduler_service_unavailable": {
       "message": "Valg av lademodus er ikke tilgjengelig mens Enphase-planleggingstjenesten er nede."
     },
-    "selected_ac_battery_target_state_of_charge_unavailable": {
-      "message": "Valgt målladenivå for AC Battery er ikke tilgjengelig."
-    },
     "battery_schedule_day_required": {
       "message": "Velg minst én dag for planen."
     },
@@ -489,6 +481,39 @@
     },
     "grid_profile_controls_disabled": {
       "message": "Aktiver installatørstyring av nettprofil i integrasjonsalternativene før du bruker denne handlingen."
+    },
+    "export_limit_unavailable": {
+      "message": "Eksportgrensen er utilgjengelig. Installatørtilgang og en støttet konfigurasjon med én gateway kreves."
+    },
+    "export_limit_invalid": {
+      "message": "Angi hele watt fra 0 til 100000."
+    },
+    "export_limit_changed": {
+      "message": "Konfigurasjonen er endret. Kontroller de oppdaterte innstillingene og bekreft igjen."
+    },
+    "export_limit_mismatch": {
+      "message": "Enphases installatørskjema samsvarer ikke med gatewayens innstillinger. Oppdater innstillingene og prøv igjen."
+    },
+    "export_limit_pending": {
+      "message": "Venter på bekreftelse av konfigurasjonen. Oppdater status før en ny endring."
+    },
+    "export_limit_disabled": {
+      "message": "Aktiver styring av eksportgrenser (Funksjoner → Avanserte funksjoner)."
+    },
+    "export_limit_confirmation": {
+      "message": "Bekreft denne endringen"
+    },
+    "export_limit_invalid_slew": {
+      "message": "Skriv inn et positivt tall med opptil to desimaler."
+    },
+    "export_limit_session_expired": {
+      "message": "Enlighten-økten er utløpt eller avvist. Åpne Autentisering, start ny autentisering og prøv igjen."
+    },
+    "control_change_pending": {
+      "message": "En kontrollendring venter på bekreftelse. Oppdater statusen før du sender en ny endring."
+    },
+    "charger_status_unavailable": {
+      "message": "Fersk laderstatus er utilgjengelig. Vent på gjenoppretting før du endrer laderinnstillingene."
     }
   },
   "options": {
@@ -502,15 +527,17 @@
           "repair_notifications": "Varsler",
           "authentication_settings": "Autentisering",
           "migrate_envoy": "Migrer Envoy-historikk",
-          "advanced": "Avansert"
+          "advanced": "Avansert",
+          "features": "Funksjoner"
         },
         "menu_option_descriptions": {
           "settings": "Juster polling og oppførsel.",
-          "devices": "Velg hvilke enhetsgrupper som skal legges til. Alle valg deler samme pollingintervall.",
-          "repair_notifications": "Administrer reparasjonsvarsler i Home Assistant.",
+          "devices": "Velg enhetskategoriene som skal inkluderes.",
+          "repair_notifications": "Administrer reparasjonsvarsler og beskrivende aktivitetsoppføringer i Home Assistant.",
           "authentication_settings": "Start innloggingsflyten for å oppdatere legitimasjon uten å fjerne integrasjonen.",
           "migrate_envoy": "Overta valgte Enphase Envoy-energi-enhets-ID-er slik at historikken i Home Assistant Energy fortsetter under denne integrasjonen.",
-          "advanced": "Valgfrie kontroller for nettmodus og nettprofilkontroller kun for installatører."
+          "advanced": "Installatør- og vedlikeholdshandlinger.",
+          "features": "Konfigurer enhetsfunksjoner og avanserte kontroller."
         },
         "data": {
           "type_envoy": "Gateway",
@@ -525,7 +552,6 @@
           "session_history_interval": "Intervall for øktshistorikk (min)",
           "schedule_sync_enabled": "Aktiver planleggerstøtte",
           "type_heatpump": "Varmepumpe",
-          "type_ac_battery": "AC-batteri",
           "battery_schedules_enabled": "Aktiver batteriplanlegger",
           "degraded_service_repair_issues": "Aktiver reparasjoner for degraderte tjenester",
           "weather_enabled": "Aktiver vær",
@@ -537,18 +563,17 @@
           "type_encharge": "Inkluderer batteristatus og kontrollentiteter når tilgjengelig.",
           "type_iqevse": "Inkluderer EV-laderentiteter og kontroller.",
           "type_microinverter": "Inkluderer sensorer for mikrovekselretter-tilkobling, aktivt antall og livstidsproduksjon.",
-          "fast_poll_interval": "Intervall som brukes under lading eller strømming.",
-          "slow_poll_interval": "Intervall som brukes når inaktiv.",
-          "fast_while_streaming": "Når aktivert, rask oppdatering under aktiv skystrømming.",
-          "api_timeout": "Sekunder før API-forespørsler får tidsavbrudd.",
-          "nominal_voltage": "Typisk vekselspenning for å beregne effekten når sanntidsspenning ikke er tilgjengelig.",
-          "session_history_interval": "Minutter å vente mellom henting av sky-øktshistorikk.",
+          "fast_poll_interval": "Intervall som brukes under lading eller strømming. Standard: 30 s.",
+          "slow_poll_interval": "Intervall som brukes når inaktiv. Standard: 60 s.",
+          "fast_while_streaming": "Når aktivert, rask oppdatering under aktiv skystrømming. Standard: Aktivert.",
+          "api_timeout": "Sekunder før API-forespørsler får tidsavbrudd. Standard: 15 s.",
+          "nominal_voltage": "Typisk vekselspenning for å beregne effekten når sanntidsspenning ikke er tilgjengelig. Standard: Fra laderens telemetri når den er tilgjengelig; ellers basert på Home Assistant-regionen, med en reserveverdi på 230 V.",
+          "session_history_interval": "Minutter å vente mellom henting av sky-øktshistorikk. Standard: 10 min.",
           "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostikk og forbruk.",
-          "type_ac_battery": "Inkluderer AC-batterisensorer og kontroller for hvilemodus når de er tilgjengelige.",
-          "degraded_service_repair_issues": "Oppretter Repairs-problemer når valgfrie Enphase-tjenester er degraderte.",
-          "weather_enabled": "Henter gjeldende vær for anlegget fra Enphase og oppretter bare en værenhet når endepunktet er tilgjengelig.",
-          "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi per mikroinverter.",
-          "microinverter_power_enabled": "Aktiverer alle effektsensorer per mikroinverter når installatørtelemetri er tilgjengelig."
+          "degraded_service_repair_issues": "Oppretter Repairs-problemer når valgfrie Enphase-tjenester er degraderte. Standard: Deaktivert.",
+          "weather_enabled": "Henter gjeldende vær for anlegget fra Enphase og oppretter bare en værenhet når endepunktet er tilgjengelig. Standard: Deaktivert.",
+          "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi per mikroinverter. Standard: Deaktivert.",
+          "microinverter_power_enabled": "Aktiverer alle effektsensorer per mikroinverter når installatørtelemetri er tilgjengelig. Krever installatørtilgang. Standard: Deaktivert."
         }
       },
       "settings": {
@@ -563,24 +588,23 @@
           "degraded_service_repair_issues": "Aktiver reparasjoner for degraderte tjenester"
         },
         "data_description": {
-          "fast_poll_interval": "Intervall som brukes under lading eller strømming.",
-          "slow_poll_interval": "Intervall som brukes når inaktiv.",
-          "fast_while_streaming": "Når aktivert, rask oppdatering under aktiv skystrømming.",
-          "api_timeout": "Sekunder før API-forespørsler får tidsavbrudd.",
-          "session_history_interval": "Minutter å vente mellom henting av sky-øktshistorikk.",
-          "degraded_service_repair_issues": "Oppretter Repairs-problemer når valgfrie Enphase-tjenester er degraderte."
+          "fast_poll_interval": "Intervall som brukes under lading eller strømming. Standard: 30 s.",
+          "slow_poll_interval": "Intervall som brukes når inaktiv. Standard: 60 s.",
+          "fast_while_streaming": "Når aktivert, rask oppdatering under aktiv skystrømming. Standard: Aktivert.",
+          "api_timeout": "Sekunder før API-forespørsler får tidsavbrudd. Standard: 15 s.",
+          "session_history_interval": "Minutter å vente mellom henting av sky-øktshistorikk. Standard: 10 min.",
+          "degraded_service_repair_issues": "Oppretter Repairs-problemer når valgfrie Enphase-tjenester er degraderte. Standard: Deaktivert."
         }
       },
       "devices": {
         "title": "Velg enheter",
-        "description": "Velg hvilke enhetsgrupper som skal legges til. Alle valg deler samme pollingintervall.",
+        "description": "Velg enhetskategoriene som skal inkluderes.",
         "sections": {
           "devices": {
             "name": "Velg enheter",
             "data": {
               "type_envoy": "Gateway",
               "type_encharge": "Batteri",
-              "type_ac_battery": "AC-batteri",
               "type_iqevse": "Ladere",
               "type_heatpump": "Varmepumpe",
               "type_microinverter": "Mikrovekselrettere"
@@ -588,89 +612,40 @@
             "data_description": {
               "type_envoy": "Inkluderer gateway-tilkobling og målerdiagnostikk.",
               "type_encharge": "Inkluderer batteristatus og kontrollentiteter når tilgjengelig.",
-              "type_ac_battery": "Inkluderer AC-batterisensorer og kontroller for hvilemodus når de er tilgjengelige.",
               "type_iqevse": "Inkluderer EV-laderentiteter og kontroller.",
               "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostikk og forbruk.",
               "type_microinverter": "Inkluderer sensorer for mikrovekselretter-tilkobling, aktivt antall og livstidsproduksjon."
-            }
-          },
-          "device_features": {
-            "name": "Enhetsfunksjoner",
-            "data": {
-              "schedule_sync_enabled": "Aktiver planleggerstøtte",
-              "battery_schedules_enabled": "Aktiver batteriplanlegger",
-              "system_event_repair_issues": "Aktiver reparasjonsvarsler for systemhendelser",
-              "pricing_edits_enabled": "Aktiver prisredigering",
-              "weather_enabled": "Aktiver vær",
-              "nominal_voltage": "EV-laderens nominelle spenning (V)",
-              "microinverter_lifetime_energy_enabled": "Aktiver mikroinverternes levetidsenergi",
-              "microinverter_power_enabled": "Aktiver mikroinvertereffekt",
-              "vpp_events_enabled": "Aktiver VPP-hendelser",
-              "grid_profile_controls_enabled": "Aktiver installatørstyring av nettprofil"
-            },
-            "data_description": {
-              "system_event_repair_issues": "Oppretter Home Assistant-reparasjoner for aktive stående Enphase-alarmer. Deaktivert som standard.",
-              "pricing_edits_enabled": "Administrer strømpriser for IQ Gateway",
-              "weather_enabled": "Henter gjeldende vær for anlegget fra Enphase og oppretter bare en værenhet når endepunktet er tilgjengelig.",
-              "nominal_voltage": "Typisk vekselspenning for å beregne effekten når sanntidsspenning ikke er tilgjengelig.",
-              "schedule_sync_enabled": "Administrer tidsplaner for IQ EV Charger.",
-              "battery_schedules_enabled": "Administrer tidsplaner for IQ Battery.",
-              "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi per mikroinverter.",
-              "microinverter_power_enabled": "Aktiverer alle effektsensorer per mikroinverter når installatørtelemetri er tilgjengelig.",
-              "vpp_events_enabled": "Henter VPP/ELRP-planer fra Enphase og oppretter hendelsesenheter bare for påmeldte anlegg. Deaktivert som standard.",
-              "grid_profile_controls_enabled": "Henter nettprofilmetadata som bare er tilgjengelige for installatører, og aktiverer profilhandlinger. Deaktivert som standard."
             }
           }
         },
         "data": {
           "devices": "Velg enheter",
-          "device_features": "Enhetsfunksjoner",
           "type_envoy": "Gateway",
           "type_encharge": "Batteri",
-          "type_ac_battery": "AC-batteri",
           "type_iqevse": "Ladere",
           "type_heatpump": "Varmepumpe",
-          "type_microinverter": "Mikrovekselrettere",
-          "schedule_sync_enabled": "Aktiver planleggerstøtte",
-          "battery_schedules_enabled": "Aktiver batteriplanlegger",
-          "system_event_repair_issues": "Aktiver reparasjonsvarsler for systemhendelser",
-          "pricing_edits_enabled": "Aktiver prisredigering",
-          "weather_enabled": "Aktiver vær",
-          "nominal_voltage": "EV-laderens nominelle spenning (V)",
-          "microinverter_lifetime_energy_enabled": "Aktiver mikroinverternes levetidsenergi",
-          "microinverter_power_enabled": "Aktiver mikroinvertereffekt",
-          "vpp_events_enabled": "Aktiver VPP-hendelser",
-          "grid_profile_controls_enabled": "Aktiver installatørstyring av nettprofil"
+          "type_microinverter": "Mikrovekselrettere"
         },
         "data_description": {
           "type_envoy": "Inkluderer gateway-tilkobling og målerdiagnostikk.",
           "type_encharge": "Inkluderer batteristatus og kontrollentiteter når tilgjengelig.",
-          "type_ac_battery": "Inkluderer AC-batterisensorer og kontroller for hvilemodus når de er tilgjengelige.",
           "type_iqevse": "Inkluderer EV-laderentiteter og kontroller.",
           "type_heatpump": "Inkluderer sensorer for varmepumpens status, diagnostikk og forbruk.",
-          "type_microinverter": "Inkluderer sensorer for mikrovekselretter-tilkobling, aktivt antall og livstidsproduksjon.",
-          "system_event_repair_issues": "Oppretter Home Assistant-reparasjoner for aktive stående Enphase-alarmer. Deaktivert som standard.",
-          "pricing_edits_enabled": "Administrer strømpriser for IQ Gateway",
-          "weather_enabled": "Henter gjeldende vær for anlegget fra Enphase og oppretter bare en værenhet når endepunktet er tilgjengelig.",
-          "nominal_voltage": "Typisk vekselspenning for å beregne effekten når sanntidsspenning ikke er tilgjengelig.",
-          "schedule_sync_enabled": "Administrer tidsplaner for IQ EV Charger.",
-          "battery_schedules_enabled": "Administrer tidsplaner for IQ Battery.",
-          "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi per mikroinverter.",
-          "microinverter_power_enabled": "Aktiverer alle effektsensorer per mikroinverter når installatørtelemetri er tilgjengelig.",
-          "vpp_events_enabled": "Henter VPP/ELRP-planer fra Enphase og oppretter hendelsesenheter bare for påmeldte anlegg. Deaktivert som standard.",
-          "grid_profile_controls_enabled": "Henter nettprofilmetadata som bare er tilgjengelige for installatører, og aktiverer profilhandlinger. Deaktivert som standard."
+          "type_microinverter": "Inkluderer sensorer for mikrovekselretter-tilkobling, aktivt antall og livstidsproduksjon."
         }
       },
       "repair_notifications": {
         "title": "Varsler",
-        "description": "Velg hvilke Enphase-tilstander som oppretter reparasjoner i Home Assistant.",
+        "description": "Administrer reparasjonsvarsler og beskrivende aktivitetsoppføringer i Home Assistant.",
         "data": {
           "degraded_service_repair_issues": "Aktiver reparasjoner for degraderte tjenester",
-          "system_event_repair_issues": "Aktiver reparasjonsvarsler for systemhendelser"
+          "system_event_repair_issues": "Aktiver reparasjonsvarsler for systemhendelser",
+          "descriptive_activity_entries": "Aktiver beskrivende aktivitetsoppføringer"
         },
         "data_description": {
-          "degraded_service_repair_issues": "Oppretter Repairs-problemer når valgfrie Enphase-tjenester er degraderte.",
-          "system_event_repair_issues": "Oppretter Home Assistant-reparasjoner for aktive stående Enphase-alarmer. Deaktivert som standard."
+          "degraded_service_repair_issues": "Oppretter Repairs-problemer når valgfrie Enphase-tjenester er degraderte. Standard: Deaktivert.",
+          "system_event_repair_issues": "Oppretter Home Assistant-reparasjoner for aktive stående Enphase-alarmer. Deaktivert som standard. Standard: Deaktivert.",
+          "descriptive_activity_entries": "Legg til beskrivende oppføringer i Home Assistant-aktiviteten når rapporterte forhold endres. De vises sammen med vanlige oppføringer om tilstandsendringer. Deaktivert som standard."
         }
       },
       "authentication_settings": {
@@ -732,11 +707,13 @@
         "description": "Installatør- og vedlikeholdshandlinger.",
         "menu_options": {
           "grid_toggle": "Nettmodus",
-          "grid_profile": "Nettprofilstyring"
+          "grid_profile": "Nettprofilstyring",
+          "export_limit": "Eksportgrense"
         },
         "menu_option_descriptions": {
           "grid_toggle": "Konfigurer manuelle kontroller for nettmodus.",
-          "grid_profile": "Bla gjennom og bruk Activation-nettprofiler kun for installatører."
+          "grid_profile": "Bla gjennom og bruk Activation-nettprofiler kun for installatører.",
+          "export_limit": "Konfigurer systemets eksportgrenser."
         }
       },
       "grid_toggle": {
@@ -787,6 +764,125 @@
       "grid_toggle_applied": {
         "title": "Endring av nettmodus akseptert",
         "description": "Enphase godtok forespørselen om å endre nettmodus til **{target_mode}**.\n\nDet fysiske releet kan fortsatt være i endring. Bruk sensoren for nettmodus for å observere den resulterende tilstanden."
+      },
+      "features": {
+        "title": "Funksjoner",
+        "description": "Konfigurer enhetsfunksjoner og avanserte kontroller.",
+        "sections": {
+          "device_features": {
+            "name": "Enhetsfunksjoner",
+            "data": {
+              "schedule_sync_enabled": "Aktiver planleggerstøtte",
+              "battery_schedules_enabled": "Aktiver batteriplanlegger",
+              "system_event_repair_issues": "Aktiver reparasjonsvarsler for systemhendelser",
+              "pricing_edits_enabled": "Aktiver prisredigering",
+              "weather_enabled": "Aktiver vær",
+              "nominal_voltage": "EV-laderens nominelle spenning (V)",
+              "microinverter_lifetime_energy_enabled": "Aktiver mikroinverternes levetidsenergi",
+              "vpp_events_enabled": "Aktiver VPP-hendelser"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Oppretter Home Assistant-reparasjoner for aktive stående Enphase-alarmer. Deaktivert som standard. Standard: Deaktivert.",
+              "pricing_edits_enabled": "Administrer strømpriser for IQ Gateway. Standard: Aktivert.",
+              "weather_enabled": "Henter gjeldende vær for anlegget fra Enphase og oppretter bare en værenhet når endepunktet er tilgjengelig. Standard: Deaktivert.",
+              "nominal_voltage": "Typisk vekselspenning for å beregne effekten når sanntidsspenning ikke er tilgjengelig. Standard: Fra laderens telemetri når den er tilgjengelig; ellers basert på Home Assistant-regionen, med en reserveverdi på 230 V.",
+              "schedule_sync_enabled": "Administrer tidsplaner for IQ EV Charger. Standard: Aktivert.",
+              "battery_schedules_enabled": "Administrer tidsplaner for IQ Battery. Standard: Aktivert.",
+              "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi per mikroinverter. Standard: Deaktivert.",
+              "vpp_events_enabled": "Henter VPP/ELRP-planer fra Enphase og oppretter hendelsesenheter bare for påmeldte anlegg. Deaktivert som standard. Standard: Deaktivert."
+            }
+          },
+          "advanced_features": {
+            "name": "Avanserte funksjoner",
+            "data": {
+              "grid_profile_controls_enabled": "Aktiver installatørstyring av nettprofil",
+              "microinverter_power_enabled": "Aktiver mikroinvertereffekt",
+              "export_limit_controls_enabled": "Aktiver styring av eksportgrenser"
+            },
+            "data_description": {
+              "grid_profile_controls_enabled": "Henter nettprofilmetadata som bare er tilgjengelige for installatører, og aktiverer profilhandlinger. Deaktivert som standard. Krever installatørtilgang. Standard: Deaktivert.",
+              "microinverter_power_enabled": "Aktiverer alle effektsensorer per mikroinverter når installatørtelemetri er tilgjengelig. Krever installatørtilgang. Standard: Deaktivert.",
+              "export_limit_controls_enabled": "Konfigurer systemets eksportgrenser. Krever installatørtilgang. Standard: Deaktivert."
+            }
+          }
+        },
+        "data": {
+          "device_features": "Enhetsfunksjoner",
+          "advanced_features": "Avanserte funksjoner",
+          "schedule_sync_enabled": "Aktiver planleggerstøtte",
+          "battery_schedules_enabled": "Aktiver batteriplanlegger",
+          "system_event_repair_issues": "Aktiver reparasjonsvarsler for systemhendelser",
+          "pricing_edits_enabled": "Aktiver prisredigering",
+          "weather_enabled": "Aktiver vær",
+          "nominal_voltage": "EV-laderens nominelle spenning (V)",
+          "microinverter_lifetime_energy_enabled": "Aktiver mikroinverternes levetidsenergi",
+          "microinverter_power_enabled": "Aktiver mikroinvertereffekt",
+          "vpp_events_enabled": "Aktiver VPP-hendelser",
+          "grid_profile_controls_enabled": "Aktiver installatørstyring av nettprofil",
+          "export_limit_controls_enabled": "Aktiver styring av eksportgrenser"
+        },
+        "data_description": {
+          "system_event_repair_issues": "Oppretter Home Assistant-reparasjoner for aktive stående Enphase-alarmer. Deaktivert som standard. Standard: Deaktivert.",
+          "pricing_edits_enabled": "Administrer strømpriser for IQ Gateway. Standard: Aktivert.",
+          "weather_enabled": "Henter gjeldende vær for anlegget fra Enphase og oppretter bare en værenhet når endepunktet er tilgjengelig. Standard: Deaktivert.",
+          "nominal_voltage": "Typisk vekselspenning for å beregne effekten når sanntidsspenning ikke er tilgjengelig. Standard: Fra laderens telemetri når den er tilgjengelig; ellers basert på Home Assistant-regionen, med en reserveverdi på 230 V.",
+          "schedule_sync_enabled": "Administrer tidsplaner for IQ EV Charger. Standard: Aktivert.",
+          "battery_schedules_enabled": "Administrer tidsplaner for IQ Battery. Standard: Aktivert.",
+          "microinverter_lifetime_energy_enabled": "Aktiverer alle sensorer for levetidsenergi per mikroinverter. Standard: Deaktivert.",
+          "microinverter_power_enabled": "Aktiverer alle effektsensorer per mikroinverter når installatørtelemetri er tilgjengelig. Krever installatørtilgang. Standard: Deaktivert.",
+          "vpp_events_enabled": "Henter VPP/ELRP-planer fra Enphase og oppretter hendelsesenheter bare for påmeldte anlegg. Deaktivert som standard. Standard: Deaktivert.",
+          "grid_profile_controls_enabled": "Henter nettprofilmetadata som bare er tilgjengelige for installatører, og aktiverer profilhandlinger. Deaktivert som standard. Krever installatørtilgang. Standard: Deaktivert.",
+          "export_limit_controls_enabled": "Konfigurer systemets eksportgrenser. Krever installatørtilgang. Standard: Deaktivert."
+        }
+      },
+      "export_limit": {
+        "title": "Eksportgrense",
+        "description": "Konfigurer systemets eksportgrenser."
+      },
+      "export_limit_action": {
+        "title": "Eksportgrense",
+        "description": "Styr hvor mye effekt systemet ditt leverer til strømnettet. Forespørselsstatus viser endringer sendt gjennom denne integrasjonen.\n\nGjeldende innstilling: **{current}**\n\nVentende innstilling: **{pending}**",
+        "menu_options": {
+          "export_limit_set": "Aktiver eksportgrense",
+          "export_limit_disable": "Deaktiver eksportbegrensning",
+          "export_limit_defaults": "Standardinnstillinger"
+        },
+        "menu_option_descriptions": {
+          "export_limit_defaults": "Lagre standardverdier for kontrollen for eksportgrense.",
+          "export_limit_set": "Angi maksimal eksport til strømnettet, inkludert null eksport.",
+          "export_limit_disable": "Tillat eksport til strømnettet uten en angitt grense."
+        }
+      },
+      "export_limit_set": {
+        "title": "Aktiver eksportgrense",
+        "data": {
+          "limit_watts": "Eksportgrense (W)"
+        },
+        "description": "Sett grensen til 0 W for å hindre eksport til strømnettet. Andre verdier angir den maksimale effekten systemet kan levere til strømnettet."
+      },
+      "export_limit_confirm": {
+        "title": "Eksportgrense",
+        "description": "Gjeldende innstilling: **{current}**\n\nForespurt innstilling: **{requested}**\n\nEndringshastighet (W/sec): **{current_slew}** → **{requested_slew}**",
+        "data": {
+          "confirm": "Bekreft denne endringen"
+        }
+      },
+      "export_limit_submitted": {
+        "title": "Eksportgrense",
+        "description": "Konfigurer systemets eksportgrenser.\n\n**{status}**"
+      },
+      "export_limit_readonly": {
+        "title": "Eksportgrense",
+        "description": "Eksportgrensen er utilgjengelig. Installatørtilgang og en støttet konfigurasjon med én gateway kreves.\n\nGjeldende innstilling: **{current}**"
+      },
+      "export_limit_defaults": {
+        "title": "Standardinnstillinger",
+        "description": "Lagre standardverdiene som brukes når du velger Aktivert i kontrollen for eksportgrense. Lagring av verdiene endrer ikke gatewayen. Gjenoppretting fjerner den lagrede hastighetsoverstyringen.",
+        "data": {
+          "limit_watts": "Standard eksportgrense (W)",
+          "slew_rate": "Endringshastighet (W/sec)",
+          "restore_slew_rate": "Gjenopprett hastighet fra gateway"
+        }
       }
     },
     "error": {
@@ -813,7 +909,17 @@
       "grid_otp_required": "Skriv inn engangskoden.",
       "grid_otp_invalid_format": "Engangskoden må inneholde nøyaktig fire sifre.",
       "grid_otp_invalid": "Engangskoden er ugyldig eller utløpt.",
-      "grid_envoy_serial_missing": "Gatewayen for dette anlegget kunne ikke bestemmes."
+      "grid_envoy_serial_missing": "Gatewayen for dette anlegget kunne ikke bestemmes.",
+      "export_limit_unavailable": "Eksportgrensen er utilgjengelig. Installatørtilgang og en støttet konfigurasjon med én gateway kreves.",
+      "export_limit_invalid": "Angi hele watt fra 0 til 100000.",
+      "export_limit_changed": "Konfigurasjonen er endret. Kontroller de oppdaterte innstillingene og bekreft igjen.",
+      "export_limit_mismatch": "Enphases installatørskjema samsvarer ikke med gatewayens innstillinger. Oppdater innstillingene og prøv igjen.",
+      "export_limit_pending": "Venter på bekreftelse av konfigurasjonen. Oppdater status før en ny endring.",
+      "export_limit_disabled": "Aktiver styring av eksportgrenser (Funksjoner → Avanserte funksjoner).",
+      "export_limit_confirmation": "Bekreft denne endringen",
+      "export_limit_invalid_slew": "Skriv inn et positivt tall med opptil to desimaler.",
+      "grid_profile_session_expired": "Enlighten-økten er utløpt eller avvist. Åpne Autentisering, start ny autentisering og prøv igjen.",
+      "export_limit_session_expired": "Enlighten-økten er utløpt eller avvist. Åpne Autentisering, start ny autentisering og prøv igjen."
     },
     "abort": {
       "migration_no_envoy_sources": "Ingen Enphase Envoy-energisensorer er tilgjengelige for migrering.",
@@ -823,7 +929,8 @@
       "grid_profile_installer_required": "Nettprofilstyring krever installatørtilgang til Enphase Activation.",
       "grid_profile_no_regions": "Ingen nettprofilregioner er tilgjengelige for landet til dette anlegget.",
       "grid_mode_unavailable": "Styring av nettmodus er utilgjengelig for dette anlegget.",
-      "grid_mode_blocked": "Styring av nettmodus er for øyeblikket blokkert: {reasons}."
+      "grid_mode_blocked": "Styring av nettmodus er for øyeblikket blokkert: {reasons}.",
+      "grid_profile_session_expired": "Enlighten-økten er utløpt eller avvist. Åpne Autentisering, start ny autentisering og prøv igjen."
     },
     "create_entry": {
       "migration_success": "Migreringen er fullført. Enphase Energy eier nå de valgte kildeentitets-ID-ene. Kontroller Energy-oversikten og Developer Tools > Statistics etter neste oppdatering.",
@@ -1009,6 +1116,9 @@
           },
           "amp_control_applies_in_modes": {
             "name": "Moduser der amperekontroll gjelder"
+          },
+          "requested_mode": {
+            "name": "Ønsket modus"
           }
         }
       },
@@ -1103,7 +1213,7 @@
         "name": "Mislykkede pålogginger med lagret legitimasjon"
       },
       "current_production_power": {
-        "name": "Nåværende produksjonseffekt",
+        "name": "Produksjonseffekt",
         "state_attributes": {
           "sampled_at_utc": {
             "name": "Målt kl. (UTC)"
@@ -1241,7 +1351,7 @@
         }
       },
       "site_consumption_power": {
-        "name": "Nåværende effektforbruk",
+        "name": "Effektforbruk",
         "state_attributes": {
           "last_window_seconds": {
             "name": "Siste vindu (s)"
@@ -1255,7 +1365,7 @@
         }
       },
       "site_grid_power": {
-        "name": "Nåværende netteffekt",
+        "name": "Netteffekt",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Siste flyt kWh"
@@ -1320,7 +1430,7 @@
         }
       },
       "site_battery_power": {
-        "name": "Nåværende batterieffekt",
+        "name": "Batterieffekt",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Siste flyt kWh"
@@ -1367,7 +1477,7 @@
         }
       },
       "system_profile_status": {
-        "name": "Systemprofilstatus",
+        "name": "Systemprofil",
         "state": {
           "pending": "Venter"
         },
@@ -1505,7 +1615,7 @@
         "name": "Forbruksmåler"
       },
       "gateway_connectivity_status": {
-        "name": "Gateway-status",
+        "name": "Tilkobling",
         "state_attributes": {
           "ip_address": {
             "name": "IP-adresse"
@@ -1516,7 +1626,7 @@
         }
       },
       "gateway_last_reported": {
-        "name": "Gateway sist rapportert"
+        "name": "Sist rapportert"
       },
       "tariff_billing_cycle": {
         "name": "Neste faktureringsdato",
@@ -1727,7 +1837,21 @@
         }
       },
       "microinverter_connectivity_status": {
-        "name": "Tilkoblingsstatus for mikroinvertere"
+        "name": "Tilkoblingsstatus for mikroinvertere",
+        "state_attributes": {
+          "power_telemetry_status": {
+            "name": "Status for effekttelemetri",
+            "state": {
+              "disabled": "Deaktivert",
+              "pending": "Venter",
+              "ready": "Tilgjengelig",
+              "rate_limited": "Frekvensbegrenset"
+            }
+          },
+          "power_telemetry_next_retry": {
+            "name": "Neste forsøk på effekttelemetri"
+          }
+        }
       },
       "microinverter_reporting_count": {
         "name": "Aktive mikrovekselrettere"
@@ -1831,47 +1955,47 @@
           "error": "Feil",
           "unknown": "Ukjent",
           "unpaired": "Ikke paret",
-          "pairing": "Paring"
+          "pairing": "Paring",
+          "activity_status": "Status",
+          "activity_unknown": "Ukjent",
+          "activity_yes": "Ja",
+          "activity_no": "Nei",
+          "activity_more": "Flere oppføringer",
+          "activity_battery": "Batteri",
+          "activity_charger_problem": "Rapportert feil",
+          "activity_suspended_by_evse": "Satt på pause av laderen",
+          "activity_offline_since": "Frakoblet siden",
+          "activity_connected_devices": "Tilkoblede gatewayer",
+          "activity_disconnected_devices": "Frakoblede gatewayer",
+          "activity_unknown_connection_devices": "Gatewayer med ukjent status",
+          "activity_connection_method": "Tilkoblingsmetode",
+          "activity_latest_reported_utc": "Sist rapportert",
+          "activity_reporting_inverters": "Rapporterende vekselrettere",
+          "activity_not_reporting_inverters": "Vekselrettere som ikke rapporterer",
+          "activity_unknown_inverters": "Vekselrettere med ukjent status",
+          "activity_power_telemetry_status": "Effekttelemetri",
+          "activity_power_telemetry_next_retry": "Nytt telemetriforsøk",
+          "activity_sg_ready_mode_raw": "SG Ready-modus",
+          "activity_sg_ready_contact_state": "Kontaktstatus",
+          "activity_vpp_sgready_mode_override": "Rapportert VPP-overstyring",
+          "activity_confirmed_watts": "Bekreftet grense (W)",
+          "activity_requested_watts": "Forespurt grense (W)",
+          "activity_requested_action": "Forespurt handling",
+          "activity_request_status": "Forespørselsstatus",
+          "activity_active_count": "Aktive problemer",
+          "activity_type": "Hendelsestype",
+          "activity_device_type": "Enhetstype",
+          "activity_severity": "Alvorlighetsgrad",
+          "activity_description": "Beskrivelse",
+          "activity_event_date": "Først rapportert",
+          "activity_reason": "Årsak",
+          "activity_http_status": "HTTP-status",
+          "activity_retry": "Neste forsøk",
+          "activity_worst_battery": "Verste batteristatus",
+          "activity_reachable": "Skyen er tilgjengelig",
+          "activity_last_success": "Siste vellykkede oppdatering",
+          "activity_standing_alarm": "Vedvarende alarm"
         }
-      },
-      "ac_battery_overall_status": {
-        "name": "Samlet status for AC-batteri",
-        "state": {
-          "normal": "Normal",
-          "warning": "Advarsel",
-          "error": "Feil",
-          "unknown": "Ukjent"
-        }
-      },
-      "ac_battery_power": {
-        "name": "AC-batterieffekt"
-      },
-      "ac_battery_last_reported": {
-        "name": "Sist rapportert fra AC-batteri"
-      },
-      "ac_battery_storage_charge": {
-        "name": "Ladenivå for AC-batteri"
-      },
-      "ac_battery_storage_status": {
-        "name": "{serial} status",
-        "state": {
-          "normal": "Normal",
-          "warning": "Advarsel",
-          "error": "Feil",
-          "unknown": "Ukjent"
-        }
-      },
-      "ac_battery_storage_power": {
-        "name": "{serial} effekt"
-      },
-      "ac_battery_storage_operating_mode": {
-        "name": "{serial} driftsmodus"
-      },
-      "ac_battery_storage_cycle_count": {
-        "name": "{serial} syklustall"
-      },
-      "ac_battery_storage_last_reported": {
-        "name": "{serial} sist rapportert"
       },
       "battery_cfg_schedules": {
         "name": "Batteri-CFG-planer"
@@ -2056,6 +2180,126 @@
       },
       "vpp_next_event_status": {
         "name": "Status for neste VPP-hendelse"
+      },
+      "export_limit": {
+        "name": "Eksportgrense",
+        "state": {
+          "disabled": "Deaktivert",
+          "zero_export": "Nulleksport",
+          "limited": "Begrenset",
+          "unsupported": "Ikke støttet",
+          "pending": "Venter",
+          "unconfirmed": "Ubekreftet"
+        },
+        "state_attributes": {
+          "confirmed_watts": {
+            "name": "Gjeldende innstilling"
+          },
+          "requested_watts": {
+            "name": "Forespurt innstilling"
+          },
+          "requested_action": {
+            "name": "Forespurt innstilling",
+            "state": {
+              "set": "Angi eksportgrense",
+              "disable": "Deaktiver eksportbegrensning"
+            }
+          },
+          "request_status": {
+            "name": "Forespørselsstatus",
+            "state": {
+              "idle": "Ingen",
+              "pending": "Venter på bekreftelse",
+              "confirmed": "Konfigurasjon bekreftet",
+              "unconfirmed": "Ubekreftet",
+              "rejected": "Avvist"
+            }
+          },
+          "last_successful_readback": {
+            "name": "Siste vellykkede avlesning"
+          },
+          "slew_rate": {
+            "name": "Endringshastighet (W/sec)"
+          },
+          "requested_slew_rate": {
+            "name": "Forespurt innstilling · Endringshastighet (W/sec)"
+          },
+          "pending": {
+            "name": "I påvente av"
+          },
+          "pending_requested_at": {
+            "name": "Venter forespurt kl"
+          }
+        }
+      },
+      "total_array_size": {
+        "name": "Samlet solcelleeffekt"
+      },
+      "total_inverter_capacity": {
+        "name": "Samlet inverterkapasitet"
+      },
+      "account_access": {
+        "name": "Kontotilgang",
+        "state": {
+          "administrator": "Kontoadministrator",
+          "installer": "Installatør",
+          "owner": "Eier",
+          "host": "Vert",
+          "consumption_data": "Forbruksdata",
+          "viewer": "Lesetilgang"
+        },
+        "state_attributes": {
+          "administrator": {
+            "name": "Kontoadministrator"
+          },
+          "installer": {
+            "name": "Installatør"
+          },
+          "owner": {
+            "name": "Eier"
+          },
+          "host": {
+            "name": "Vert"
+          },
+          "consumption_data": {
+            "name": "Forbruksdata"
+          },
+          "viewer": {
+            "name": "Lesetilgang"
+          }
+        }
+      },
+      "site_information": {
+        "name": "Anleggsinformasjon",
+        "state_attributes": {
+          "site_id": {
+            "name": "Anleggs-ID"
+          },
+          "timezone": {
+            "name": "Tidssone"
+          },
+          "country": {
+            "name": "Land"
+          },
+          "currency": {
+            "name": "Valuta"
+          }
+        }
+      },
+      "inverter_array_energy": {
+        "name": "{array} Samlet energi"
+      },
+      "inverter_array_power": {
+        "name": "{array} Nåværende effekt"
+      },
+      "update_status": {
+        "name": "Oppdateringsstatus",
+        "state": {
+          "idle": "Inaktiv",
+          "pending": "Venter",
+          "unconfirmed": "Ubekreftet",
+          "failed": "Mislyktes"
+        }
       }
     },
     "number": {
@@ -2228,7 +2472,7 @@
     },
     "binary_sensor": {
       "plugged_in": {
-        "name": "Tilkoblet"
+        "name": "Tilkobling av kjøretøy"
       },
       "charging": {
         "name": "Lading"
@@ -2243,7 +2487,7 @@
         "name": "Tilkobling",
         "state_attributes": {
           "connection": {
-            "name": "Tilkobling"
+            "name": "Tilkoblingsmetode"
           },
           "ip_address": {
             "name": "IP-adresse"
@@ -2251,7 +2495,7 @@
         }
       },
       "active_system_events": {
-        "name": "Aktive systemhendelser",
+        "name": "Systemhendelser",
         "state_attributes": {
           "available": {
             "name": "Hendelsestjeneste tilgjengelig"
@@ -2316,9 +2560,6 @@
       },
       "restrict_battery_discharge_schedule": {
         "name": "Plan for begrensning av batteriutlading"
-      },
-      "ac_battery_sleep_mode": {
-        "name": "Hvilemodus for AC-batteri"
       },
       "evse_schedule_edit_mon": {
         "name": "Tidsplan mandag"
@@ -2391,9 +2632,6 @@
       "system_profile": {
         "name": "Systemprofil"
       },
-      "ac_battery_target_state_of_charge": {
-        "name": "Målladenivå for AC-batteri"
-      },
       "evse_schedule_selected": {
         "name": "Tidsplan"
       },
@@ -2402,18 +2640,31 @@
       },
       "battery_schedule_selected": {
         "name": "Batteriplan"
+      },
+      "export_limit": {
+        "name": "Eksportgrense",
+        "state": {
+          "enable_limit": "Aktivert",
+          "disable_limit": "Deaktivert"
+        },
+        "state_attributes": {
+          "default_limit_watts": {
+            "name": "Standard eksportgrense (W)"
+          },
+          "default_slew_rate": {
+            "name": "Endringshastighet (W/sec)"
+          },
+          "slew_rate_source": {
+            "name": "Kilde for endringshastighet",
+            "state": {
+              "gateway": "Gateway",
+              "saved_override": "Lagret overstyring"
+            }
+          }
+        }
       }
     },
     "button": {
-      "start_charging": {
-        "name": "Start lading"
-      },
-      "stop_charging": {
-        "name": "Stopp lading"
-      },
-      "cancel_pending_profile_change": {
-        "name": "Avbryt ventende profilendring"
-      },
       "storm_alert_opt_out": {
         "name": "Meld deg av stormvarsel"
       },
@@ -2569,7 +2820,45 @@
     },
     "battery_profile_pending": {
       "title": "Oppdatering av Enphase Energy-batteriprofil venter",
-      "description": "En endring av batteriprofil for anlegg {site_id} har vært ventende i mer enn {pending_timeout_minutes} minutter. Skytjenesten behandler kanskje fortsatt forespørselen."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Endring av batteriprofil",
+            "description": "En endring av batteriprofil for anlegg {site_id} har vært ventende i mer enn {pending_timeout_minutes} minutter. Skytjenesten behandler kanskje fortsatt forespørselen.\n\nKontroller statusen eller avbryt den ventende forespørselen.",
+            "menu_options": {
+              "check_again": "Kontroller igjen",
+              "cancel_change": "Avbryt endring"
+            }
+          },
+          "pending": {
+            "title": "Endring av batteriprofil",
+            "description": "Endringen er fortsatt ubekreftet. Kontrollene fortsetter automatisk. Du kan kontrollere igjen eller avbryte.",
+            "menu_options": {
+              "check_again": "Kontroller igjen",
+              "cancel_change": "Avbryt endring"
+            }
+          },
+          "check_failed": {
+            "title": "Endring av batteriprofil",
+            "description": "Profilen kunne ikke oppdateres. Prøv igjen senere eller avbryt den ventende forespørselen.",
+            "menu_options": {
+              "check_again": "Kontroller igjen",
+              "cancel_change": "Avbryt endring"
+            }
+          },
+          "cancel_change": {
+            "title": "Avbryte ventende profilendring?",
+            "description": "Avbryt denne ventende forespørselen om batteriprofil i Enphase. Dette gjenoppretter ikke en profil som allerede har trådt i kraft."
+          }
+        },
+        "error": {
+          "cannot_cancel": "Forespørselen kunne ikke avbrytes. Kontroller forbindelsen og tillatelsene til Enphase-kontoen, og prøv igjen."
+        },
+        "abort": {
+          "entry_unavailable": "Integrasjonen er ikke lastet inn. Last den inn og åpne denne reparasjonen på nytt.",
+          "request_changed": "Den ventende forespørselen er endret. Lukk denne veiviseren og åpne den gjeldende reparasjonen på nytt."
+        }
+      }
     },
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS er midlertidig satt på pause",
@@ -2578,6 +2867,14 @@
     "active_system_event": {
       "title": "Aktiv Enphase-systemhendelse med stor påvirkning",
       "description": "Anlegg {site_id} har en aktiv {severity}-hendelse som påvirker {device_type}, først rapportert {event_date}. Se Enlighten for detaljer og anbefalt handling. Denne reparasjonen fjernes automatisk når Enphase rapporterer at hendelsen er løst."
+    },
+    "export_limit_pending": {
+      "title": "Endring av eksportgrense er ubekreftet",
+      "description": "Endringen er ikke bekreftet etter {pending_timeout_minutes} minutter. Kontroller fortsetter med standardintervallet. Kontroller gatewayens innstillinger; skrivingen gjentas ikke automatisk."
+    },
+    "evse_status_unavailable": {
+      "title": "Laderstatus er utilgjengelig",
+      "description": "Laderstatus for anlegg {site_id} returnerte HTTP {status}. Laderens målinger og styring er utilgjengelige til fersk status mottas. Neste forsøk: {next_retry}. Andre endepunkter forespørres fortsatt uavhengig."
     }
   },
   "system_health": {
@@ -3215,6 +3512,72 @@
         "gateway_serial": {
           "name": "Gateway-serienummer",
           "description": "Valgfritt Gateway-serienummer når Activation-oppføringen inneholder flere Gatewayer."
+        }
+      }
+    },
+    "set_export_limit": {
+      "name": "Angi eksportgrense",
+      "description": "Konfigurer systemets eksportgrenser.",
+      "fields": {
+        "limit_watts": {
+          "name": "Eksportgrense (W)",
+          "description": "Angi hele watt fra 0 til 100000."
+        },
+        "site_id": {
+          "name": "Anleggs-ID",
+          "description": "Valgfri anleggs-ID; oppdages automatisk når en anleggsenhet er valgt."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigurasjonsoppføring",
+          "description": "Enphase konfigurasjonsoppføring"
+        },
+        "device_id": {
+          "name": "Enheter",
+          "description": "Enheter"
+        },
+        "slew_rate": {
+          "name": "Endringshastighet (W/sec)",
+          "description": "Valgfritt. Hvis utelatt brukes gatewayens gjeldende verdi."
+        }
+      }
+    },
+    "disable_export_limit": {
+      "name": "Deaktiver eksportbegrensning",
+      "description": "Konfigurer systemets eksportgrenser.",
+      "fields": {
+        "site_id": {
+          "name": "Anleggs-ID",
+          "description": "Valgfri anleggs-ID; oppdages automatisk når en anleggsenhet er valgt."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigurasjonsoppføring",
+          "description": "Enphase konfigurasjonsoppføring"
+        },
+        "device_id": {
+          "name": "Enheter",
+          "description": "Enheter"
+        },
+        "slew_rate": {
+          "name": "Endringshastighet (W/sec)",
+          "description": "Valgfritt. Hvis utelatt brukes gatewayens gjeldende verdi."
+        }
+      }
+    },
+    "refresh_export_limit": {
+      "name": "Oppdater eksportgrense",
+      "description": "Konfigurer systemets eksportgrenser.",
+      "fields": {
+        "site_id": {
+          "name": "Anleggs-ID",
+          "description": "Valgfri anleggs-ID; oppdages automatisk når en anleggsenhet er valgt."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigurasjonsoppføring",
+          "description": "Enphase konfigurasjonsoppføring"
+        },
+        "device_id": {
+          "name": "Enheter",
+          "description": "Enheter"
         }
       }
     }

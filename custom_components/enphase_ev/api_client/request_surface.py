@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 import aiohttp
 from yarl import URL
@@ -439,6 +440,24 @@ async def _json(
                         return payload
 
 
+def _single_attempt_middleware() -> aiohttp.ClientMiddlewareType:
+    """Stop aiohttp or another middleware from sending the same request twice."""
+    attempted = False
+
+    async def send_once(
+        request: aiohttp.ClientRequest,
+        handler: Callable[[aiohttp.ClientRequest], Awaitable[aiohttp.ClientResponse]],
+    ) -> aiohttp.ClientResponse:
+        nonlocal attempted
+        if attempted:
+            # A ClientConnectionError is not one of aiohttp's retryable subclasses.
+            raise aiohttp.ClientConnectionError("Automatic request replay disabled")
+        attempted = True
+        return await handler(request)
+
+    return send_once
+
+
 async def _text_response(
     self: EnphaseEVClient,
     method: str,
@@ -450,6 +469,18 @@ async def _text_response(
 ) -> TextResponse:
     """Perform an HTTP request returning text plus response metadata."""
 
+    use_cookie_header_only = bool(kwargs.pop("use_cookie_header_only", False))
+    allow_reauth = bool(kwargs.pop("allow_reauth", True))
+    if not kwargs.pop("allow_replay", True):
+        allow_reauth = False
+        middlewares = kwargs.get("middlewares")
+        if middlewares is None:
+            # aiohttp has no public accessor for the injected session's defaults.
+            middlewares = getattr(self._s, "_middlewares", ())
+        kwargs["middlewares"] = (
+            *cast(Sequence[aiohttp.ClientMiddlewareType], middlewares),
+            _single_attempt_middleware(),
+        )
     extra_headers = kwargs.pop("headers", None)
     attempt = 0
     request_label = _request_label(method, url)
@@ -474,26 +505,61 @@ async def _text_response(
 
         async with asyncio.timeout(self._timeout):
             async with _timed_enlighten_read_request_guard(method, url):
-                self._request_count += 1
-                record_request_attempt()
-                async with _timed_response_context(
-                    self._s.request(method, url, headers=base_headers, **kwargs)
-                ) as r:
-                    if r.status == 401:
-                        self._last_unauthorized_request = safe_request_label
-                        if self._reauth_cb and attempt == 0:
-                            attempt += 1
-                            with _enlighten_reauth_read_scope():
-                                reauth_ok = await self._reauth_cb()
-                            if reauth_ok:
-                                continue
-                        raise Unauthorized()
-                    if expected_statuses and r.status in expected_statuses:
+                async with self._request_session(
+                    cookie_header_only=use_cookie_header_only
+                ) as request_session:
+                    self._request_count += 1
+                    record_request_attempt()
+                    async with _timed_response_context(
+                        request_session.request(
+                            method, url, headers=base_headers, **kwargs
+                        )
+                    ) as r:
+                        if r.status == 401:
+                            self._last_unauthorized_request = safe_request_label
+                            if allow_reauth and self._reauth_cb and attempt == 0:
+                                attempt += 1
+                                with _enlighten_reauth_read_scope():
+                                    reauth_ok = await self._reauth_cb()
+                                if reauth_ok:
+                                    continue
+                            raise Unauthorized()
+                        if r.status >= 400 and not (
+                            expected_statuses and r.status in expected_statuses
+                        ):
+                            body_text: str | None = None
+                            try:
+                                body_text = await _timed_response_text(r)
+                            except Exception:  # noqa: BLE001
+                                body_text = None
+                            response_error = make_response_error(r, body_text)
+                            raise response_error
                         text = await _timed_response_text(r)
-                        if _is_enphase_login_wall(
-                            endpoint=endpoint or None, payload=text
+                        login_redirect = 300 <= r.status < 400 and URL(
+                            r.headers.get("Location", "")
+                        ).path.rstrip("/") in {"/login", "/login/login"}
+                        if login_redirect or _is_enphase_login_wall(
+                            endpoint=endpoint or None, payload=text, expected_html=True
                         ):
                             self._last_unauthorized_request = safe_request_label
+                            if (
+                                allow_reauth
+                                and not self._is_hems_api_endpoint(endpoint or None)
+                                and self._reauth_cb
+                                and attempt == 0
+                            ):
+                                from homeassistant.exceptions import (
+                                    ConfigEntryAuthFailed,
+                                )
+
+                                attempt += 1
+                                try:
+                                    with _enlighten_reauth_read_scope():
+                                        reauth_ok = await self._reauth_cb()
+                                except ConfigEntryAuthFailed:
+                                    reauth_ok = False
+                                if reauth_ok:
+                                    continue
                             raise self._login_wall_unauthorized(
                                 endpoint=endpoint or None,
                                 request_label=safe_request_label,
@@ -510,33 +576,6 @@ async def _text_response(
                             headers={str(k): str(v) for k, v in r.headers.items()},
                             location=r.headers.get("Location"),
                         )
-                    if r.status >= 400:
-                        body_text: str | None = None
-                        try:
-                            body_text = await _timed_response_text(r)
-                        except Exception:  # noqa: BLE001
-                            body_text = None
-                        response_error = make_response_error(r, body_text)
-                        raise response_error
-                    text = await _timed_response_text(r)
-                    if _is_enphase_login_wall(endpoint=endpoint or None, payload=text):
-                        self._last_unauthorized_request = safe_request_label
-                        raise self._login_wall_unauthorized(
-                            endpoint=endpoint or None,
-                            request_label=safe_request_label,
-                            status=int(r.status),
-                            content_type=r.headers.get("Content-Type"),
-                            payload=text,
-                        )
-                    if mark_payload_success:
-                        self._mark_payload_healthy(endpoint or None)
-                    return TextResponse(
-                        status=int(r.status),
-                        text=text,
-                        url=str(r.url),
-                        headers={str(k): str(v) for k, v in r.headers.items()},
-                        location=r.headers.get("Location"),
-                    )
 
 
 async def _text(

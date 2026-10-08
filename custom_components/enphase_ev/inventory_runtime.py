@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from homeassistant.core import callback
 from homeassistant.util import dt as dt_util
 
+from .array_capacity import async_refresh_array_capacity
 from .api import OptionalEndpointUnavailable
 from .const import DEFAULT_FAST_POLL_INTERVAL, DOMAIN
 from .device_types import (
@@ -29,6 +30,10 @@ from .device_types import (
 from .log_redaction import redact_site_id, redact_text
 from .inventory_payload_helpers import hems_devices_groups
 from .inverter_inventory import async_fetch_inverter_pages
+from .inverter_telemetry_cooldown import (
+    async_restore_inverter_telemetry_cooldown,
+    async_save_inverter_telemetry_cooldown,
+)
 from .payload_debug import debug_field_keys, debug_render_summary, debug_sorted_keys
 from .parsing_helpers import heatpump_worst_status_text
 from .parsing_helpers import (
@@ -48,6 +53,7 @@ from .runtime_helpers import (
     resolve_site_local_current_date,
     resolve_site_timezone_name,
 )
+from .runtime_health import RuntimeAuthServices, RuntimeHealthServices
 from .state_models import (
     InventoryState,
     StateBackedAttribute,
@@ -115,6 +121,9 @@ INVERTER_PARAMETER_ALIASES: dict[str, str] = {
     "sw_version": "firmware",
 }
 INVERTER_PARAMETER_REQUEST_TIMEOUT_S = 15.0
+INVERTER_PARAMETER_REQUEST_GAP_S = 1.0
+INVERTER_DIAGNOSTIC_INTERVAL_S = 3600.0
+INVERTER_DIAGNOSTIC_STALE_AFTER_S = 7200.0
 INVERTER_PARAMETER_BATCH_CONCURRENCY = 2
 INVERTER_PARAMETER_MIN_PAGE_SIZE = 50
 INVERTER_PARAMETER_MAX_PAGE_SIZE = 500
@@ -127,12 +136,14 @@ INVERTER_PARAMETER_MAX_PAGES = (
 class CoordinatorTopologySnapshot:
     charger_serials: tuple[str, ...]
     battery_serials: tuple[str, ...]
-    ac_battery_serials: tuple[str, ...]
     inverter_serials: tuple[str, ...]
     active_type_keys: tuple[str, ...]
     gateway_iq_router_keys: tuple[str, ...]
     inventory_ready: bool
     inverter_telemetry_serials: tuple[str, ...] = ()
+    # Restored serials alone cannot authorize per-device entity discovery.
+    battery_status_ready: bool = False
+    inverter_inventory_ready: bool = False
 
 
 @dataclass(frozen=True)
@@ -183,6 +194,10 @@ class InventoryRuntime:
         self, coordinator: EnphaseCoordinator, *, state: InventoryState | None = None
     ) -> None:
         self.coordinator = coordinator
+        self.health = RuntimeHealthServices(coordinator)
+        self.auth = RuntimeAuthServices(coordinator)
+        self._inverter_parameter_last_request_mono: float | None = None
+        self._inverter_diagnostic_attempts: dict[str, float] = {}
         self.discovery_state = coordinator.discovery_state
         self.refresh_state = coordinator.refresh_state
         self.inventory_state = (
@@ -434,11 +449,14 @@ class InventoryRuntime:
             )
             return
         normalized = self._normalize_gateway_phase_map(payload)
+        metadata_changed = normalized != getattr(self, "_gateway_phase_map", None)
         self._update_shared_state(
             _gateway_phase_map=normalized,
             _gateway_phase_map_cache_until=now + GATEWAY_PHASE_MAP_CACHE_TTL,
             _gateway_phase_map_failure_backoff_until=None,
         )
+        if metadata_changed:
+            self._invalidate_device_metadata()
 
     def _type_member_text(self, member: dict[str, object], *keys: str) -> str | None:
         value = type_member_text(member, *keys)
@@ -712,7 +730,6 @@ class InventoryRuntime:
             "hems_inventory_ready": bool(getattr(self, "_hems_inventory_ready", False)),
             "charger_count": len(snapshot.charger_serials),
             "battery_count": len(snapshot.battery_serials),
-            "ac_battery_count": len(snapshot.ac_battery_serials),
             "inverter_count": len(snapshot.inverter_serials),
             "inverter_telemetry_count": len(snapshot.inverter_telemetry_serials),
             "active_type_keys": list(snapshot.active_type_keys),
@@ -839,10 +856,13 @@ class InventoryRuntime:
         return CoordinatorTopologySnapshot(
             charger_serials=tuple(self.iter_serials()),
             battery_serials=tuple(self.iter_battery_serials()),
-            ac_battery_serials=tuple(
-                getattr(self.coordinator, "iter_ac_battery_serials", lambda: [])()
+            battery_status_ready=isinstance(
+                getattr(self.coordinator, "_battery_status_payload", None), dict
             ),
             inverter_serials=inverter_serials,
+            inverter_inventory_ready=isinstance(
+                getattr(self.coordinator, "_inverters_inventory_payload", None), dict
+            ),
             active_type_keys=tuple(self.iter_type_keys()),
             gateway_iq_router_keys=router_keys,
             inventory_ready=bool(
@@ -2050,8 +2070,17 @@ class InventoryRuntime:
             }
         return summaries
 
+    def _invalidate_device_metadata(self) -> None:
+        """Invalidate presentation dependencies independently of inventory TTLs."""
+
+        view = getattr(self.coordinator, "inventory_view", None)
+        invalidate_metadata = getattr(view, "invalidate_device_metadata", None)
+        if callable(invalidate_metadata):
+            invalidate_metadata()
+
     @_typed_callback
     def _rebuild_inventory_summary_caches(self) -> None:
+        self._invalidate_device_metadata()
         gateway_source = self._gateway_inventory_summary_marker()
         micro_source = self._microinverter_inventory_summary_marker()
         heatpump_source = self._heatpump_inventory_summary_marker()
@@ -2098,11 +2127,10 @@ class InventoryRuntime:
             self._update_shared_state(**updates)
 
     async def _async_refresh_devices_inventory(self, *, force: bool = False) -> None:
-        coord = self.coordinator
         now = time.monotonic()
         await self._async_refresh_gateway_phase_map(force=force)
         family = "inventory_topology"
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         if not force and self._devices_inventory_cache_until:
             if now < self._devices_inventory_cache_until:
@@ -2113,7 +2141,7 @@ class InventoryRuntime:
         try:
             payload = await self._async_call_refreshable_fetcher(fetcher, force=force)
         except Exception as err:  # noqa: BLE001
-            coord._note_endpoint_family_failure(family, err)
+            self.health.note_endpoint_family_failure(family, err)
             return
         override = getattr(self.coordinator, "__dict__", {}).get(
             "_parse_devices_inventory_payload"
@@ -2123,7 +2151,7 @@ class InventoryRuntime:
         else:
             valid, grouped, ordered = self._parse_devices_inventory_payload(payload)
         if not valid:
-            coord._note_endpoint_family_failure(
+            self.health.note_endpoint_family_failure(
                 family, ValueError("Device inventory payload shape was invalid")
             )
             return
@@ -2137,7 +2165,7 @@ class InventoryRuntime:
             self._set_shared_state_attr(
                 "_devices_inventory_cache_until", now + DEVICES_INVENTORY_CACHE_TTL
             )
-            coord._note_endpoint_family_success(family)
+            self.health.note_endpoint_family_success(family)
             return
         has_active_members = False
         for bucket in grouped.values():
@@ -2153,7 +2181,7 @@ class InventoryRuntime:
                 redact_text(summary, site_ids=(self.site_id,)),
             )
             self._devices_inventory_cache_until = now + DEVICES_INVENTORY_CACHE_TTL
-            coord._note_endpoint_family_success(family)
+            self.health.note_endpoint_family_success(family)
             return
         self._set_type_device_buckets(grouped, ordered)
         redacted_payload = self._redact_battery_payload(payload)
@@ -2172,13 +2200,14 @@ class InventoryRuntime:
             "Device inventory discovery summary",
             summary,
         )
-        coord._note_endpoint_family_success(family)
+        self.health.note_endpoint_family_success(family)
 
     def devices_inventory_refresh_due(self, *, force: bool = False) -> bool:
-        coord = self.coordinator
         now = time.monotonic()
         phase_map_due = self.gateway_phase_map_refresh_due(force=force)
-        if not coord._endpoint_family_should_run("inventory_topology", force=force):
+        if not self.health.endpoint_family_should_run(
+            "inventory_topology", force=force
+        ):
             return phase_map_due
         if not force and self._devices_inventory_cache_until:
             if now < self._devices_inventory_cache_until:
@@ -2196,7 +2225,7 @@ class InventoryRuntime:
         cache_ttl = self._hems_devices_cache_ttl_s()
         family = HEMS_INVENTORY_ENDPOINT_FAMILY
         previous_payload = getattr(self, "_hems_devices_payload", None)
-        if coord._skip_hems_polling_due_to_auth_circuit(endpoint="hems_devices"):
+        if self.auth.skip_hems_polling_due_to_auth_circuit(endpoint="hems_devices"):
             self._mark_hems_devices_auth_backoff(
                 now=now,
                 cache_ttl=cache_ttl,
@@ -2228,7 +2257,7 @@ class InventoryRuntime:
             if now < self._hems_devices_cache_until:
                 return
         await coord.heatpump_runtime.async_refresh_hems_support_preflight(force=force)
-        if coord._skip_hems_polling_due_to_auth_circuit(endpoint="hems_devices"):
+        if self.auth.skip_hems_polling_due_to_auth_circuit(endpoint="hems_devices"):
             self._mark_hems_devices_auth_backoff(
                 now=now,
                 cache_ttl=cache_ttl,
@@ -2262,7 +2291,7 @@ class InventoryRuntime:
         try:
             payload = await fetcher(refresh_data=force)
         except Exception as err:  # noqa: BLE001
-            if coord._note_hems_auth_failure(err, endpoint="hems_devices"):
+            if self.auth.note_hems_auth_failure(err, endpoint="hems_devices"):
                 self._mark_hems_devices_auth_backoff(
                     now=now,
                     cache_ttl=cache_ttl,
@@ -2270,7 +2299,7 @@ class InventoryRuntime:
                 )
                 return
             if getattr(self.client, "hems_site_supported", None) is not False:
-                coord._note_endpoint_family_failure(family, err)
+                self.health.note_endpoint_family_failure(family, err)
             _LOGGER.debug(
                 "HEMS device inventory fetch failed: %s",
                 redact_text(err, site_ids=(self.site_id,)),
@@ -2324,7 +2353,7 @@ class InventoryRuntime:
                 )
                 return
             if stale_allowed:
-                coord._note_endpoint_family_failure(
+                self.health.note_endpoint_family_failure(
                     family,
                     OptionalEndpointUnavailable("HEMS device inventory unavailable"),
                 )
@@ -2343,7 +2372,7 @@ class InventoryRuntime:
                     self._debug_hems_inventory_summary(),
                 )
                 return
-            coord._note_endpoint_family_failure(
+            self.health.note_endpoint_family_failure(
                 family,
                 OptionalEndpointUnavailable("HEMS device inventory unavailable"),
             )
@@ -2376,8 +2405,8 @@ class InventoryRuntime:
         )
         self._merge_heatpump_type_bucket()
         self._set_shared_state_attr("_hems_devices_cache_until", now + cache_ttl)
-        coord._note_hems_auth_success(endpoint="hems_devices")
-        coord._note_endpoint_family_success(family)
+        self.auth.note_hems_auth_success(endpoint="hems_devices")
+        self.health.note_endpoint_family_success(family)
         self._debug_log_summary_if_changed(
             "hems_inventory",
             "HEMS discovery summary",
@@ -2461,7 +2490,7 @@ class InventoryRuntime:
         coord = self.coordinator
         now = time.monotonic()
         family = "inventory_topology"
-        if not coord._endpoint_family_should_run(family, force=force):
+        if not self.health.endpoint_family_should_run(family, force=force):
             return
         if not force and self._system_dashboard_cache_until:
             if now < self._system_dashboard_cache_until:
@@ -2533,6 +2562,20 @@ class InventoryRuntime:
                     continue
                 details_payloads.setdefault(canonical_type, {})[source_type] = payload
 
+        # Today supplies per-gateway transport flags even when the dashboard
+        # detail cards omit connection_details. Keep only serial-keyed booleans.
+        today_fetcher = getattr(self.client, "pv_system_today", None)
+        if callable(today_fetcher) and coord.inventory_view.has_type("envoy"):
+            try:
+                today_payload = await today_fetcher()
+            except Exception as err:  # noqa: BLE001
+                detail_failures["today_connectivity"] = err.__class__.__name__
+            else:
+                if isinstance(today_payload, dict):
+                    self.inventory_state._gateway_today_connections = (
+                        self._normalize_today_connections(today_payload)
+                    )
+
         (
             type_summaries,
             hierarchy_summary,
@@ -2593,9 +2636,9 @@ class InventoryRuntime:
             ),
         )
         if fetched_payload or tree_raw is not None or details_raw:
-            coord._note_endpoint_family_success(family)
+            self.health.note_endpoint_family_success(family)
         elif first_error is not None:
-            coord._note_endpoint_family_failure(family, first_error)
+            self.health.note_endpoint_family_failure(family, first_error)
 
     def _inverter_start_date(self) -> str | None:
         energy = getattr(self.coordinator, "energy", None)
@@ -2849,7 +2892,7 @@ class InventoryRuntime:
         gateway_serials = self._gateway_serials_for_inverter_telemetry()
         if not callable(fetcher) or not gateway_serials:
             dashboard_by_serial = cached_by_serial
-        elif not self.coordinator._endpoint_family_should_run(family):
+        elif not self.health.endpoint_family_should_run(family):
             dashboard_by_serial = cached_by_serial
         else:
             results = await asyncio.gather(
@@ -2888,7 +2931,7 @@ class InventoryRuntime:
                         }
             if valid_response_count == len(gateway_serials):
                 dashboard_by_serial = fresh_by_serial
-                self.coordinator._note_endpoint_family_success(family)
+                self.health.note_endpoint_family_success(family)
                 self._set_shared_state_attr(
                     "_inverter_dashboard_inventory", dashboard_by_serial
                 )
@@ -2896,7 +2939,7 @@ class InventoryRuntime:
                 error = first_error or ValueError(
                     "Dashboard inverter inventory was partially unavailable"
                 )
-                self.coordinator._note_endpoint_family_failure(family, error)
+                self.health.note_endpoint_family_failure(family, error)
                 dashboard_by_serial = dict(cached_by_serial)
                 dashboard_by_serial.update(fresh_by_serial)
                 if valid_response_count:
@@ -3105,12 +3148,22 @@ class InventoryRuntime:
         for page in range(1, INVERTER_PARAMETER_MAX_PAGES + 1):
             try:
                 async with asyncio.timeout(max(0.0, deadline - time.monotonic())):
-                    payload = await fetcher(
-                        serials,
-                        parameter_id,
-                        per_page=per_page,
-                        page=page,
-                    )
+                    last_request = self._inverter_parameter_last_request_mono
+                    if last_request is not None:
+                        delay = INVERTER_PARAMETER_REQUEST_GAP_S - (
+                            time.monotonic() - last_request
+                        )
+                        if delay > 0:
+                            await asyncio.sleep(delay)
+                    try:
+                        payload = await fetcher(
+                            serials,
+                            parameter_id,
+                            per_page=per_page,
+                            page=page,
+                        )
+                    finally:
+                        self._inverter_parameter_last_request_mono = time.monotonic()
             except Exception as err:  # noqa: BLE001 - retain completed serials
                 if not readings:
                     raise
@@ -3194,6 +3247,7 @@ class InventoryRuntime:
         """Refresh supported parameters in bulk, preserving stale optional data."""
 
         coord = self.coordinator
+        await async_restore_inverter_telemetry_cooldown(coord)
         cached = getattr(self, "_inverter_parameter_telemetry", None)
         cached_items = cached.items() if isinstance(cached, dict) else ()
         cached_by_serial = {
@@ -3247,8 +3301,14 @@ class InventoryRuntime:
                     canonical,
                     telemetry_health.last_success_mono,
                 )
-                if last_success is not None and now_mono - last_success > float(
-                    stale_after_s
+                parameter_stale_after = (
+                    float(stale_after_s)
+                    if canonical == "power"
+                    else INVERTER_DIAGNOSTIC_STALE_AFTER_S
+                )
+                if (
+                    last_success is not None
+                    and now_mono - last_success > parameter_stale_after
                 ):
                     stale_pairs.add((serial, canonical))
             for serial, canonical in stale_pairs:
@@ -3273,18 +3333,24 @@ class InventoryRuntime:
                 telemetry_health.using_cached_data = bool(cached_by_serial)
         if not serials:
             return cached_by_serial
+        if (
+            telemetry_health.last_status == 429
+            and telemetry_health.cooldown_active
+            and coord._endpoint_family_wait_active(telemetry_family)
+        ):
+            return cached_by_serial
 
         master_fetcher = getattr(self.client, "system_dashboard_master_data", None)
         columns_fetcher = getattr(self.client, "system_dashboard_data_columns", None)
         parameter_ids = list(getattr(self, "_inverter_parameter_ids", None) or [])
         catalog_family = "inverter_parameter_catalog"
-        if callable(master_fetcher) and coord._endpoint_family_should_run(
+        if callable(master_fetcher) and self.health.endpoint_family_should_run(
             catalog_family
         ):
             try:
                 master_payload = await master_fetcher()
             except Exception as err:  # noqa: BLE001
-                coord._note_endpoint_family_failure(catalog_family, err)
+                self.health.note_endpoint_family_failure(catalog_family, err)
                 if not coord._endpoint_family_can_use_stale(catalog_family):
                     parameter_ids = []
                     self._set_shared_state_attr("_inverter_parameter_ids", [])
@@ -3315,9 +3381,9 @@ class InventoryRuntime:
                     self._set_shared_state_attr(
                         "_inverter_parameter_ids", parameter_ids
                     )
-                    coord._note_endpoint_family_success(catalog_family)
+                    self.health.note_endpoint_family_success(catalog_family)
                 else:
-                    coord._note_endpoint_family_failure(
+                    self.health.note_endpoint_family_failure(
                         catalog_family,
                         ValueError("Dashboard parameter catalog was unavailable"),
                     )
@@ -3358,7 +3424,7 @@ class InventoryRuntime:
         if (
             not callable(parameter_fetcher)
             or not parameter_ids
-            or not coord._endpoint_family_should_run(telemetry_family)
+            or not self.health.endpoint_family_should_run(telemetry_family)
         ):
             return cached_by_serial
 
@@ -3373,19 +3439,47 @@ class InventoryRuntime:
             INVERTER_PARAMETER_MAX_PAGE_SIZE,
             max(INVERTER_PARAMETER_MIN_PAGE_SIZE, len(serials) * 2),
         )
-        results = await self._async_run_bounded_optional_batch(
-            [
-                partial(
-                    self._async_fetch_complete_inverter_parameter,
+        # Power is operational telemetry; slower diagnostic fields must not
+        # consume its request budget or renew on every power poll.
+        parameter_ids = [
+            parameter_id
+            for parameter_id in sorted(
+                parameter_ids,
+                key=lambda item: INVERTER_PARAMETER_ALIASES[item.lower()] != "power",
+            )
+            if INVERTER_PARAMETER_ALIASES[parameter_id.lower()] == "power"
+            or now_mono
+            - self._inverter_diagnostic_attempts.get(parameter_id, -math.inf)
+            >= INVERTER_DIAGNOSTIC_INTERVAL_S
+        ]
+        if not parameter_ids:
+            return cached_by_serial
+        results: list[InverterParameterFetchResult | Exception] = []
+        throttled_error: Exception | None = None
+        for parameter_id in parameter_ids:
+            if throttled_error is not None:
+                # Do not send the remaining queued requests after a rate limit.
+                # Treat their existing samples as retained, nonauthoritative data.
+                results.append(throttled_error)
+                continue
+            if INVERTER_PARAMETER_ALIASES[parameter_id.lower()] != "power":
+                self._inverter_diagnostic_attempts[parameter_id] = time.monotonic()
+            try:
+                result = await self._async_fetch_complete_inverter_parameter(
                     typed_parameter_fetcher,
                     serials,
                     parameter_id,
                     per_page=parameter_page_size,
                 )
-                for parameter_id in parameter_ids
-            ],
-            timeout_s=None,
-        )
+            except Exception as err:  # noqa: BLE001 - preserve optional results
+                result = err
+            results.append(result)
+            error = result if isinstance(result, Exception) else result.error
+            if (
+                error is not None
+                and coord._endpoint_family_status_from_error(error) == 429
+            ):
+                throttled_error = error
         successful_parameter_count = 0
         updated_parameter_count = 0
         first_error: Exception | None = None
@@ -3461,7 +3555,7 @@ class InventoryRuntime:
         using_cached_data = bool(retained_cached_pairs & current_pairs & failed_pairs)
         failed_cache_stale = bool(failed_pairs & stale_pairs)
         if successful_parameter_count == len(parameter_ids):
-            coord._note_endpoint_family_success(telemetry_family)
+            self.health.note_endpoint_family_success(telemetry_family)
             telemetry_health.degraded = False
             telemetry_health.partial_success = False
             telemetry_health.successful_items = successful_parameter_count
@@ -3469,8 +3563,10 @@ class InventoryRuntime:
             telemetry_health.using_cached_data = False
             telemetry_health.cache_stale = False
             return telemetry_by_serial
-        batch_error = first_error or ValueError(
-            "Dashboard parameter readings were unavailable"
+        batch_error = (
+            rate_limit_error
+            or first_error
+            or ValueError("Dashboard parameter readings were unavailable")
         )
         reported_error = (
             rate_limit_error
@@ -3490,20 +3586,22 @@ class InventoryRuntime:
             safe_batch_error = "Enphase rate limit (HTTP 429)"
         if updated_parameter_count:
             if rate_limit_error is not None:
-                coord._note_endpoint_family_failure(
+                self.health.note_endpoint_family_failure(
                     telemetry_family,
                     rate_limit_error,
                 )
             else:
-                coord._note_endpoint_family_success(telemetry_family)
+                self.health.note_endpoint_family_success(telemetry_family)
             telemetry_health.last_error = safe_batch_error
             telemetry_health.degraded = bool(failed_cache_stale or not useful_telemetry)
             telemetry_health.partial_success = True
         else:
-            coord._note_endpoint_family_failure(telemetry_family, batch_error)
+            self.health.note_endpoint_family_failure(telemetry_family, batch_error)
             telemetry_health.last_error = safe_batch_error
             telemetry_health.degraded = bool(failed_cache_stale or not useful_telemetry)
             telemetry_health.partial_success = False
+        if rate_limit_error is not None:
+            await async_save_inverter_telemetry_cooldown(coord)
         telemetry_health.successful_items = successful_parameter_count
         telemetry_health.total_items = len(parameter_ids)
         telemetry_health.using_cached_data = using_cached_data
@@ -3535,6 +3633,7 @@ class InventoryRuntime:
 
     async def _async_refresh_inverters(self) -> None:
         """Refresh inverter metadata/status/production and build serial snapshots."""
+        await async_refresh_array_capacity(self)
         coord = self.coordinator
         now = time.monotonic()
         if not self.include_inverters:
@@ -3606,7 +3705,9 @@ class InventoryRuntime:
         if inventory_cache_until is not None and now < float(inventory_cache_until):
             fetch_inventory_now = False
         else:
-            fetch_inventory_now = coord._endpoint_family_should_run(inventory_family)
+            fetch_inventory_now = self.health.endpoint_family_should_run(
+                inventory_family
+            )
         if fetch_inventory_now:
             try:
                 inventory_result = await async_fetch_inverter_pages(
@@ -3634,7 +3735,7 @@ class InventoryRuntime:
                     raise ValueError("Incomplete inverter inventory: missing serials")
                 inventory_fetched_complete = True
             except Exception as err:  # noqa: BLE001
-                coord._note_endpoint_family_failure(inventory_family, err)
+                self.health.note_endpoint_family_failure(inventory_family, err)
                 self._set_shared_state_attr(
                     "_inverters_inventory_cache_until",
                     coord._endpoint_family_next_retry_mono(inventory_family),
@@ -3660,7 +3761,7 @@ class InventoryRuntime:
             ]
         )
         if inventory_fetched_complete:
-            coord._note_endpoint_family_success(inventory_family)
+            self.health.note_endpoint_family_success(inventory_family)
             self._set_shared_state_attr(
                 "_inverters_inventory_cache_until",
                 coord._endpoint_family_next_retry_mono(inventory_family),
@@ -3675,11 +3776,11 @@ class InventoryRuntime:
             status_cache_until
         ):
             status_payload = dict(cached_status_payload)
-        elif coord._endpoint_family_should_run(status_family):
+        elif self.health.endpoint_family_should_run(status_family):
             try:
                 fetched_status = await fetch_status()
             except Exception as err:  # noqa: BLE001
-                coord._note_endpoint_family_failure(status_family, err)
+                self.health.note_endpoint_family_failure(status_family, err)
                 self._set_shared_state_attr(
                     "_inverter_status_cache_until",
                     coord._endpoint_family_next_retry_mono(status_family),
@@ -3689,13 +3790,13 @@ class InventoryRuntime:
             else:
                 if isinstance(fetched_status, dict):
                     status_payload = fetched_status
-                    coord._note_endpoint_family_success(status_family)
+                    self.health.note_endpoint_family_success(status_family)
                     self._set_shared_state_attr(
                         "_inverter_status_cache_until",
                         coord._endpoint_family_next_retry_mono(status_family),
                     )
                 else:
-                    coord._note_endpoint_family_failure(
+                    self.health.note_endpoint_family_failure(
                         status_family,
                         ValueError("Inverter status payload was not a dictionary"),
                     )
@@ -3735,13 +3836,13 @@ class InventoryRuntime:
                 and now < float(production_cache_until)
             ):
                 production_payload = dict(cached_production_payload)
-            elif coord._endpoint_family_should_run(production_family):
+            elif self.health.endpoint_family_should_run(production_family):
                 try:
                     fetched_production = await fetch_production(
                         start_date=start_date, end_date=end_date
                     )
                 except Exception as err:  # noqa: BLE001
-                    coord._note_endpoint_family_failure(production_family, err)
+                    self.health.note_endpoint_family_failure(production_family, err)
                     self._set_shared_state_attr(
                         "_inverter_production_cache_until",
                         coord._endpoint_family_next_retry_mono(production_family),
@@ -3751,7 +3852,7 @@ class InventoryRuntime:
                 else:
                     if isinstance(fetched_production, dict):
                         production_payload = fetched_production
-                        coord._note_endpoint_family_success(production_family)
+                        self.health.note_endpoint_family_success(production_family)
                         self._set_shared_state_attr(
                             "_inverter_production_cache_key",
                             current_production_cache_key,
@@ -3761,7 +3862,7 @@ class InventoryRuntime:
                             coord._endpoint_family_next_retry_mono(production_family),
                         )
                     else:
-                        coord._note_endpoint_family_failure(
+                        self.health.note_endpoint_family_failure(
                             production_family,
                             ValueError(
                                 "Inverter production payload was not a dictionary"
@@ -4007,7 +4108,6 @@ class InventoryRuntime:
         self._refresh_cached_topology()
 
     def inverters_refresh_due(self, *, force: bool = False) -> bool:
-        coord = self.coordinator
         now = time.monotonic()
         if not self.include_inverters:
             return False
@@ -4022,7 +4122,7 @@ class InventoryRuntime:
         ):
             inventory_due = False
         else:
-            inventory_due = coord._endpoint_family_should_run(
+            inventory_due = self.health.endpoint_family_should_run(
                 "inverter_inventory", force=force
             )
         status_cache_until = getattr(self, "_inverter_status_cache_until", None)
@@ -4032,7 +4132,7 @@ class InventoryRuntime:
         ):
             status_due = False
         else:
-            status_due = coord._endpoint_family_should_run(
+            status_due = self.health.endpoint_family_should_run(
                 "inverter_status", force=force
             )
         start_date = self._inverter_start_date()
@@ -4059,11 +4159,13 @@ class InventoryRuntime:
                 production_fetcher = getattr(self.client, "inverter_production", None)
                 production_due = callable(
                     production_fetcher
-                ) and coord._endpoint_family_should_run(
+                ) and self.health.endpoint_family_should_run(
                     "inverter_production", force=force
                 )
         catalog_fetcher = getattr(self.client, "system_dashboard_master_data", None)
-        catalog_due = callable(catalog_fetcher) and coord._endpoint_family_should_run(
+        catalog_due = callable(
+            catalog_fetcher
+        ) and self.health.endpoint_family_should_run(
             "inverter_parameter_catalog", force=force
         )
         parameter_ids = getattr(self, "_inverter_parameter_ids", None)
@@ -4073,7 +4175,7 @@ class InventoryRuntime:
         telemetry_due = (
             bool(parameter_ids)
             and callable(telemetry_fetcher)
-            and coord._endpoint_family_should_run(
+            and self.health.endpoint_family_should_run(
                 "inverter_parameter_telemetry", force=force
             )
         )
@@ -4083,7 +4185,7 @@ class InventoryRuntime:
         dashboard_due = (
             bool(self._gateway_serials_for_inverter_telemetry())
             and callable(dashboard_fetcher)
-            and coord._endpoint_family_should_run(
+            and self.health.endpoint_family_should_run(
                 "inverter_dashboard_inventory", force=force
             )
         )
@@ -4167,6 +4269,27 @@ class InventoryRuntime:
             for source_type, payload in raw.items()
             if isinstance(payload, dict)
         }
+
+    @staticmethod
+    def _normalize_today_connections(
+        payload: dict[str, object],
+    ) -> dict[str, dict[str, bool]]:
+        records = payload.get("connectionDetails")
+        connections: dict[str, dict[str, bool]] = {}
+        if not isinstance(records, list):
+            return connections
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+            serial = record.get("serial_num")
+            if not isinstance(serial, str) or not serial.strip():
+                continue
+            connections[serial.strip()] = {
+                key: value
+                for key in ("ethernet", "wifi", "cellular")
+                if isinstance(value := record.get(key), bool)
+            }
+        return connections
 
     def system_dashboard_envoy_detail(self) -> dict[str, object] | None:
         records = self.system_dashboard_envoy_details()

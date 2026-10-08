@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 import logging
 import re
-import time
 from typing import Any, TypeVar, cast
 
 from homeassistant.components.switch import SwitchEntity
@@ -18,17 +17,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .ac_battery_support import (
-    ac_battery_control_available,
-    ac_battery_device_info,
-    ac_battery_entities_available,
-)
 from .api import AuthSettingsUnavailable
 from .battery_schedule_editor import (
     BatteryScheduleEditorEntity,
     DAY_ORDER,
     battery_scheduler_enabled,
 )
+from .control_updates import current_control_value
 from .const import DOMAIN
 from .entity import (
     battery_write_access_explicitly_denied as _battery_write_access_explicitly_denied,
@@ -66,67 +61,16 @@ def _write_state_if_available(entity: SwitchEntity) -> None:
     entity.async_write_ha_state()
 
 
-def _effective_evse_toggle_state(
-    coord: EnphaseCoordinator,
-    attr_name: str,
-    serial: str,
-    current_value: object,
-) -> bool | None:
-    """Return a short-lived effective EVSE toggle state while writes settle."""
-
-    effective = current_value if isinstance(current_value, bool) else None
-    pending = getattr(coord, attr_name, None)
-    if not isinstance(pending, dict):
-        return effective
-    serial_key = str(serial)
-    pending_entry = pending.get(serial_key)
-    if not pending_entry:
-        return effective
-    try:
-        pending_value, expires_at = pending_entry
-    except (TypeError, ValueError):
-        pending.pop(serial_key, None)
-        return effective
-    if effective is not None and effective == bool(pending_value):
-        pending.pop(serial_key, None)
-        return effective
-    try:
-        if time.monotonic() >= float(expires_at):
-            pending.pop(serial_key, None)
-            return effective
-    except Exception:  # noqa: BLE001
-        pending.pop(serial_key, None)
-        return effective
-    return bool(pending_value)
-
-
-def _pending_charging_state(coord: EnphaseCoordinator, serial: str) -> bool | None:
-    """Return an in-flight EVSE charging target while start/stop settles."""
-
-    pending = getattr(coord, "_pending_charging", {}).get(str(serial))
-    if not pending:
-        return None
-    try:
-        target_state, expires_at = pending
-    except (TypeError, ValueError):
-        return None
-    try:
-        if time.monotonic() > float(expires_at):
-            getattr(coord, "_pending_charging", {}).pop(str(serial), None)
-            return None
-    except Exception:  # noqa: BLE001
-        return None
-    return bool(target_state)
-
-
 def _effective_storm_guard_state(coord: EnphaseCoordinator) -> str | None:
-    """Return the effective Storm Guard state, including pending writes."""
+    """Return the confirmed Storm Guard state while writes settle."""
 
-    if getattr(coord, "storm_guard_update_pending", False):
-        pending_state = getattr(coord, "_storm_guard_pending_state", None)
-        if isinstance(pending_state, str) and pending_state:
-            return pending_state
-    return getattr(coord, "storm_guard_state", None)
+    enabled = current_control_value(
+        coord,
+        "storm_guard",
+        "enabled",
+        getattr(coord, "storm_guard_state", None) == "enabled",
+    )
+    return "enabled" if enabled else "disabled"
 
 
 def _is_disabled_by_integration(disabled_by: object) -> bool:
@@ -276,8 +220,6 @@ def _retained_site_switch_keys(
             is not False
         ):
             retained.add("restrict_battery_discharge_schedule")
-    if ac_battery_control_available(coord):
-        retained.add("ac_battery_sleep_mode")
     if (
         battery_scheduler_enabled(entry)
         and _site_has_battery(coord)
@@ -396,13 +338,6 @@ async def async_setup_entry(
             ):
                 site_entities.append(RestrictBatteryDischargeScheduleSwitch(coord))
                 site_entity_keys.add("restrict_battery_discharge_schedule")
-        if (
-            "ac_battery_sleep_mode" in retain_site_entity_keys
-            and "ac_battery_sleep_mode" not in site_entity_keys
-            and ac_battery_entities_available(coord)
-        ):
-            site_entities.append(AcBatterySleepModeSwitch(coord))
-            site_entity_keys.add("ac_battery_sleep_mode")
         if _site_has_battery(coord) and _type_available(coord, "encharge"):
             for day_key, _ in DAY_ORDER:
                 edit_key = f"battery_schedule_edit_{day_key}"
@@ -446,8 +381,6 @@ async def async_setup_entry(
                     *(f"battery_schedule_edit_{day_key}" for day_key, _ in DAY_ORDER),
                 }
             )
-        if not ac_battery_entities_available(coord):
-            site_entity_keys.discard("ac_battery_sleep_mode")
         if not _type_available(coord, "envoy"):
             site_entity_keys.discard("storm_guard")
         if not inventory_ready:
@@ -468,7 +401,6 @@ async def async_setup_entry(
                 f"{DOMAIN}_site_{coord.site_id}_charge_from_grid_schedule",
                 f"{DOMAIN}_site_{coord.site_id}_discharge_to_grid_schedule",
                 f"{DOMAIN}_site_{coord.site_id}_restrict_battery_discharge_schedule",
-                f"{DOMAIN}_site_{coord.site_id}_ac_battery_sleep_mode",
                 *(
                     f"{DOMAIN}_site_{coord.site_id}_battery_schedule_edit_{day_key}"
                     for day_key, _ in DAY_ORDER
@@ -684,7 +616,14 @@ class SavingsUseBatteryAfterPeakSwitch(CoordinatorEntity, SwitchEntity):  # type
 
     @property
     def is_on(self) -> bool:
-        return bool(self._coord.savings_use_battery_after_peak)
+        return bool(
+            current_control_value(
+                self._coord,
+                "savings_use_battery_after_peak",
+                "enabled",
+                self._coord.savings_use_battery_after_peak,
+            )
+        )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._coord.async_set_savings_use_battery_after_peak(True)
@@ -724,7 +663,14 @@ class ChargeFromGridSwitch(CoordinatorEntity, SwitchEntity):  # type: ignore[mis
 
     @property
     def is_on(self) -> bool:
-        return bool(self._coord.battery_charge_from_grid_enabled)
+        return bool(
+            current_control_value(
+                self._coord,
+                "charge_from_grid",
+                "enabled",
+                self._coord.battery_charge_from_grid_enabled,
+            )
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
@@ -768,7 +714,15 @@ class PowerMatchSwitch(CoordinatorEntity, SwitchEntity):  # type: ignore[misc]
 
     @property
     def is_on(self) -> bool:
-        return self._coord.battery_power_match_enabled is True
+        return (
+            current_control_value(
+                self._coord,
+                "power_match",
+                "enabled",
+                self._coord.battery_power_match_enabled,
+            )
+            is True
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
@@ -818,7 +772,14 @@ class ChargeFromGridScheduleSwitch(CoordinatorEntity, SwitchEntity):  # type: ig
 
     @property
     def is_on(self) -> bool:
-        return bool(self._coord.battery_charge_from_grid_schedule_enabled)
+        return bool(
+            current_control_value(
+                self._coord,
+                "cfg_schedule",
+                "enabled",
+                self._coord.battery_charge_from_grid_schedule_enabled,
+            )
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:
@@ -886,7 +847,19 @@ class _BaseBatteryScheduleSwitch(CoordinatorEntity, SwitchEntity):  # type: igno
 
     @property
     def is_on(self) -> bool:
-        return bool(getattr(self._coord, self._enabled_attr, None))
+        control = (
+            "dtg_schedule"
+            if "discharge_to_grid" in self._enabled_attr
+            else "rbd_schedule"
+        )
+        return bool(
+            current_control_value(
+                self._coord,
+                control,
+                "enabled",
+                getattr(self._coord, self._enabled_attr, None),
+            )
+        )
 
     def _extra_schedule_state_attributes(self) -> dict[str, object]:
         return {}
@@ -963,50 +936,6 @@ class RestrictBatteryDischargeScheduleSwitch(_BaseBatteryScheduleSwitch):
         }
 
 
-class AcBatterySleepModeSwitch(CoordinatorEntity, SwitchEntity):  # type: ignore[misc]
-    _attr_has_entity_name = True
-    _attr_translation_key = "ac_battery_sleep_mode"
-
-    def __init__(self, coord: EnphaseCoordinator) -> None:
-        super().__init__(coord)
-        self._coord = coord
-        self._attr_unique_id = f"{DOMAIN}_site_{coord.site_id}_ac_battery_sleep_mode"
-
-    @property
-    def suggested_object_id(self) -> str | None:
-        return "ac_battery_sleep_mode"
-
-    @property
-    def available(self) -> bool:
-        if not super().available:
-            return False
-        if not ac_battery_control_available(self._coord):
-            return False
-        return self._coord.ac_battery_sleep_state is not None
-
-    @property
-    def is_on(self) -> bool:
-        return self._coord.ac_battery_sleep_state in {"on", "pending", "mixed"}
-
-    @property
-    def extra_state_attributes(self) -> dict[str, object]:
-        return {
-            "sleep_state": self._coord.ac_battery_sleep_state,
-            "pending": self._coord.ac_battery_control_pending,
-            "last_command": getattr(self._coord, "_ac_battery_last_command", None),
-        }
-
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._coord.async_set_ac_battery_sleep_mode(True)
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._coord.async_set_ac_battery_sleep_mode(False)
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        return ac_battery_device_info(self._coord)
-
-
 class ChargingSwitch(EnphaseBaseEntity, RestoreEntity, SwitchEntity):  # type: ignore[misc]
     _attr_has_entity_name = True
     _attr_translation_key = "charging"
@@ -1041,10 +970,12 @@ class ChargingSwitch(EnphaseBaseEntity, RestoreEntity, SwitchEntity):  # type: i
     def is_on(self) -> bool:
         if not self.available and self._restored_state is not None:
             return self._restored_state
-        pending_state = _pending_charging_state(self._coord, self._sn)
-        if pending_state is not None:
-            return pending_state
-        return bool(self.data.get("charging"))
+        actual = getattr(self._coord, "_last_actual_charging", {}).get(
+            self._sn, self.data.get("charging")
+        )
+        return bool(
+            current_control_value(self._coord, "charging", "enabled", actual, self._sn)
+        )
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         try:
@@ -1112,13 +1043,15 @@ class GreenBatterySwitch(EnphaseBaseEntity, SwitchEntity):  # type: ignore[misc]
 
     @property
     def is_on(self) -> bool:
-        effective = _effective_evse_toggle_state(
-            self._coord,
-            "_green_battery_pending",
-            self._sn,
-            self.data.get("green_battery_enabled"),
+        return bool(
+            current_control_value(
+                self._coord,
+                "green_battery",
+                "enabled",
+                self.data.get("green_battery_enabled"),
+                self._sn,
+            )
         )
-        return bool(effective)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._coord.evse_runtime.async_set_green_battery_setting(
@@ -1151,13 +1084,15 @@ class AppAuthenticationSwitch(EnphaseBaseEntity, SwitchEntity):  # type: ignore[
 
     @property
     def is_on(self) -> bool:
-        effective = _effective_evse_toggle_state(
-            self._coord,
-            "_app_auth_pending",
-            self._sn,
-            self.data.get("app_auth_enabled"),
+        return bool(
+            current_control_value(
+                self._coord,
+                "app_authentication",
+                "enabled",
+                self.data.get("app_auth_enabled"),
+                self._sn,
+            )
         )
-        return bool(effective)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         try:
@@ -1217,7 +1152,7 @@ class StormGuardEvseSwitch(EnphaseBaseEntity, SwitchEntity):  # type: ignore[mis
         value = self._coord.storm_evse_enabled
         if value is None:
             value = self.data.get("storm_evse_enabled")
-        return bool(value)
+        return bool(current_control_value(self._coord, "storm_evse", "enabled", value))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._coord.async_set_storm_evse_enabled(True)

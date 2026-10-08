@@ -32,7 +32,6 @@ from typing import (
 from zoneinfo import ZoneInfo
 
 import aiohttp
-from email.utils import parsedate_to_datetime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
@@ -42,6 +41,9 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
+
+from .cloud_retry import retry_after_delay
+from .evse_status_health import EvseStatusHealth
 
 from .api import (
     AuthTokens,
@@ -54,6 +56,7 @@ from .api import (
     is_scheduler_unavailable_error,
 )
 from .auth_refresh_runtime import AuthRefreshRuntime, ManualAuthRefreshResult
+from .control_updates import ControlUpdates, current_control_value
 from .const import (
     AUTH_BLOCKED_COOLDOWN_S,
     BATTERY_MIN_SOC_FALLBACK,
@@ -105,9 +108,7 @@ from .const import (
     DRY_CONTACT_SETTINGS_STALE_AFTER_S,
     DOMAIN,
     GRID_CONTROL_CHECK_STALE_AFTER_S,
-    GRID_MODE_STATUS_CACHE_TTL,
     GRID_MODE_STATUS_STALE_AFTER_S,
-    GRID_OUTAGE_CONTEXT_CACHE_TTL,
     GRID_OUTAGE_CONTEXT_STALE_AFTER_S,
     HEMS_AUTH_BACKOFF_STEPS_S,
     HEMS_AUTH_MANUAL_CLEAR_COOLDOWN_S,
@@ -134,6 +135,7 @@ from .device_types import (
     normalize_type_key,
     parse_type_identifier,
 )
+from .endpoint_policies import EndpointFamilyPolicy, build_endpoint_family_policies
 from .energy import EnergyManager
 from .evse_timeseries import EVSETimeseriesManager
 from .evse_feature_flags_runtime import (
@@ -150,6 +152,7 @@ from .evse_runtime import (
     evse_power_is_actively_charging,
 )
 from .evse_power import build_evse_power_snapshot
+from .export_limit_runtime import ExportLimitRuntime
 from .grid_profile_runtime import (
     ACTIVATION_GRID_PROFILE_FAMILY,
     SUPPORT_UNKNOWN,
@@ -218,8 +221,9 @@ from .refresh_plan import (
     build_site_only_followup_plan,
 )
 from .refresh_runner import RefreshRunner
-from .tariff import TARIFF_SUCCESS_TTL_S, TariffRuntime
+from .tariff import TariffRuntime
 from .service_validation import raise_translated_service_validation
+from .cloud_metadata import CloudMetadataRuntime
 from .feature_snapshot import capture_feature_snapshot
 from .scalar_helpers import (
     coerce_snapshot_bool,
@@ -299,6 +303,7 @@ COORDINATOR_RUNTIME_CLASSES: dict[str, type] = {
     "auth_refresh_runtime": AuthRefreshRuntime,
     "evse_feature_flags_runtime": EvseFeatureFlagsRuntime,
     "grid_profile_runtime": GridProfileRuntime,
+    "export_limit_runtime": ExportLimitRuntime,
     "tariff_runtime": TariffRuntime,
     "system_events_runtime": SystemEventsRuntime,
     "vpp_runtime": VppRuntime,
@@ -525,19 +530,6 @@ class ChargerState:
     session_start: int | None
 
 
-@dataclass(frozen=True, slots=True)
-class EndpointFamilyPolicy:
-    """Coordinator policy for read-only Enlighten endpoint families."""
-
-    success_ttl_s: float | None = None
-    stale_after_s: float | None = None
-    failure_backoff_schedule_s: tuple[float, ...] = ()
-    max_backoff_s: float | None = None
-    optional: bool = False
-    suppress_after_failures: int | None = None
-    support_state_on_success: bool = False
-
-
 @dataclass(slots=True)
 class RefreshPipelineContext:
     """Mutable state shared by one coordinator refresh pipeline."""
@@ -620,6 +612,32 @@ class EnphaseCoordinator(
         """Return the last immutable aggregate state published to listeners."""
 
         return self._integration_snapshot
+
+    @property
+    def evse_status_health(self) -> EvseStatusHealth:
+        """Return endpoint-local status health, including for lightweight hosts."""
+        health = self.__dict__.get("_evse_status_health")
+        if health is None:
+            health = EvseStatusHealth(self)
+            self.__dict__["_evse_status_health"] = health
+        return cast(EvseStatusHealth, health)
+
+    @property
+    def evse_status_available(self) -> bool:
+        health = self.__dict__.get("_evse_status_health")
+        return health is None or bool(health.available)
+
+    @property
+    def cloud_next_retry_utc(self) -> datetime | None:
+        """Expose the global or endpoint-local retry without gating site reads."""
+        if self.backoff_ends_utc is not None:
+            return self.backoff_ends_utc
+        health = self.__dict__.get("_evse_status_health")
+        return (
+            health.next_retry_utc
+            if health is not None and health.cooldown_active
+            else None
+        )
 
     @property
     def current_power_snapshot(self) -> CurrentPowerSample:
@@ -833,8 +851,7 @@ class EnphaseCoordinator(
                     selected_normalized = normalize_type_key(key)
                     if selected_normalized:
                         selected_keys.add(selected_normalized)
-                if selected_keys:
-                    self._selected_type_keys = selected_keys
+                self._selected_type_keys = selected_keys
 
         self.site_name = config.get(CONF_SITE_NAME)
         self._email = config.get(CONF_EMAIL)
@@ -890,6 +907,7 @@ class EnphaseCoordinator(
                 default=DEFAULT_API_TIMEOUT,
             )
         timeout = min(MAX_API_TIMEOUT, max(MIN_API_TIMEOUT, timeout))
+        self._runtime_stopped = False
         self._entry_background_tasks = set()
         self.client = EnphaseEVClient(
             async_get_clientsession(hass),
@@ -921,7 +939,6 @@ class EnphaseCoordinator(
                 _topology_snapshot_cache=CoordinatorTopologySnapshot(
                     charger_serials=(),
                     battery_serials=(),
-                    ac_battery_serials=(),
                     inverter_serials=(),
                     active_type_keys=(),
                     gateway_iq_router_keys=(),
@@ -1078,6 +1095,7 @@ class EnphaseCoordinator(
                 always_update=self.site_only or not self.serials,
             )
         self.config_entry = config_entry
+        self.control_updates = ControlUpdates(self)
         self.session_history = SessionHistoryManager(
             hass,
             lambda: self.client,
@@ -1094,9 +1112,11 @@ class EnphaseCoordinator(
         self._ensure_coordinator_runtime("auth_refresh_runtime")
         self._ensure_coordinator_runtime("evse_feature_flags_runtime")
         self._ensure_coordinator_runtime("grid_profile_runtime")
+        self._ensure_coordinator_runtime("export_limit_runtime")
         self._ensure_coordinator_runtime("tariff_runtime")
         self._ensure_coordinator_runtime("system_events_runtime")
         self._ensure_coordinator_runtime("vpp_runtime")
+        self.cloud_metadata_runtime = CloudMetadataRuntime(self)
         self.inventory_runtime = InventoryRuntime(self, state=self.inventory_state)
         self.discovery_snapshot = DiscoverySnapshotManager(self)
         self.inventory_view = InventoryView(self)
@@ -1121,9 +1141,24 @@ class EnphaseCoordinator(
 
         await self._async_setup()
 
+    @property
+    def runtime_active(self) -> bool:
+        """Whether this entry lifecycle may publish state or start new work."""
+
+        return not self.__dict__.get("_runtime_stopped", False)
+
+    def mark_runtime_stopped(self) -> None:
+        """Retire this lifecycle before awaited shutdown steps release control."""
+
+        self._runtime_stopped = True
+        runtime = getattr(self, "control_updates", None)
+        if runtime:
+            runtime.cleanup()
+
     async def async_close(self) -> None:
         """Release config-entry-owned HTTP resources."""
 
+        self.mark_runtime_stopped()
         await self.client.async_close()
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -1155,6 +1190,33 @@ class EnphaseCoordinator(
                 charger_serial_count=0,
             )
         )
+        # Acquisition clocks do not normally define equality. A first success
+        # or a return after the entity grace period is a semantic recovery,
+        # even when the normalized family measurements have not changed.
+        family_success = cast(
+            "dict[str, datetime]",
+            self.__dict__.setdefault("_published_family_success", {}),
+        )
+        battery_health = self._endpoint_family_health.get("battery_status")
+        for family, success in (
+            (
+                "battery_status",
+                battery_health.last_success_utc if battery_health else None,
+            ),
+            ("heatpump_power", self.heatpump_state._heatpump_power_last_success_utc),
+        ):
+            if not isinstance(success, datetime):
+                continue
+            previous_success = family_success.get(family)
+            if previous_success is None or success - previous_success >= timedelta(
+                minutes=30
+            ):
+                key = f"freshness:{family}"
+                self._runtime_publication_revisions[key] = (
+                    self._runtime_publication_revisions.get(key, 0) + 1
+                )
+            family_success[family] = success
+
         candidate = IntegrationSnapshot(
             chargers=freeze_charger_data(data),
             evse_feature_flags=feature_flags,
@@ -1193,6 +1255,8 @@ class EnphaseCoordinator(
                 },
             ),
             health=(
+                self.evse_status_available,
+                self.cloud_next_retry_utc,
                 getattr(self, "_last_error", None),
                 getattr(self, "last_failure_status", None),
                 tuple(
@@ -1238,12 +1302,16 @@ class EnphaseCoordinator(
     def async_set_updated_data(self, data: dict[str, dict[str, object]]) -> None:
         """Publish normalized data using aggregate integration equality."""
 
+        if not self.runtime_active:
+            return
         snapshot = self._build_integration_snapshot(data)
         super().async_set_updated_data(CoordinatorData(data, snapshot))
 
     def publish_auth_refresh_update(self) -> None:
         """Notify auth observers without marking telemetry fresh or rescheduling polls."""
 
+        if not self.runtime_active:
+            return
         current = dict(self.data)
         self.data = CoordinatorData(current, self._build_integration_snapshot(current))
         self.async_update_listeners()
@@ -1251,6 +1319,8 @@ class EnphaseCoordinator(
     def publish_runtime_state_update(self, source: str) -> None:
         """Publish a manager-owned state transition with unchanged charger data."""
 
+        if not self.runtime_active:
+            return
         source_key = str(source).strip() or "runtime"
         self._runtime_publication_revisions[source_key] = (
             self._runtime_publication_revisions.get(source_key, 0) + 1
@@ -1322,6 +1392,7 @@ class EnphaseCoordinator(
         self._phase_timings = {}
         started = time.monotonic()
         await self.discovery_snapshot.async_restore_state()
+        await self.evse_status_health.async_restore()
         if not self._heatpump_hems_polling_enabled():
             self.inventory_runtime._mark_hems_inventory_polling_disabled()
             self._clear_disabled_heatpump_hems_auth_state()
@@ -1409,7 +1480,7 @@ class EnphaseCoordinator(
             }
         elif isinstance(raw_selected, str):
             normalized_type = normalize_type_key(raw_selected)
-            selected = {normalized_type} if normalized_type else None
+            selected = {normalized_type} if normalized_type else set()
         self._selected_type_keys = selected
         self.site_name = config.get(CONF_SITE_NAME)
 
@@ -1431,7 +1502,7 @@ class EnphaseCoordinator(
         """Apply non-topology config-entry options without reloading entities."""
 
         config_entry = self.config_entry
-        if config_entry is None:
+        if config_entry is None or not self.runtime_active:
             return
         options = config_entry.options
 
@@ -1535,8 +1606,11 @@ class EnphaseCoordinator(
         )
         if schedule_sync_changed:
             await self.schedule_sync.async_stop()
+            if not self.runtime_active:
+                return
             await self.schedule_sync.async_start()
 
+        current_data = self.data if isinstance(self.data, dict) else {}
         published = {
             serial: {**payload, "nominal_v": nominal}
             for serial, payload in current_data.items()
@@ -1553,266 +1627,15 @@ class EnphaseCoordinator(
             await asyncio.gather(task, return_exceptions=True)
 
     def _build_endpoint_family_policies(self) -> dict[str, EndpointFamilyPolicy]:
-        """Return cooldown/cache policies for read-only endpoint families."""
+        """Return an entry-local mapping of immutable endpoint policies."""
 
-        return {
-            "core_realtime": EndpointFamilyPolicy(
-                failure_backoff_schedule_s=(60.0, 120.0, 300.0, 600.0),
-                max_backoff_s=600.0,
-            ),
-            "current_power": EndpointFamilyPolicy(
-                success_ttl_s=60.0,
-                stale_after_s=900.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "battery_status": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=1800.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "ac_battery_devices": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=1800.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "ac_battery_telemetry": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=1800.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "ac_battery_events": EndpointFamilyPolicy(
-                success_ttl_s=900.0,
-                stale_after_s=21600.0,
-                failure_backoff_schedule_s=(900.0, 1800.0, 3600.0, 7200.0),
-                max_backoff_s=7200.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "system_events": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=21600.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "system_event_history": EndpointFamilyPolicy(
-                success_ttl_s=900.0,
-                stale_after_s=86400.0,
-                failure_backoff_schedule_s=(900.0, 1800.0, 3600.0, 7200.0),
-                max_backoff_s=7200.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "vpp_enrollment": EndpointFamilyPolicy(
-                success_ttl_s=21600.0,
-                stale_after_s=604800.0,
-                failure_backoff_schedule_s=(900.0, 1800.0, 3600.0, 7200.0),
-                max_backoff_s=7200.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "vpp_events": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=3600.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "grid_control_check": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=GRID_CONTROL_CHECK_STALE_AFTER_S,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "grid_mode_status": EndpointFamilyPolicy(
-                success_ttl_s=GRID_MODE_STATUS_CACHE_TTL,
-                stale_after_s=GRID_MODE_STATUS_STALE_AFTER_S,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "grid_outage_context": EndpointFamilyPolicy(
-                success_ttl_s=GRID_OUTAGE_CONTEXT_CACHE_TTL,
-                stale_after_s=GRID_OUTAGE_CONTEXT_STALE_AFTER_S,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "activation_grid_profile": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=3600.0,
-                failure_backoff_schedule_s=(3600.0, 21600.0, 86400.0),
-                max_backoff_s=86400.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "dry_contact_settings": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=900.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "battery_backup_history": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "battery_settings": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "battery_site_settings": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "battery_schedules": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "storm_guard": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "storm_alert": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                support_state_on_success=True,
-            ),
-            "tariff": EndpointFamilyPolicy(
-                success_ttl_s=TARIFF_SUCCESS_TTL_S,
-                stale_after_s=86400.0,
-                failure_backoff_schedule_s=(60.0, 60.0, 60.0, 60.0),
-                max_backoff_s=60.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "tariff_dated_rates": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=86400.0,
-                failure_backoff_schedule_s=(3600.0, 21600.0, 86400.0),
-                max_backoff_s=86400.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inventory_topology": EndpointFamilyPolicy(
-                success_ttl_s=21600.0,
-                failure_backoff_schedule_s=(1800.0, 3600.0, 7200.0, 21600.0),
-                max_backoff_s=21600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "hems_inventory": EndpointFamilyPolicy(
-                success_ttl_s=None,
-                stale_after_s=900.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inverter_inventory": EndpointFamilyPolicy(
-                success_ttl_s=21600.0,
-                failure_backoff_schedule_s=(1800.0, 3600.0, 7200.0, 21600.0),
-                max_backoff_s=21600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inverter_status": EndpointFamilyPolicy(
-                success_ttl_s=300.0,
-                stale_after_s=1800.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inverter_production": EndpointFamilyPolicy(
-                success_ttl_s=600.0,
-                stale_after_s=1800.0,
-                failure_backoff_schedule_s=(300.0, 900.0, 1800.0, 3600.0),
-                max_backoff_s=3600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inverter_dashboard_inventory": EndpointFamilyPolicy(
-                success_ttl_s=21600.0,
-                stale_after_s=86400.0,
-                failure_backoff_schedule_s=(1800.0, 3600.0, 7200.0, 21600.0),
-                max_backoff_s=21600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inverter_parameter_catalog": EndpointFamilyPolicy(
-                success_ttl_s=21600.0,
-                stale_after_s=86400.0,
-                failure_backoff_schedule_s=(1800.0, 3600.0, 7200.0, 21600.0),
-                max_backoff_s=21600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-            "inverter_parameter_telemetry": EndpointFamilyPolicy(
-                success_ttl_s=900.0,
-                stale_after_s=1800.0,
-                failure_backoff_schedule_s=(3600.0, 7200.0, 14400.0, 21600.0),
-                max_backoff_s=21600.0,
-                optional=True,
-                suppress_after_failures=3,
-                support_state_on_success=True,
-            ),
-        }
+        return build_endpoint_family_policies()
 
     async def async_request_refresh(self) -> None:
         """Request a coordinator refresh and allow one cooldown-bypass cycle."""
 
+        if not self.runtime_active:
+            return
         self._endpoint_manual_bypass_requested = True
         self._endpoint_manual_bypass_active = True
         try:
@@ -1820,6 +1643,23 @@ class EnphaseCoordinator(
         finally:
             self._endpoint_manual_bypass_requested = False
             self._endpoint_manual_bypass_active = False
+
+    def endpoint_family_should_run(self, family: str, *, force: bool = False) -> bool:
+        """Expose endpoint admission to feature runtimes without private state access."""
+
+        return self._endpoint_family_should_run(family, force=force)
+
+    def note_endpoint_family_success(
+        self, family: str, *, success_ttl_s: float | None = None
+    ) -> None:
+        """Record a runtime-owned endpoint success using the shared health policy."""
+
+        self._note_endpoint_family_success(family, success_ttl_s=success_ttl_s)
+
+    def note_endpoint_family_failure(self, family: str, err: Exception) -> bool:
+        """Record a runtime-owned endpoint failure and apply shared backoff."""
+
+        return self._note_endpoint_family_failure(family, err)
 
     def _endpoint_family_policy(self, family: str) -> EndpointFamilyPolicy | None:
         return self._endpoint_family_policies.get(family)
@@ -1899,25 +1739,7 @@ class EnphaseCoordinator(
     def _retry_after_delay(err: Exception) -> float | None:
         """Return a Retry-After delay in seconds when an HTTP error provides one."""
 
-        if not isinstance(err, aiohttp.ClientResponseError) or not err.headers:
-            return None
-        retry_after = err.headers.get("Retry-After")
-        if not retry_after:
-            return None
-        try:
-            return max(0.0, float(int(retry_after)))
-        except Exception:
-            retry_dt = None
-            try:
-                retry_dt = parsedate_to_datetime(str(retry_after))
-            except Exception:
-                retry_dt = None
-            if retry_dt is None:
-                return None
-            if retry_dt.tzinfo is None:
-                retry_dt = retry_dt.replace(tzinfo=_tz.utc)
-            retry_dt = retry_dt.astimezone(_tz.utc)
-            return float(max(0.0, (retry_dt - dt_util.utcnow()).total_seconds()))
+        return retry_after_delay(err)
 
     def _endpoint_family_backoff_delay(
         self,
@@ -2365,6 +2187,10 @@ class EnphaseCoordinator(
         their cancellation handlers to finish before closing the client.
         """
 
+        self._runtime_stopped = True
+        runtime = getattr(self, "control_updates", None)
+        if runtime:
+            runtime.cleanup()
         cancelled_tasks: list[asyncio.Future[Any]] = []
 
         def _task_done(task: object) -> bool:
@@ -2396,6 +2222,7 @@ class EnphaseCoordinator(
                 self._battery_profile_recovery_restore_task.cancel()
                 cancelled_tasks.append(self._battery_profile_recovery_restore_task)
             self._battery_profile_recovery_restore_task = None
+        self.evse_runtime.invalidate_amp_restart_intents()
         for task in list(self._amp_restart_tasks.values()):
             if task is not None and not _task_done(task):
                 task.cancel()
@@ -2420,6 +2247,9 @@ class EnphaseCoordinator(
                 cancelled_tasks.append(self._auth_refresh_task)
             self._auth_refresh_task = None
         self._clear_backoff_timer()
+        status_health = self.__dict__.get("_evse_status_health")
+        if status_health is not None:
+            status_health.stop()
         for task in list(self._backoff_refresh_tasks):
             if not _task_done(task):
                 task.cancel()
@@ -2440,6 +2270,11 @@ class EnphaseCoordinator(
             cancelled_tasks.extend(
                 task for task in enrichment_tasks if isinstance(task, asyncio.Future)
             )
+        export_limit_runtime = getattr(self, "export_limit_runtime", None)
+        if export_limit_runtime is not None:
+            export_task = export_limit_runtime.stop()
+            if export_task is not None:
+                cancelled_tasks.append(export_task)
         grid_profile_runtime = getattr(self, "grid_profile_runtime", None)
         cancel_grid_profile_pending = getattr(
             grid_profile_runtime, "cancel_pending_refresh", None
@@ -2471,6 +2306,7 @@ class EnphaseCoordinator(
     async def async_quiesce_for_reload(self) -> bool:
         """Stop entry background work while retaining cached runtime state."""
 
+        self.mark_runtime_stopped()
         current_task = asyncio.current_task()
         cancelled_tasks: set[asyncio.Future[Any]] = set()
         quiesced = True
@@ -2483,6 +2319,10 @@ class EnphaseCoordinator(
             ):
                 task.cancel()
                 cancelled_tasks.add(task)
+
+        self.evse_runtime.invalidate_amp_restart_intents()
+        for task in tuple(self._amp_restart_tasks.values()):
+            _cancel(task)
 
         reload_task_attrs = {
             attr_name: getattr(self, attr_name, None)
@@ -2546,6 +2386,9 @@ class EnphaseCoordinator(
         """Track config-entry background work for pre-client-close cancellation."""
 
         if not isinstance(task, asyncio.Future) or task.done():
+            return
+        if not self.runtime_active:
+            task.cancel()
             return
         self._entry_background_tasks.add(task)
         task.add_done_callback(self._entry_background_tasks.discard)
@@ -3306,15 +3149,6 @@ class EnphaseCoordinator(
             "devices_inventory_payload": getattr(
                 self, "_devices_inventory_payload", None
             ),
-            "ac_battery_devices_payload": getattr(
-                self, "_ac_battery_devices_payload", None
-            ),
-            "ac_battery_telemetry_payloads": getattr(
-                self, "_ac_battery_telemetry_payloads", None
-            ),
-            "ac_battery_events_payloads": getattr(
-                self, "_ac_battery_events_payloads", None
-            ),
         }
 
     def heatpump_runtime_diagnostics(self) -> dict[str, object]:
@@ -3650,25 +3484,31 @@ class EnphaseCoordinator(
     async def _async_run_site_only_refresh_pipeline(
         self,
         context: RefreshPipelineContext,
+        *,
+        status_degraded: bool = False,
     ) -> dict[str, dict[str, object]]:
         phase_timings = context.phase_timings
+        if status_degraded:
+            context.status_used_stale = True
+            self.payload_using_stale = True
         self._status_charger_data_authoritative = False
         self._status_charger_data_serials = None
         self._empty_status_charger_data_count = 0
-        self._backoff_until = None
-        self._clear_backoff_timer()
-        self._clear_auth_repair_issues_on_success()
-        self.diagnostics.clear_network_issue()
-        self.diagnostics.clear_cloud_issue()
-        self.diagnostics.clear_dns_issue()
-        self.diagnostics.clear_rate_limited_issue()
-        self._unauth_errors = 0
-        self._rate_limit_hits = 0
-        self._http_errors = 0
-        self._network_errors = 0
-        self._dns_failures = 0
-        self._last_error = None
-        self.backoff_ends_utc = None
+        if not status_degraded:
+            self._backoff_until = None
+            self._clear_backoff_timer()
+            self._clear_auth_repair_issues_on_success()
+            self.diagnostics.clear_network_issue()
+            self.diagnostics.clear_cloud_issue()
+            self.diagnostics.clear_dns_issue()
+            self.diagnostics.clear_rate_limited_issue()
+            self._unauth_errors = 0
+            self._rate_limit_hits = 0
+            self._http_errors = 0
+            self._network_errors = 0
+            self._dns_failures = 0
+            self._last_error = None
+            self.backoff_ends_utc = None
         self._has_successful_refresh = True
         if context.first_refresh and not context.minimal_setup_refresh:
             self._start_first_refresh_followups(context)
@@ -3694,13 +3534,35 @@ class EnphaseCoordinator(
                     plan=followup_plan,
                 )
         self._clear_auth_refresh_rejection_state_if_unchanged(context)
-        self._prune_runtime_caches(active_serials=(), keep_day_keys=())
+        if not status_degraded:
+            self._prune_runtime_caches(active_serials=(), keep_day_keys=())
         self._sync_battery_profile_pending_issue()
-        self.last_success_utc = dt_util.utcnow()
+        if not status_degraded:
+            self.last_success_utc = dt_util.utcnow()
+        else:
+            # Only actual sibling acquisitions demonstrate cloud reachability.
+            # Cached payloads and skipped cooldown polls do not advance it.
+            candidates = [
+                health.last_success_utc
+                for health in self._endpoint_family_health.values()
+                if isinstance(health.last_success_utc, datetime)
+                and health.last_success_utc >= context.refresh_started_utc
+            ]
+            stamp = self.energy.site_energy_fetch_diagnostics.get("last_success_utc")
+            energy_success = (
+                dt_util.parse_datetime(stamp) if isinstance(stamp, str) else None
+            )
+            if (
+                energy_success is not None
+                and energy_success >= context.refresh_started_utc
+            ):
+                candidates.append(energy_success)
+            if candidates:
+                self.last_success_utc = max(candidates)
         self.latency_ms = int((time.monotonic() - context.started_mono) * 1000)
         self._schedule_grid_profile_metadata_refresh(context)
         self._finish_refresh_pipeline(context)
-        return {}
+        return context.fallback_data if status_degraded else {}
 
     def _record_status_refresh_success(
         self,
@@ -3840,7 +3702,7 @@ class EnphaseCoordinator(
         if getattr(self, "_battery_has_encharge", None) is False:
             return False
         selected = getattr(self, "_selected_type_keys", None)
-        if isinstance(selected, set) and selected:
+        if isinstance(selected, set):
             if self.site_only or not self.serials:
                 return "envoy" in selected
             return bool({"encharge", "envoy", "iqevse"} & selected)
@@ -4130,8 +3992,15 @@ class EnphaseCoordinator(
         task.add_done_callback(self._clear_grid_profile_metadata_task)
 
     async def _async_update_data(self) -> dict[str, dict[str, object]]:
+        if not self.runtime_active:
+            raise asyncio.CancelledError
         async with self._refresh_lock:
-            return await self._async_update_data_locked()
+            if not self.runtime_active:
+                raise asyncio.CancelledError
+            data = await self._async_update_data_locked()
+            if not self.runtime_active:
+                raise asyncio.CancelledError
+            return data
 
     async def _async_update_data_locked(self) -> dict[str, dict[str, object]]:
         """Run one serialized coordinator refresh."""
@@ -4172,21 +4041,30 @@ class EnphaseCoordinator(
 
         # Handle backoff window
         if self._backoff_until and time.monotonic() < self._backoff_until:
-            retry_after = max(0.0, self._backoff_until - time.monotonic())
+            # HA truncates the loop clock before adding retry_after. Sub-second
+            # delays can therefore schedule in the past and spin until expiry.
+            retry_after = max(1.0, self._backoff_until - time.monotonic())
             raise UpdateFailed(
                 "In backoff due to rate limiting or server errors",
                 retry_after=retry_after,
             )
 
+        if self.evse_status_health.cooldown_active:
+            return await self._async_run_site_only_refresh_pipeline(
+                context, status_degraded=True
+            )
+
         if first_refresh and not context.minimal_setup_refresh:
             self._start_first_refresh_followups(context)
         status_refresh_succeeded = False
+        status_endpoint_succeeded = False
         status_charger_data_authoritative = False
         status_charger_data_serials: list[str] | None = None
         status_empty_observed = False
         status_empty_preserved = False
         preserve_normalized_status = False
         try:
+            status_control_tokens = self.control_updates.read_tokens()
             status_start = time.monotonic()
             data = await self.client.status()
             phase_timings["status_s"] = round(time.monotonic() - status_start, 3)
@@ -4262,6 +4140,7 @@ class EnphaseCoordinator(
                     success_mono=time.monotonic(),
                     success_utc=dt_util.utcnow(),
                 )
+                status_endpoint_succeeded = True
             self.last_failure_endpoint = None
             if not status_empty_preserved:
                 self.payload_using_stale = False
@@ -4380,10 +4259,28 @@ class EnphaseCoordinator(
                 )
                 self._phase_timings = phase_timings.copy()
                 return fallback_data
-            # Respect Retry-After and create a warning issue on repeated 429
-            self._last_error = f"HTTP {err.status}"
+            # An HTTP response breaks network and malformed-payload streaks,
+            # including when a server failure is isolated to charger status.
             self._network_errors = 0
             self._payload_errors = 0
+            if 500 <= err.status < 600:
+                await self.evse_status_health.async_failure(err)
+                self._last_error = f"Charger status HTTP {err.status}"
+                self.last_failure_utc = dt_util.utcnow()
+                self.last_failure_status = err.status
+                self.last_failure_description = self._last_error
+                self.last_failure_response = None
+                self.last_failure_source = "http"
+                self.last_failure_endpoint = "charger_status"
+                self.payload_using_stale = True
+                self.payload_failure_kind = None
+                context.status_used_stale = True
+                self.diagnostics.report_evse_status_issue()
+                return await self._async_run_site_only_refresh_pipeline(
+                    context, status_degraded=True
+                )
+            # Respect Retry-After and create a warning issue on repeated 429
+            self._last_error = f"HTTP {err.status}"
             self._http_errors += 1
             delay = self._retry_after_delay(err) or 0.0
             # Exponential backoff anchored to configured slow poll interval
@@ -4398,12 +4295,7 @@ class EnphaseCoordinator(
                 if self._rate_limit_hits >= 2:
                     self.diagnostics.create_rate_limited_issue()
             else:
-                is_server_error = 500 <= err.status < 600
-                if is_server_error:
-                    if self._http_errors >= 2:
-                        self.diagnostics.report_cloud_issue()
-                else:
-                    self.diagnostics.clear_cloud_issue()
+                self.diagnostics.clear_cloud_issue()
             raw_payload = redact_text(err.message, site_ids=(self.site_id,))
             description = _extract_error_description(raw_payload)
             reason = redact_text(err.message, site_ids=(self.site_id,))
@@ -4542,7 +4434,9 @@ class EnphaseCoordinator(
                 continue
             self._ensure_serial_tracked(sn)
             records.append((sn, obj))
-            if not self._has_embedded_charge_mode_preference(obj):
+            if self.evse_runtime.charge_mode_confirmation_active(
+                sn
+            ) or not self._has_embedded_charge_mode_preference(obj):
                 charge_mode_candidates.append(sn)
 
         if (
@@ -4704,6 +4598,17 @@ class EnphaseCoordinator(
                 suspended_by_evse=suspended_by_evse,
             )
             self._record_actual_charging(sn, actual_charging_flag)
+            if (
+                status_refresh_succeeded
+                and not context.status_used_stale
+                and actual_charging_flag is not None
+            ):
+                self.control_updates.observe(
+                    "charging",
+                    sn,
+                    {"enabled": actual_charging_flag},
+                    status_control_tokens,
+                )
             pending_expectation = self._pending_charging.get(sn)
             if pending_expectation:
                 target_state, expires_at = pending_expectation
@@ -4944,7 +4849,7 @@ class EnphaseCoordinator(
                 "sn": sn,
                 "name": obj.get("name"),
                 "display_name": display_name,
-                "connected": _as_bool(obj.get("connected")),
+                "connected": _as_optional_bool(obj.get("connected")),
                 "plugged": _as_bool(obj.get("pluggedIn")),
                 "charging": charging_now_flag,
                 "actual_charging": actual_charging_flag,
@@ -5055,8 +4960,6 @@ class EnphaseCoordinator(
             self._record_evse_transition_snapshot(sn, previous_entry, entry)
 
             out[sn] = entry
-
-        self._sync_desired_charging(out)
 
         polling_state = self._determine_polling_state(out)
         context.fast_poll = bool(polling_state["want_fast"])
@@ -5563,6 +5466,12 @@ class EnphaseCoordinator(
                 self._phase_timings,
             )
 
+        # Keep cached charger data unavailable through every awaited recovery
+        # step. Once health succeeds, return fresh data without yielding again.
+        if status_endpoint_succeeded:
+            await self.evse_status_health.async_success()
+            self.diagnostics.clear_evse_status_issue()
+        self._sync_desired_charging(out)
         return out
 
     def _sync_desired_charging(self, data: dict[str, dict[str, object]]) -> None:
@@ -6033,6 +5942,21 @@ class EnphaseCoordinator(
             return
         self._clear_hems_auth_circuit(persist=True, reset_failure_count=True)
 
+    def note_hems_auth_failure(self, err: BaseException, *, endpoint: str) -> bool:
+        """Record optional HEMS authentication failure for a feature runtime."""
+
+        return self._note_hems_auth_failure(err, endpoint=endpoint)
+
+    def note_hems_auth_success(self, *, endpoint: str | None = None) -> None:
+        """Record optional HEMS authentication recovery for a feature runtime."""
+
+        self._note_hems_auth_success(endpoint=endpoint)
+
+    def skip_hems_polling_due_to_auth_circuit(self, *, endpoint: str) -> bool:
+        """Expose HEMS authentication admission to feature runtimes."""
+
+        return self._skip_hems_polling_due_to_auth_circuit(endpoint=endpoint)
+
     def _note_hems_auth_failure(
         self,
         err: BaseException,
@@ -6340,8 +6264,19 @@ class EnphaseCoordinator(
             allow_unplugged=allow_unplugged,
         )
 
-    def schedule_amp_restart(self, sn: str, delay: float = AMP_RESTART_DELAY_S) -> None:
-        self.evse_runtime.schedule_amp_restart(sn, delay)
+    def charging_command_token(self, sn: str) -> object:
+        """Capture charger command ordering across an awaited setpoint refresh."""
+
+        return self.evse_runtime.charging_command_token(sn)
+
+    def schedule_amp_restart(
+        self,
+        sn: str,
+        delay: float = AMP_RESTART_DELAY_S,
+        *,
+        expected_token: object | None = None,
+    ) -> None:
+        self.evse_runtime.schedule_amp_restart(sn, delay, expected_token=expected_token)
 
     async def _async_restart_after_amp_change(self, sn: str, delay: float) -> None:
         await self.evse_runtime.async_restart_after_amp_change(sn, delay)
@@ -6950,50 +6885,6 @@ class EnphaseCoordinator(
         return details
 
     @property
-    def ac_battery_aggregate_status(self) -> str | None:
-        value = getattr(self, "_ac_battery_aggregate_status", None)
-        if value is None:
-            return None
-        try:
-            text = str(value).strip().lower()
-        except Exception:  # noqa: BLE001
-            return None
-        return text or None
-
-    @property
-    def ac_battery_status_summary(self) -> dict[str, object]:
-        details = dict(getattr(self, "_ac_battery_aggregate_status_details", {}) or {})
-        details["aggregate_status"] = self.ac_battery_aggregate_status
-        details["battery_order"] = self.iter_ac_battery_serials()
-        details["power_w"] = getattr(self, "_ac_battery_power_w", None)
-        return details
-
-    @property
-    def ac_battery_summary_sample_utc(self) -> datetime | None:
-        value = getattr(self, "_ac_battery_summary_sample_utc", None)
-        return value if isinstance(value, datetime) else None
-
-    @property
-    def ac_battery_selected_sleep_min_soc(self) -> int | None:
-        value = getattr(self, "_ac_battery_selected_sleep_min_soc", None)
-        return helper_coerce_optional_int(value)
-
-    @property
-    def ac_battery_sleep_state(self) -> str | None:
-        value = getattr(self, "_ac_battery_sleep_state", None)
-        if value is None:
-            return None
-        try:
-            text = str(value).strip().lower()
-        except Exception:  # noqa: BLE001
-            return None
-        return text or None
-
-    @property
-    def ac_battery_control_pending(self) -> bool:
-        return bool(getattr(self, "_ac_battery_control_pending", False))
-
-    @property
     def battery_profile_option_keys(self) -> list[str]:
         options: list[str] = ["self-consumption"]
         if getattr(self, "_battery_show_savings_mode", None):
@@ -7056,13 +6947,18 @@ class EnphaseCoordinator(
 
     @property
     def savings_use_battery_after_peak(self) -> bool | None:
-        profile = self.battery_selected_profile
+        profile = current_control_value(
+            self,
+            "system_profile",
+            "profile_key",
+            self.battery_live_profile or self.battery_profile,
+        )
         if profile != "cost_savings":
             return None
-        subtype = self.battery_selected_operation_mode_sub_type
+        subtype = getattr(self, "_battery_operation_mode_sub_type", None)
         if subtype is None:
             return False
-        return subtype == SAVINGS_OPERATION_MODE_SUBTYPE
+        return bool(subtype == SAVINGS_OPERATION_MODE_SUBTYPE)
 
     @property
     def savings_use_battery_switch_available(self) -> bool:
@@ -7070,7 +6966,15 @@ class EnphaseCoordinator(
             return False
         if getattr(self, "_battery_show_savings_mode", None) is False:
             return False
-        return self.battery_selected_profile == "cost_savings"
+        return (
+            current_control_value(
+                self,
+                "system_profile",
+                "profile_key",
+                self.battery_live_profile or self.battery_profile,
+            )
+            == "cost_savings"
+        )
 
     @property
     def battery_reserve_editable(self) -> bool:
@@ -7098,14 +7002,24 @@ class EnphaseCoordinator(
                     return False
             elif rbd_show is False and reserve_show is not True:
                 return False
-        profile = self.battery_selected_profile
+        profile = current_control_value(
+            self,
+            "system_profile",
+            "profile_key",
+            self.battery_live_profile or self.battery_profile,
+        )
         if profile is None:
             return False
         return profile != "backup_only"
 
     @property
     def battery_reserve_min(self) -> int:
-        profile = self.battery_selected_profile
+        profile = current_control_value(
+            self,
+            "system_profile",
+            "profile_key",
+            self.battery_live_profile or self.battery_profile,
+        )
         if profile == "backup_only":
             return 100
         value = self._coerce_optional_int(
@@ -7117,7 +7031,12 @@ class EnphaseCoordinator(
 
     @property
     def battery_reserve_max(self) -> int:
-        profile = self.battery_selected_profile
+        profile = current_control_value(
+            self,
+            "system_profile",
+            "profile_key",
+            self.battery_live_profile or self.battery_profile,
+        )
         if profile == "backup_only":
             return 100
         value = self._coerce_optional_int(
@@ -8383,24 +8302,6 @@ class EnphaseCoordinator(
             out.append(key)
         return out
 
-    def iter_ac_battery_serials(self) -> list[str]:
-        """Return active AC Battery identities in a stable order."""
-
-        order = getattr(self, "_ac_battery_order", None)
-        snapshots = getattr(self, "_ac_battery_data", None)
-        if not isinstance(order, list) or not isinstance(snapshots, dict):
-            return []
-        out: list[str] = []
-        for item in order:
-            try:
-                key = str(item).strip()
-            except Exception:  # noqa: BLE001
-                continue
-            if not key or key not in snapshots:
-                continue
-            out.append(key)
-        return out
-
     def battery_storage(
         self, serial: str
     ) -> dict[str, object] | None:  # pragma: no cover
@@ -8426,40 +8327,6 @@ class EnphaseCoordinator(
                     continue
                 out[detail_key] = detail_value
         return out
-
-    def ac_battery_storage(self, serial: str) -> dict[str, object] | None:
-        """Return normalized AC Battery snapshot for an active battery identity."""
-
-        snapshots = getattr(self, "_ac_battery_data", None)
-        if not isinstance(snapshots, dict):
-            return None
-        try:
-            key = str(serial).strip()
-        except Exception:  # noqa: BLE001
-            return None
-        if not key:
-            return None
-        payload = snapshots.get(key)
-        if not isinstance(payload, dict):
-            return None
-        return dict(payload)
-
-    async def async_ensure_ac_battery_diagnostics(self) -> None:
-        if (
-            isinstance(getattr(self, "_ac_battery_devices_payload", None), dict)
-            and isinstance(getattr(self, "_ac_battery_telemetry_payloads", None), dict)
-            and isinstance(getattr(self, "_ac_battery_events_payloads", None), dict)
-        ):
-            return
-        await self.battery_runtime.async_refresh_ac_battery_devices(force=True)
-        await self.battery_runtime.async_refresh_ac_battery_telemetry(force=True)
-        await self.battery_runtime.async_refresh_ac_battery_events(force=True)
-
-    async def async_set_ac_battery_sleep_mode(self, enabled: bool) -> None:
-        await self.battery_runtime.async_set_ac_battery_sleep_mode(enabled)
-
-    async def async_set_ac_battery_target_soc(self, value: int) -> None:
-        await self.battery_runtime.async_set_ac_battery_target_soc(value)
 
     def get_desired_charging(self, sn: str) -> bool | None:
         return self.evse_runtime.get_desired_charging(sn)

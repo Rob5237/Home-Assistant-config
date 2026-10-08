@@ -43,8 +43,7 @@
           "type_iqevse": "Įkrovikliai",
           "type_microinverter": "Mikroinverteriai",
           "scan_interval": "Skenavimo intervalas (s)",
-          "type_heatpump": "Šilumos siurblys",
-          "type_ac_battery": "AC baterija"
+          "type_heatpump": "Šilumos siurblys"
         },
         "data_description": {
           "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
@@ -52,8 +51,7 @@
           "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
           "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
           "scan_interval": "Sekundės tarp debesies būsenos apklausų. Numatyta 60s.",
-          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
-          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami."
+          "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius."
         }
       }
     },
@@ -138,9 +136,6 @@
     },
     "battery_schedule_overlap": {
       "message": "Tvarkaraštis persidengia su esamu {schedule_label}. Pirmiausia pakoreguokite arba išjunkite tą tvarkaraštį."
-    },
-    "ac_battery_unavailable": {
-      "message": "Šiuo metu nėra pasiekiamų AC baterijos įrenginių."
     },
     "auth_settings_service_unavailable": {
       "message": "Autentifikavimo nustatymai nepasiekiami, kol Enphase paslauga neveikia."
@@ -358,9 +353,6 @@
     "scheduler_service_unavailable": {
       "message": "Įkrovimo režimo pasirinkimas nepasiekiamas, kol Enphase planavimo paslauga neveikia."
     },
-    "selected_ac_battery_target_state_of_charge_unavailable": {
-      "message": "Pasirinktas AC baterijos tikslinis įkrovos lygis nepasiekiamas."
-    },
     "battery_schedule_day_required": {
       "message": "Pasirinkite bent vieną tvarkaraščio dieną."
     },
@@ -489,6 +481,39 @@
     },
     "grid_profile_controls_disabled": {
       "message": "Prieš naudodami šį veiksmą integracijos parinktyse įjunkite montuotojo tinklo profilio valdiklius."
+    },
+    "export_limit_unavailable": {
+      "message": "Eksporto riba nepasiekiama. Reikalinga montuotojo prieiga ir palaikoma konfigūracija su vienu šliuzu."
+    },
+    "export_limit_invalid": {
+      "message": "Įveskite sveikąjį vatų skaičių nuo 0 iki 100000."
+    },
+    "export_limit_changed": {
+      "message": "Konfigūracija pasikeitė. Peržiūrėkite atnaujintus nustatymus ir patvirtinkite dar kartą."
+    },
+    "export_limit_mismatch": {
+      "message": "Enphase montuotojo forma neatitinka šliuzo nustatymų. Atnaujinkite nustatymus ir bandykite dar kartą."
+    },
+    "export_limit_pending": {
+      "message": "Laukiama konfigūracijos patvirtinimo. Prieš kitą pakeitimą atnaujinkite būseną."
+    },
+    "export_limit_disabled": {
+      "message": "Įjungti eksporto ribos valdymą (Funkcijos → Išplėstinės funkcijos)."
+    },
+    "export_limit_confirmation": {
+      "message": "Patvirtinti šį pakeitimą"
+    },
+    "export_limit_invalid_slew": {
+      "message": "Įveskite teigiamą skaičių su ne daugiau kaip dviem dešimtainiais skaitmenimis."
+    },
+    "export_limit_session_expired": {
+      "message": "Enlighten seansas baigėsi arba buvo atmestas. Atidarykite Autentifikavimas, autentifikuokitės iš naujo ir bandykite dar kartą."
+    },
+    "control_change_pending": {
+      "message": "Valdymo pakeitimas laukia patvirtinimo. Prieš pateikdami kitą pakeitimą atnaujinkite jo būseną."
+    },
+    "charger_status_unavailable": {
+      "message": "Nauja įkroviklio būsena nepasiekiama. Prieš keisdami nustatymus palaukite, kol ryšys atsikurs."
     }
   },
   "options": {
@@ -502,15 +527,17 @@
           "repair_notifications": "Pranešimai",
           "authentication_settings": "Autentifikavimas",
           "migrate_envoy": "Perkelti Envoy istoriją",
-          "advanced": "Išplėstiniai"
+          "advanced": "Išplėstiniai",
+          "features": "Funkcijos"
         },
         "menu_option_descriptions": {
           "settings": "Reguliuokite apklausą ir veikimą.",
-          "devices": "Pasirinkite, kurias įrenginių grupes pridėti. Visi pasirinkimai naudoja tą patį apklausos intervalą.",
-          "repair_notifications": "Tvarkyti „Home Assistant“ taisymo pranešimus.",
+          "devices": "Pasirinkite įtraukiamas įrenginių kategorijas.",
+          "repair_notifications": "Tvarkyti Home Assistant taisymo pranešimus ir aprašomuosius veiklos įrašus.",
           "authentication_settings": "Paleiskite prisijungimo eigą, kad atnaujintumėte duomenis nepašalindami integracijos.",
           "migrate_envoy": "Perimkite pasirinktus Enphase Envoy energijos objektų ID, kad Home Assistant Energy istorija tęstųsi šioje integracijoje.",
-          "advanced": "Pasirenkami tinklo režimo valdikliai ir tik diegėjui skirti tinklo profilio valdikliai."
+          "advanced": "Diegėjo ir priežiūros veiksmai.",
+          "features": "Konfigūruokite įrenginių funkcijas ir išplėstinius valdiklius."
         },
         "data": {
           "type_envoy": "Šliuzas",
@@ -525,7 +552,6 @@
           "session_history_interval": "Sesijos istorijos intervalas (min)",
           "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
           "type_heatpump": "Šilumos siurblys",
-          "type_ac_battery": "AC baterija",
           "battery_schedules_enabled": "Įjungti baterijos planuoklį",
           "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus",
           "weather_enabled": "Įjungti orus",
@@ -537,18 +563,17 @@
           "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
           "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
           "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
-          "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama.",
-          "slow_poll_interval": "Intervalas, kai nenaudojama.",
-          "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu.",
-          "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos.",
-          "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra.",
-          "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų.",
+          "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama. Numatytoji reikšmė: 30 s.",
+          "slow_poll_interval": "Intervalas, kai nenaudojama. Numatytoji reikšmė: 60 s.",
+          "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu. Numatytoji reikšmė: Įjungta.",
+          "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos. Numatytoji reikšmė: 15 s.",
+          "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra. Numatytoji reikšmė: Pagal įkroviklio telemetriją, kai ji pasiekiama; kitu atveju pagal Home Assistant regioną, su atsargine 230 V reikšme.",
+          "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų. Numatytoji reikšmė: 10 min.",
           "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
-          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
-          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai.",
-          "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas.",
-          "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius.",
-          "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija."
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai. Numatytoji reikšmė: Išjungta.",
+          "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas. Numatytoji reikšmė: Išjungta.",
+          "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius. Numatytoji reikšmė: Išjungta.",
+          "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta."
         }
       },
       "settings": {
@@ -563,24 +588,23 @@
           "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus"
         },
         "data_description": {
-          "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama.",
-          "slow_poll_interval": "Intervalas, kai nenaudojama.",
-          "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu.",
-          "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos.",
-          "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų.",
-          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai."
+          "fast_poll_interval": "Intervalas, kai įkraunama arba transliuojama. Numatytoji reikšmė: 30 s.",
+          "slow_poll_interval": "Intervalas, kai nenaudojama. Numatytoji reikšmė: 60 s.",
+          "fast_while_streaming": "Kai įjungta, greita apklausa aktyvios debesies transliacijos metu. Numatytoji reikšmė: Įjungta.",
+          "api_timeout": "Sekundės iki API užklausų laiko limito pabaigos. Numatytoji reikšmė: 15 s.",
+          "session_history_interval": "Minutės, kurias reikia palaukti tarp debesies sesijų istorijos užklausų. Numatytoji reikšmė: 10 min.",
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai. Numatytoji reikšmė: Išjungta."
         }
       },
       "devices": {
         "title": "Pasirinkite įrenginius",
-        "description": "Pasirinkite, kurias įrenginių grupes pridėti. Visi pasirinkimai naudoja tą patį apklausos intervalą.",
+        "description": "Pasirinkite įtraukiamas įrenginių kategorijas.",
         "sections": {
           "devices": {
             "name": "Pasirinkite įrenginius",
             "data": {
               "type_envoy": "Šliuzas",
               "type_encharge": "Baterija",
-              "type_ac_battery": "AC baterija",
               "type_iqevse": "Įkrovikliai",
               "type_heatpump": "Šilumos siurblys",
               "type_microinverter": "Mikroinverteriai"
@@ -588,89 +612,40 @@
             "data_description": {
               "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
               "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
-              "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
               "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
               "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
               "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius."
-            }
-          },
-          "device_features": {
-            "name": "Įrenginio funkcijos",
-            "data": {
-              "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
-              "battery_schedules_enabled": "Įjungti baterijos planuoklį",
-              "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
-              "pricing_edits_enabled": "Įjungti kainų redagavimą",
-              "weather_enabled": "Įjungti orus",
-              "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
-              "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
-              "microinverter_power_enabled": "Įjungti mikroinverterių galią",
-              "vpp_events_enabled": "Įjungti VPP įvykius",
-              "grid_profile_controls_enabled": "Įjungti montuotojo tinklo profilio valdiklius"
-            },
-            "data_description": {
-              "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta.",
-              "pricing_edits_enabled": "Tvarkyti „IQ Gateway“ elektros tarifus",
-              "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas.",
-              "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra.",
-              "schedule_sync_enabled": "Tvarkykite „IQ EV Charger“ tvarkaraščius.",
-              "battery_schedules_enabled": "Tvarkykite „IQ Battery“ tvarkaraščius.",
-              "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius.",
-              "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija.",
-              "vpp_events_enabled": "Gauna VPP/ELRP tvarkaraščius iš „Enphase“ ir kuria įvykių esybes tik užregistruotoms vietoms. Pagal numatytuosius nustatymus išjungta.",
-              "grid_profile_controls_enabled": "Gauna tik montuotojui skirtus tinklo profilio metaduomenis ir įjungia profilio veiksmus. Pagal numatytuosius nustatymus išjungta."
             }
           }
         },
         "data": {
           "devices": "Pasirinkite įrenginius",
-          "device_features": "Įrenginio funkcijos",
           "type_envoy": "Šliuzas",
           "type_encharge": "Baterija",
-          "type_ac_battery": "AC baterija",
           "type_iqevse": "Įkrovikliai",
           "type_heatpump": "Šilumos siurblys",
-          "type_microinverter": "Mikroinverteriai",
-          "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
-          "battery_schedules_enabled": "Įjungti baterijos planuoklį",
-          "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
-          "pricing_edits_enabled": "Įjungti kainų redagavimą",
-          "weather_enabled": "Įjungti orus",
-          "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
-          "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
-          "microinverter_power_enabled": "Įjungti mikroinverterių galią",
-          "vpp_events_enabled": "Įjungti VPP įvykius",
-          "grid_profile_controls_enabled": "Įjungti montuotojo tinklo profilio valdiklius"
+          "type_microinverter": "Mikroinverteriai"
         },
         "data_description": {
           "type_envoy": "Apima šliuzo ryšio ir skaitiklių diagnostiką.",
           "type_encharge": "Apima baterijų būseną ir valdymo esybes, kai jos pasiekiamos.",
-          "type_ac_battery": "Apima AC baterijos jutiklius ir miego režimo valdiklius, kai jie prieinami.",
           "type_iqevse": "Apima EV įkroviklių esybes ir valdiklius.",
           "type_heatpump": "Apima šilumos siurblio būsenos, diagnostikos ir vartojimo jutiklius.",
-          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius.",
-          "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta.",
-          "pricing_edits_enabled": "Tvarkyti „IQ Gateway“ elektros tarifus",
-          "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas.",
-          "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra.",
-          "schedule_sync_enabled": "Tvarkykite „IQ EV Charger“ tvarkaraščius.",
-          "battery_schedules_enabled": "Tvarkykite „IQ Battery“ tvarkaraščius.",
-          "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius.",
-          "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija.",
-          "vpp_events_enabled": "Gauna VPP/ELRP tvarkaraščius iš „Enphase“ ir kuria įvykių esybes tik užregistruotoms vietoms. Pagal numatytuosius nustatymus išjungta.",
-          "grid_profile_controls_enabled": "Gauna tik montuotojui skirtus tinklo profilio metaduomenis ir įjungia profilio veiksmus. Pagal numatytuosius nustatymus išjungta."
+          "type_microinverter": "Apima mikroinverterių junglumo, aktyvaus skaičiaus ir viso laikotarpio gamybos jutiklius."
         }
       },
       "repair_notifications": {
         "title": "Pranešimai",
-        "description": "Pasirinkite, kurios „Enphase“ sąlygos kuria „Home Assistant“ taisymus.",
+        "description": "Tvarkyti Home Assistant taisymo pranešimus ir aprašomuosius veiklos įrašus.",
         "data": {
           "degraded_service_repair_issues": "Įgalinti suprastėjusių paslaugų taisymus",
-          "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus"
+          "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
+          "descriptive_activity_entries": "Įjungti aprašomuosius veiklos įrašus"
         },
         "data_description": {
-          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai.",
-          "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta."
+          "degraded_service_repair_issues": "Sukuria Repairs problemas, kai pasirenkamos Enphase paslaugos veikia suprastėjusiai. Numatytoji reikšmė: Išjungta.",
+          "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta. Numatytoji reikšmė: Išjungta.",
+          "descriptive_activity_entries": "Prideda aprašomuosius įrašus į Home Assistant veiklą, kai pasikeičia praneštos sąlygos. Jie rodomi šalia įprastų būsenos pasikeitimo įrašų. Pagal numatytuosius nustatymus išjungta."
         }
       },
       "authentication_settings": {
@@ -732,11 +707,13 @@
         "description": "Diegėjo ir priežiūros veiksmai.",
         "menu_options": {
           "grid_toggle": "Tinklo režimas",
-          "grid_profile": "Tinklo profilio valdymas"
+          "grid_profile": "Tinklo profilio valdymas",
+          "export_limit": "Eksporto riba"
         },
         "menu_option_descriptions": {
           "grid_toggle": "Konfigūruoti rankinius tinklo režimo valdiklius.",
-          "grid_profile": "Naršykite ir taikykite tik diegėjams skirtus Activation tinklo profilius."
+          "grid_profile": "Naršykite ir taikykite tik diegėjams skirtus Activation tinklo profilius.",
+          "export_limit": "Konfigūruokite sistemos eksporto ribas."
         }
       },
       "grid_toggle": {
@@ -787,6 +764,125 @@
       "grid_toggle_applied": {
         "title": "Priimtas tinklo režimo pakeitimas",
         "description": "„Enphase“ priėmė užklausą pakeisti tinklo režimą į **{target_mode}**.\n\nFizinė relė vis dar gali keistis. Norėdami stebėti gautą būseną, naudokite tinklo režimo jutiklį."
+      },
+      "features": {
+        "title": "Funkcijos",
+        "description": "Konfigūruokite įrenginių funkcijas ir išplėstinius valdiklius.",
+        "sections": {
+          "device_features": {
+            "name": "Įrenginio funkcijos",
+            "data": {
+              "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
+              "battery_schedules_enabled": "Įjungti baterijos planuoklį",
+              "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
+              "pricing_edits_enabled": "Įjungti kainų redagavimą",
+              "weather_enabled": "Įjungti orus",
+              "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
+              "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
+              "vpp_events_enabled": "Įjungti VPP įvykius"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta. Numatytoji reikšmė: Išjungta.",
+              "pricing_edits_enabled": "Tvarkyti „IQ Gateway“ elektros tarifus. Numatytoji reikšmė: Įjungta.",
+              "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas. Numatytoji reikšmė: Išjungta.",
+              "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra. Numatytoji reikšmė: Pagal įkroviklio telemetriją, kai ji pasiekiama; kitu atveju pagal Home Assistant regioną, su atsargine 230 V reikšme.",
+              "schedule_sync_enabled": "Tvarkykite „IQ EV Charger“ tvarkaraščius. Numatytoji reikšmė: Įjungta.",
+              "battery_schedules_enabled": "Tvarkykite „IQ Battery“ tvarkaraščius. Numatytoji reikšmė: Įjungta.",
+              "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius. Numatytoji reikšmė: Išjungta.",
+              "vpp_events_enabled": "Gauna VPP/ELRP tvarkaraščius iš „Enphase“ ir kuria įvykių esybes tik užregistruotoms vietoms. Pagal numatytuosius nustatymus išjungta. Numatytoji reikšmė: Išjungta."
+            }
+          },
+          "advanced_features": {
+            "name": "Išplėstinės funkcijos",
+            "data": {
+              "grid_profile_controls_enabled": "Įjungti montuotojo tinklo profilio valdiklius",
+              "microinverter_power_enabled": "Įjungti mikroinverterių galią",
+              "export_limit_controls_enabled": "Įjungti eksporto ribos valdymą"
+            },
+            "data_description": {
+              "grid_profile_controls_enabled": "Gauna tik montuotojui skirtus tinklo profilio metaduomenis ir įjungia profilio veiksmus. Pagal numatytuosius nustatymus išjungta. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta.",
+              "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta.",
+              "export_limit_controls_enabled": "Konfigūruokite sistemos eksporto ribas. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta."
+            }
+          }
+        },
+        "data": {
+          "device_features": "Įrenginio funkcijos",
+          "advanced_features": "Išplėstinės funkcijos",
+          "schedule_sync_enabled": "Įgalinti planuoklio palaikymą",
+          "battery_schedules_enabled": "Įjungti baterijos planuoklį",
+          "system_event_repair_issues": "Įgalinti sistemos įvykių taisymo pranešimus",
+          "pricing_edits_enabled": "Įjungti kainų redagavimą",
+          "weather_enabled": "Įjungti orus",
+          "nominal_voltage": "EV įkroviklio vardinė įtampa (V)",
+          "microinverter_lifetime_energy_enabled": "Įjungti mikroinverterių viso veikimo energiją",
+          "microinverter_power_enabled": "Įjungti mikroinverterių galią",
+          "vpp_events_enabled": "Įjungti VPP įvykius",
+          "grid_profile_controls_enabled": "Įjungti montuotojo tinklo profilio valdiklius",
+          "export_limit_controls_enabled": "Įjungti eksporto ribos valdymą"
+        },
+        "data_description": {
+          "system_event_repair_issues": "Kuria Home Assistant taisymus aktyviems nuolatiniams Enphase pavojaus signalams. Pagal numatytuosius išjungta. Numatytoji reikšmė: Išjungta.",
+          "pricing_edits_enabled": "Tvarkyti „IQ Gateway“ elektros tarifus. Numatytoji reikšmė: Įjungta.",
+          "weather_enabled": "Gauna dabartinius vietovės orus iš „Enphase“ ir sukuria orų objektą tik tada, kai galinis taškas pasiekiamas. Numatytoji reikšmė: Išjungta.",
+          "nominal_voltage": "Tipinė kintamosios srovės maitinimo įtampa galiai įvertinti, kai tiesioginės įtampos nėra. Numatytoji reikšmė: Pagal įkroviklio telemetriją, kai ji pasiekiama; kitu atveju pagal Home Assistant regioną, su atsargine 230 V reikšme.",
+          "schedule_sync_enabled": "Tvarkykite „IQ EV Charger“ tvarkaraščius. Numatytoji reikšmė: Įjungta.",
+          "battery_schedules_enabled": "Tvarkykite „IQ Battery“ tvarkaraščius. Numatytoji reikšmė: Įjungta.",
+          "microinverter_lifetime_energy_enabled": "Įjungia visus kiekvieno mikroinverterio viso veikimo energijos jutiklius. Numatytoji reikšmė: Išjungta.",
+          "microinverter_power_enabled": "Įjungia visus kiekvieno mikroinverterio galios jutiklius, kai pasiekiama montuotojo telemetrija. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta.",
+          "vpp_events_enabled": "Gauna VPP/ELRP tvarkaraščius iš „Enphase“ ir kuria įvykių esybes tik užregistruotoms vietoms. Pagal numatytuosius nustatymus išjungta. Numatytoji reikšmė: Išjungta.",
+          "grid_profile_controls_enabled": "Gauna tik montuotojui skirtus tinklo profilio metaduomenis ir įjungia profilio veiksmus. Pagal numatytuosius nustatymus išjungta. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta.",
+          "export_limit_controls_enabled": "Konfigūruokite sistemos eksporto ribas. Reikalinga montuotojo prieiga. Numatytoji reikšmė: Išjungta."
+        }
+      },
+      "export_limit": {
+        "title": "Eksporto riba",
+        "description": "Konfigūruokite sistemos eksporto ribas."
+      },
+      "export_limit_action": {
+        "title": "Eksporto riba",
+        "description": "Valdykite, kiek galios jūsų sistema perduoda į tinklą. Užklausos būsena rodo per šią integraciją pateiktų pakeitimų eigą.\n\nDabartinis nustatymas: **{current}**\n\nLaukiantis nustatymas: **{pending}**",
+        "menu_options": {
+          "export_limit_set": "Įjungti eksporto ribą",
+          "export_limit_disable": "Išjungti eksporto ribojimą",
+          "export_limit_defaults": "Numatytieji nustatymai"
+        },
+        "menu_option_descriptions": {
+          "export_limit_defaults": "Išsaugokite eksporto ribos valdiklio numatytąsias reikšmes.",
+          "export_limit_set": "Nustatykite didžiausią perdavimą į tinklą, įskaitant nulį.",
+          "export_limit_disable": "Leiskite perdavimą į tinklą be nustatytos ribos."
+        }
+      },
+      "export_limit_set": {
+        "title": "Įjungti eksporto ribą",
+        "data": {
+          "limit_watts": "Eksporto riba (W)"
+        },
+        "description": "Nustatykite 0 W ribą, kad elektra nebūtų perduodama į tinklą. Kitos reikšmės nustato didžiausią galią, kurią sistema gali perduoti į tinklą."
+      },
+      "export_limit_confirm": {
+        "title": "Eksporto riba",
+        "description": "Dabartinis nustatymas: **{current}**\n\nPrašomas nustatymas: **{requested}**\n\nKitimo greitis (W/sec): **{current_slew}** → **{requested_slew}**",
+        "data": {
+          "confirm": "Patvirtinti šį pakeitimą"
+        }
+      },
+      "export_limit_submitted": {
+        "title": "Eksporto riba",
+        "description": "Konfigūruokite sistemos eksporto ribas.\n\n**{status}**"
+      },
+      "export_limit_readonly": {
+        "title": "Eksporto riba",
+        "description": "Eksporto riba nepasiekiama. Reikalinga montuotojo prieiga ir palaikoma konfigūracija su vienu šliuzu.\n\nDabartinis nustatymas: **{current}**"
+      },
+      "export_limit_defaults": {
+        "title": "Numatytieji nustatymai",
+        "description": "Išsaugokite numatytąsias reikšmes, naudojamas eksporto ribos valdiklyje pasirinkus Įjungta. Jų išsaugojimas nekeičia šliuzo. Atkūrimas pašalina išsaugotą greičio pakeitimą.",
+        "data": {
+          "limit_watts": "Numatytoji eksporto riba (W)",
+          "slew_rate": "Kitimo greitis (W/sec)",
+          "restore_slew_rate": "Atkurti greitį iš šliuzo"
+        }
       }
     },
     "error": {
@@ -813,7 +909,17 @@
       "grid_otp_required": "Įveskite vienkartinį kodą.",
       "grid_otp_invalid_format": "Vienkartinį kodą turi sudaryti tiksliai keturi skaitmenys.",
       "grid_otp_invalid": "Vienkartinis kodas neteisingas arba pasibaigęs.",
-      "grid_envoy_serial_missing": "Nepavyko nustatyti šios vietos vartų."
+      "grid_envoy_serial_missing": "Nepavyko nustatyti šios vietos vartų.",
+      "export_limit_unavailable": "Eksporto riba nepasiekiama. Reikalinga montuotojo prieiga ir palaikoma konfigūracija su vienu šliuzu.",
+      "export_limit_invalid": "Įveskite sveikąjį vatų skaičių nuo 0 iki 100000.",
+      "export_limit_changed": "Konfigūracija pasikeitė. Peržiūrėkite atnaujintus nustatymus ir patvirtinkite dar kartą.",
+      "export_limit_mismatch": "Enphase montuotojo forma neatitinka šliuzo nustatymų. Atnaujinkite nustatymus ir bandykite dar kartą.",
+      "export_limit_pending": "Laukiama konfigūracijos patvirtinimo. Prieš kitą pakeitimą atnaujinkite būseną.",
+      "export_limit_disabled": "Įjungti eksporto ribos valdymą (Funkcijos → Išplėstinės funkcijos).",
+      "export_limit_confirmation": "Patvirtinti šį pakeitimą",
+      "export_limit_invalid_slew": "Įveskite teigiamą skaičių su ne daugiau kaip dviem dešimtainiais skaitmenimis.",
+      "grid_profile_session_expired": "Enlighten seansas baigėsi arba buvo atmestas. Atidarykite Autentifikavimas, autentifikuokitės iš naujo ir bandykite dar kartą.",
+      "export_limit_session_expired": "Enlighten seansas baigėsi arba buvo atmestas. Atidarykite Autentifikavimas, autentifikuokitės iš naujo ir bandykite dar kartą."
     },
     "abort": {
       "migration_no_envoy_sources": "Nėra Enphase Envoy energijos jutiklių, kuriuos būtų galima migruoti.",
@@ -823,7 +929,8 @@
       "grid_profile_installer_required": "Tinklo profilio valdymui reikia diegėjo prieigos prie Enphase Activation.",
       "grid_profile_no_regions": "Šios vietos šaliai nėra tinklo profilio regionų.",
       "grid_mode_unavailable": "Šioje vietoje tinklo režimo valdymas nepasiekiamas.",
-      "grid_mode_blocked": "Tinklo režimo valdymas šiuo metu užblokuotas: {reasons}."
+      "grid_mode_blocked": "Tinklo režimo valdymas šiuo metu užblokuotas: {reasons}.",
+      "grid_profile_session_expired": "Enlighten seansas baigėsi arba buvo atmestas. Atidarykite Autentifikavimas, autentifikuokitės iš naujo ir bandykite dar kartą."
     },
     "create_entry": {
       "migration_success": "Migracija baigta. Enphase Energy dabar naudoja pasirinktus šaltinio objektų identifikatorius. Po kito atnaujinimo patikrinkite Energy skydelį ir Developer Tools > Statistics.",
@@ -1009,6 +1116,9 @@
           },
           "amp_control_applies_in_modes": {
             "name": "Režimai, kuriuose taikomas srovės valdymas"
+          },
+          "requested_mode": {
+            "name": "Prašomas režimas"
           }
         }
       },
@@ -1103,7 +1213,7 @@
         "name": "Nepavykę prisijungimai naudojant išsaugotus kredencialus"
       },
       "current_production_power": {
-        "name": "Dabartinė gamybos galia",
+        "name": "Gamybos galia",
         "state_attributes": {
           "sampled_at_utc": {
             "name": "Matuota (UTC)"
@@ -1241,7 +1351,7 @@
         }
       },
       "site_consumption_power": {
-        "name": "Dabartinis galios suvartojimas",
+        "name": "Galios suvartojimas",
         "state_attributes": {
           "last_window_seconds": {
             "name": "Paskutinis langas (s)"
@@ -1255,7 +1365,7 @@
         }
       },
       "site_grid_power": {
-        "name": "Dabartinė tinklo galia",
+        "name": "Tinklo galia",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Paskutinis srautas kWh"
@@ -1320,7 +1430,7 @@
         }
       },
       "site_battery_power": {
-        "name": "Dabartinė akumuliatoriaus galia",
+        "name": "Akumuliatoriaus galia",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Paskutinis srautas kWh"
@@ -1367,7 +1477,7 @@
         }
       },
       "system_profile_status": {
-        "name": "Sistemos profilio būsena",
+        "name": "Sistemos profilis",
         "state": {
           "pending": "Laukiama"
         },
@@ -1505,7 +1615,7 @@
         "name": "Vartojimo matuoklis"
       },
       "gateway_connectivity_status": {
-        "name": "Vartų būsena",
+        "name": "Ryšys",
         "state_attributes": {
           "ip_address": {
             "name": "IP adresas"
@@ -1516,7 +1626,7 @@
         }
       },
       "gateway_last_reported": {
-        "name": "Vartai paskutinį kartą pranešta"
+        "name": "Paskutinį kartą pranešta"
       },
       "tariff_billing_cycle": {
         "name": "Kita saskaitos data",
@@ -1727,7 +1837,21 @@
         }
       },
       "microinverter_connectivity_status": {
-        "name": "Mikroinverterių ryšio būsena"
+        "name": "Mikroinverterių ryšio būsena",
+        "state_attributes": {
+          "power_telemetry_status": {
+            "name": "Galios telemetrijos būsena",
+            "state": {
+              "disabled": "Išjungta",
+              "pending": "Laukiama",
+              "ready": "Pasiekiama",
+              "rate_limited": "Ribojamas užklausų dažnis"
+            }
+          },
+          "power_telemetry_next_retry": {
+            "name": "Kitas galios telemetrijos bandymas"
+          }
+        }
       },
       "microinverter_reporting_count": {
         "name": "Aktyvūs mikroinverteriai"
@@ -1831,47 +1955,47 @@
           "error": "Klaida",
           "unknown": "Nežinoma",
           "unpaired": "Nesuporuotas",
-          "pairing": "Poravimas"
+          "pairing": "Poravimas",
+          "activity_status": "Būsena",
+          "activity_unknown": "Nežinoma",
+          "activity_yes": "Taip",
+          "activity_no": "Ne",
+          "activity_more": "Daugiau įrašų",
+          "activity_battery": "Baterija",
+          "activity_charger_problem": "Praneštas gedimas",
+          "activity_suspended_by_evse": "Sustabdyta įkroviklio",
+          "activity_offline_since": "Neprisijungęs nuo",
+          "activity_connected_devices": "Prijungti šliuzai",
+          "activity_disconnected_devices": "Atjungti šliuzai",
+          "activity_unknown_connection_devices": "Nežinomos būsenos šliuzai",
+          "activity_connection_method": "Prisijungimo būdas",
+          "activity_latest_reported_utc": "Paskutinis pranešimas",
+          "activity_reporting_inverters": "Duomenis teikiantys inverteriai",
+          "activity_not_reporting_inverters": "Duomenų neteikiantys inverteriai",
+          "activity_unknown_inverters": "Nežinomos būsenos inverteriai",
+          "activity_power_telemetry_status": "Galios telemetrija",
+          "activity_power_telemetry_next_retry": "Telemetrijos kartojimas",
+          "activity_sg_ready_mode_raw": "SG Ready režimas",
+          "activity_sg_ready_contact_state": "Kontaktų būsena",
+          "activity_vpp_sgready_mode_override": "Praneštas VPP pakeitimas",
+          "activity_confirmed_watts": "Patvirtintas limitas (W)",
+          "activity_requested_watts": "Prašomas limitas (W)",
+          "activity_requested_action": "Prašomas veiksmas",
+          "activity_request_status": "Užklausos būsena",
+          "activity_active_count": "Aktyvios problemos",
+          "activity_type": "Įvykio tipas",
+          "activity_device_type": "Įrenginio tipas",
+          "activity_severity": "Svarba",
+          "activity_description": "Aprašymas",
+          "activity_event_date": "Pirmasis pranešimas",
+          "activity_reason": "Priežastis",
+          "activity_http_status": "HTTP būsena",
+          "activity_retry": "Kitas bandymas",
+          "activity_worst_battery": "Blogiausia baterijos būsena",
+          "activity_reachable": "Debesija pasiekiama",
+          "activity_last_success": "Paskutinis sėkmingas atnaujinimas",
+          "activity_standing_alarm": "Nuolatinis pavojaus signalas"
         }
-      },
-      "ac_battery_overall_status": {
-        "name": "Bendra AC baterijos būsena",
-        "state": {
-          "normal": "Normalus",
-          "warning": "Įspėjimas",
-          "error": "Klaida",
-          "unknown": "Nežinoma"
-        }
-      },
-      "ac_battery_power": {
-        "name": "AC baterijos galia"
-      },
-      "ac_battery_last_reported": {
-        "name": "Paskutinė AC baterijos ataskaita"
-      },
-      "ac_battery_storage_charge": {
-        "name": "AC baterijos įkrovos lygis"
-      },
-      "ac_battery_storage_status": {
-        "name": "{serial} būsena",
-        "state": {
-          "normal": "Normalus",
-          "warning": "Įspėjimas",
-          "error": "Klaida",
-          "unknown": "Nežinoma"
-        }
-      },
-      "ac_battery_storage_power": {
-        "name": "{serial} galia"
-      },
-      "ac_battery_storage_operating_mode": {
-        "name": "{serial} veikimo režimas"
-      },
-      "ac_battery_storage_cycle_count": {
-        "name": "{serial} ciklų skaičius"
-      },
-      "ac_battery_storage_last_reported": {
-        "name": "Paskutinė {serial} ataskaita"
       },
       "battery_cfg_schedules": {
         "name": "Baterijos CFG tvarkaraščiai"
@@ -2056,6 +2180,126 @@
       },
       "vpp_next_event_status": {
         "name": "Kito VPP įvykio būsena"
+      },
+      "export_limit": {
+        "name": "Eksporto riba",
+        "state": {
+          "disabled": "Išjungta",
+          "zero_export": "Nulinis eksportas",
+          "limited": "Apribota",
+          "unsupported": "Nepalaikoma",
+          "pending": "Laukiama",
+          "unconfirmed": "Nepatvirtinta"
+        },
+        "state_attributes": {
+          "confirmed_watts": {
+            "name": "Dabartinis nustatymas"
+          },
+          "requested_watts": {
+            "name": "Prašomas nustatymas"
+          },
+          "requested_action": {
+            "name": "Prašomas nustatymas",
+            "state": {
+              "set": "Nustatyti eksporto ribą",
+              "disable": "Išjungti eksporto ribojimą"
+            }
+          },
+          "request_status": {
+            "name": "Užklausos būsena",
+            "state": {
+              "idle": "Nėra",
+              "pending": "Laukiama patvirtinimo",
+              "confirmed": "Konfigūracija patvirtinta",
+              "unconfirmed": "Nepatvirtinta",
+              "rejected": "Atmesta"
+            }
+          },
+          "last_successful_readback": {
+            "name": "Paskutinis sėkmingas nuskaitymas"
+          },
+          "slew_rate": {
+            "name": "Kitimo greitis (W/sec)"
+          },
+          "requested_slew_rate": {
+            "name": "Prašomas nustatymas · Kitimo greitis (W/sec)"
+          },
+          "pending": {
+            "name": "Laukiama"
+          },
+          "pending_requested_at": {
+            "name": "Laukiama Užklausa adresu"
+          }
+        }
+      },
+      "total_array_size": {
+        "name": "Bendra saulės modulių masyvų galia"
+      },
+      "total_inverter_capacity": {
+        "name": "Bendra inverterių galia"
+      },
+      "account_access": {
+        "name": "Paskyros prieiga",
+        "state": {
+          "administrator": "Administratorius",
+          "installer": "Montuotojas",
+          "owner": "Savininkas",
+          "host": "Šeimininkas",
+          "consumption_data": "Vartojimo duomenys",
+          "viewer": "Stebėtojas"
+        },
+        "state_attributes": {
+          "administrator": {
+            "name": "Administratorius"
+          },
+          "installer": {
+            "name": "Montuotojas"
+          },
+          "owner": {
+            "name": "Savininkas"
+          },
+          "host": {
+            "name": "Šeimininkas"
+          },
+          "consumption_data": {
+            "name": "Vartojimo duomenys"
+          },
+          "viewer": {
+            "name": "Stebėtojas"
+          }
+        }
+      },
+      "site_information": {
+        "name": "Objekto informacija",
+        "state_attributes": {
+          "site_id": {
+            "name": "Objekto ID"
+          },
+          "timezone": {
+            "name": "Laiko juosta"
+          },
+          "country": {
+            "name": "Šalis"
+          },
+          "currency": {
+            "name": "Valiuta"
+          }
+        }
+      },
+      "inverter_array_energy": {
+        "name": "{array} Bendra energija"
+      },
+      "inverter_array_power": {
+        "name": "{array} Dabartinė galia"
+      },
+      "update_status": {
+        "name": "Atnaujinimo būsena",
+        "state": {
+          "idle": "Neaktyvu",
+          "pending": "Laukiama",
+          "unconfirmed": "Nepatvirtinta",
+          "failed": "Nepavyko"
+        }
       }
     },
     "number": {
@@ -2228,7 +2472,7 @@
     },
     "binary_sensor": {
       "plugged_in": {
-        "name": "Prijungta"
+        "name": "Transporto priemonės prijungimas"
       },
       "charging": {
         "name": "Įkrovimas"
@@ -2243,7 +2487,7 @@
         "name": "Ryšys",
         "state_attributes": {
           "connection": {
-            "name": "Ryšys"
+            "name": "Prisijungimo būdas"
           },
           "ip_address": {
             "name": "IP adresas"
@@ -2251,7 +2495,7 @@
         }
       },
       "active_system_events": {
-        "name": "Aktyvūs sistemos įvykiai",
+        "name": "Sistemos įvykiai",
         "state_attributes": {
           "available": {
             "name": "Įvykių paslauga pasiekiama"
@@ -2316,9 +2560,6 @@
       },
       "restrict_battery_discharge_schedule": {
         "name": "Baterijos iškrovimo ribojimo tvarkaraštis"
-      },
-      "ac_battery_sleep_mode": {
-        "name": "AC baterijos miego režimas"
       },
       "evse_schedule_edit_mon": {
         "name": "Pirmadienio tvarkaraštis"
@@ -2391,9 +2632,6 @@
       "system_profile": {
         "name": "Sistemos profilis"
       },
-      "ac_battery_target_state_of_charge": {
-        "name": "Tikslinis AC baterijos įkrovos lygis"
-      },
       "evse_schedule_selected": {
         "name": "Tvarkaraštis"
       },
@@ -2402,18 +2640,31 @@
       },
       "battery_schedule_selected": {
         "name": "Baterijos tvarkaraštis"
+      },
+      "export_limit": {
+        "name": "Eksporto riba",
+        "state": {
+          "enable_limit": "Įjungta",
+          "disable_limit": "Išjungta"
+        },
+        "state_attributes": {
+          "default_limit_watts": {
+            "name": "Numatytoji eksporto riba (W)"
+          },
+          "default_slew_rate": {
+            "name": "Kitimo greitis (W/sec)"
+          },
+          "slew_rate_source": {
+            "name": "Kitimo greičio šaltinis",
+            "state": {
+              "gateway": "Šliuzas",
+              "saved_override": "Išsaugotas pakeitimas"
+            }
+          }
+        }
       }
     },
     "button": {
-      "start_charging": {
-        "name": "Pradėti įkrovimą"
-      },
-      "stop_charging": {
-        "name": "Sustabdyti įkrovimą"
-      },
-      "cancel_pending_profile_change": {
-        "name": "Atšaukti laukiantį profilio pakeitimą"
-      },
       "storm_alert_opt_out": {
         "name": "Atsisakyti audros įspėjimo"
       },
@@ -2569,7 +2820,45 @@
     },
     "battery_profile_pending": {
       "title": "Laukiama „Enphase Energy“ baterijos profilio atnaujinimo",
-      "description": "Baterijos profilio pakeitimas vietai {site_id} laukia ilgiau nei {pending_timeout_minutes} min. Debesijos paslauga vis dar gali apdoroti užklausą."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Akumuliatoriaus profilio keitimas",
+            "description": "Baterijos profilio pakeitimas vietai {site_id} laukia ilgiau nei {pending_timeout_minutes} min. Debesijos paslauga vis dar gali apdoroti užklausą.\n\nPatikrinkite būseną arba atšaukite laukiančią užklausą.",
+            "menu_options": {
+              "check_again": "Tikrinti dar kartą",
+              "cancel_change": "Atšaukti pakeitimą"
+            }
+          },
+          "pending": {
+            "title": "Akumuliatoriaus profilio keitimas",
+            "description": "Pakeitimas vis dar nepatvirtintas. Patikros tęsiamos automatiškai. Galite tikrinti dar kartą arba atšaukti.",
+            "menu_options": {
+              "check_again": "Tikrinti dar kartą",
+              "cancel_change": "Atšaukti pakeitimą"
+            }
+          },
+          "check_failed": {
+            "title": "Akumuliatoriaus profilio keitimas",
+            "description": "Nepavyko atnaujinti profilio. Bandykite vėliau arba atšaukite laukiančią užklausą.",
+            "menu_options": {
+              "check_again": "Tikrinti dar kartą",
+              "cancel_change": "Atšaukti pakeitimą"
+            }
+          },
+          "cancel_change": {
+            "title": "Atšaukti laukiantį profilio pakeitimą?",
+            "description": "Atšaukite šią laukiančią akumuliatoriaus profilio užklausą „Enphase“. Tai neatkuria profilio, kuris jau įsigaliojo."
+          }
+        },
+        "error": {
+          "cannot_cancel": "Nepavyko atšaukti užklausos. Patikrinkite ryšį ir „Enphase“ paskyros leidimus, tada bandykite dar kartą."
+        },
+        "abort": {
+          "entry_unavailable": "Integracija neįkelta. Įkelkite ją ir vėl atidarykite šį taisymą.",
+          "request_changed": "Laukianti užklausa pasikeitė. Uždarykite šį vedlį ir vėl atidarykite dabartinį taisymą."
+        }
+      }
     },
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS laikinai pristabdyta",
@@ -2578,6 +2867,14 @@
     "active_system_event": {
       "title": "Aktyvus didelio poveikio Enphase sistemos įvykis",
       "description": "Vietoje {site_id} yra aktyvus {severity} įvykis, veikiantis {device_type}, pirmą kartą praneštas {event_date}. Išsamią informaciją ir rekomenduojamą veiksmą rasite Enlighten. Šis taisymas automatiškai pašalinamas, kai Enphase praneša, kad įvykis išspręstas."
+    },
+    "export_limit_pending": {
+      "title": "Eksporto ribos pakeitimas nepatvirtintas",
+      "description": "Pakeitimas nepatvirtintas po {pending_timeout_minutes} minučių. Tikrinimas tęsiamas įprastu intervalu. Patikrinkite šliuzo nustatymus; įrašymas automatiškai nekartojamas."
+    },
+    "evse_status_unavailable": {
+      "title": "Įkroviklio būsena nepasiekiama",
+      "description": "Objekto {site_id} įkroviklio būsena grąžino HTTP {status}. Įkroviklio rodmenys ir valdymas nepasiekiami, kol bus gauta nauja būsena. Kitas bandymas: {next_retry}. Kiti galiniai taškai toliau apklausiami nepriklausomai."
     }
   },
   "system_health": {
@@ -3215,6 +3512,72 @@
         "gateway_serial": {
           "name": "Gateway serijos numeris",
           "description": "Pasirinktinis Gateway serijos numeris, kai Activation įraše yra keli Gateway įrenginiai."
+        }
+      }
+    },
+    "set_export_limit": {
+      "name": "Nustatyti eksporto ribą",
+      "description": "Konfigūruokite sistemos eksporto ribas.",
+      "fields": {
+        "limit_watts": {
+          "name": "Eksporto riba (W)",
+          "description": "Įveskite sveikąjį vatų skaičių nuo 0 iki 100000."
+        },
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigūracijos įrašas",
+          "description": "Enphase konfigūracijos įrašas"
+        },
+        "device_id": {
+          "name": "Įrenginiai",
+          "description": "Įrenginiai"
+        },
+        "slew_rate": {
+          "name": "Kitimo greitis (W/sec)",
+          "description": "Neprivaloma. Nenurodžius naudojama dabartinė šliuzo reikšmė."
+        }
+      }
+    },
+    "disable_export_limit": {
+      "name": "Išjungti eksporto ribojimą",
+      "description": "Konfigūruokite sistemos eksporto ribas.",
+      "fields": {
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigūracijos įrašas",
+          "description": "Enphase konfigūracijos įrašas"
+        },
+        "device_id": {
+          "name": "Įrenginiai",
+          "description": "Įrenginiai"
+        },
+        "slew_rate": {
+          "name": "Kitimo greitis (W/sec)",
+          "description": "Neprivaloma. Nenurodžius naudojama dabartinė šliuzo reikšmė."
+        }
+      }
+    },
+    "refresh_export_limit": {
+      "name": "Atnaujinti eksporto ribą",
+      "description": "Konfigūruokite sistemos eksporto ribas.",
+      "fields": {
+        "site_id": {
+          "name": "Vietos ID",
+          "description": "Pasirinktinis vietos identifikatorius; aptinkamas automatiškai pasirinkus vietos įrenginį."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigūracijos įrašas",
+          "description": "Enphase konfigūracijos įrašas"
+        },
+        "device_id": {
+          "name": "Įrenginiai",
+          "description": "Įrenginiai"
         }
       }
     }

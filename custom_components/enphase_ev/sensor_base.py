@@ -74,19 +74,15 @@ class EnphaseSiteSensorEntity(CoordinatorEntity, SensorEntity):  # type: ignore[
         }:
             return None
         source_success: datetime | None = None
-        family_source = self._type_key in {"heatpump", "encharge", "ac_battery"}
+        family_source = self._type_key in {"heatpump", "encharge"}
         if self._type_key == "heatpump":
             source_success = getattr(
                 self._coord, "heatpump_power_last_success_utc", None
             )
-        elif self._type_key in {"encharge", "ac_battery"}:
+        elif self._type_key == "encharge":
             getter = getattr(self._coord, "endpoint_family_last_success_utc", None)
             if callable(getter):
-                source_success = getter(
-                    "battery_status"
-                    if self._type_key == "encharge"
-                    else "ac_battery_telemetry"
-                )
+                source_success = getter("battery_status")
         if family_source and not isinstance(source_success, datetime):
             if self._source_first_observed is None:
                 self._source_first_observed = dt_util.utcnow()
@@ -165,6 +161,13 @@ class EnphaseSiteSensorEntity(CoordinatorEntity, SensorEntity):  # type: ignore[
             attrs["payload_using_stale"] = True
         if self._coord.backoff_ends_utc:
             attrs["backoff_ends_utc"] = self._coord.backoff_ends_utc.isoformat()
+        health = getattr(self._coord, "_evse_status_health", None)
+        if health is not None:
+            status = health.diagnostics()
+            attrs["charger_status_available"] = status["available"]
+            attrs["charger_status_http_status"] = status["http_status"]
+            attrs["charger_status_next_retry_utc"] = status["next_retry_utc"]
+            attrs["charger_status_last_success_utc"] = status["last_success_utc"]
         return attrs
 
     def _backoff_remaining_seconds(self) -> int | None:

@@ -15,6 +15,7 @@ from .const import (
     DOMAIN,
     ISSUE_BATTERY_PROFILE_PENDING,
     ISSUE_CLOUD_ERRORS,
+    ISSUE_EVSE_STATUS_UNAVAILABLE,
     ISSUE_DNS_RESOLUTION,
     ISSUE_NETWORK_UNREACHABLE,
     ISSUE_RATE_LIMITED,
@@ -40,6 +41,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 _DEGRADED_SERVICE_REPAIR_ISSUES: tuple[tuple[str, str], ...] = (
+    ("_evse_status_issue_reported", ISSUE_EVSE_STATUS_UNAVAILABLE),
     ("_scheduler_issue_reported", ISSUE_SCHEDULER_UNAVAILABLE),
     ("_session_history_issue_reported", ISSUE_SESSION_HISTORY_UNAVAILABLE),
     ("_site_energy_issue_reported", ISSUE_SITE_ENERGY_UNAVAILABLE),
@@ -62,6 +64,7 @@ class CoordinatorDiagnostics:
         self.coordinator = coordinator
         if self._entry_issue_suffix() is not None:
             self.clear_legacy_degraded_service_repair_issues()
+            self._delete_issue(ISSUE_BATTERY_PROFILE_PENDING)
         if not self.degraded_service_repair_issues_enabled:
             self.clear_degraded_service_repair_issues()
 
@@ -84,7 +87,10 @@ class CoordinatorDiagnostics:
         return suffix or None
 
     def _repair_issue_id(self, issue_id: str) -> str:
-        if issue_id not in _DEGRADED_SERVICE_REPAIR_ISSUE_IDS:
+        if (
+            issue_id not in _DEGRADED_SERVICE_REPAIR_ISSUE_IDS
+            and issue_id != ISSUE_BATTERY_PROFILE_PENDING
+        ):
             return issue_id
         suffix = self._entry_issue_suffix()
         if suffix is None:
@@ -157,15 +163,24 @@ class CoordinatorDiagnostics:
         issue_placeholders = dict(base_placeholders)
         if placeholders:
             issue_placeholders.update(placeholders)
+        issue_data: dict[str, object] = {"site_metrics": metrics}
+        profile_repair = issue_id == ISSUE_BATTERY_PROFILE_PENDING
+        if profile_repair:
+            entry = getattr(coord, "config_entry", None)
+            requested_at = coord.battery_pending_requested_at
+            issue_data.update(
+                entry_id=getattr(entry, "entry_id", None),
+                requested_at=requested_at.isoformat() if requested_at else None,
+            )
         ir.async_create_issue(
             coord.hass,
             DOMAIN,
             registry_issue_id,
-            is_fixable=False,
+            is_fixable=profile_repair,
             severity=severity,
             translation_key=issue_id,
             translation_placeholders=issue_placeholders,
-            data={"site_metrics": metrics},
+            data=issue_data,
         )
         if registry_issue_id != issue_id:
             self._delete_issue(issue_id)
@@ -369,22 +384,17 @@ class CoordinatorDiagnostics:
             return begin is not None and end is not None
 
         battery_type_available = _type_available_for_entities("encharge")
-        ac_battery_type_available = _type_available_for_entities("ac_battery")
         battery_write_access = _battery_write_access_confirmed()
         battery_sensor_base_available = _site_sensor_base_available("encharge")
-        ac_battery_sensor_base_available = _site_sensor_base_available("ac_battery")
         battery_status_summary = coord.battery_status_summary
-        ac_battery_status_summary = coord.ac_battery_status_summary
         battery_aggregate_charge = coord.battery_aggregate_charge_pct
         battery_aggregate_status = coord.battery_aggregate_status
-        ac_battery_aggregate_status = coord.ac_battery_aggregate_status
         battery_available_energy = _parsed_float(
             battery_status_summary.get("site_available_energy_kwh")
         )
         battery_available_power = _parsed_float(
             battery_status_summary.get("site_available_power_kw")
         )
-        ac_battery_power = _parsed_float(ac_battery_status_summary.get("power_w"))
         endpoint_family_health = self.endpoint_family_health_diagnostics()
         tariff_health = endpoint_family_health.get(TARIFF_ENDPOINT_FAMILY)
         tariff_service_status = "unknown"
@@ -426,6 +436,7 @@ class CoordinatorDiagnostics:
             "backoff_active": backoff_active,
             "backoff_until_monotonic": coord._backoff_until,
             "backoff_ends_utc": _iso(coord.backoff_ends_utc),
+            "charger_status": coord.evse_status_health.diagnostics(),
             "network_errors": getattr(coord, "_network_errors", 0),
             "http_errors": getattr(coord, "_http_errors", 0),
             "rate_limit_hits": getattr(coord, "_rate_limit_hits", 0),
@@ -782,51 +793,6 @@ class CoordinatorDiagnostics:
             "battery_status_details": dict(
                 getattr(coord, "_battery_aggregate_status_details", {}) or {}
             ),
-            "ac_battery_type_available_for_entities": ac_battery_type_available,
-            "ac_battery_overall_status_sensor_available": (
-                ac_battery_sensor_base_available
-                and ac_battery_aggregate_status is not None
-            ),
-            "ac_battery_power_sensor_available": (
-                ac_battery_sensor_base_available and ac_battery_power is not None
-            ),
-            "ac_battery_last_reported_sensor_available": (
-                ac_battery_sensor_base_available
-                and ac_battery_status_summary.get("latest_reported_utc") is not None
-            ),
-            "ac_battery_sleep_switch_available": (
-                _coordinator_available()
-                and ac_battery_type_available
-                and battery_write_access
-                and getattr(coord, "_battery_has_acb", None) is True
-                and coord.ac_battery_sleep_state is not None
-            ),
-            "ac_battery_target_soc_select_available": (
-                _coordinator_available()
-                and ac_battery_type_available
-                and battery_write_access
-                and getattr(coord, "_battery_has_acb", None) is True
-            ),
-            "ac_battery_status_aggregate_state": getattr(
-                coord, "_ac_battery_aggregate_status", None
-            ),
-            "ac_battery_count": len(getattr(coord, "_ac_battery_data", {}) or {}),
-            "ac_battery_selected_sleep_min_soc": coord.ac_battery_selected_sleep_min_soc,
-            "ac_battery_sleep_state": coord.ac_battery_sleep_state,
-            "ac_battery_control_pending": coord.ac_battery_control_pending,
-            "ac_battery_status_details": {
-                "battery_count": ac_battery_status_summary.get("battery_count"),
-                "sleep_state": ac_battery_status_summary.get("sleep_state"),
-                "selected_sleep_min_soc": ac_battery_status_summary.get(
-                    "selected_sleep_min_soc"
-                ),
-                "worst_status": ac_battery_status_summary.get("worst_status"),
-                "power_w": ac_battery_status_summary.get("power_w"),
-                "latest_reported_utc": ac_battery_status_summary.get(
-                    "latest_reported_utc"
-                ),
-            },
-            "ac_battery_last_command": getattr(coord, "_ac_battery_last_command", None),
             "battery_backup_history_count": len(
                 getattr(coord, "_battery_backup_history_events", []) or []
             ),
@@ -1168,6 +1134,8 @@ class CoordinatorDiagnostics:
             if family not in degraded_services
         )
         metrics["degraded_services"] = degraded_services
+        if not coord.evse_status_available:
+            degraded_services.append("charger_status")
 
         firmware_catalog_manager = getattr(coord, "firmware_catalog_manager", None)
         status_snapshot = getattr(firmware_catalog_manager, "status_snapshot", None)
@@ -1389,6 +1357,9 @@ class CoordinatorDiagnostics:
                         "cache_state_counts",
                         lambda: None,
                     )()
+                ),
+                "pagination": _signature_copy(
+                    getattr(session_history, "pagination_diagnostics", None)
                 ),
             }
         evse_timeseries = getattr(coord, "evse_timeseries", None)
@@ -1686,6 +1657,30 @@ class CoordinatorDiagnostics:
             ISSUE_CLOUD_ERRORS,
             severity=ir.IssueSeverity.WARNING,
         )
+
+    def clear_evse_status_issue(self) -> None:
+        self._clear_reported_issue(
+            "_evse_status_issue_reported", ISSUE_EVSE_STATUS_UNAVAILABLE
+        )
+
+    def report_evse_status_issue(self) -> None:
+        """Update each failure so the visible retry timestamp stays accurate."""
+        flag = "_evse_status_issue_reported"
+        if self._degraded_service_issue_suppressed(flag, ISSUE_EVSE_STATUS_UNAVAILABLE):
+            return
+        health = self.coordinator.evse_status_health
+        self._create_site_metrics_issue(
+            ISSUE_EVSE_STATUS_UNAVAILABLE,
+            severity=ir.IssueSeverity.WARNING,
+            placeholders={
+                "status": str(health.diagnostics()["http_status"]),
+                "next_retry": self.coordinator._format_auth_blocked_until(
+                    health.next_retry_utc
+                )
+                or "",
+            },
+        )
+        setattr(self.coordinator, flag, True)
 
     def clear_dns_issue(self) -> None:
         self._clear_reported_issue(

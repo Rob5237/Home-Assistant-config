@@ -43,8 +43,7 @@
           "type_iqevse": "Laadijad",
           "type_microinverter": "Mikroinverterid",
           "scan_interval": "Skaneerimisintervall (s)",
-          "type_heatpump": "Soojuspump",
-          "type_ac_battery": "AC-aku"
+          "type_heatpump": "Soojuspump"
         },
         "data_description": {
           "type_envoy": "Sisaldab lüüsi ühenduvuse ja arvestite diagnostikat.",
@@ -52,8 +51,7 @@
           "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
           "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid.",
           "scan_interval": "Sekundid pilveoleku päringute vahel. Vaikimisi 60s.",
-          "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
-          "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval."
+          "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid."
         }
       }
     },
@@ -138,9 +136,6 @@
     },
     "battery_schedule_overlap": {
       "message": "Ajakava kattub olemasoleva {schedule_label}-ga. Kohanda või keela see ajakava enne."
-    },
-    "ac_battery_unavailable": {
-      "message": "Ühtegi AC Battery seadet pole praegu saadaval."
     },
     "auth_settings_service_unavailable": {
       "message": "Autentimisseaded pole saadaval, kui Enphase'i teenus on maas."
@@ -358,9 +353,6 @@
     "scheduler_service_unavailable": {
       "message": "Laadimisrežiimi valik pole saadaval, kui Enphase'i ajastusteenus on maas."
     },
-    "selected_ac_battery_target_state_of_charge_unavailable": {
-      "message": "Valitud AC-aku sihtlaetuse tase pole saadaval."
-    },
     "battery_schedule_day_required": {
       "message": "Vali ajakava jaoks vähemalt üks päev."
     },
@@ -489,6 +481,39 @@
     },
     "grid_profile_controls_disabled": {
       "message": "Enne selle toimingu kasutamist lubage integratsiooni suvandites paigaldaja võrguprofiili juhtelemendid."
+    },
+    "export_limit_unavailable": {
+      "message": "Ekspordipiirang pole saadaval. Vaja on paigaldaja ligipääsu ja toetatud ühe lüüsiga seadistust."
+    },
+    "export_limit_invalid": {
+      "message": "Sisesta täisarv vatte vahemikus 0 kuni 100000."
+    },
+    "export_limit_changed": {
+      "message": "Seadistus muutus. Kontrolli uuendatud seadistust ja kinnita uuesti."
+    },
+    "export_limit_mismatch": {
+      "message": "Enphase’i paigaldaja vorm ei vasta lüüsi seadistustele. Värskenda seadistusi ja proovi uuesti."
+    },
+    "export_limit_pending": {
+      "message": "Oodatakse seadistuse kinnitamist. Enne uut muudatust värskenda olekut."
+    },
+    "export_limit_disabled": {
+      "message": "Luba ekspordipiirangu juhtimine (Funktsioonid → Täpsemad funktsioonid)."
+    },
+    "export_limit_confirmation": {
+      "message": "Kinnita see muudatus"
+    },
+    "export_limit_invalid_slew": {
+      "message": "Sisestage positiivne arv kuni kahe komakohaga."
+    },
+    "export_limit_session_expired": {
+      "message": "Enlighteni seanss on aegunud või tagasi lükatud. Avage Autentimine, autentige uuesti ja proovige uuesti."
+    },
+    "control_change_pending": {
+      "message": "Juhtimise muudatus ootab kinnitust. Enne järgmise muudatuse saatmist värskenda selle olekut."
+    },
+    "charger_status_unavailable": {
+      "message": "Laadija värske olek pole saadaval. Enne seadete muutmist oota taastumist."
     }
   },
   "options": {
@@ -502,15 +527,17 @@
           "repair_notifications": "Teavitused",
           "authentication_settings": "Autentimine",
           "migrate_envoy": "Migreeri Envoy ajalugu",
-          "advanced": "Täpsem"
+          "advanced": "Täpsem",
+          "features": "Funktsioonid"
         },
         "menu_option_descriptions": {
           "settings": "Kohanda küsitlemist ja käitumist.",
-          "devices": "Vali, millised seadmerühmad lisada. Kõik valikud kasutavad sama päringuintervalli.",
-          "repair_notifications": "Halda Home Assistanti parandusteavitusi.",
+          "devices": "Valige kaasatavad seadmekategooriad.",
+          "repair_notifications": "Halda Home Assistanti parandusteavitusi ja kirjeldavaid tegevuskirjeid.",
           "authentication_settings": "Käivitage sisselogimisvoog, et uuendada mandaate ilma integratsiooni eemaldamata.",
           "migrate_envoy": "Võta üle valitud Enphase Envoy energiaüksuste ID-d, et Home Assistant Energy ajalugu jätkuks selle integratsiooni all.",
-          "advanced": "Valikulised võrgurežiimi juhtelemendid ja ainult paigaldajale mõeldud võrguprofiili juhtelemendid."
+          "advanced": "Paigaldaja ja hoolduse toimingud.",
+          "features": "Seadistage seadmete funktsioone ja täpsemaid juhtseadeid."
         },
         "data": {
           "type_envoy": "Lüüs",
@@ -525,7 +552,6 @@
           "session_history_interval": "Seansi ajaloo intervall (min)",
           "schedule_sync_enabled": "Luba ajakava tugi",
           "type_heatpump": "Soojuspump",
-          "type_ac_battery": "AC-aku",
           "battery_schedules_enabled": "Luba aku ajastaja",
           "degraded_service_repair_issues": "Luba halvenenud teenuste parandused",
           "weather_enabled": "Luba ilmateave",
@@ -537,18 +563,17 @@
           "type_encharge": "Sisaldab aku olekut ja juhtimisolemeid, kui need on saadaval.",
           "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
           "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid.",
-          "fast_poll_interval": "Intervall, mida kasutada laadimise või voogedastuse ajal.",
-          "slow_poll_interval": "Intervall, kui seade on jõude.",
-          "fast_while_streaming": "Kui lubatud, kiire küsitlus aktiivse pilvevoo ajal.",
-          "api_timeout": "Sekundid enne API-päringute aegumist.",
-          "nominal_voltage": "Tüüpiline vahelduvvoolu toitepinge võimsuse hindamiseks, kui reaalajas pinge pole saadaval.",
-          "session_history_interval": "Minutid, mida oodata pilve seansiajaloo päringute vahel.",
+          "fast_poll_interval": "Intervall, mida kasutada laadimise või voogedastuse ajal. Vaikimisi: 30 s.",
+          "slow_poll_interval": "Intervall, kui seade on jõude. Vaikimisi: 60 s.",
+          "fast_while_streaming": "Kui lubatud, kiire küsitlus aktiivse pilvevoo ajal. Vaikimisi: Lubatud.",
+          "api_timeout": "Sekundid enne API-päringute aegumist. Vaikimisi: 15 s.",
+          "nominal_voltage": "Tüüpiline vahelduvvoolu toitepinge võimsuse hindamiseks, kui reaalajas pinge pole saadaval. Vaikimisi: Laadija telemeetria põhjal, kui see on saadaval; muidu Home Assistanti piirkonna järgi, varuväärtusega 230 V.",
+          "session_history_interval": "Minutid, mida oodata pilve seansiajaloo päringute vahel. Vaikimisi: 10 min.",
           "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
-          "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval.",
-          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud.",
-          "weather_enabled": "Hangib Enphase’ist asukoha praeguse ilma ja loob ilmaolemi ainult siis, kui lõpp-punkt on saadaval.",
-          "microinverter_lifetime_energy_enabled": "Lubab kõik iga mikroinverteri koguenergia andurid.",
-          "microinverter_power_enabled": "Lubab kõik iga mikroinverteri võimsusandurid, kui paigaldaja telemeetria on saadaval."
+          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud. Vaikimisi: Keelatud.",
+          "weather_enabled": "Hangib Enphase’ist asukoha praeguse ilma ja loob ilmaolemi ainult siis, kui lõpp-punkt on saadaval. Vaikimisi: Keelatud.",
+          "microinverter_lifetime_energy_enabled": "Lubab kõik iga mikroinverteri koguenergia andurid. Vaikimisi: Keelatud.",
+          "microinverter_power_enabled": "Lubab kõik iga mikroinverteri võimsusandurid, kui paigaldaja telemeetria on saadaval. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud."
         }
       },
       "settings": {
@@ -563,24 +588,23 @@
           "degraded_service_repair_issues": "Luba halvenenud teenuste parandused"
         },
         "data_description": {
-          "fast_poll_interval": "Intervall, mida kasutada laadimise või voogedastuse ajal.",
-          "slow_poll_interval": "Intervall, kui seade on jõude.",
-          "fast_while_streaming": "Kui lubatud, kiire küsitlus aktiivse pilvevoo ajal.",
-          "api_timeout": "Sekundid enne API-päringute aegumist.",
-          "session_history_interval": "Minutid, mida oodata pilve seansiajaloo päringute vahel.",
-          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud."
+          "fast_poll_interval": "Intervall, mida kasutada laadimise või voogedastuse ajal. Vaikimisi: 30 s.",
+          "slow_poll_interval": "Intervall, kui seade on jõude. Vaikimisi: 60 s.",
+          "fast_while_streaming": "Kui lubatud, kiire küsitlus aktiivse pilvevoo ajal. Vaikimisi: Lubatud.",
+          "api_timeout": "Sekundid enne API-päringute aegumist. Vaikimisi: 15 s.",
+          "session_history_interval": "Minutid, mida oodata pilve seansiajaloo päringute vahel. Vaikimisi: 10 min.",
+          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud. Vaikimisi: Keelatud."
         }
       },
       "devices": {
         "title": "Vali seadmed",
-        "description": "Vali, millised seadmerühmad lisada. Kõik valikud kasutavad sama päringuintervalli.",
+        "description": "Valige kaasatavad seadmekategooriad.",
         "sections": {
           "devices": {
             "name": "Vali seadmed",
             "data": {
               "type_envoy": "Lüüs",
               "type_encharge": "Aku",
-              "type_ac_battery": "AC-aku",
               "type_iqevse": "Laadijad",
               "type_heatpump": "Soojuspump",
               "type_microinverter": "Mikroinverterid"
@@ -588,89 +612,40 @@
             "data_description": {
               "type_envoy": "Sisaldab lüüsi ühenduvuse ja arvestite diagnostikat.",
               "type_encharge": "Sisaldab aku olekut ja juhtimisolemeid, kui need on saadaval.",
-              "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval.",
               "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
               "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
               "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid."
-            }
-          },
-          "device_features": {
-            "name": "Seadme funktsioonid",
-            "data": {
-              "schedule_sync_enabled": "Luba ajakava tugi",
-              "battery_schedules_enabled": "Luba aku ajastaja",
-              "system_event_repair_issues": "Luba süsteemisündmuste parandusteavitused",
-              "pricing_edits_enabled": "Luba hindade muutmine",
-              "weather_enabled": "Luba ilmateave",
-              "nominal_voltage": "EV-laadija nimipinge (V)",
-              "microinverter_lifetime_energy_enabled": "Luba mikroinverterite koguenergia",
-              "microinverter_power_enabled": "Luba mikroinverterite võimsus",
-              "vpp_events_enabled": "Luba VPP sündmused",
-              "grid_profile_controls_enabled": "Paigaldaja võrguprofiili juhtelementide lubamine"
-            },
-            "data_description": {
-              "system_event_repair_issues": "Loob Home Assistanti parandused aktiivsete Enphase püsihoiatuste jaoks. Vaikimisi keelatud.",
-              "pricing_edits_enabled": "IQ Gateway elektrihindade haldamine",
-              "weather_enabled": "Hangib Enphase’ist asukoha praeguse ilma ja loob ilmaolemi ainult siis, kui lõpp-punkt on saadaval.",
-              "nominal_voltage": "Tüüpiline vahelduvvoolu toitepinge võimsuse hindamiseks, kui reaalajas pinge pole saadaval.",
-              "schedule_sync_enabled": "Halda IQ EV Chargeri ajakavasid.",
-              "battery_schedules_enabled": "Halda IQ Battery ajakavasid.",
-              "microinverter_lifetime_energy_enabled": "Lubab kõik iga mikroinverteri koguenergia andurid.",
-              "microinverter_power_enabled": "Lubab kõik iga mikroinverteri võimsusandurid, kui paigaldaja telemeetria on saadaval.",
-              "vpp_events_enabled": "Hangib Enphaseist VPP/ELRP ajakavad ja loob sündmiolemid ainult liitunud asukohtadele. Vaikimisi välja lülitatud.",
-              "grid_profile_controls_enabled": "Hangib ainult paigaldajale mõeldud võrguprofiili metaandmed ja lubab profiilitoimingud. Vaikimisi keelatud."
             }
           }
         },
         "data": {
           "devices": "Vali seadmed",
-          "device_features": "Seadme funktsioonid",
           "type_envoy": "Lüüs",
           "type_encharge": "Aku",
-          "type_ac_battery": "AC-aku",
           "type_iqevse": "Laadijad",
           "type_heatpump": "Soojuspump",
-          "type_microinverter": "Mikroinverterid",
-          "schedule_sync_enabled": "Luba ajakava tugi",
-          "battery_schedules_enabled": "Luba aku ajastaja",
-          "system_event_repair_issues": "Luba süsteemisündmuste parandusteavitused",
-          "pricing_edits_enabled": "Luba hindade muutmine",
-          "weather_enabled": "Luba ilmateave",
-          "nominal_voltage": "EV-laadija nimipinge (V)",
-          "microinverter_lifetime_energy_enabled": "Luba mikroinverterite koguenergia",
-          "microinverter_power_enabled": "Luba mikroinverterite võimsus",
-          "vpp_events_enabled": "Luba VPP sündmused",
-          "grid_profile_controls_enabled": "Paigaldaja võrguprofiili juhtelementide lubamine"
+          "type_microinverter": "Mikroinverterid"
         },
         "data_description": {
           "type_envoy": "Sisaldab lüüsi ühenduvuse ja arvestite diagnostikat.",
           "type_encharge": "Sisaldab aku olekut ja juhtimisolemeid, kui need on saadaval.",
-          "type_ac_battery": "Sisaldab AC-aku andureid ja unerežiimi juhtnuppe, kui need on saadaval.",
           "type_iqevse": "Sisaldab EV-laadijate olemid ja juhtnuppe.",
           "type_heatpump": "Sisaldab soojuspumba oleku-, diagnostika- ja tarbimisandureid.",
-          "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid.",
-          "system_event_repair_issues": "Loob Home Assistanti parandused aktiivsete Enphase püsihoiatuste jaoks. Vaikimisi keelatud.",
-          "pricing_edits_enabled": "IQ Gateway elektrihindade haldamine",
-          "weather_enabled": "Hangib Enphase’ist asukoha praeguse ilma ja loob ilmaolemi ainult siis, kui lõpp-punkt on saadaval.",
-          "nominal_voltage": "Tüüpiline vahelduvvoolu toitepinge võimsuse hindamiseks, kui reaalajas pinge pole saadaval.",
-          "schedule_sync_enabled": "Halda IQ EV Chargeri ajakavasid.",
-          "battery_schedules_enabled": "Halda IQ Battery ajakavasid.",
-          "microinverter_lifetime_energy_enabled": "Lubab kõik iga mikroinverteri koguenergia andurid.",
-          "microinverter_power_enabled": "Lubab kõik iga mikroinverteri võimsusandurid, kui paigaldaja telemeetria on saadaval.",
-          "vpp_events_enabled": "Hangib Enphaseist VPP/ELRP ajakavad ja loob sündmiolemid ainult liitunud asukohtadele. Vaikimisi välja lülitatud.",
-          "grid_profile_controls_enabled": "Hangib ainult paigaldajale mõeldud võrguprofiili metaandmed ja lubab profiilitoimingud. Vaikimisi keelatud."
+          "type_microinverter": "Sisaldab mikroinverterite ühenduvuse, aktiivse arvu ja eluaegse tootmise andureid."
         }
       },
       "repair_notifications": {
         "title": "Teavitused",
-        "description": "Valige, millised Enphase'i tingimused loovad Home Assistanti parandusi.",
+        "description": "Halda Home Assistanti parandusteavitusi ja kirjeldavaid tegevuskirjeid.",
         "data": {
           "degraded_service_repair_issues": "Luba halvenenud teenuste parandused",
-          "system_event_repair_issues": "Luba süsteemisündmuste parandusteavitused"
+          "system_event_repair_issues": "Luba süsteemisündmuste parandusteavitused",
+          "descriptive_activity_entries": "Luba kirjeldavad tegevuskirjed"
         },
         "data_description": {
-          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud.",
-          "system_event_repair_issues": "Loob Home Assistanti parandused aktiivsete Enphase püsihoiatuste jaoks. Vaikimisi keelatud."
+          "degraded_service_repair_issues": "Loob Repairsi probleemid, kui valikulised Enphase teenused on halvenenud. Vaikimisi: Keelatud.",
+          "system_event_repair_issues": "Loob Home Assistanti parandused aktiivsete Enphase püsihoiatuste jaoks. Vaikimisi keelatud. Vaikimisi: Keelatud.",
+          "descriptive_activity_entries": "Lisab Home Assistanti tegevusse kirjeldavad kirjed, kui teatatud tingimused muutuvad. Need kuvatakse tavaliste olekumuutuste kirjete kõrval. Vaikimisi keelatud."
         }
       },
       "authentication_settings": {
@@ -732,11 +707,13 @@
         "description": "Paigaldaja ja hoolduse toimingud.",
         "menu_options": {
           "grid_toggle": "Võrgurežiim",
-          "grid_profile": "Võrguprofiili juhtimine"
+          "grid_profile": "Võrguprofiili juhtimine",
+          "export_limit": "Ekspordipiirang"
         },
         "menu_option_descriptions": {
           "grid_toggle": "Seadista võrgurežiimi käsitsi juhtelemendid.",
-          "grid_profile": "Sirvi ja rakenda Activationi võrguprofiile ainult paigaldajatele."
+          "grid_profile": "Sirvi ja rakenda Activationi võrguprofiile ainult paigaldajatele.",
+          "export_limit": "Seadista süsteemi ekspordipiirangud."
         }
       },
       "grid_toggle": {
@@ -787,6 +764,125 @@
       "grid_toggle_applied": {
         "title": "Võrgurežiimi muudatus on vastu võetud",
         "description": "Enphase võttis vastu taotluse muuta võrgurežiimiks **{target_mode}**.\n\nFüüsiline relee võib endiselt muutuda. Tulemuse oleku jälgimiseks kasutage võrgurežiimi andurit."
+      },
+      "features": {
+        "title": "Funktsioonid",
+        "description": "Seadistage seadmete funktsioone ja täpsemaid juhtseadeid.",
+        "sections": {
+          "device_features": {
+            "name": "Seadme funktsioonid",
+            "data": {
+              "schedule_sync_enabled": "Luba ajakava tugi",
+              "battery_schedules_enabled": "Luba aku ajastaja",
+              "system_event_repair_issues": "Luba süsteemisündmuste parandusteavitused",
+              "pricing_edits_enabled": "Luba hindade muutmine",
+              "weather_enabled": "Luba ilmateave",
+              "nominal_voltage": "EV-laadija nimipinge (V)",
+              "microinverter_lifetime_energy_enabled": "Luba mikroinverterite koguenergia",
+              "vpp_events_enabled": "Luba VPP sündmused"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Loob Home Assistanti parandused aktiivsete Enphase püsihoiatuste jaoks. Vaikimisi keelatud. Vaikimisi: Keelatud.",
+              "pricing_edits_enabled": "IQ Gateway elektrihindade haldamine. Vaikimisi: Lubatud.",
+              "weather_enabled": "Hangib Enphase’ist asukoha praeguse ilma ja loob ilmaolemi ainult siis, kui lõpp-punkt on saadaval. Vaikimisi: Keelatud.",
+              "nominal_voltage": "Tüüpiline vahelduvvoolu toitepinge võimsuse hindamiseks, kui reaalajas pinge pole saadaval. Vaikimisi: Laadija telemeetria põhjal, kui see on saadaval; muidu Home Assistanti piirkonna järgi, varuväärtusega 230 V.",
+              "schedule_sync_enabled": "Halda IQ EV Chargeri ajakavasid. Vaikimisi: Lubatud.",
+              "battery_schedules_enabled": "Halda IQ Battery ajakavasid. Vaikimisi: Lubatud.",
+              "microinverter_lifetime_energy_enabled": "Lubab kõik iga mikroinverteri koguenergia andurid. Vaikimisi: Keelatud.",
+              "vpp_events_enabled": "Hangib Enphaseist VPP/ELRP ajakavad ja loob sündmiolemid ainult liitunud asukohtadele. Vaikimisi välja lülitatud. Vaikimisi: Keelatud."
+            }
+          },
+          "advanced_features": {
+            "name": "Täpsemad funktsioonid",
+            "data": {
+              "grid_profile_controls_enabled": "Paigaldaja võrguprofiili juhtelementide lubamine",
+              "microinverter_power_enabled": "Luba mikroinverterite võimsus",
+              "export_limit_controls_enabled": "Luba ekspordipiirangu juhtimine"
+            },
+            "data_description": {
+              "grid_profile_controls_enabled": "Hangib ainult paigaldajale mõeldud võrguprofiili metaandmed ja lubab profiilitoimingud. Vaikimisi keelatud. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud.",
+              "microinverter_power_enabled": "Lubab kõik iga mikroinverteri võimsusandurid, kui paigaldaja telemeetria on saadaval. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud.",
+              "export_limit_controls_enabled": "Seadista süsteemi ekspordipiirangud. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud."
+            }
+          }
+        },
+        "data": {
+          "device_features": "Seadme funktsioonid",
+          "advanced_features": "Täpsemad funktsioonid",
+          "schedule_sync_enabled": "Luba ajakava tugi",
+          "battery_schedules_enabled": "Luba aku ajastaja",
+          "system_event_repair_issues": "Luba süsteemisündmuste parandusteavitused",
+          "pricing_edits_enabled": "Luba hindade muutmine",
+          "weather_enabled": "Luba ilmateave",
+          "nominal_voltage": "EV-laadija nimipinge (V)",
+          "microinverter_lifetime_energy_enabled": "Luba mikroinverterite koguenergia",
+          "microinverter_power_enabled": "Luba mikroinverterite võimsus",
+          "vpp_events_enabled": "Luba VPP sündmused",
+          "grid_profile_controls_enabled": "Paigaldaja võrguprofiili juhtelementide lubamine",
+          "export_limit_controls_enabled": "Luba ekspordipiirangu juhtimine"
+        },
+        "data_description": {
+          "system_event_repair_issues": "Loob Home Assistanti parandused aktiivsete Enphase püsihoiatuste jaoks. Vaikimisi keelatud. Vaikimisi: Keelatud.",
+          "pricing_edits_enabled": "IQ Gateway elektrihindade haldamine. Vaikimisi: Lubatud.",
+          "weather_enabled": "Hangib Enphase’ist asukoha praeguse ilma ja loob ilmaolemi ainult siis, kui lõpp-punkt on saadaval. Vaikimisi: Keelatud.",
+          "nominal_voltage": "Tüüpiline vahelduvvoolu toitepinge võimsuse hindamiseks, kui reaalajas pinge pole saadaval. Vaikimisi: Laadija telemeetria põhjal, kui see on saadaval; muidu Home Assistanti piirkonna järgi, varuväärtusega 230 V.",
+          "schedule_sync_enabled": "Halda IQ EV Chargeri ajakavasid. Vaikimisi: Lubatud.",
+          "battery_schedules_enabled": "Halda IQ Battery ajakavasid. Vaikimisi: Lubatud.",
+          "microinverter_lifetime_energy_enabled": "Lubab kõik iga mikroinverteri koguenergia andurid. Vaikimisi: Keelatud.",
+          "microinverter_power_enabled": "Lubab kõik iga mikroinverteri võimsusandurid, kui paigaldaja telemeetria on saadaval. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud.",
+          "vpp_events_enabled": "Hangib Enphaseist VPP/ELRP ajakavad ja loob sündmiolemid ainult liitunud asukohtadele. Vaikimisi välja lülitatud. Vaikimisi: Keelatud.",
+          "grid_profile_controls_enabled": "Hangib ainult paigaldajale mõeldud võrguprofiili metaandmed ja lubab profiilitoimingud. Vaikimisi keelatud. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud.",
+          "export_limit_controls_enabled": "Seadista süsteemi ekspordipiirangud. Nõuab paigaldaja juurdepääsu. Vaikimisi: Keelatud."
+        }
+      },
+      "export_limit": {
+        "title": "Ekspordipiirang",
+        "description": "Seadista süsteemi ekspordipiirangud."
+      },
+      "export_limit_action": {
+        "title": "Ekspordipiirang",
+        "description": "Määrake, kui palju võimsust teie süsteem võrku edastab. Taotluse olek näitab selle integratsiooni kaudu saadetud muudatuste seisu.\n\nPraegune seadistus: **{current}**\n\nOotel seadistus: **{pending}**",
+        "menu_options": {
+          "export_limit_set": "Luba ekspordipiirang",
+          "export_limit_disable": "Keela ekspordipiirang",
+          "export_limit_defaults": "Vaikeseaded"
+        },
+        "menu_option_descriptions": {
+          "export_limit_defaults": "Salvestage ekspordipiirangu juhtimise vaikeväärtused.",
+          "export_limit_set": "Määrake suurim võrku edastatav võimsus, sealhulgas null.",
+          "export_limit_disable": "Lubage võrku edastamine ilma määratud piiranguta."
+        }
+      },
+      "export_limit_set": {
+        "title": "Luba ekspordipiirang",
+        "data": {
+          "limit_watts": "Ekspordipiirang (W)"
+        },
+        "description": "Määrake piiranguks 0 W, et vältida elektri võrku edastamist. Muud väärtused määravad suurima võimsuse, mida süsteem võib võrku edastada."
+      },
+      "export_limit_confirm": {
+        "title": "Ekspordipiirang",
+        "description": "Praegune seadistus: **{current}**\n\nTaotletud seadistus: **{requested}**\n\nMuutumiskiirus (W/sec): **{current_slew}** → **{requested_slew}**",
+        "data": {
+          "confirm": "Kinnita see muudatus"
+        }
+      },
+      "export_limit_submitted": {
+        "title": "Ekspordipiirang",
+        "description": "Seadista süsteemi ekspordipiirangud.\n\n**{status}**"
+      },
+      "export_limit_readonly": {
+        "title": "Ekspordipiirang",
+        "description": "Ekspordipiirang pole saadaval. Vaja on paigaldaja ligipääsu ja toetatud ühe lüüsiga seadistust.\n\nPraegune seadistus: **{current}**"
+      },
+      "export_limit_defaults": {
+        "title": "Vaikeseaded",
+        "description": "Salvestage vaikeväärtused, mida kasutatakse ekspordipiirangu juhtnupus valiku Lubatud valimisel. Nende salvestamine ei muuda lüüsi. Taastamine eemaldab salvestatud kiiruse ülekirjutuse.",
+        "data": {
+          "limit_watts": "Vaikimisi ekspordipiirang (W)",
+          "slew_rate": "Muutumiskiirus (W/sec)",
+          "restore_slew_rate": "Taasta muutumiskiirus lüüsist"
+        }
       }
     },
     "error": {
@@ -813,7 +909,17 @@
       "grid_otp_required": "Sisestage ühekordne kood.",
       "grid_otp_invalid_format": "Ühekordne kood peab sisaldama täpselt nelja numbrit.",
       "grid_otp_invalid": "Ühekordne kood on kehtetu või aegunud.",
-      "grid_envoy_serial_missing": "Selle asukoha väravat ei õnnestunud määrata."
+      "grid_envoy_serial_missing": "Selle asukoha väravat ei õnnestunud määrata.",
+      "export_limit_unavailable": "Ekspordipiirang pole saadaval. Vaja on paigaldaja ligipääsu ja toetatud ühe lüüsiga seadistust.",
+      "export_limit_invalid": "Sisesta täisarv vatte vahemikus 0 kuni 100000.",
+      "export_limit_changed": "Seadistus muutus. Kontrolli uuendatud seadistust ja kinnita uuesti.",
+      "export_limit_mismatch": "Enphase’i paigaldaja vorm ei vasta lüüsi seadistustele. Värskenda seadistusi ja proovi uuesti.",
+      "export_limit_pending": "Oodatakse seadistuse kinnitamist. Enne uut muudatust värskenda olekut.",
+      "export_limit_disabled": "Luba ekspordipiirangu juhtimine (Funktsioonid → Täpsemad funktsioonid).",
+      "export_limit_confirmation": "Kinnita see muudatus",
+      "export_limit_invalid_slew": "Sisestage positiivne arv kuni kahe komakohaga.",
+      "grid_profile_session_expired": "Enlighteni seanss on aegunud või tagasi lükatud. Avage Autentimine, autentige uuesti ja proovige uuesti.",
+      "export_limit_session_expired": "Enlighteni seanss on aegunud või tagasi lükatud. Avage Autentimine, autentige uuesti ja proovige uuesti."
     },
     "abort": {
       "migration_no_envoy_sources": "Ühtegi Enphase Envoy energiaandurit pole migratsiooniks saadaval.",
@@ -823,7 +929,8 @@
       "grid_profile_installer_required": "Võrguprofiili juhtimine nõuab paigaldaja juurdepääsu Enphase Activationile.",
       "grid_profile_no_regions": "Selle asukoha riigi jaoks pole võrguprofiili piirkondi saadaval.",
       "grid_mode_unavailable": "Võrgurežiimi juhtimine pole selles asukohas saadaval.",
-      "grid_mode_blocked": "Võrgurežiimi juhtimine on praegu blokeeritud: {reasons}."
+      "grid_mode_blocked": "Võrgurežiimi juhtimine on praegu blokeeritud: {reasons}.",
+      "grid_profile_session_expired": "Enlighteni seanss on aegunud või tagasi lükatud. Avage Autentimine, autentige uuesti ja proovige uuesti."
     },
     "create_entry": {
       "migration_success": "Migratsioon on lõpule viidud. Enphase Energy omab nüüd valitud lähteolemite ID-sid. Kontrolli pärast järgmist värskendust Energy armatuurlauda ja Developer Tools > Statistics.",
@@ -1009,6 +1116,9 @@
           },
           "amp_control_applies_in_modes": {
             "name": "Režiimid, kus amprite juhtimine kehtib"
+          },
+          "requested_mode": {
+            "name": "Taotletud režiim"
           }
         }
       },
@@ -1103,7 +1213,7 @@
         "name": "Ebaõnnestunud sisselogimised salvestatud mandaatidega"
       },
       "current_production_power": {
-        "name": "Praegune tootmisvõimsus",
+        "name": "Tootmisvõimsus",
         "state_attributes": {
           "sampled_at_utc": {
             "name": "Mõõdetud kell (UTC)"
@@ -1241,7 +1351,7 @@
         }
       },
       "site_consumption_power": {
-        "name": "Praegune võimsustarve",
+        "name": "Võimsustarve",
         "state_attributes": {
           "last_window_seconds": {
             "name": "Viimane aken (s)"
@@ -1255,7 +1365,7 @@
         }
       },
       "site_grid_power": {
-        "name": "Praegune võrguvõimsus",
+        "name": "Võrguvõimsus",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Viimane voo kWh"
@@ -1320,7 +1430,7 @@
         }
       },
       "site_battery_power": {
-        "name": "Praegune aku võimsus",
+        "name": "Aku võimsus",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Viimane voo kWh"
@@ -1367,7 +1477,7 @@
         }
       },
       "system_profile_status": {
-        "name": "Süsteemiprofiili olek",
+        "name": "Süsteemi profiil",
         "state": {
           "pending": "Ootel"
         },
@@ -1505,7 +1615,7 @@
         "name": "Tarbimismõõtur"
       },
       "gateway_connectivity_status": {
-        "name": "Lüüsi olek",
+        "name": "Ühenduvus",
         "state_attributes": {
           "ip_address": {
             "name": "IP-aadress"
@@ -1516,7 +1626,7 @@
         }
       },
       "gateway_last_reported": {
-        "name": "Gateway viimati teatatud"
+        "name": "Viimati raporteeritud"
       },
       "tariff_billing_cycle": {
         "name": "Jargmine arvelduskuupaev",
@@ -1727,7 +1837,21 @@
         }
       },
       "microinverter_connectivity_status": {
-        "name": "Mikroinverterite ühenduvuse olek"
+        "name": "Mikroinverterite ühenduvuse olek",
+        "state_attributes": {
+          "power_telemetry_status": {
+            "name": "Võimsuse telemeetria olek",
+            "state": {
+              "disabled": "Keelatud",
+              "pending": "Ootel",
+              "ready": "Saadaval",
+              "rate_limited": "Sagedus piiratud"
+            }
+          },
+          "power_telemetry_next_retry": {
+            "name": "Järgmine võimsuse telemeetria katse"
+          }
+        }
       },
       "microinverter_reporting_count": {
         "name": "Aktiivsed mikroinverterid"
@@ -1831,47 +1955,47 @@
           "error": "Viga",
           "unknown": "Tundmatu",
           "unpaired": "Sidumata",
-          "pairing": "Sidumine"
+          "pairing": "Sidumine",
+          "activity_status": "Olek",
+          "activity_unknown": "Teadmata",
+          "activity_yes": "Jah",
+          "activity_no": "Ei",
+          "activity_more": "Veel kirjeid",
+          "activity_battery": "Aku",
+          "activity_charger_problem": "Teatatud rike",
+          "activity_suspended_by_evse": "Laadija peatatud",
+          "activity_offline_since": "Võrguühenduseta alates",
+          "activity_connected_devices": "Ühendatud lüüsid",
+          "activity_disconnected_devices": "Ühenduseta lüüsid",
+          "activity_unknown_connection_devices": "Teadmata olekuga lüüsid",
+          "activity_connection_method": "Ühendusviis",
+          "activity_latest_reported_utc": "Viimati teatatud",
+          "activity_reporting_inverters": "Andmeid edastavad inverterid",
+          "activity_not_reporting_inverters": "Andmeid mitteedastavad inverterid",
+          "activity_unknown_inverters": "Teadmata olekuga inverterid",
+          "activity_power_telemetry_status": "Võimsuse telemeetria",
+          "activity_power_telemetry_next_retry": "Telemeetria korduskatse",
+          "activity_sg_ready_mode_raw": "SG Ready režiim",
+          "activity_sg_ready_contact_state": "Kontaktide olek",
+          "activity_vpp_sgready_mode_override": "Teatatud VPP alistus",
+          "activity_confirmed_watts": "Kinnitatud piir (W)",
+          "activity_requested_watts": "Taotletud piir (W)",
+          "activity_requested_action": "Taotletud toiming",
+          "activity_request_status": "Taotluse olek",
+          "activity_active_count": "Aktiivsed probleemid",
+          "activity_type": "Sündmuse tüüp",
+          "activity_device_type": "Seadme tüüp",
+          "activity_severity": "Tõsidus",
+          "activity_description": "Kirjeldus",
+          "activity_event_date": "Esmane teade",
+          "activity_reason": "Põhjus",
+          "activity_http_status": "HTTP olek",
+          "activity_retry": "Järgmine katse",
+          "activity_worst_battery": "Aku halvim olek",
+          "activity_reachable": "Pilv kättesaadav",
+          "activity_last_success": "Viimane edukas värskendus",
+          "activity_standing_alarm": "Püsiv häire"
         }
-      },
-      "ac_battery_overall_status": {
-        "name": "AC-aku üldine olek",
-        "state": {
-          "normal": "Tavaline",
-          "warning": "Hoiatus",
-          "error": "Viga",
-          "unknown": "Tundmatu"
-        }
-      },
-      "ac_battery_power": {
-        "name": "AC-aku võimsus"
-      },
-      "ac_battery_last_reported": {
-        "name": "AC-aku viimane raport"
-      },
-      "ac_battery_storage_charge": {
-        "name": "AC-aku laetuse tase"
-      },
-      "ac_battery_storage_status": {
-        "name": "{serial} olek",
-        "state": {
-          "normal": "Tavaline",
-          "warning": "Hoiatus",
-          "error": "Viga",
-          "unknown": "Tundmatu"
-        }
-      },
-      "ac_battery_storage_power": {
-        "name": "{serial} võimsus"
-      },
-      "ac_battery_storage_operating_mode": {
-        "name": "{serial} töörežiim"
-      },
-      "ac_battery_storage_cycle_count": {
-        "name": "{serial} tsüklite arv"
-      },
-      "ac_battery_storage_last_reported": {
-        "name": "{serial} viimane raport"
       },
       "battery_cfg_schedules": {
         "name": "Aku CFG ajakavad"
@@ -2056,6 +2180,126 @@
       },
       "vpp_next_event_status": {
         "name": "Järgmise VPP sündmuse olek"
+      },
+      "export_limit": {
+        "name": "Ekspordipiirang",
+        "state": {
+          "disabled": "Keelatud",
+          "zero_export": "Nulleksport",
+          "limited": "Piiratud",
+          "unsupported": "Toetamata",
+          "pending": "Ootel",
+          "unconfirmed": "Kinnitamata"
+        },
+        "state_attributes": {
+          "confirmed_watts": {
+            "name": "Praegune seadistus"
+          },
+          "requested_watts": {
+            "name": "Taotletud seadistus"
+          },
+          "requested_action": {
+            "name": "Taotletud seadistus",
+            "state": {
+              "set": "Määra ekspordipiirang",
+              "disable": "Keela ekspordipiirang"
+            }
+          },
+          "request_status": {
+            "name": "Taotluse olek",
+            "state": {
+              "idle": "Puudub",
+              "pending": "Ootab kinnitust",
+              "confirmed": "Seadistus kinnitatud",
+              "unconfirmed": "Kinnitamata",
+              "rejected": "Tagasi lükatud"
+            }
+          },
+          "last_successful_readback": {
+            "name": "Viimane edukas lugemine"
+          },
+          "slew_rate": {
+            "name": "Muutumiskiirus (W/sec)"
+          },
+          "requested_slew_rate": {
+            "name": "Taotletud seadistus · Muutumiskiirus (W/sec)"
+          },
+          "pending": {
+            "name": "Ootel"
+          },
+          "pending_requested_at": {
+            "name": "Ootel Taotletud aadressil"
+          }
+        }
+      },
+      "total_array_size": {
+        "name": "Päikesepaneelide koguvõimsus"
+      },
+      "total_inverter_capacity": {
+        "name": "Inverterite koguvõimsus"
+      },
+      "account_access": {
+        "name": "Konto juurdepääs",
+        "state": {
+          "administrator": "Administraator",
+          "installer": "Paigaldaja",
+          "owner": "Omanik",
+          "host": "Võõrustaja",
+          "consumption_data": "Tarbimisandmed",
+          "viewer": "Vaataja"
+        },
+        "state_attributes": {
+          "administrator": {
+            "name": "Administraator"
+          },
+          "installer": {
+            "name": "Paigaldaja"
+          },
+          "owner": {
+            "name": "Omanik"
+          },
+          "host": {
+            "name": "Võõrustaja"
+          },
+          "consumption_data": {
+            "name": "Tarbimisandmed"
+          },
+          "viewer": {
+            "name": "Vaataja"
+          }
+        }
+      },
+      "site_information": {
+        "name": "Paigaldise teave",
+        "state_attributes": {
+          "site_id": {
+            "name": "Paigaldise ID"
+          },
+          "timezone": {
+            "name": "Ajavöönd"
+          },
+          "country": {
+            "name": "Riik"
+          },
+          "currency": {
+            "name": "Valuuta"
+          }
+        }
+      },
+      "inverter_array_energy": {
+        "name": "{array} Koguenergia"
+      },
+      "inverter_array_power": {
+        "name": "{array} Hetkevõimsus"
+      },
+      "update_status": {
+        "name": "Uuenduse olek",
+        "state": {
+          "idle": "Jõude",
+          "pending": "Ootel",
+          "unconfirmed": "Kinnitamata",
+          "failed": "Nurjus"
+        }
       }
     },
     "number": {
@@ -2228,7 +2472,7 @@
     },
     "binary_sensor": {
       "plugged_in": {
-        "name": "Ühendatud"
+        "name": "Sõiduki ühendus"
       },
       "charging": {
         "name": "Laadimine"
@@ -2243,7 +2487,7 @@
         "name": "Ühenduvus",
         "state_attributes": {
           "connection": {
-            "name": "Ühendus"
+            "name": "Ühendusviis"
           },
           "ip_address": {
             "name": "IP-aadress"
@@ -2251,7 +2495,7 @@
         }
       },
       "active_system_events": {
-        "name": "Aktiivsed süsteemisündmused",
+        "name": "Süsteemi sündmused",
         "state_attributes": {
           "available": {
             "name": "Sündmuste teenus on saadaval"
@@ -2316,9 +2560,6 @@
       },
       "restrict_battery_discharge_schedule": {
         "name": "Aku tühjendamise piirangu ajakava"
-      },
-      "ac_battery_sleep_mode": {
-        "name": "AC-aku unerežiim"
       },
       "evse_schedule_edit_mon": {
         "name": "Esmaspäeva ajakava"
@@ -2391,9 +2632,6 @@
       "system_profile": {
         "name": "Süsteemi profiil"
       },
-      "ac_battery_target_state_of_charge": {
-        "name": "AC-aku sihtlaetuse tase"
-      },
       "evse_schedule_selected": {
         "name": "Ajakava"
       },
@@ -2402,18 +2640,31 @@
       },
       "battery_schedule_selected": {
         "name": "Aku ajakava"
+      },
+      "export_limit": {
+        "name": "Ekspordipiirang",
+        "state": {
+          "enable_limit": "Lubatud",
+          "disable_limit": "Keelatud"
+        },
+        "state_attributes": {
+          "default_limit_watts": {
+            "name": "Vaikimisi ekspordipiirang (W)"
+          },
+          "default_slew_rate": {
+            "name": "Muutumiskiirus (W/sec)"
+          },
+          "slew_rate_source": {
+            "name": "Muutumiskiiruse allikas",
+            "state": {
+              "gateway": "Lüüs",
+              "saved_override": "Salvestatud ülekirjutus"
+            }
+          }
+        }
       }
     },
     "button": {
-      "start_charging": {
-        "name": "Alusta laadimist"
-      },
-      "stop_charging": {
-        "name": "Peata laadimine"
-      },
-      "cancel_pending_profile_change": {
-        "name": "Tühista ootel profiilimuudatus"
-      },
       "storm_alert_opt_out": {
         "name": "Loobu tormihoiatusest"
       },
@@ -2569,7 +2820,45 @@
     },
     "battery_profile_pending": {
       "title": "Enphase Energy aku profiili uuendus on ootel",
-      "description": "Asukoha {site_id} aku profiili muudatus on olnud ootel üle {pending_timeout_minutes} minuti. Pilveteenus võib päringut endiselt töödelda."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Aku profiili muutmine",
+            "description": "Asukoha {site_id} aku profiili muudatus on olnud ootel üle {pending_timeout_minutes} minuti. Pilveteenus võib päringut endiselt töödelda.\n\nKontrolli olekut või tühista ootel taotlus.",
+            "menu_options": {
+              "check_again": "Kontrolli uuesti",
+              "cancel_change": "Tühista muudatus"
+            }
+          },
+          "pending": {
+            "title": "Aku profiili muutmine",
+            "description": "Muudatus on endiselt kinnitamata. Kontrollimine jätkub automaatselt. Saad uuesti kontrollida või tühistada.",
+            "menu_options": {
+              "check_again": "Kontrolli uuesti",
+              "cancel_change": "Tühista muudatus"
+            }
+          },
+          "check_failed": {
+            "title": "Aku profiili muutmine",
+            "description": "Profiili ei saanud värskendada. Proovi hiljem uuesti või tühista ootel taotlus.",
+            "menu_options": {
+              "check_again": "Kontrolli uuesti",
+              "cancel_change": "Tühista muudatus"
+            }
+          },
+          "cancel_change": {
+            "title": "Kas tühistada ootel profiilimuudatus?",
+            "description": "Tühista see ootel aku profiili taotlus Enphase’is. See ei taasta profiili, mis on juba jõustunud."
+          }
+        },
+        "error": {
+          "cannot_cancel": "Taotlust ei saanud tühistada. Kontrolli ühendust ja Enphase’i konto õigusi ning proovi uuesti."
+        },
+        "abort": {
+          "entry_unavailable": "Integratsioon pole laaditud. Laadi see ja ava see parandus uuesti.",
+          "request_changed": "Ootel taotlus muutus. Sulge see viisard ja ava praegune parandus uuesti."
+        }
+      }
     },
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS on ajutiselt peatatud",
@@ -2578,6 +2867,14 @@
     "active_system_event": {
       "title": "Aktiivne suure mõjuga Enphase süsteemisündmus",
       "description": "Asukohas {site_id} on aktiivne {severity} sündmus, mis mõjutab seadet {device_type} ja millest teatati esimest korda {event_date}. Üksikasjade ja soovitatud toimingu jaoks vaadake Enlighteni. See parandus eemaldatakse automaatselt, kui Enphase märgib sündmuse lahendatuks."
+    },
+    "export_limit_pending": {
+      "title": "Ekspordipiirangu muudatus kinnitamata",
+      "description": "Muudatust pole {pending_timeout_minutes} minuti järel kinnitatud. Kontrollid jätkuvad tavapärase intervalliga. Kontrollige lüüsi seadistust; kirjutamist automaatselt ei korrata."
+    },
+    "evse_status_unavailable": {
+      "title": "Laadija olek pole saadaval",
+      "description": "Paigaldise {site_id} laadija olek tagastas HTTP {status}. Laadija näidud ja juhtimine pole saadaval, kuni saabuvad värsked olekuandmed. Järgmine katse: {next_retry}. Teisi lõpp-punkte küsitletakse jätkuvalt sõltumatult."
     }
   },
   "system_health": {
@@ -3215,6 +3512,72 @@
         "gateway_serial": {
           "name": "Gateway seerianumber",
           "description": "Valikuline Gateway seerianumber, kui Activationi kirje sisaldab mitut Gatewayd."
+        }
+      }
+    },
+    "set_export_limit": {
+      "name": "Määra ekspordipiirang",
+      "description": "Seadista süsteemi ekspordipiirangud.",
+      "fields": {
+        "limit_watts": {
+          "name": "Ekspordipiirang (W)",
+          "description": "Sisesta täisarv vatte vahemikus 0 kuni 100000."
+        },
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfiguratsiooni sisestus",
+          "description": "Enphase konfiguratsiooni sisestus"
+        },
+        "device_id": {
+          "name": "Seadmed",
+          "description": "Seadmed"
+        },
+        "slew_rate": {
+          "name": "Muutumiskiirus (W/sec)",
+          "description": "Valikuline. Puudumisel kasutatakse lüüsi praegust väärtust."
+        }
+      }
+    },
+    "disable_export_limit": {
+      "name": "Keela ekspordipiirang",
+      "description": "Seadista süsteemi ekspordipiirangud.",
+      "fields": {
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfiguratsiooni sisestus",
+          "description": "Enphase konfiguratsiooni sisestus"
+        },
+        "device_id": {
+          "name": "Seadmed",
+          "description": "Seadmed"
+        },
+        "slew_rate": {
+          "name": "Muutumiskiirus (W/sec)",
+          "description": "Valikuline. Puudumisel kasutatakse lüüsi praegust väärtust."
+        }
+      }
+    },
+    "refresh_export_limit": {
+      "name": "Värskenda ekspordipiirangut",
+      "description": "Seadista süsteemi ekspordipiirangud.",
+      "fields": {
+        "site_id": {
+          "name": "Koha ID",
+          "description": "Valikuline koha identifikaator; tuvastatakse automaatselt, kui koha seade on valitud."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfiguratsiooni sisestus",
+          "description": "Enphase konfiguratsiooni sisestus"
+        },
+        "device_id": {
+          "name": "Seadmed",
+          "description": "Seadmed"
         }
       }
     }

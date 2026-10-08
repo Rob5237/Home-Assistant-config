@@ -23,8 +23,6 @@ REFRESH_TASK_ENDPOINT_FAMILIES: dict[str, str] = {
     "grid_outage_context_s": "grid_outage_context",
     "dry_contact_settings_s": "dry_contact_settings",
     "battery_status_s": "battery_status",
-    "ac_battery_devices_s": "ac_battery_devices",
-    "ac_battery_telemetry_s": "ac_battery_telemetry",
     "devices_inventory_s": "inventory_topology",
     "hems_devices_s": "inventory_topology",
     "system_dashboard_s": "inventory_topology",
@@ -185,12 +183,6 @@ WARMUP_DISCOVERY_STAGE = RefreshStage(
             "async_refresh_battery_status",
         ),
         object_method_task(
-            "ac_battery_devices_s",
-            "AC Battery devices",
-            "battery_runtime",
-            "async_refresh_ac_battery_devices",
-        ),
-        object_method_task(
             "devices_inventory_s",
             "device inventory",
             "inventory_runtime",
@@ -210,6 +202,12 @@ WARMUP_STATE_STAGE = RefreshStage(
     stage_key="state",
     deadline_s=WARMUP_STAGE_DEADLINE_S,
     parallel_tasks=(
+        object_method_task(
+            "cloud_metadata_s",
+            "cloud metadata",
+            "cloud_metadata_runtime",
+            "async_refresh",
+        ),
         object_method_task(
             "system_events_s",
             "system events",
@@ -235,12 +233,6 @@ WARMUP_STATE_STAGE = RefreshStage(
         ),
         method_task(
             "battery_settings_s", "battery settings", "_async_refresh_battery_settings"
-        ),
-        object_method_task(
-            "ac_battery_telemetry_s",
-            "AC Battery telemetry",
-            "battery_runtime",
-            "async_refresh_ac_battery_telemetry",
         ),
         method_task(
             "battery_schedules_s",
@@ -334,6 +326,12 @@ SITE_ONLY_FOLLOWUP_STAGE = RefreshStage(
     defer_topology=True,
     parallel_tasks=(
         object_method_task(
+            "cloud_metadata_s",
+            "cloud metadata",
+            "cloud_metadata_runtime",
+            "async_refresh",
+        ),
+        object_method_task(
             "system_events_s",
             "system events",
             "system_events_runtime",
@@ -410,12 +408,6 @@ SITE_ONLY_FOLLOWUP_STAGE = RefreshStage(
             "async_refresh_battery_status",
         ),
         object_method_task(
-            "ac_battery_devices_s",
-            "AC Battery devices",
-            "battery_runtime",
-            "async_refresh_ac_battery_devices",
-        ),
-        object_method_task(
             "devices_inventory_s",
             "device inventory",
             "inventory_runtime",
@@ -440,12 +432,6 @@ FOLLOWUP_STAGE = RefreshStage(
             "battery status",
             "battery_runtime",
             "async_refresh_battery_status",
-        ),
-        object_method_task(
-            "ac_battery_devices_s",
-            "AC Battery devices",
-            "battery_runtime",
-            "async_refresh_ac_battery_devices",
         ),
         object_method_task(
             "devices_inventory_s",
@@ -563,8 +549,6 @@ def _warmup_task_enabled(owner: object, task: RefreshTask) -> bool:
     if key in {
         "battery_site_settings_s",
         "battery_status_s",
-        "ac_battery_devices_s",
-        "ac_battery_telemetry_s",
         "battery_backup_history_s",
         "battery_settings_s",
         "storm_guard_s",
@@ -756,6 +740,16 @@ def build_followup_plan(owner: object, *, force_full: bool = False) -> RefreshPl
     vpp = getattr(owner, "vpp_runtime", None)
     parallel: list[RefreshTask] = []
     ordered: list[RefreshTask] = []
+    metadata = getattr(owner, "cloud_metadata_runtime", None)
+    if metadata is not None and metadata.refresh_due():
+        parallel.append(
+            object_method_task(
+                "cloud_metadata_s",
+                "cloud metadata",
+                "cloud_metadata_runtime",
+                "async_refresh",
+            )
+        )
     if battery.battery_site_settings_refresh_due():
         parallel.append(
             method_task(
@@ -900,15 +894,6 @@ def build_followup_plan(owner: object, *, force_full: bool = False) -> RefreshPl
                 "battery status",
                 "battery_runtime",
                 "async_refresh_battery_status",
-            )
-        )
-    if battery.ac_battery_devices_refresh_due():
-        ordered.append(
-            object_method_task(
-                "ac_battery_devices_s",
-                "AC Battery devices",
-                "battery_runtime",
-                "async_refresh_ac_battery_devices",
             )
         )
     if inventory.devices_inventory_refresh_due():

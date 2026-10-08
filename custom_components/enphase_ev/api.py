@@ -74,6 +74,7 @@ from .api_client.errors import (
     _is_hems_invalid_site_error as _is_hems_invalid_site_error,
 )
 from .api_client import site_surface as api_site_surface
+from .api_client import export_limit_surface
 from .api_client import vpp_surface as api_vpp_surface
 from .api_models import (
     AuthTokens as AuthTokens,
@@ -243,39 +244,6 @@ async def async_fetch_devices_inventory(
     except Exception as err:  # noqa: BLE001 - best-effort for flow UX
         _LOGGER.debug(
             "Failed to fetch devices inventory for site %s: %s",
-            redact_site_id(site_id),
-            redact_text(err, site_ids=(site_id,)),
-        )
-        return None
-    if isinstance(payload, dict):
-        return payload
-    return None
-
-
-async def async_fetch_battery_site_settings(
-    session: aiohttp.ClientSession,
-    site_id: str,
-    tokens: AuthTokens,
-    *,
-    timeout: int = DEFAULT_AUTH_TIMEOUT,
-) -> dict[str, object] | None:
-    """Fetch BatteryConfig site settings for config-flow category selection."""
-
-    if not site_id:
-        return {}
-
-    client = EnphaseEVClient(
-        session,
-        site_id,
-        tokens.access_token,
-        tokens.cookie,
-        timeout=timeout,
-    )
-    try:
-        payload = await client.battery_site_settings()
-    except Exception as err:  # noqa: BLE001 - best-effort for flow UX
-        _LOGGER.debug(
-            "Failed to fetch battery site settings for site %s: %s",
             redact_site_id(site_id),
             redact_text(err, site_ids=(site_id,)),
         )
@@ -637,11 +605,6 @@ class EnphaseEVClient(MqttStreamSurface):
         "Return headers for systems/layout-family requests."
 
         return api_header_surface._layout_headers(self)
-
-    def _systems_html_headers(self, referer: str | None = None) -> dict[str, str]:
-        "Return browser-style headers for site-scoped HTML /systems routes."
-
-        return api_header_surface._systems_html_headers(self, referer)
 
     def _systems_json_headers(self) -> dict[str, str]:
         "Return headers for site-scoped /systems JSON endpoints."
@@ -1791,6 +1754,17 @@ class EnphaseEVClient(MqttStreamSurface):
 
         return await api_activation_surface.async_get_activation_device_list(self)
 
+    async def async_get_export_limit_settings(self) -> object:
+        return await export_limit_surface.read_settings(self)
+
+    async def async_get_export_limit_form(self) -> list[tuple[str, str]]:
+        return await export_limit_surface.read_form(self)
+
+    async def async_set_export_limit(
+        self, fields: list[tuple[str, str]], watts: int | None, slew_rate: float
+    ) -> None:
+        await export_limit_surface.write_settings(self, fields, watts, slew_rate)
+
     async def async_get_grid_profiles_filtered(
         self,
         *,
@@ -2399,6 +2373,10 @@ class EnphaseEVClient(MqttStreamSurface):
             gs_base_url=GS_BASE_URL,
         )
 
+    async def site_bootstrap(self) -> JsonDict:
+        """Return optional site bootstrap metadata."""
+        return await api_dashboard_surface.site_bootstrap(self)
+
     async def system_dashboard_summary(
         self, *, allow_reauth: bool = True
     ) -> JsonDict | None:
@@ -2539,44 +2517,18 @@ class EnphaseEVClient(MqttStreamSurface):
 
         return await api_dashboard_surface.battery_status(self)
 
-    async def ac_battery_devices_page(self, *, status: str = "active") -> str:
-        "Return the AC Battery devices page HTML for the site."
-
-        return await api_dashboard_surface.ac_battery_devices_page(self, status=status)
-
-    async def ac_battery_detail_page(self, battery_id: str) -> str:
-        "Return the AC Battery detail page HTML."
-
-        return await api_dashboard_surface.ac_battery_detail_page(self, battery_id)
-
-    async def ac_battery_events_page(self, battery_id: str) -> str:
-        "Return the AC Battery events page HTML."
-
-        return await api_dashboard_surface.ac_battery_events_page(self, battery_id)
-
-    async def ac_battery_show_stat_data(self, battery_id: str) -> str:
-        "Return the AC Battery telemetry HTML fragment."
-
-        return await api_dashboard_surface.ac_battery_show_stat_data(self, battery_id)
-
-    async def set_ac_battery_sleep(
-        self, battery_id: str, sleep_min_soc: int
-    ) -> TextResponse:
-        "Request AC Battery sleep mode using the Enlighten web route."
-
-        return await api_dashboard_surface.set_ac_battery_sleep(
-            self, battery_id, sleep_min_soc
-        )
-
-    async def set_ac_battery_wake(self, battery_id: str) -> TextResponse:
-        "Request AC Battery wake/cancel using the Enlighten web route."
-
-        return await api_dashboard_surface.set_ac_battery_wake(self, battery_id)
-
     async def dry_contacts_settings(self) -> JsonDict:
         "Return dry-contact settings payload used by site settings views."
 
         return await api_dashboard_surface.dry_contacts_settings(self)
+
+    async def array_builder_inventory(self) -> JsonDict:
+        """Read array layout and inverter capacity metadata."""
+        return await api_dashboard_surface.array_builder_inventory(self)
+
+    async def array_panel_ratings(self) -> dict[str, float | None]:
+        """Read selected panel STC ratings keyed by array ID."""
+        return await api_dashboard_surface.array_panel_ratings(self)
 
     async def inverters_inventory(
         self,

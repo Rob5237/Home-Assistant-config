@@ -17,6 +17,7 @@ from .battery_schedule_editor import (
     BatteryScheduleEditorEntity,
     battery_scheduler_enabled,
 )
+from .control_updates import current_control_value
 from .const import DOMAIN, SAFE_LIMIT_AMPS
 from .entity import evse_safe_limit_active, evse_charging_active
 from .entity import (
@@ -342,7 +343,16 @@ class BatteryReserveNumber(CoordinatorEntity, NumberEntity):  # type: ignore[mis
 
     @property
     def native_value(self) -> float | None:
-        value = self._coord.battery_selected_backup_percentage
+        value = current_control_value(
+            self._coord,
+            "battery_reserve",
+            "reserve",
+            getattr(
+                self._coord,
+                "_battery_backup_percentage",
+                self._coord.battery_selected_backup_percentage,
+            ),
+        )
         if value is None:
             return None
         return float(value)
@@ -435,6 +445,7 @@ class ChargingAmpsNumber(EnphaseBaseEntity, NumberEntity):  # type: ignore[misc]
 
     async def async_set_native_value(self, value: float) -> None:
         amps = int(value)
+        intent = self._coord.charging_command_token(self._sn)
         # Store desired setpoint locally; do not start charging here.
         # Start actions (switch/button/service) will use this setpoint.
         self._coord.set_last_set_amps(self._sn, amps)
@@ -443,7 +454,7 @@ class ChargingAmpsNumber(EnphaseBaseEntity, NumberEntity):  # type: ignore[misc]
             self._coord, self._sn
         ):
             # Restart the active session so the updated amps take effect
-            self._coord.schedule_amp_restart(self._sn)
+            self._coord.schedule_amp_restart(self._sn, expected_token=intent)
 
 
 class DefaultChargeLevelNumber(EnphaseBaseEntity, NumberEntity):  # type: ignore[misc]
@@ -468,7 +479,15 @@ class DefaultChargeLevelNumber(EnphaseBaseEntity, NumberEntity):  # type: ignore
 
     @property
     def native_value(self) -> float | None:
-        value = self._coerce_amp(self.data.get("default_charge_level"))
+        value = self._coerce_amp(
+            current_control_value(
+                self._coord,
+                "default_charge_level",
+                "amps",
+                self.data.get("default_charge_level"),
+                self._sn,
+            )
+        )
         return float(value) if value is not None else None
 
     @property
@@ -530,7 +549,12 @@ class BatteryShutdownLevelNumber(CoordinatorEntity, NumberEntity):  # type: igno
 
     @property
     def native_value(self) -> float | None:
-        value = self._coord.battery_shutdown_level
+        value = current_control_value(
+            self._coord,
+            "battery_shutdown_level",
+            "level",
+            self._coord.battery_shutdown_level,
+        )
         if value is None:
             return None
         return float(value)

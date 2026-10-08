@@ -15,7 +15,6 @@ from homeassistant.helpers.translation import (
 from .api import (
     AuthTokens,
     async_fetch_devices_inventory,
-    async_fetch_battery_site_settings,
     async_fetch_chargers,
 )
 from .const import (
@@ -34,6 +33,7 @@ from .const import (
     DEFAULT_BATTERY_SCHEDULES_ENABLED,
     DEFAULT_API_TIMEOUT,
     DEFAULT_DEGRADED_SERVICE_REPAIR_ISSUES,
+    DEFAULT_DESCRIPTIVE_ACTIVITY_ENTRIES,
     DEFAULT_FAST_POLL_INTERVAL,
     DEFAULT_GRID_PROFILE_CONTROLS_ENABLED,
     DEFAULT_MICROINVERTER_LIFETIME_ENERGY_ENABLED,
@@ -55,6 +55,7 @@ from .const import (
     OPT_API_TIMEOUT,
     OPT_BATTERY_SCHEDULES_ENABLED,
     OPT_DEGRADED_SERVICE_REPAIR_ISSUES,
+    OPT_DESCRIPTIVE_ACTIVITY_ENTRIES,
     OPT_FAST_POLL_INTERVAL,
     OPT_FAST_WHILE_STREAMING,
     OPT_GRID_PROFILE_CONTROLS_ENABLED,
@@ -96,10 +97,22 @@ from .envoy_history import (
     suggest_mappings,
     validate_selected_mappings,
 )
+from .const import (
+    OPT_EXPORT_LIMIT_CONTROLS_ENABLED,
+    OPT_EXPORT_LIMIT_DEFAULT_WATTS,
+    OPT_EXPORT_LIMIT_SLEW_RATE,
+)
+from .export_limit_runtime import (
+    ExportLimitRuntime,
+    ExportLimitSnapshot,
+    validate_watts,
+    validate_slew_rate,
+)
 from .grid_profile_runtime import (
     ALL_PROFILES_OPTION,
     COMMONLY_USED_OPTION,
     SUPPORT_DENIED,
+    SUPPORT_SESSION_EXPIRED,
     SUPPORT_READ_ONLY,
     GridProfile,
     GridProfileRuntime,
@@ -118,7 +131,6 @@ from .config_flow_support import (
     CONF_RESEND_CODE as CONF_RESEND_CODE,
     CONF_TYPE_ENVOY as CONF_TYPE_ENVOY,
     CONF_TYPE_ENCHARGE as CONF_TYPE_ENCHARGE,
-    CONF_TYPE_AC_BATTERY as CONF_TYPE_AC_BATTERY,
     CONF_TYPE_IQEVSE as CONF_TYPE_IQEVSE,
     CONF_TYPE_HEATPUMP as CONF_TYPE_HEATPUMP,
     CONF_TYPE_MICROINVERTER as CONF_TYPE_MICROINVERTER,
@@ -140,7 +152,6 @@ from .config_flow_support import (
     _GRID_MODE_LABEL_PREFIX as _GRID_MODE_LABEL_PREFIX,
     _GRID_CONTROL_BLOCK_REASON_LABEL_PREFIX as _GRID_CONTROL_BLOCK_REASON_LABEL_PREFIX,
     _TYPE_FIELD_BY_KEY as _TYPE_FIELD_BY_KEY,
-    _battery_site_settings_has_acb as _battery_site_settings_has_acb,
     _site_entry_title as _site_entry_title,
     _coerce_int_value as _coerce_int_value,
     _bounded_int as _bounded_int,
@@ -161,6 +172,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         self._migration_selection: dict[str, str] = {}
         self._grid_profile_apply_result: dict[str, object] | None = None
         self._grid_mode_target: str | None = None
+        self._export_snapshot: ExportLimitSnapshot | None = None
+        self._export_watts: int | None = None
+        self._export_slew: float | None = None
 
     @staticmethod
     def _normalize_serials(value: Any) -> list[str]:
@@ -226,42 +240,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return int(resolve_nominal_voltage_for_hass(self.hass))
 
-    def _entry_auth_tokens(self) -> AuthTokens | None:
-        site_id = str(self._entry.data.get(CONF_SITE_ID, "") or "").strip()
-        access_token = self._entry.data.get(CONF_EAUTH) or self._entry.data.get(
-            CONF_ACCESS_TOKEN
-        )
-        cookie = self._entry.data.get(CONF_COOKIE)
-        if not site_id or not access_token or not cookie:
-            return None
-        return AuthTokens(
-            cookie=str(cookie),
-            session_id=self._entry.data.get(CONF_SESSION_ID),
-            access_token=access_token,
-            token_expires_at=self._entry.data.get(CONF_TOKEN_EXPIRES_AT),
-        )
-
-    async def _ac_battery_supported_for_options(self) -> bool:
-        selected = set(self._stored_selected_type_keys())
-        if "ac_battery" in selected:
-            return True
-        tokens = self._entry_auth_tokens()
-        site_id = str(self._entry.data.get(CONF_SITE_ID, "") or "").strip()
-        if tokens is None or not site_id:
-            return False
-        payload = await async_fetch_battery_site_settings(
-            await async_get_clientsession(self.hass),
-            site_id,
-            tokens,
-        )
-        return _battery_site_settings_has_acb(payload)
-
     async def _settings_type_keys(self) -> list[str]:
         visible: list[str] = []
-        ac_battery_supported = await self._ac_battery_supported_for_options()
         for type_key in ONBOARDING_SUPPORTED_TYPE_KEYS:
-            if type_key == "ac_battery" and not ac_battery_supported:
-                continue
             if type_key in _TYPE_FIELD_BY_KEY:
                 visible.append(type_key)
         return visible
@@ -276,6 +257,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             category_fields[
                 vol.Optional(field_key, default=type_key in default_selected_type_keys)
             ] = bool
+        return vol.Schema(
+            {
+                vol.Required(CONF_DEVICE_CATEGORIES_SECTION): section(
+                    vol.Schema(category_fields)
+                )
+            }
+        )
+
+    def _build_features_schema(self) -> vol.Schema:
         feature_fields: dict[vol.Marker, object] = {
             vol.Optional(
                 OPT_SCHEDULE_SYNC_ENABLED,
@@ -313,6 +303,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 ),
             ): bool,
             vol.Optional(
+                OPT_EXPORT_LIMIT_CONTROLS_ENABLED,
+                default=self._entry.options.get(
+                    OPT_EXPORT_LIMIT_CONTROLS_ENABLED, False
+                ),
+            ): bool,
+            vol.Optional(
                 OPT_GRID_PROFILE_CONTROLS_ENABLED,
                 default=self._entry.options.get(
                     OPT_GRID_PROFILE_CONTROLS_ENABLED,
@@ -338,14 +334,22 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 default=self._default_nominal_voltage(),
             ): int,
         }
+        advanced_fields = {
+            key: feature_fields.pop(key)
+            for key in list(feature_fields)
+            if key.schema
+            in {
+                OPT_EXPORT_LIMIT_CONTROLS_ENABLED,
+                OPT_GRID_PROFILE_CONTROLS_ENABLED,
+                OPT_MICROINVERTER_POWER_ENABLED,
+            }
+        }
         return vol.Schema(
             {
-                vol.Required(CONF_DEVICE_CATEGORIES_SECTION): section(
-                    vol.Schema(category_fields)
-                ),
                 vol.Required(CONF_DEVICE_FEATURES_SECTION): section(
                     vol.Schema(feature_fields)
                 ),
+                vol.Required("advanced_features"): section(vol.Schema(advanced_fields)),
             }
         )
 
@@ -373,6 +377,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                     default=self._entry.options.get(
                         OPT_SYSTEM_EVENT_REPAIR_ISSUES,
                         DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
+                    ),
+                ): bool,
+                vol.Optional(
+                    OPT_DESCRIPTIVE_ACTIVITY_ENTRIES,
+                    default=self._entry.options.get(
+                        OPT_DESCRIPTIVE_ACTIVITY_ENTRIES,
+                        DEFAULT_DESCRIPTIVE_ACTIVITY_ENTRIES,
                     ),
                 ): bool,
             }
@@ -650,12 +661,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
     def _grid_profile_options_available(self) -> bool:
         runtime = self._grid_profile_runtime()
-        return bool(
-            self._grid_profile_controls_enabled()
-            and runtime is not None
-            and runtime.installer_access_confirmed
-            and runtime.regions
-        )
+        return bool(self._grid_profile_controls_enabled() and runtime is not None)
 
     def _grid_profile_controls_enabled(self) -> bool:
         """Return the option state, preserving pre-migration options-flow behavior."""
@@ -666,6 +672,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
     @staticmethod
     def _grid_profile_unavailable_reason(runtime: GridProfileRuntime) -> str:
+        if runtime.support_state == SUPPORT_SESSION_EXPIRED:
+            return "grid_profile_session_expired"
         return (
             "grid_profile_installer_required"
             if runtime.support_state in {SUPPORT_DENIED, SUPPORT_READ_ONLY}
@@ -851,6 +859,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         menu_options = [
             "settings",
             "devices",
+            "features",
             "repair_notifications",
             "authentication_settings",
             "advanced",
@@ -865,13 +874,286 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         del user_input
-        menu_options = ["grid_toggle"]
+        menu_options = ["grid_toggle", "export_limit"]
         if self._grid_profile_options_available():
             menu_options.append("grid_profile")
         return self.async_show_menu(
             step_id="advanced",
             menu_options=menu_options,
         )
+
+    def _export_runtime(self) -> ExportLimitRuntime:
+        runtime = getattr(self._grid_mode_coordinator(), "export_limit_runtime", None)
+        if not isinstance(runtime, ExportLimitRuntime):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="export_limit_unavailable"
+            )
+        return runtime
+
+    async def _export_label(self, key: str, fallback: str) -> str:
+        labels = await async_get_translations(
+            self.hass, self.hass.config.language or "en", "entity", [DOMAIN]
+        )
+        return str(
+            labels.get(f"component.{DOMAIN}.entity.sensor.export_limit.{key}", fallback)
+        )
+
+    async def _export_current_label(self) -> str:
+        snapshot = self._export_snapshot
+        if snapshot is not None and snapshot.supported and snapshot.enabled:
+            return f"{int(snapshot.watts)} W"
+        state = snapshot.state if snapshot is not None else "unsupported"
+        return await self._export_label(f"state.{state}", state)
+
+    async def async_step_export_limit_readonly(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        return self.async_create_entry(title="", data=dict(self._entry.options))
+
+    async def async_step_export_limit(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        errors: dict[str, str] = {}
+        enabled = bool(
+            self._entry.options.get(OPT_EXPORT_LIMIT_CONTROLS_ENABLED, False)
+        )
+        if enabled:
+            try:
+                self._export_snapshot = await self._export_runtime().async_prepare()
+            except ServiceValidationError as err:
+                errors["base"] = (
+                    "grid_profile_session_expired"
+                    if err.translation_key == "export_limit_session_expired"
+                    else "export_limit_unavailable"
+                )
+            else:
+                if not self._export_snapshot.supported:
+                    return self.async_show_form(
+                        step_id="export_limit_readonly",
+                        data_schema=vol.Schema({}),
+                        description_placeholders={
+                            "current": await self._export_current_label()
+                        },
+                    )
+                return await self.async_step_export_limit_action()
+        else:
+            errors["base"] = "export_limit_disabled"
+        return self.async_show_form(
+            step_id="export_limit", data_schema=vol.Schema({}), errors=errors
+        )
+
+    async def async_step_export_limit_action(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Expose the action menu as a registered Home Assistant flow step."""
+        pending = self._export_runtime().pending
+        if pending is None:
+            pending_label = await self._export_label(
+                "state_attributes.request_status.state.idle", "None"
+            )
+        elif pending["watts"] is None:
+            pending_label = await self._export_label("state.disabled", "Disabled")
+        else:
+            pending_label = f"{pending['watts']} W"
+        return self.async_show_menu(
+            step_id="export_limit_action",
+            description_placeholders={
+                "current": await self._export_current_label(),
+                "pending": pending_label,
+            },
+            menu_options=[
+                "export_limit_defaults",
+                "export_limit_set",
+                "export_limit_disable",
+            ],
+        )
+
+    async def async_step_export_limit_defaults(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Save selector defaults locally, without sending a gateway write."""
+        if self._export_snapshot is None:
+            return await self.async_step_export_limit()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                watts = validate_watts(user_input["limit_watts"])
+                restore = user_input.get("restore_slew_rate", False)
+                if restore:
+                    self._export_snapshot = await self._export_runtime().async_prepare()
+                    slew = validate_slew_rate(self._export_snapshot.slew)
+                else:
+                    slew = validate_slew_rate(user_input["slew_rate"])
+            except ServiceValidationError as err:
+                errors["base"] = str(err.translation_key)
+            else:
+                options = dict(self._entry.options)
+                options[OPT_EXPORT_LIMIT_DEFAULT_WATTS] = watts
+                if restore or slew == self._export_snapshot.slew:
+                    options.pop(OPT_EXPORT_LIMIT_SLEW_RATE, None)
+                else:
+                    options[OPT_EXPORT_LIMIT_SLEW_RATE] = slew
+                return self.async_create_entry(title="", data=options)
+        return self.async_show_form(
+            step_id="export_limit_defaults",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "limit_watts",
+                        default=self._entry.options.get(
+                            OPT_EXPORT_LIMIT_DEFAULT_WATTS, 0
+                        ),
+                    ): selector(
+                        {
+                            "number": {
+                                "min": 0,
+                                "max": 100000,
+                                "step": 1,
+                                "mode": "box",
+                                "unit_of_measurement": "W",
+                            }
+                        }
+                    ),
+                    vol.Required(
+                        "slew_rate",
+                        default=self._entry.options.get(
+                            OPT_EXPORT_LIMIT_SLEW_RATE, self._export_snapshot.slew
+                        ),
+                    ): selector(
+                        {
+                            "number": {
+                                "min": 0.01,
+                                "step": 0.01,
+                                "mode": "box",
+                                "unit_of_measurement": "W/sec",
+                            }
+                        }
+                    ),
+                    vol.Optional("restore_slew_rate", default=False): bool,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_export_limit_set(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                self._export_watts = validate_watts(user_input["limit_watts"])
+                self._export_slew = None
+            except ServiceValidationError:
+                errors["base"] = "export_limit_invalid"
+            else:
+                return await self.async_step_export_limit_confirm()
+        return self.async_show_form(
+            step_id="export_limit_set",
+            last_step=False,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "limit_watts",
+                        default=self._entry.options.get(
+                            OPT_EXPORT_LIMIT_DEFAULT_WATTS, 0
+                        ),
+                    ): selector(
+                        {
+                            "number": {
+                                "min": 0,
+                                "max": 100000,
+                                "step": 1,
+                                "unit_of_measurement": "W",
+                                "mode": "box",
+                            }
+                        }
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_export_limit_disable(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        self._export_watts = None
+        self._export_slew = None
+        return await self.async_step_export_limit_confirm()
+
+    def _export_requested_slew(self) -> float:
+        """Freeze the requested rate when it is first displayed for confirmation."""
+        if self._export_slew is None:
+            assert self._export_snapshot is not None
+            self._export_slew = (
+                self._entry.options.get(
+                    OPT_EXPORT_LIMIT_SLEW_RATE, self._export_snapshot.slew
+                )
+                if self._export_watts is not None
+                else self._export_snapshot.slew
+            )
+        return self._export_slew
+
+    async def async_step_export_limit_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        runtime = self._export_runtime()
+        errors: dict[str, str] = {}
+        if self._export_snapshot is None:
+            return await self.async_step_export_limit()
+        if user_input is not None:
+            requested_slew = self._export_requested_slew()
+            try:
+                await runtime.async_apply(
+                    self._export_watts,
+                    confirm=user_input.get("confirm") is True,
+                    expected=self._export_snapshot,
+                    slew_rate=(
+                        requested_slew
+                        if requested_slew != self._export_snapshot.slew
+                        else None
+                    ),
+                )
+            except ServiceValidationError as err:
+                key = str(err.translation_key or "export_limit_unavailable")
+                errors["base"] = key
+                if key == "export_limit_changed":
+                    self._export_snapshot = runtime.snapshot or self._export_snapshot
+                    self._export_slew = None
+            else:
+                status = runtime.request_status
+                return self.async_show_form(
+                    step_id="export_limit_submitted",
+                    data_schema=vol.Schema({}),
+                    description_placeholders={
+                        "status": await self._export_label(
+                            f"state_attributes.request_status.state.{status}", status
+                        )
+                    },
+                )
+        return self.async_show_form(
+            step_id="export_limit_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("confirm", default=False): bool,
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "current": await self._export_current_label(),
+                "current_slew": str(self._export_snapshot.slew),
+                "requested_slew": str(self._export_requested_slew()),
+                "requested": (
+                    str(self._export_watts) + " W"
+                    if self._export_watts is not None
+                    else await self._export_label("state.disabled", "Disabled")
+                ),
+            },
+        )
+
+    async def async_step_export_limit_submitted(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        return self.async_create_entry(title="", data=dict(self._entry.options))
 
     async def async_step_grid_toggle(
         self, user_input: dict[str, Any] | None = None
@@ -933,6 +1215,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="grid_toggle",
+            last_step=False,
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_GRID_MODE): selector(
@@ -1043,6 +1326,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="grid_profile",
+            last_step=False,
             data_schema=self._grid_profile_filter_schema(runtime),
             errors=errors,
         )
@@ -1079,6 +1363,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="grid_profile_select",
+            last_step=False,
             data_schema=self._grid_profile_select_schema(profiles),
             errors=errors,
         )
@@ -1192,9 +1477,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             option_data.pop(OPT_BATTERY_SCHEDULES_ENABLED, None)
             option_data.pop(OPT_DEGRADED_SERVICE_REPAIR_ISSUES, None)
             option_data.pop(OPT_SYSTEM_EVENT_REPAIR_ISSUES, None)
+            option_data.pop(OPT_DESCRIPTIVE_ACTIVITY_ENTRIES, None)
             option_data.pop(OPT_PRICING_EDITS_ENABLED, None)
             option_data.pop(OPT_WEATHER_ENABLED, None)
             option_data.pop(OPT_VPP_EVENTS_ENABLED, None)
+            option_data.pop(OPT_EXPORT_LIMIT_CONTROLS_ENABLED, None)
             option_data.pop(OPT_GRID_PROFILE_CONTROLS_ENABLED, None)
             option_data.pop(OPT_MICROINVERTER_LIFETIME_ENERGY_ENABLED, None)
             option_data.pop(OPT_MICROINVERTER_POWER_ENABLED, None)
@@ -1204,7 +1491,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
             options = dict(self._entry.options)
             options.update(option_data)
-            return self.async_create_entry(data=options)
+            return self.async_create_entry(title="", data=options)
 
         return self.async_show_form(step_id="settings", data_schema=schema)
 
@@ -1218,10 +1505,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         submitted_data = dict(user_input)
         category_data = submitted_data.pop(CONF_DEVICE_CATEGORIES_SECTION, None)
-        feature_data = submitted_data.pop(CONF_DEVICE_FEATURES_SECTION, None)
         device_data = dict(category_data) if isinstance(category_data, dict) else {}
-        if isinstance(feature_data, dict):
-            device_data.update(feature_data)
         device_data.update(submitted_data)
         selected_type_keys: list[str] = []
         default_selected_type_keys = self._default_selected_type_keys()
@@ -1257,6 +1541,23 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
         new_data[CONF_SITE_ONLY] = site_only
         new_data[CONF_INCLUDE_INVERTERS] = "microinverter" in selected_type_keys
         new_data[CONF_SERIALS] = serials
+        options = dict(self._entry.options)
+        self.hass.config_entries.async_update_entry(
+            self._entry, data=new_data, options=options
+        )
+        return self.async_create_entry(title="", data=options)
+
+    async def async_step_features(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        schema = self._build_features_schema()
+        if user_input is None:
+            return self.async_show_form(step_id="features", data_schema=schema)
+        device_data = dict(user_input)
+        for section_key in (CONF_DEVICE_FEATURES_SECTION, "advanced_features"):
+            section_data = device_data.pop(section_key, None)
+            if isinstance(section_data, dict):
+                device_data.update(section_data)
         options = dict(self._entry.options)
         options[OPT_SCHEDULE_SYNC_ENABLED] = bool(
             device_data.get(
@@ -1303,6 +1604,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 ),
             )
         )
+        options[OPT_EXPORT_LIMIT_CONTROLS_ENABLED] = bool(
+            device_data.get(
+                OPT_EXPORT_LIMIT_CONTROLS_ENABLED,
+                options.get(OPT_EXPORT_LIMIT_CONTROLS_ENABLED, False),
+            )
+        )
         options[OPT_GRID_PROFILE_CONTROLS_ENABLED] = bool(
             device_data.get(
                 OPT_GRID_PROFILE_CONTROLS_ENABLED,
@@ -1339,11 +1646,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
             )
             or self._default_nominal_voltage()
         )
-        self.hass.config_entries.async_update_entry(
-            self._entry,
-            data=new_data,
-            options=options,
-        )
         return self.async_create_entry(title="", data=options)
 
     async def async_step_repair_notifications(
@@ -1372,6 +1674,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
                 options.get(
                     OPT_SYSTEM_EVENT_REPAIR_ISSUES,
                     DEFAULT_SYSTEM_EVENT_REPAIR_ISSUES,
+                ),
+            )
+        )
+        options[OPT_DESCRIPTIVE_ACTIVITY_ENTRIES] = bool(
+            user_input.get(
+                OPT_DESCRIPTIVE_ACTIVITY_ENTRIES,
+                options.get(
+                    OPT_DESCRIPTIVE_ACTIVITY_ENTRIES,
+                    DEFAULT_DESCRIPTIVE_ACTIVITY_ENTRIES,
                 ),
             )
         )
@@ -1423,6 +1734,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="migrate_envoy_source",
+            last_step=False,
             data_schema=self._build_migration_source_schema(sources),
         )
 
@@ -1440,6 +1752,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="migrate_envoy_intro",
+            last_step=False,
             data_schema=self._build_migration_intro_schema(),
             errors=errors,
             description_placeholders={
@@ -1487,6 +1800,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):  # type: ignore[misc]
 
         return self.async_show_form(
             step_id="migrate_envoy_mapping",
+            last_step=False,
             data_schema=self._build_migration_mapping_schema(
                 source,
                 extra_candidates,

@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from homeassistant.exceptions import ServiceValidationError
 
 from .api import ActivationAccessDenied, OptionalEndpointUnavailable, Unauthorized
+from .api_client.errors import ActivationSessionExpired
+from .control_updates import tracked_control
 from .const import DOMAIN
 from .service_validation import raise_translated_service_validation
 
+if TYPE_CHECKING:
+    from .coordinator import EnphaseCoordinator
+
 ACTIVATION_GRID_PROFILE_FAMILY = "activation_grid_profile"
+SUPPORT_SESSION_EXPIRED = "session_expired"
 SUPPORT_UNKNOWN = "unknown"
 SUPPORT_CONFIRMED = "installer_access_confirmed"
 SUPPORT_DENIED = "installer_access_denied"
@@ -25,6 +32,13 @@ ALL_PROFILES_OPTION = "all_profiles"
 PROFILE_MODE_OPTIONS = (COMMONLY_USED_OPTION, ALL_PROFILES_OPTION)
 PENDING_PROFILE_POLL_INTERVAL_S = 60.0
 PENDING_PROFILE_POLL_WINDOW_S = 300.0
+
+
+def request_session_reauthentication(coordinator: EnphaseCoordinator) -> None:
+    """Surface exhausted Enlighten session recovery without failing other families."""
+    entry = getattr(coordinator, "config_entry", None)
+    if entry is not None:
+        entry.async_start_reauth(coordinator.hass)
 
 
 @dataclass(slots=True, frozen=True)
@@ -754,7 +768,12 @@ class GridProfileRuntime:
                 )
                 self.gateway_targets = targets
 
-    def _parse_activation_devices(self, payload: object) -> None:
+    def _parse_activation_devices(
+        self,
+        payload: object,
+        *,
+        control_tokens: Mapping[tuple[str, str | None], object] | None = None,
+    ) -> None:
         """Parse Activation device-list status returned by the cloud endpoint."""
 
         if isinstance(payload, dict):
@@ -820,6 +839,17 @@ class GridProfileRuntime:
             serial = self._envoy_serial_from_record(record)
             if serial is None and len(targets) == 1:
                 serial = next(iter(targets))
+            if control_tokens is not None and serial and current_id:
+                update = self.coordinator.control_updates.updates.get(
+                    ("grid_profile", None)
+                )
+                if update and update.requested.get("gateway_serial") == serial:
+                    self.coordinator.control_updates.observe(
+                        "grid_profile",
+                        None,
+                        {"profile_id": current_id, "gateway_serial": serial},
+                        control_tokens,
+                    )
             if serial:
                 existing = targets.get(serial)
                 ensemble = _coerce_bool(
@@ -982,7 +1012,10 @@ class GridProfileRuntime:
         return profiles
 
     def _mark_denied(self, err: Exception) -> None:
-        if self._is_access_denied(err):
+        if isinstance(err, ActivationSessionExpired):
+            self.support_state = SUPPORT_SESSION_EXPIRED
+            request_session_reauthentication(self.coordinator)
+        elif self._is_access_denied(err):
             self.support_state = SUPPORT_DENIED
         else:
             self.support_state = SUPPORT_UNAVAILABLE
@@ -1039,6 +1072,8 @@ class GridProfileRuntime:
 
         try:
             prepared = await self._async_prepare_activation_auth(force=True)
+        except ActivationSessionExpired as err:
+            self._mark_denied(err)
         except Exception as err:  # noqa: BLE001
             self.coordinator._note_endpoint_family_failure(
                 ACTIVATION_GRID_PROFILE_FAMILY, err
@@ -1075,13 +1110,16 @@ class GridProfileRuntime:
             family = ACTIVATION_GRID_PROFILE_FAMILY
             if not self.coordinator._endpoint_family_should_run(family, force=force):
                 return self.browse()
+            runtime = getattr(self.coordinator, "control_updates", None)
+            control_tokens = runtime.read_tokens() if runtime else None
             try:
                 await self._async_prepare_activation_auth()
                 devices = await self.client.async_get_activation_device_list()
-                self._parse_activation_devices(devices)
+                self._parse_activation_devices(devices, control_tokens=control_tokens)
             except Exception as err:  # noqa: BLE001
                 if (
                     self._is_access_denied(err)
+                    and not isinstance(err, ActivationSessionExpired)
                     and not self.installer_access_ever_confirmed
                     and self._sync_settings_profiles()
                 ):
@@ -1121,7 +1159,12 @@ class GridProfileRuntime:
                 return await self._async_refresh_read_only_settings()
             errors: list[Exception] = []
             successful_requests = 0
-            await self._async_prepare_activation_auth(force=force)
+            try:
+                await self._async_prepare_activation_auth(force=force)
+            except ActivationSessionExpired as err:
+                self._mark_denied(err)
+                self._publish_state_update()
+                return self.browse()
             if force or self.reference_payload is None:
                 try:
                     reference = await self.client.async_get_activation_reference_data()
@@ -1142,11 +1185,13 @@ class GridProfileRuntime:
             except Exception as err:  # noqa: BLE001
                 errors.append(err)
             denied_error = next(
-                (err for err in errors if self._is_access_denied(err)), None
+                (err for err in errors if isinstance(err, ActivationSessionExpired)),
+                next((err for err in errors if self._is_access_denied(err)), None),
             )
             if denied_error is not None:
                 if (
-                    not self.installer_access_ever_confirmed
+                    not isinstance(denied_error, ActivationSessionExpired)
+                    and not self.installer_access_ever_confirmed
                     and self._sync_settings_profiles()
                 ):
                     self._mark_read_only()
@@ -1422,13 +1467,16 @@ class GridProfileRuntime:
         try:
             while (
                 self.pending_profile_id
-                and self.support_state != SUPPORT_DENIED
+                and self.support_state not in {SUPPORT_DENIED, SUPPORT_SESSION_EXPIRED}
                 and _profile_id_for_compare(self.pending_profile_id)
                 == _profile_id_for_compare(profile_id)
                 and time.monotonic() < deadline
             ):
                 await asyncio.sleep(self._pending_poll_interval_s)
-                if not self.pending_profile_id or self.support_state == SUPPORT_DENIED:
+                if not self.pending_profile_id or self.support_state in {
+                    SUPPORT_DENIED,
+                    SUPPORT_SESSION_EXPIRED,
+                }:
                     break
                 await self.async_refresh_device_status(force=True)
         except asyncio.CancelledError:
@@ -1440,7 +1488,8 @@ class GridProfileRuntime:
                 == _profile_id_for_compare(profile_id)
             )
             if pending_matches and (
-                self.support_state == SUPPORT_DENIED or time.monotonic() >= deadline
+                self.support_state in {SUPPORT_DENIED, SUPPORT_SESSION_EXPIRED}
+                or time.monotonic() >= deadline
             ):
                 self.pending_profile_id = None
                 self.pending_gateway_serial = None
@@ -1468,6 +1517,7 @@ class GridProfileRuntime:
             region_code=self.staged_region_code,
         )
 
+    @tracked_control("grid_profile", arguments=("profile_id",))
     async def async_apply_grid_profile(
         self,
         profile_id: str | None,
@@ -1541,6 +1591,15 @@ class GridProfileRuntime:
         assert target is not None
         try:
             await self._async_prepare_activation_auth()
+            runtime = getattr(self.coordinator, "control_updates", None)
+            if runtime:
+                runtime.set_requested(
+                    "grid_profile",
+                    {
+                        "profile_id": profile.profile_id,
+                        "gateway_serial": target.serial_num,
+                    },
+                )
             await self.client.async_apply_grid_profile(
                 gateway_serial=target.serial_num,
                 part_num=target.part_num,

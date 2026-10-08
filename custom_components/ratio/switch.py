@@ -1,0 +1,232 @@
+"""Switch platform for Ratio EV Charging."""
+
+from __future__ import annotations
+
+# Note on ``# pyright: ignore[reportIncompatibleVariableOverride]`` below:
+# HA's ``Entity`` base declares ``available`` (and platform classes declare
+# ``is_on``/``native_value``/``options``/``current_option``/``extra_state_attributes``/etc.)
+# as ``cached_property``. ``CoordinatorEntity.available`` overrides ``Entity``'s
+# with a plain ``@property`` — leaving the two bases declaring the same name in
+# incompatible ways. Our overrides use ``@property`` to match the dynamic
+# semantics that ``CoordinatorEntity`` already relies on; using
+# ``@cached_property`` here would cache values across coordinator updates and
+# break tests. Official HA core integrations (fyta, reolink, snoo, etc.) use
+# the same dynamic-property pattern. The variance error is structurally
+# unavoidable from this side of the HA boundary.
+from typing import Any
+
+from aioratio import RatioClient
+from aioratio.models import (
+    ChargerOverview,
+    InstallerOcppSettings,
+    OcppSettingsUpdate,
+)
+from homeassistant.components.switch import SwitchEntity
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from . import RatioConfigEntry
+from .const import ACTIVE_CHARGING_STATES, DOMAIN
+from .coordinator import RatioCoordinator
+
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: RatioConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Ratio switches from a config entry."""
+    coordinator = entry.runtime_data.coordinator
+    client = entry.runtime_data.client
+    known: set[str] = set()
+
+    @callback
+    def _add_new() -> None:
+        if coordinator.data is None:
+            return
+        new = set(coordinator.data.chargers) - known
+        if not new:
+            return
+        entities: list[SwitchEntity] = [
+            RatioChargingSwitch(coordinator, client, serial) for serial in new
+        ]
+        entities.extend(
+            RatioOcppEnabledSwitch(coordinator, client, serial) for serial in new
+        )
+        known.update(new)
+        async_add_entities(entities)
+
+    _add_new()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new))
+
+
+class RatioChargingSwitch(CoordinatorEntity[RatioCoordinator], SwitchEntity):
+    """Switch that starts / stops the active charge session."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "charging"
+    _attr_name = "Charging"
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._client = client
+        self._serial = serial
+        self._attr_unique_id = f"{serial}_charging_switch"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    @property
+    def _overview(self) -> ChargerOverview | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.chargers.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return super().available and self._overview is not None
+
+    @property
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        ov = self._overview
+        if ov is None or ov.charger_status is None:
+            return None
+        ind = ov.charger_status.indicators
+        # ``is_charge_session_active`` is *not* a substitute for charging_state:
+        # a session record stays open across the post-stop VehicleDetected phase
+        # and would otherwise pin the switch back to ON after each poll (#37).
+        # Treat a missing chargingState as unknown so a transient empty cloud
+        # payload doesn't lie. Defer to ``is_charging_disabled`` because the
+        # cloud occasionally emits chargingState=Charging while the charger has
+        # been administratively disabled (mirrors the Android domain model's
+        # Disabled-before-raw-state derivation in ChargerStatusModel.java:385).
+        if ind is None or ind.charging_state is None:
+            return None
+        if ind.is_charging_disabled:
+            return False
+        return ind.charging_state in ACTIVE_CHARGING_STATES
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Start a charge session."""
+        if self.is_on is True:
+            return
+        status = self._charger_status()
+        if status is not None and not status.is_charge_start_allowed:
+            ind = status.indicators
+            state = ind.charging_state if ind is not None else "unknown"
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="charge_start_not_allowed",
+                translation_placeholders={"state": str(state)},
+            )
+        call_kwargs: dict[str, Any] = {}
+        preferred = self.coordinator.preferred_vehicle.get(self._serial)
+        if preferred is not None:
+            call_kwargs["vehicle_id"] = preferred
+        await self.coordinator.request_command(
+            self._client.start_charge, self._serial, **call_kwargs
+        )
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Stop the active charge session."""
+        if self.is_on is False:
+            return
+        status = self._charger_status()
+        if status is not None and not status.is_charge_stop_allowed:
+            ind = status.indicators
+            state = ind.charging_state if ind is not None else "unknown"
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="charge_stop_not_allowed",
+                translation_placeholders={"state": str(state)},
+            )
+        await self.coordinator.request_command(self._client.stop_charge, self._serial)
+
+    def _charger_status(self) -> Any:
+        ov = self._overview
+        return ov.charger_status if ov is not None else None
+
+
+class RatioOcppEnabledSwitch(CoordinatorEntity[RatioCoordinator], SwitchEntity):
+    """Switch that enables / disables OCPP on the charger."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "ocpp_enabled"
+    _attr_name = "OCPP enabled"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(
+        self,
+        coordinator: RatioCoordinator,
+        client: RatioClient,
+        serial: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._client = client
+        self._serial = serial
+        self._attr_unique_id = f"{serial}_ocpp_enabled_switch"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, serial)},
+            manufacturer="Ratio",
+            name=f"Ratio {serial}",
+            serial_number=serial,
+        )
+
+    def _ocpp_settings(self) -> InstallerOcppSettings | None:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.ocpp_settings.get(self._serial)
+
+    @property
+    def available(self) -> bool:  # pyright: ignore[reportIncompatibleVariableOverride]
+        if not super().available or self.coordinator.data is None:
+            return False
+        settings = self._ocpp_settings()
+        if settings is None:
+            return False
+        return settings.enabled_status.is_change_allowed
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        settings = self._ocpp_settings()
+        if settings is None:
+            return None
+        reason = settings.enabled_status.change_not_allowed_reason
+        if reason is not None:
+            return {"change_not_allowed_reason": reason}
+        return None
+
+    @property
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        settings = self._ocpp_settings()
+        if settings is None:
+            return None
+        return settings.enabled
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._set_enabled(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._set_enabled(False)
+
+    async def _set_enabled(self, enabled: bool) -> None:
+        """PUT only ``enabled`` (``SetInstallerOcppSettings$$serializer``)."""
+        await self.coordinator.request_command(
+            self._client.set_ocpp_settings,
+            self._serial,
+            OcppSettingsUpdate(enabled=enabled),
+        )

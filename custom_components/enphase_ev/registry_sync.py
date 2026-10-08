@@ -13,6 +13,7 @@ from .const import (
 )
 from .device_info_helpers import (
     _compose_charger_model_display,
+    _site_configuration_url,
     _is_redundant_model_id,
     _normalize_evse_display_name,
     _normalize_evse_model_name as _normalize_evse_model_name,
@@ -38,13 +39,10 @@ from .serial_discovery import (
     active_serial_registry_identifiers,
 )
 from .serial_entity_metadata import (
-    AC_BATTERY_ENTITY_UNIQUE_SUFFIXES,
-    AC_BATTERY_RETIRED_UNIQUE_SUFFIXES,
     BATTERY_ENTITY_UNIQUE_SUFFIXES,
     BATTERY_RETIRED_UNIQUE_SUFFIXES,
     CHARGER_BINARY_SENSOR_UNIQUE_SUFFIXES,
     CHARGER_SENSOR_UNIQUE_SUFFIXES,
-    ac_battery_entity_serial_from_unique_id,
     battery_entity_serial_from_unique_id,
     charger_entity_serial_from_unique_id,
     inverter_entity_serial_from_unique_id,
@@ -114,6 +112,7 @@ def _sync_type_devices(
             "config_entry_id": entry.entry_id,
             "identifiers": {ident},
             "manufacturer": "Enphase",
+            "configuration_url": _site_configuration_url(site_id),
             "name": name,
             "model": model,
         }
@@ -194,6 +193,7 @@ def _sync_charger_devices(
             "config_entry_id": entry.entry_id,
             "identifiers": {(DOMAIN, sn)},
             "manufacturer": "Enphase",
+            "configuration_url": _site_configuration_url(site_id),
             "name": dev_name,
             "serial_number": str(sn),
             "via_device_id": None,
@@ -206,6 +206,10 @@ def _sync_charger_devices(
         )
         if model_display:
             kwargs["model"] = model_display
+        model_id = _clean_optional_text(d.get("model_id") or model_name_raw)
+        kwargs["model_id"] = (
+            None if _is_redundant_model_id(model_display, model_id) else model_id
+        )
         hw = d.get("hw_version")
         if hw:
             kwargs["hw_version"] = str(hw)
@@ -218,12 +222,26 @@ def _sync_charger_devices(
         if existing is None:
             changes.append("new_device")
         else:
+            # Update this entry's device only; other integrations may retain their
+            # own MAC connections on the same physical charger.
+            mac_connections = {
+                connection
+                for connection in getattr(existing, "connections", set())
+                if connection[0] == dr.CONNECTION_NETWORK_MAC
+            }
+            if mac_connections:
+                dev_reg.async_update_device(
+                    existing.id, new_connections=existing.connections - mac_connections
+                )
+                changes.append("connections")
             if existing.name != dev_name:
                 changes.append("name")
             if existing.manufacturer != "Enphase":
                 changes.append("manufacturer")
             if model_display and existing.model != model_display:
                 changes.append("model")
+            if getattr(existing, "model_id", None) != kwargs["model_id"]:
+                changes.append("model_id")
             if hw and existing.hw_version != str(hw):
                 changes.append("hw_version")
             if sw and existing.sw_version != str(sw):
@@ -278,17 +296,6 @@ def _serial_entity_group_from_unique_id(
         )
         if battery_serial is not None:
             return ("battery", battery_serial)
-
-        ac_battery_serial = ac_battery_entity_serial_from_unique_id(
-            unique_id,
-            site_id=site_text,
-            suffixes=(
-                *AC_BATTERY_ENTITY_UNIQUE_SUFFIXES,
-                *AC_BATTERY_RETIRED_UNIQUE_SUFFIXES,
-            ),
-        )
-        if ac_battery_serial is not None:
-            return ("ac_battery", ac_battery_serial)
 
     inverter_serial = inverter_entity_serial_from_unique_id(unique_id)
     if inverter_serial is not None:
@@ -483,6 +490,32 @@ def _registry_type_metadata_signature(
             continue
         normalized = normalized or _clean_optional_text(type_key) or ""
         ident = inventory_view.type_identifier(type_key)
+        device_info_getter = getattr(inventory_view, "type_device_info", None)
+        device_info = (
+            device_info_getter(type_key) if callable(device_info_getter) else None
+        )
+        if isinstance(device_info, dict):
+            # InventoryView caches this compact metadata independently of
+            # telemetry. Avoid rescanning every member for each scalar getter.
+            signature.append(
+                (
+                    normalized,
+                    ident,
+                    _clean_optional_text(inventory_view.type_label(type_key)),
+                    *(
+                        _clean_optional_text(device_info.get(key))
+                        for key in (
+                            "name",
+                            "model",
+                            "hw_version",
+                            "serial_number",
+                            "model_id",
+                            "sw_version",
+                        )
+                    ),
+                )
+            )
+            continue
         signature.append(
             (
                 normalized,
@@ -526,7 +559,7 @@ def _registry_charger_metadata_signature(
                 str(sn),
                 device_name,
                 _clean_optional_text(model_display),
-                _clean_optional_text(payload.get("model_id")),
+                _clean_optional_text(payload.get("model_id") or model_name_raw),
                 _clean_optional_text(payload.get("hw_version")),
                 _clean_optional_text(payload.get("sw_version")),
             )

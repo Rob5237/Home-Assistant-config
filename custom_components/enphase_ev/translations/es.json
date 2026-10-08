@@ -43,8 +43,7 @@
           "type_iqevse": "Cargadores",
           "type_microinverter": "Microinversores",
           "scan_interval": "Intervalo de sondeo (s)",
-          "type_heatpump": "Bomba de calor",
-          "type_ac_battery": "Batería CA"
+          "type_heatpump": "Bomba de calor"
         },
         "data_description": {
           "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
@@ -52,8 +51,7 @@
           "type_iqevse": "Incluye entidades y controles de cargadores EV.",
           "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada.",
           "scan_interval": "Segundos entre consultas al estado en la nube. Predeterminado 60 s.",
-          "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
-          "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles."
+          "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor."
         }
       }
     },
@@ -138,9 +136,6 @@
     },
     "battery_schedule_overlap": {
       "message": "El horario se superpone con el {schedule_label} existente. Ajusta o desactiva primero ese horario."
-    },
-    "ac_battery_unavailable": {
-      "message": "No hay dispositivos AC Battery disponibles en este momento."
     },
     "auth_settings_service_unavailable": {
       "message": "Los ajustes de autenticación no están disponibles mientras el servicio de Enphase esté caído."
@@ -358,9 +353,6 @@
     "scheduler_service_unavailable": {
       "message": "La selección del modo de carga no está disponible mientras el servicio de programación de Enphase no esté disponible."
     },
-    "selected_ac_battery_target_state_of_charge_unavailable": {
-      "message": "El estado de carga objetivo seleccionado de la batería CA no está disponible."
-    },
     "battery_schedule_day_required": {
       "message": "Selecciona al menos un día para el horario."
     },
@@ -489,6 +481,39 @@
     },
     "grid_profile_controls_disabled": {
       "message": "Activa los controles de perfil de red para instaladores en las opciones de la integración antes de usar esta acción."
+    },
+    "export_limit_unavailable": {
+      "message": "Límite de vertido no disponible. Se requiere acceso de instalador y una configuración compatible con una sola pasarela."
+    },
+    "export_limit_invalid": {
+      "message": "Introduzca vatios enteros entre 0 y 100000."
+    },
+    "export_limit_changed": {
+      "message": "La configuración ha cambiado. Revise los ajustes y confirme de nuevo."
+    },
+    "export_limit_mismatch": {
+      "message": "El formulario del instalador de Enphase no coincide con los ajustes de la puerta de enlace. Actualiza los ajustes e inténtalo de nuevo."
+    },
+    "export_limit_pending": {
+      "message": "Esperando confirmación de la configuración. Actualice el estado antes de otro cambio."
+    },
+    "export_limit_disabled": {
+      "message": "Activar controles del límite de vertido (Funciones → Funciones avanzadas)."
+    },
+    "export_limit_confirmation": {
+      "message": "Confirmar este cambio"
+    },
+    "export_limit_invalid_slew": {
+      "message": "Introduzca un número positivo con hasta dos decimales."
+    },
+    "export_limit_session_expired": {
+      "message": "La sesión de Enlighten ha caducado o ha sido rechazada. Abra Autenticación, vuelva a autenticarse e inténtelo de nuevo."
+    },
+    "control_change_pending": {
+      "message": "Un cambio de control está pendiente de confirmación. Actualiza su estado antes de enviar otro cambio."
+    },
+    "charger_status_unavailable": {
+      "message": "El estado actualizado del cargador no está disponible. Espera a que se recupere antes de cambiar los ajustes."
     }
   },
   "options": {
@@ -502,15 +527,17 @@
           "repair_notifications": "Notificaciones",
           "authentication_settings": "Autenticación",
           "migrate_envoy": "Migrar historial de Envoy",
-          "advanced": "Avanzado"
+          "advanced": "Avanzado",
+          "features": "Funciones"
         },
         "menu_option_descriptions": {
           "settings": "Ajusta el sondeo y el comportamiento.",
-          "devices": "Elija qué grupos de dispositivos agregar. Todas las selecciones comparten el mismo intervalo de sondeo.",
-          "repair_notifications": "Gestiona las notificaciones de reparaciones de Home Assistant.",
+          "devices": "Elija las categorías de dispositivos que desea incluir.",
+          "repair_notifications": "Gestiona las notificaciones de reparaciones y las entradas descriptivas de actividad de Home Assistant.",
           "authentication_settings": "Inicia el flujo de inicio de sesión para actualizar credenciales sin eliminar la integración.",
           "migrate_envoy": "Asume los identificadores de entidad de energía seleccionados de Enphase Envoy para que el historial de Home Assistant Energy continúe con esta integración.",
-          "advanced": "Controles opcionales del modo de red y controles de perfil solo para instaladores."
+          "advanced": "Acciones de instalador y mantenimiento.",
+          "features": "Configure las funciones de los dispositivos y los controles avanzados."
         },
         "data": {
           "type_envoy": "Puerta de enlace",
@@ -525,7 +552,6 @@
           "session_history_interval": "Intervalo del historial de sesiones (min)",
           "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
           "type_heatpump": "Bomba de calor",
-          "type_ac_battery": "Batería CA",
           "battery_schedules_enabled": "Activar programador de batería",
           "degraded_service_repair_issues": "Activar reparaciones por servicios degradados",
           "weather_enabled": "Activar el tiempo",
@@ -537,18 +563,17 @@
           "type_encharge": "Incluye estado de baterías y entidades de control cuando estén disponibles.",
           "type_iqevse": "Incluye entidades y controles de cargadores EV.",
           "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada.",
-          "fast_poll_interval": "Intervalo que se usa durante la carga o cuando hay streaming.",
-          "slow_poll_interval": "Intervalo que se usa cuando está inactivo.",
-          "fast_while_streaming": "Si se activa, realiza sondeo rápido durante el streaming en la nube.",
-          "api_timeout": "Segundos antes de que las solicitudes a la API agoten el tiempo de espera.",
-          "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real.",
-          "session_history_interval": "Minutos de espera entre obtenciones del historial de sesiones en la nube.",
+          "fast_poll_interval": "Intervalo que se usa durante la carga o cuando hay streaming. Valor predeterminado: 30 s.",
+          "slow_poll_interval": "Intervalo que se usa cuando está inactivo. Valor predeterminado: 60 s.",
+          "fast_while_streaming": "Si se activa, realiza sondeo rápido durante el streaming en la nube. Valor predeterminado: Activado.",
+          "api_timeout": "Segundos antes de que las solicitudes a la API agoten el tiempo de espera. Valor predeterminado: 15 s.",
+          "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real. Valor predeterminado: Obtenido de la telemetría del cargador cuando está disponible; de lo contrario, según la región de Home Assistant, con un valor alternativo de 230 V.",
+          "session_history_interval": "Minutos de espera entre obtenciones del historial de sesiones en la nube. Valor predeterminado: 10 min.",
           "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
-          "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
-          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados.",
-          "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible.",
-          "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor.",
-          "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible."
+          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados. Valor predeterminado: Desactivado.",
+          "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible. Valor predeterminado: Desactivado.",
+          "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor. Valor predeterminado: Desactivado.",
+          "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible. Requiere acceso de instalador. Valor predeterminado: Desactivado."
         }
       },
       "settings": {
@@ -563,24 +588,23 @@
           "degraded_service_repair_issues": "Activar reparaciones por servicios degradados"
         },
         "data_description": {
-          "fast_poll_interval": "Intervalo que se usa durante la carga o cuando hay streaming.",
-          "slow_poll_interval": "Intervalo que se usa cuando está inactivo.",
-          "fast_while_streaming": "Si se activa, realiza sondeo rápido durante el streaming en la nube.",
-          "api_timeout": "Segundos antes de que las solicitudes a la API agoten el tiempo de espera.",
-          "session_history_interval": "Minutos de espera entre obtenciones del historial de sesiones en la nube.",
-          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados."
+          "fast_poll_interval": "Intervalo que se usa durante la carga o cuando hay streaming. Valor predeterminado: 30 s.",
+          "slow_poll_interval": "Intervalo que se usa cuando está inactivo. Valor predeterminado: 60 s.",
+          "fast_while_streaming": "Si se activa, realiza sondeo rápido durante el streaming en la nube. Valor predeterminado: Activado.",
+          "api_timeout": "Segundos antes de que las solicitudes a la API agoten el tiempo de espera. Valor predeterminado: 15 s.",
+          "session_history_interval": "Minutos de espera entre obtenciones del historial de sesiones en la nube. Valor predeterminado: 10 min.",
+          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados. Valor predeterminado: Desactivado."
         }
       },
       "devices": {
         "title": "Seleccionar dispositivos",
-        "description": "Elija qué grupos de dispositivos agregar. Todas las selecciones comparten el mismo intervalo de sondeo.",
+        "description": "Elija las categorías de dispositivos que desea incluir.",
         "sections": {
           "devices": {
             "name": "Seleccionar dispositivos",
             "data": {
               "type_envoy": "Puerta de enlace",
               "type_encharge": "Batería",
-              "type_ac_battery": "Batería CA",
               "type_iqevse": "Cargadores",
               "type_heatpump": "Bomba de calor",
               "type_microinverter": "Microinversores"
@@ -588,89 +612,40 @@
             "data_description": {
               "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
               "type_encharge": "Incluye estado de baterías y entidades de control cuando estén disponibles.",
-              "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
               "type_iqevse": "Incluye entidades y controles de cargadores EV.",
               "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
               "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada."
-            }
-          },
-          "device_features": {
-            "name": "Funciones del dispositivo",
-            "data": {
-              "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
-              "battery_schedules_enabled": "Activar programador de batería",
-              "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
-              "pricing_edits_enabled": "Activar la edición de precios",
-              "weather_enabled": "Activar el tiempo",
-              "nominal_voltage": "Tensión nominal del cargador EV (V)",
-              "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
-              "microinverter_power_enabled": "Activar potencia de los microinversores",
-              "vpp_events_enabled": "Activar eventos VPP",
-              "grid_profile_controls_enabled": "Activar controles de perfil de red para instaladores"
-            },
-            "data_description": {
-              "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada.",
-              "pricing_edits_enabled": "Gestionar las tarifas eléctricas de IQ Gateway",
-              "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible.",
-              "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real.",
-              "schedule_sync_enabled": "Gestiona los horarios del IQ EV Charger.",
-              "battery_schedules_enabled": "Gestiona los horarios de la IQ Battery.",
-              "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor.",
-              "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible.",
-              "vpp_events_enabled": "Obtiene los horarios VPP/ELRP de Enphase y crea entidades de eventos solo para sitios inscritos. Desactivado de forma predeterminada.",
-              "grid_profile_controls_enabled": "Obtiene metadatos del perfil de red exclusivos para instaladores y activa las acciones de perfil. Desactivado de forma predeterminada."
             }
           }
         },
         "data": {
           "devices": "Seleccionar dispositivos",
-          "device_features": "Funciones del dispositivo",
           "type_envoy": "Puerta de enlace",
           "type_encharge": "Batería",
-          "type_ac_battery": "Batería CA",
           "type_iqevse": "Cargadores",
           "type_heatpump": "Bomba de calor",
-          "type_microinverter": "Microinversores",
-          "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
-          "battery_schedules_enabled": "Activar programador de batería",
-          "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
-          "pricing_edits_enabled": "Activar la edición de precios",
-          "weather_enabled": "Activar el tiempo",
-          "nominal_voltage": "Tensión nominal del cargador EV (V)",
-          "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
-          "microinverter_power_enabled": "Activar potencia de los microinversores",
-          "vpp_events_enabled": "Activar eventos VPP",
-          "grid_profile_controls_enabled": "Activar controles de perfil de red para instaladores"
+          "type_microinverter": "Microinversores"
         },
         "data_description": {
           "type_envoy": "Incluye conectividad de la puerta de enlace y diagnósticos de medidores.",
           "type_encharge": "Incluye estado de baterías y entidades de control cuando estén disponibles.",
-          "type_ac_battery": "Incluye sensores de batería CA y controles del modo de reposo cuando están disponibles.",
           "type_iqevse": "Incluye entidades y controles de cargadores EV.",
           "type_heatpump": "Incluye sensores de estado, diagnóstico y consumo de la bomba de calor.",
-          "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada.",
-          "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada.",
-          "pricing_edits_enabled": "Gestionar las tarifas eléctricas de IQ Gateway",
-          "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible.",
-          "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real.",
-          "schedule_sync_enabled": "Gestiona los horarios del IQ EV Charger.",
-          "battery_schedules_enabled": "Gestiona los horarios de la IQ Battery.",
-          "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor.",
-          "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible.",
-          "vpp_events_enabled": "Obtiene los horarios VPP/ELRP de Enphase y crea entidades de eventos solo para sitios inscritos. Desactivado de forma predeterminada.",
-          "grid_profile_controls_enabled": "Obtiene metadatos del perfil de red exclusivos para instaladores y activa las acciones de perfil. Desactivado de forma predeterminada."
+          "type_microinverter": "Incluye sensores de conectividad de microinversores, recuento de activos y producción acumulada."
         }
       },
       "repair_notifications": {
         "title": "Notificaciones",
-        "description": "Elige qué condiciones de Enphase crean reparaciones en Home Assistant.",
+        "description": "Gestiona las notificaciones de reparaciones y las entradas descriptivas de actividad de Home Assistant.",
         "data": {
           "degraded_service_repair_issues": "Activar reparaciones por servicios degradados",
-          "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema"
+          "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
+          "descriptive_activity_entries": "Activar entradas descriptivas de actividad"
         },
         "data_description": {
-          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados.",
-          "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada."
+          "degraded_service_repair_issues": "Crea problemas de Repairs cuando los servicios opcionales de Enphase están degradados. Valor predeterminado: Desactivado.",
+          "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada. Valor predeterminado: Desactivado.",
+          "descriptive_activity_entries": "Añade entradas descriptivas a la actividad de Home Assistant cuando cambian las condiciones notificadas. Aparecen junto a las entradas normales de cambio de estado. Desactivado de forma predeterminada."
         }
       },
       "authentication_settings": {
@@ -732,11 +707,13 @@
         "description": "Acciones de instalador y mantenimiento.",
         "menu_options": {
           "grid_toggle": "Modo de red",
-          "grid_profile": "Control de perfil de red"
+          "grid_profile": "Control de perfil de red",
+          "export_limit": "Límite de vertido"
         },
         "menu_option_descriptions": {
           "grid_toggle": "Configura los controles manuales del modo de red.",
-          "grid_profile": "Explorar y aplicar perfiles de red de Activation solo para instaladores."
+          "grid_profile": "Explorar y aplicar perfiles de red de Activation solo para instaladores.",
+          "export_limit": "Configurar los límites de vertido del sistema."
         }
       },
       "grid_toggle": {
@@ -787,6 +764,125 @@
       "grid_toggle_applied": {
         "title": "Cambio de modo de red aceptado",
         "description": "Enphase aceptó la solicitud para cambiar el modo de red a **{target_mode}**.\n\nEs posible que el relé físico aún esté cambiando. Utilice el sensor de modo de red para observar el estado resultante."
+      },
+      "features": {
+        "title": "Funciones",
+        "description": "Configure las funciones de los dispositivos y los controles avanzados.",
+        "sections": {
+          "device_features": {
+            "name": "Funciones del dispositivo",
+            "data": {
+              "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
+              "battery_schedules_enabled": "Activar programador de batería",
+              "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
+              "pricing_edits_enabled": "Activar la edición de precios",
+              "weather_enabled": "Activar el tiempo",
+              "nominal_voltage": "Tensión nominal del cargador EV (V)",
+              "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
+              "vpp_events_enabled": "Activar eventos VPP"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada. Valor predeterminado: Desactivado.",
+              "pricing_edits_enabled": "Gestionar las tarifas eléctricas de IQ Gateway. Valor predeterminado: Activado.",
+              "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible. Valor predeterminado: Desactivado.",
+              "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real. Valor predeterminado: Obtenido de la telemetría del cargador cuando está disponible; de lo contrario, según la región de Home Assistant, con un valor alternativo de 230 V.",
+              "schedule_sync_enabled": "Gestiona los horarios del IQ EV Charger. Valor predeterminado: Activado.",
+              "battery_schedules_enabled": "Gestiona los horarios de la IQ Battery. Valor predeterminado: Activado.",
+              "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor. Valor predeterminado: Desactivado.",
+              "vpp_events_enabled": "Obtiene los horarios VPP/ELRP de Enphase y crea entidades de eventos solo para sitios inscritos. Desactivado de forma predeterminada. Valor predeterminado: Desactivado."
+            }
+          },
+          "advanced_features": {
+            "name": "Funciones avanzadas",
+            "data": {
+              "grid_profile_controls_enabled": "Activar controles de perfil de red para instaladores",
+              "microinverter_power_enabled": "Activar potencia de los microinversores",
+              "export_limit_controls_enabled": "Activar controles del límite de vertido"
+            },
+            "data_description": {
+              "grid_profile_controls_enabled": "Obtiene metadatos del perfil de red exclusivos para instaladores y activa las acciones de perfil. Desactivado de forma predeterminada. Requiere acceso de instalador. Valor predeterminado: Desactivado.",
+              "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible. Requiere acceso de instalador. Valor predeterminado: Desactivado.",
+              "export_limit_controls_enabled": "Configurar los límites de vertido del sistema. Requiere acceso de instalador. Valor predeterminado: Desactivado."
+            }
+          }
+        },
+        "data": {
+          "device_features": "Funciones del dispositivo",
+          "advanced_features": "Funciones avanzadas",
+          "schedule_sync_enabled": "Habilitar la compatibilidad con el programador",
+          "battery_schedules_enabled": "Activar programador de batería",
+          "system_event_repair_issues": "Activar notificaciones de reparación de eventos del sistema",
+          "pricing_edits_enabled": "Activar la edición de precios",
+          "weather_enabled": "Activar el tiempo",
+          "nominal_voltage": "Tensión nominal del cargador EV (V)",
+          "microinverter_lifetime_energy_enabled": "Activar energía de por vida de los microinversores",
+          "microinverter_power_enabled": "Activar potencia de los microinversores",
+          "vpp_events_enabled": "Activar eventos VPP",
+          "grid_profile_controls_enabled": "Activar controles de perfil de red para instaladores",
+          "export_limit_controls_enabled": "Activar controles del límite de vertido"
+        },
+        "data_description": {
+          "system_event_repair_issues": "Crea reparaciones de Home Assistant para alarmas permanentes activas de Enphase. Desactivado de forma predeterminada. Valor predeterminado: Desactivado.",
+          "pricing_edits_enabled": "Gestionar las tarifas eléctricas de IQ Gateway. Valor predeterminado: Activado.",
+          "weather_enabled": "Obtiene el tiempo actual del sitio desde Enphase y crea una entidad meteorológica solo cuando el punto de conexión está disponible. Valor predeterminado: Desactivado.",
+          "nominal_voltage": "Tensión de alimentación de CA típica para estimar la potencia cuando no hay tensión en tiempo real. Valor predeterminado: Obtenido de la telemetría del cargador cuando está disponible; de lo contrario, según la región de Home Assistant, con un valor alternativo de 230 V.",
+          "schedule_sync_enabled": "Gestiona los horarios del IQ EV Charger. Valor predeterminado: Activado.",
+          "battery_schedules_enabled": "Gestiona los horarios de la IQ Battery. Valor predeterminado: Activado.",
+          "microinverter_lifetime_energy_enabled": "Activa todos los sensores de energía de por vida de cada microinversor. Valor predeterminado: Desactivado.",
+          "microinverter_power_enabled": "Activa todos los sensores de potencia de cada microinversor cuando la telemetría del instalador está disponible. Requiere acceso de instalador. Valor predeterminado: Desactivado.",
+          "vpp_events_enabled": "Obtiene los horarios VPP/ELRP de Enphase y crea entidades de eventos solo para sitios inscritos. Desactivado de forma predeterminada. Valor predeterminado: Desactivado.",
+          "grid_profile_controls_enabled": "Obtiene metadatos del perfil de red exclusivos para instaladores y activa las acciones de perfil. Desactivado de forma predeterminada. Requiere acceso de instalador. Valor predeterminado: Desactivado.",
+          "export_limit_controls_enabled": "Configurar los límites de vertido del sistema. Requiere acceso de instalador. Valor predeterminado: Desactivado."
+        }
+      },
+      "export_limit": {
+        "title": "Límite de vertido",
+        "description": "Configurar los límites de vertido del sistema."
+      },
+      "export_limit_action": {
+        "title": "Límite de vertido",
+        "description": "Controla cuánta potencia exporta tu sistema a la red. El estado de la solicitud permite seguir los cambios enviados a través de esta integración.\n\nConfiguración actual: **{current}**\n\nConfiguración pendiente: **{pending}**",
+        "menu_options": {
+          "export_limit_set": "Activar límite de exportación",
+          "export_limit_disable": "Desactivar limitación de vertido",
+          "export_limit_defaults": "Valores predeterminados"
+        },
+        "menu_option_descriptions": {
+          "export_limit_defaults": "Guarda los valores predeterminados del control de límite de exportación.",
+          "export_limit_set": "Establece la exportación máxima a la red, incluida la exportación cero.",
+          "export_limit_disable": "Permite exportar a la red sin un límite configurado."
+        }
+      },
+      "export_limit_set": {
+        "title": "Activar límite de exportación",
+        "data": {
+          "limit_watts": "Límite de vertido (W)"
+        },
+        "description": "Establece el límite en 0 W para impedir la exportación a la red. Otros valores fijan la potencia máxima que tu sistema puede exportar."
+      },
+      "export_limit_confirm": {
+        "title": "Límite de vertido",
+        "description": "Configuración actual: **{current}**\n\nConfiguración solicitada: **{requested}**\n\nTasa de variación (W/sec): **{current_slew}** → **{requested_slew}**",
+        "data": {
+          "confirm": "Confirmar este cambio"
+        }
+      },
+      "export_limit_submitted": {
+        "title": "Límite de vertido",
+        "description": "Configurar los límites de vertido del sistema.\n\n**{status}**"
+      },
+      "export_limit_readonly": {
+        "title": "Límite de vertido",
+        "description": "Límite de vertido no disponible. Se requiere acceso de instalador y una configuración compatible con una sola pasarela.\n\nConfiguración actual: **{current}**"
+      },
+      "export_limit_defaults": {
+        "title": "Valores predeterminados",
+        "description": "Guarda los valores predeterminados que se usan al seleccionar Activado en el control de límite de exportación. Guardarlos no modifica la puerta de enlace. Restaurar elimina la tasa guardada.",
+        "data": {
+          "limit_watts": "Límite de exportación predeterminado (W)",
+          "slew_rate": "Tasa de variación (W/sec)",
+          "restore_slew_rate": "Restaurar la tasa desde la puerta de enlace"
+        }
       }
     },
     "error": {
@@ -813,7 +909,17 @@
       "grid_otp_required": "Ingrese el código de un solo uso.",
       "grid_otp_invalid_format": "El código de un solo uso debe contener exactamente cuatro dígitos.",
       "grid_otp_invalid": "El código de un solo uso no es válido o ha caducado.",
-      "grid_envoy_serial_missing": "No se pudo determinar la puerta de enlace para este sitio."
+      "grid_envoy_serial_missing": "No se pudo determinar la puerta de enlace para este sitio.",
+      "export_limit_unavailable": "Límite de vertido no disponible. Se requiere acceso de instalador y una configuración compatible con una sola pasarela.",
+      "export_limit_invalid": "Introduzca vatios enteros entre 0 y 100000.",
+      "export_limit_changed": "La configuración ha cambiado. Revise los ajustes y confirme de nuevo.",
+      "export_limit_mismatch": "El formulario del instalador de Enphase no coincide con los ajustes de la puerta de enlace. Actualiza los ajustes e inténtalo de nuevo.",
+      "export_limit_pending": "Esperando confirmación de la configuración. Actualice el estado antes de otro cambio.",
+      "export_limit_disabled": "Activar controles del límite de vertido (Funciones → Funciones avanzadas).",
+      "export_limit_confirmation": "Confirmar este cambio",
+      "export_limit_invalid_slew": "Introduzca un número positivo con hasta dos decimales.",
+      "grid_profile_session_expired": "La sesión de Enlighten ha caducado o ha sido rechazada. Abra Autenticación, vuelva a autenticarse e inténtelo de nuevo.",
+      "export_limit_session_expired": "La sesión de Enlighten ha caducado o ha sido rechazada. Abra Autenticación, vuelva a autenticarse e inténtelo de nuevo."
     },
     "abort": {
       "migration_no_envoy_sources": "No hay sensores de energía de Enphase Envoy disponibles para migrar.",
@@ -823,7 +929,8 @@
       "grid_profile_installer_required": "El control de perfil de red requiere acceso de instalador a Enphase Activation.",
       "grid_profile_no_regions": "No hay regiones de perfil de red disponibles para el país de este sitio.",
       "grid_mode_unavailable": "El control del modo de red no está disponible para este sitio.",
-      "grid_mode_blocked": "El control del modo de red está bloqueado actualmente: {reasons}."
+      "grid_mode_blocked": "El control del modo de red está bloqueado actualmente: {reasons}.",
+      "grid_profile_session_expired": "La sesión de Enlighten ha caducado o ha sido rechazada. Abra Autenticación, vuelva a autenticarse e inténtelo de nuevo."
     },
     "create_entry": {
       "migration_success": "Migración completada. Enphase Energy ahora posee los identificadores de entidad de origen seleccionados. Verifica el panel de Energy y Developer Tools > Statistics después de la próxima actualización.",
@@ -1009,6 +1116,9 @@
           },
           "amp_control_applies_in_modes": {
             "name": "Modos en los que aplica el control de amperaje"
+          },
+          "requested_mode": {
+            "name": "Modo solicitado"
           }
         }
       },
@@ -1103,7 +1213,7 @@
         "name": "Inicios de sesión fallidos con credenciales guardadas"
       },
       "current_production_power": {
-        "name": "Potencia actual de producción",
+        "name": "Potencia de producción",
         "state_attributes": {
           "sampled_at_utc": {
             "name": "Muestreado a las (UTC)"
@@ -1241,7 +1351,7 @@
         }
       },
       "site_consumption_power": {
-        "name": "Consumo de potencia actual",
+        "name": "Consumo de potencia",
         "state_attributes": {
           "last_window_seconds": {
             "name": "Última ventana (s)"
@@ -1255,7 +1365,7 @@
         }
       },
       "site_grid_power": {
-        "name": "Potencia actual de la red",
+        "name": "Potencia de la red",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Último flujo en kWh"
@@ -1320,7 +1430,7 @@
         }
       },
       "site_battery_power": {
-        "name": "Potencia actual de la batería",
+        "name": "Potencia de la batería",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Último flujo en kWh"
@@ -1367,7 +1477,7 @@
         }
       },
       "system_profile_status": {
-        "name": "Estado del perfil del sistema",
+        "name": "Perfil del sistema",
         "state": {
           "pending": "Pendiente"
         },
@@ -1505,7 +1615,7 @@
         "name": "Medidor de consumo"
       },
       "gateway_connectivity_status": {
-        "name": "Estado de la puerta de enlace",
+        "name": "Conectividad",
         "state_attributes": {
           "ip_address": {
             "name": "Dirección IP"
@@ -1516,7 +1626,7 @@
         }
       },
       "gateway_last_reported": {
-        "name": "Puerta de enlace reportada por última vez"
+        "name": "Último informe"
       },
       "tariff_billing_cycle": {
         "name": "Proxima fecha de facturacion",
@@ -1727,7 +1837,21 @@
         }
       },
       "microinverter_connectivity_status": {
-        "name": "Estado de conectividad de microinversores"
+        "name": "Estado de conectividad de microinversores",
+        "state_attributes": {
+          "power_telemetry_status": {
+            "name": "Estado de telemetría de potencia",
+            "state": {
+              "disabled": "Desactivado",
+              "pending": "Pendiente",
+              "ready": "Disponible",
+              "rate_limited": "Frecuencia limitada"
+            }
+          },
+          "power_telemetry_next_retry": {
+            "name": "Próximo reintento de telemetría de potencia"
+          }
+        }
       },
       "microinverter_reporting_count": {
         "name": "Microinversores activos"
@@ -1831,47 +1955,47 @@
           "error": "Error",
           "unknown": "Desconocido",
           "unpaired": "Sin emparejar",
-          "pairing": "Emparejamiento"
+          "pairing": "Emparejamiento",
+          "activity_status": "Estado",
+          "activity_unknown": "Desconocido",
+          "activity_yes": "Sí",
+          "activity_no": "No",
+          "activity_more": "Más elementos",
+          "activity_battery": "Batería",
+          "activity_charger_problem": "Fallo notificado",
+          "activity_suspended_by_evse": "Suspendido por el cargador",
+          "activity_offline_since": "Sin conexión desde",
+          "activity_connected_devices": "Puertas de enlace conectadas",
+          "activity_disconnected_devices": "Puertas de enlace desconectadas",
+          "activity_unknown_connection_devices": "Puertas de enlace con estado desconocido",
+          "activity_connection_method": "Método de conexión",
+          "activity_latest_reported_utc": "Último informe",
+          "activity_reporting_inverters": "Inversores que informan",
+          "activity_not_reporting_inverters": "Inversores que no informan",
+          "activity_unknown_inverters": "Inversores con estado desconocido",
+          "activity_power_telemetry_status": "Telemetría de potencia",
+          "activity_power_telemetry_next_retry": "Reintento de telemetría",
+          "activity_sg_ready_mode_raw": "Modo SG Ready",
+          "activity_sg_ready_contact_state": "Estado de los contactos",
+          "activity_vpp_sgready_mode_override": "Anulación VPP notificada",
+          "activity_confirmed_watts": "Límite confirmado (W)",
+          "activity_requested_watts": "Límite solicitado (W)",
+          "activity_requested_action": "Acción solicitada",
+          "activity_request_status": "Estado de la solicitud",
+          "activity_active_count": "Problemas activos",
+          "activity_type": "Tipo de evento",
+          "activity_device_type": "Tipo de dispositivo",
+          "activity_severity": "Gravedad",
+          "activity_description": "Descripción",
+          "activity_event_date": "Primer informe",
+          "activity_reason": "Motivo",
+          "activity_http_status": "Estado HTTP",
+          "activity_retry": "Próximo intento",
+          "activity_worst_battery": "Peor estado de batería",
+          "activity_reachable": "Nube accesible",
+          "activity_last_success": "Última actualización correcta",
+          "activity_standing_alarm": "Alarma persistente"
         }
-      },
-      "ac_battery_overall_status": {
-        "name": "Estado general de la batería CA",
-        "state": {
-          "normal": "Normal",
-          "warning": "Advertencia",
-          "error": "Error",
-          "unknown": "Desconocido"
-        }
-      },
-      "ac_battery_power": {
-        "name": "Potencia de la batería CA"
-      },
-      "ac_battery_last_reported": {
-        "name": "Último informe de la batería CA"
-      },
-      "ac_battery_storage_charge": {
-        "name": "Nivel de carga de la batería CA"
-      },
-      "ac_battery_storage_status": {
-        "name": "Estado de {serial}",
-        "state": {
-          "normal": "Normal",
-          "warning": "Advertencia",
-          "error": "Error",
-          "unknown": "Desconocido"
-        }
-      },
-      "ac_battery_storage_power": {
-        "name": "Potencia de {serial}"
-      },
-      "ac_battery_storage_operating_mode": {
-        "name": "Modo de funcionamiento de {serial}"
-      },
-      "ac_battery_storage_cycle_count": {
-        "name": "Recuento de ciclos de {serial}"
-      },
-      "ac_battery_storage_last_reported": {
-        "name": "Último informe de {serial}"
       },
       "battery_cfg_schedules": {
         "name": "Horarios CFG de la batería"
@@ -2056,6 +2180,126 @@
       },
       "vpp_next_event_status": {
         "name": "Estado del próximo evento VPP"
+      },
+      "export_limit": {
+        "name": "Límite de vertido",
+        "state": {
+          "disabled": "Desactivado",
+          "zero_export": "Vertido cero",
+          "limited": "Limitado",
+          "unsupported": "No compatible",
+          "pending": "Pendiente",
+          "unconfirmed": "Sin confirmar"
+        },
+        "state_attributes": {
+          "confirmed_watts": {
+            "name": "Configuración actual"
+          },
+          "requested_watts": {
+            "name": "Configuración solicitada"
+          },
+          "requested_action": {
+            "name": "Configuración solicitada",
+            "state": {
+              "set": "Establecer límite de vertido",
+              "disable": "Desactivar limitación de vertido"
+            }
+          },
+          "request_status": {
+            "name": "Estado de la solicitud",
+            "state": {
+              "idle": "Ninguna",
+              "pending": "Esperando confirmación",
+              "confirmed": "Configuración confirmada",
+              "unconfirmed": "Sin confirmar",
+              "rejected": "Rechazado"
+            }
+          },
+          "last_successful_readback": {
+            "name": "Última lectura correcta"
+          },
+          "slew_rate": {
+            "name": "Tasa de variación (W/sec)"
+          },
+          "requested_slew_rate": {
+            "name": "Configuración solicitada · Tasa de variación (W/sec)"
+          },
+          "pending": {
+            "name": "Pendiente"
+          },
+          "pending_requested_at": {
+            "name": "Pendiente Solicitado en"
+          }
+        }
+      },
+      "total_array_size": {
+        "name": "Potencia total de los conjuntos solares"
+      },
+      "total_inverter_capacity": {
+        "name": "Capacidad total de los microinversores"
+      },
+      "account_access": {
+        "name": "Acceso de la cuenta",
+        "state": {
+          "administrator": "Administrador",
+          "installer": "Instalador",
+          "owner": "Propietario",
+          "host": "Anfitrión",
+          "consumption_data": "Datos de consumo",
+          "viewer": "Observador"
+        },
+        "state_attributes": {
+          "administrator": {
+            "name": "Administrador"
+          },
+          "installer": {
+            "name": "Instalador"
+          },
+          "owner": {
+            "name": "Propietario"
+          },
+          "host": {
+            "name": "Anfitrión"
+          },
+          "consumption_data": {
+            "name": "Datos de consumo"
+          },
+          "viewer": {
+            "name": "Observador"
+          }
+        }
+      },
+      "site_information": {
+        "name": "Información de la instalación",
+        "state_attributes": {
+          "site_id": {
+            "name": "ID de instalación"
+          },
+          "timezone": {
+            "name": "Zona horaria"
+          },
+          "country": {
+            "name": "País"
+          },
+          "currency": {
+            "name": "Moneda"
+          }
+        }
+      },
+      "inverter_array_energy": {
+        "name": "{array} Energía acumulada"
+      },
+      "inverter_array_power": {
+        "name": "{array} Potencia actual"
+      },
+      "update_status": {
+        "name": "Estado de actualización",
+        "state": {
+          "idle": "Inactivo",
+          "pending": "Pendiente",
+          "unconfirmed": "Sin confirmar",
+          "failed": "Fallido"
+        }
       }
     },
     "number": {
@@ -2228,7 +2472,7 @@
     },
     "binary_sensor": {
       "plugged_in": {
-        "name": "Conectado"
+        "name": "Conexión del vehículo"
       },
       "charging": {
         "name": "Cargando"
@@ -2243,7 +2487,7 @@
         "name": "Conectividad",
         "state_attributes": {
           "connection": {
-            "name": "Conexión"
+            "name": "Método de conexión"
           },
           "ip_address": {
             "name": "Dirección IP"
@@ -2251,7 +2495,7 @@
         }
       },
       "active_system_events": {
-        "name": "Eventos activos del sistema",
+        "name": "Eventos del sistema",
         "state_attributes": {
           "available": {
             "name": "Servicio de eventos disponible"
@@ -2316,9 +2560,6 @@
       },
       "restrict_battery_discharge_schedule": {
         "name": "Horario de restricción de descarga de la batería"
-      },
-      "ac_battery_sleep_mode": {
-        "name": "Modo de reposo de la batería CA"
       },
       "evse_schedule_edit_mon": {
         "name": "Horario del lunes"
@@ -2391,9 +2632,6 @@
       "system_profile": {
         "name": "Perfil del sistema"
       },
-      "ac_battery_target_state_of_charge": {
-        "name": "Estado de carga objetivo de la batería CA"
-      },
       "evse_schedule_selected": {
         "name": "Horario"
       },
@@ -2402,18 +2640,31 @@
       },
       "battery_schedule_selected": {
         "name": "Horario de la batería"
+      },
+      "export_limit": {
+        "name": "Límite de vertido",
+        "state": {
+          "enable_limit": "Activado",
+          "disable_limit": "Desactivado"
+        },
+        "state_attributes": {
+          "default_limit_watts": {
+            "name": "Límite de exportación predeterminado (W)"
+          },
+          "default_slew_rate": {
+            "name": "Tasa de variación (W/sec)"
+          },
+          "slew_rate_source": {
+            "name": "Origen de la tasa de variación",
+            "state": {
+              "gateway": "Puerta de enlace",
+              "saved_override": "Valor personalizado guardado"
+            }
+          }
+        }
       }
     },
     "button": {
-      "start_charging": {
-        "name": "Iniciar carga"
-      },
-      "stop_charging": {
-        "name": "Detener carga"
-      },
-      "cancel_pending_profile_change": {
-        "name": "Cancelar cambio de perfil pendiente"
-      },
       "storm_alert_opt_out": {
         "name": "Excluir alerta de tormenta"
       },
@@ -2569,7 +2820,45 @@
     },
     "battery_profile_pending": {
       "title": "Actualización pendiente del perfil de batería de Enphase Energy",
-      "description": "Un cambio de perfil de batería para el sitio {site_id} lleva pendiente más de {pending_timeout_minutes} minutos. Es posible que la nube aún esté procesando la solicitud."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Cambio del perfil de batería",
+            "description": "Un cambio de perfil de batería para el sitio {site_id} lleva pendiente más de {pending_timeout_minutes} minutos. Es posible que la nube aún esté procesando la solicitud.\n\nComprueba el estado o cancela la solicitud pendiente.",
+            "menu_options": {
+              "check_again": "Comprobar de nuevo",
+              "cancel_change": "Cancelar cambio"
+            }
+          },
+          "pending": {
+            "title": "Cambio del perfil de batería",
+            "description": "El cambio sigue sin confirmarse. Las comprobaciones continúan automáticamente. Puedes comprobar de nuevo o cancelar.",
+            "menu_options": {
+              "check_again": "Comprobar de nuevo",
+              "cancel_change": "Cancelar cambio"
+            }
+          },
+          "check_failed": {
+            "title": "Cambio del perfil de batería",
+            "description": "No se pudo actualizar el perfil. Inténtalo más tarde o cancela la solicitud pendiente.",
+            "menu_options": {
+              "check_again": "Comprobar de nuevo",
+              "cancel_change": "Cancelar cambio"
+            }
+          },
+          "cancel_change": {
+            "title": "¿Cancelar el cambio de perfil pendiente?",
+            "description": "Cancela esta solicitud pendiente de perfil de batería en Enphase. Esto no restaura un perfil que ya haya entrado en vigor."
+          }
+        },
+        "error": {
+          "cannot_cancel": "No se pudo cancelar la solicitud. Comprueba la conexión y los permisos de la cuenta de Enphase y vuelve a intentarlo."
+        },
+        "abort": {
+          "entry_unavailable": "La integración no está cargada. Cárgala y vuelve a abrir esta reparación.",
+          "request_changed": "La solicitud pendiente ha cambiado. Cierra este asistente y vuelve a abrir la reparación actual."
+        }
+      }
     },
     "hems_auth_degraded": {
       "title": "HEMS de Enphase Energy pausado temporalmente",
@@ -2578,6 +2867,14 @@
     "active_system_event": {
       "title": "Evento del sistema Enphase de alto impacto activo",
       "description": "El sitio {site_id} tiene un evento {severity} activo que afecta a {device_type}, notificado por primera vez el {event_date}. Consulta Enlighten para ver los detalles y la acción recomendada. Esta reparación se elimina automáticamente cuando Enphase informa que el evento está resuelto."
+    },
+    "export_limit_pending": {
+      "title": "Cambio del límite de vertido sin confirmar",
+      "description": "El cambio no se ha confirmado tras {pending_timeout_minutes} minutos. Las comprobaciones continúan con el intervalo normal. Revise la configuración de la puerta de enlace; la escritura no se repetirá automáticamente."
+    },
+    "evse_status_unavailable": {
+      "title": "Estado del cargador no disponible",
+      "description": "El estado del cargador del sitio {site_id} devolvió HTTP {status}. Las lecturas y los controles no están disponibles hasta recibir un estado actualizado. Próximo intento: {next_retry}. Los demás puntos de conexión se siguen consultando de forma independiente."
     }
   },
   "system_health": {
@@ -3215,6 +3512,72 @@
         "gateway_serial": {
           "name": "Número de serie Gateway",
           "description": "Número de serie Gateway opcional cuando el registro Activation contiene varios Gateways."
+        }
+      }
+    },
+    "set_export_limit": {
+      "name": "Establecer límite de vertido",
+      "description": "Configurar los límites de vertido del sistema.",
+      "fields": {
+        "limit_watts": {
+          "name": "Límite de vertido (W)",
+          "description": "Introduzca vatios enteros entre 0 y 100000."
+        },
+        "site_id": {
+          "name": "ID del sitio",
+          "description": "Identificador de sitio opcional; se detecta automáticamente cuando se selecciona un dispositivo de sitio."
+        },
+        "config_entry_id": {
+          "name": "Entrada de configuración de Enphase",
+          "description": "Entrada de configuración de Enphase"
+        },
+        "device_id": {
+          "name": "Dispositivos",
+          "description": "Dispositivos"
+        },
+        "slew_rate": {
+          "name": "Tasa de variación (W/sec)",
+          "description": "Opcional. Si se omite, se usa el valor actual de la puerta de enlace."
+        }
+      }
+    },
+    "disable_export_limit": {
+      "name": "Desactivar limitación de vertido",
+      "description": "Configurar los límites de vertido del sistema.",
+      "fields": {
+        "site_id": {
+          "name": "ID del sitio",
+          "description": "Identificador de sitio opcional; se detecta automáticamente cuando se selecciona un dispositivo de sitio."
+        },
+        "config_entry_id": {
+          "name": "Entrada de configuración de Enphase",
+          "description": "Entrada de configuración de Enphase"
+        },
+        "device_id": {
+          "name": "Dispositivos",
+          "description": "Dispositivos"
+        },
+        "slew_rate": {
+          "name": "Tasa de variación (W/sec)",
+          "description": "Opcional. Si se omite, se usa el valor actual de la puerta de enlace."
+        }
+      }
+    },
+    "refresh_export_limit": {
+      "name": "Actualizar límite de vertido",
+      "description": "Configurar los límites de vertido del sistema.",
+      "fields": {
+        "site_id": {
+          "name": "ID del sitio",
+          "description": "Identificador de sitio opcional; se detecta automáticamente cuando se selecciona un dispositivo de sitio."
+        },
+        "config_entry_id": {
+          "name": "Entrada de configuración de Enphase",
+          "description": "Entrada de configuración de Enphase"
+        },
+        "device_id": {
+          "name": "Dispositivos",
+          "description": "Dispositivos"
         }
       }
     }

@@ -43,8 +43,7 @@
           "type_iqevse": "Nabíječky",
           "type_microinverter": "Mikroinvertory",
           "scan_interval": "Interval skenování (s)",
-          "type_heatpump": "Tepelné čerpadlo",
-          "type_ac_battery": "AC baterie"
+          "type_heatpump": "Tepelné čerpadlo"
         },
         "data_description": {
           "type_envoy": "Zahrnuje diagnostiku konektivity brány a měřidel.",
@@ -52,8 +51,7 @@
           "type_iqevse": "Zahrnuje entity a ovládání EV nabíječek.",
           "type_microinverter": "Zahrnuje senzory konektivity mikroinvertorů, počtu aktivních zařízení a celoživotní výroby.",
           "scan_interval": "Sekundy mezi dotazy na stav cloudu. Výchozí 60s.",
-          "type_heatpump": "Zahrnuje senzory stavu, diagnostiky a spotřeby tepelného čerpadla.",
-          "type_ac_battery": "Zahrnuje senzory AC baterie a ovládání režimu spánku, pokud jsou k dispozici."
+          "type_heatpump": "Zahrnuje senzory stavu, diagnostiky a spotřeby tepelného čerpadla."
         }
       }
     },
@@ -138,9 +136,6 @@
     },
     "battery_schedule_overlap": {
       "message": "Plán se překrývá se stávajícím {schedule_label}. Nejprve tento plán upravte nebo deaktivujte."
-    },
-    "ac_battery_unavailable": {
-      "message": "Aktuálně nejsou k dispozici žádná zařízení AC Battery."
     },
     "auth_settings_service_unavailable": {
       "message": "Když je služba Enphase mimo provoz, nastavení ověřování není k dispozici."
@@ -358,9 +353,6 @@
     "scheduler_service_unavailable": {
       "message": "Výběr režimu nabíjení není dostupný, pokud je služba plánovače Enphase mimo provoz."
     },
-    "selected_ac_battery_target_state_of_charge_unavailable": {
-      "message": "Vybraný cílový stav nabití AC baterie není k dispozici."
-    },
     "battery_schedule_day_required": {
       "message": "Vyberte pro rozvrh alespoň jeden den."
     },
@@ -489,6 +481,39 @@
     },
     "grid_profile_controls_disabled": {
       "message": "Před použitím této akce povolte v možnostech integrace instalační ovládání síťového profilu."
+    },
+    "export_limit_unavailable": {
+      "message": "Limit přetoků není dostupný. Je vyžadován přístup instalátora a podporovaná konfigurace s jedinou bránou."
+    },
+    "export_limit_invalid": {
+      "message": "Zadejte celé watty od 0 do 100000."
+    },
+    "export_limit_changed": {
+      "message": "Konfigurace se změnila. Zkontrolujte aktualizované nastavení a znovu potvrďte."
+    },
+    "export_limit_mismatch": {
+      "message": "Instalační formulář Enphase neodpovídá nastavení brány. Obnovte nastavení a zkuste to znovu."
+    },
+    "export_limit_pending": {
+      "message": "Čeká se na potvrzení konfigurace. Před další změnou obnovte stav."
+    },
+    "export_limit_disabled": {
+      "message": "Povolit ovládání limitu přetoků (Funkce → Pokročilé funkce)."
+    },
+    "export_limit_confirmation": {
+      "message": "Potvrdit tuto změnu"
+    },
+    "export_limit_invalid_slew": {
+      "message": "Zadejte kladné číslo s nejvýše dvěma desetinnými místy."
+    },
+    "export_limit_session_expired": {
+      "message": "Relace Enlighten vypršela nebo byla odmítnuta. Otevřete Ověřování, spusťte nové ověření a zkuste to znovu."
+    },
+    "control_change_pending": {
+      "message": "Změna ovládání čeká na potvrzení. Před odesláním další změny obnovte její stav."
+    },
+    "charger_status_unavailable": {
+      "message": "Aktuální stav nabíječky není dostupný. Před změnou nastavení počkejte na obnovení."
     }
   },
   "options": {
@@ -502,15 +527,17 @@
           "repair_notifications": "Oznámení",
           "authentication_settings": "Ověření",
           "migrate_envoy": "Migrovat historii Envoy",
-          "advanced": "Pokročilé"
+          "advanced": "Pokročilé",
+          "features": "Funkce"
         },
         "menu_option_descriptions": {
           "settings": "Upravte intervaly a chování.",
-          "devices": "Vyberte, které skupiny zařízení chcete přidat. Všechny volby sdílejí stejný interval dotazování.",
-          "repair_notifications": "Správa oznámení oprav Home Assistant.",
+          "devices": "Vyberte kategorie zařízení, které chcete zahrnout.",
+          "repair_notifications": "Správa oznámení oprav a popisných záznamů aktivity v Home Assistant.",
           "authentication_settings": "Spusťte přihlašovací tok pro obnovení údajů bez odebrání integrace.",
           "migrate_envoy": "Převezměte vybraná ID energetických entit Enphase Envoy, aby historie v Home Assistant Energy pokračovala pod touto integrací.",
-          "advanced": "Volitelné ovládání režimu sítě a ovládání síťového profilu pouze pro instalační techniky."
+          "advanced": "Instalační a servisní akce.",
+          "features": "Nastavte funkce zařízení a pokročilé ovládání."
         },
         "data": {
           "type_envoy": "Brána",
@@ -525,7 +552,6 @@
           "session_history_interval": "Interval historie relací (min)",
           "schedule_sync_enabled": "Povolit plánovač EV Charger Scheduler",
           "type_heatpump": "Tepelné čerpadlo",
-          "type_ac_battery": "AC baterie",
           "battery_schedules_enabled": "Povolit Plánovač baterie",
           "degraded_service_repair_issues": "Povolit opravy zhoršených služeb",
           "weather_enabled": "Povolit počasí",
@@ -537,18 +563,17 @@
           "type_encharge": "Zahrnuje stav a ovládací entity baterií, pokud jsou dostupné.",
           "type_iqevse": "Zahrnuje entity a ovládání EV nabíječek.",
           "type_microinverter": "Zahrnuje senzory konektivity mikroinvertorů, počtu aktivních zařízení a celoživotní výroby.",
-          "fast_poll_interval": "Interval používaný při nabíjení nebo streamování.",
-          "slow_poll_interval": "Interval používaný při nečinnosti.",
-          "fast_while_streaming": "Když je povoleno, rychlé dotazování během aktivního cloudového streamu.",
-          "api_timeout": "Sekundy, než požadavky API vyprší.",
-          "nominal_voltage": "Typické střídavé napájecí napětí pro odhad výkonu, když není dostupné aktuální napětí.",
-          "session_history_interval": "Minuty čekání mezi načítáním historie relací z cloudu.",
+          "fast_poll_interval": "Interval používaný při nabíjení nebo streamování. Výchozí: 30 s.",
+          "slow_poll_interval": "Interval používaný při nečinnosti. Výchozí: 60 s.",
+          "fast_while_streaming": "Když je povoleno, rychlé dotazování během aktivního cloudového streamu. Výchozí: Zapnuto.",
+          "api_timeout": "Sekundy, než požadavky API vyprší. Výchozí: 15 s.",
+          "nominal_voltage": "Typické střídavé napájecí napětí pro odhad výkonu, když není dostupné aktuální napětí. Výchozí: Z telemetrie nabíječky, pokud je dostupná; jinak podle oblasti Home Assistant, s náhradní hodnotou 230 V.",
+          "session_history_interval": "Minuty čekání mezi načítáním historie relací z cloudu. Výchozí: 10 min.",
           "type_heatpump": "Zahrnuje senzory stavu, diagnostiky a spotřeby tepelného čerpadla.",
-          "type_ac_battery": "Zahrnuje senzory AC baterie a ovládání režimu spánku, pokud jsou k dispozici.",
-          "degraded_service_repair_issues": "Vytváří problémy v Repairs, když jsou volitelné služby Enphase zhoršené.",
-          "weather_enabled": "Načte aktuální počasí lokality ze služby Enphase a vytvoří entitu počasí pouze tehdy, když je koncový bod dostupný.",
-          "microinverter_lifetime_energy_enabled": "Povolí všechny senzory celoživotní energie jednotlivých mikrostřídačů.",
-          "microinverter_power_enabled": "Povolí všechny senzory výkonu jednotlivých mikrostřídačů, když je dostupná telemetrie instalačního technika."
+          "degraded_service_repair_issues": "Vytváří problémy v Repairs, když jsou volitelné služby Enphase zhoršené. Výchozí: Vypnuto.",
+          "weather_enabled": "Načte aktuální počasí lokality ze služby Enphase a vytvoří entitu počasí pouze tehdy, když je koncový bod dostupný. Výchozí: Vypnuto.",
+          "microinverter_lifetime_energy_enabled": "Povolí všechny senzory celoživotní energie jednotlivých mikrostřídačů. Výchozí: Vypnuto.",
+          "microinverter_power_enabled": "Povolí všechny senzory výkonu jednotlivých mikrostřídačů, když je dostupná telemetrie instalačního technika. Vyžaduje přístup instalátora. Výchozí: Vypnuto."
         }
       },
       "settings": {
@@ -563,24 +588,23 @@
           "degraded_service_repair_issues": "Povolit opravy zhoršených služeb"
         },
         "data_description": {
-          "fast_poll_interval": "Interval používaný při nabíjení nebo streamování.",
-          "slow_poll_interval": "Interval používaný při nečinnosti.",
-          "fast_while_streaming": "Když je povoleno, rychlé dotazování během aktivního cloudového streamu.",
-          "api_timeout": "Sekundy, než požadavky API vyprší.",
-          "session_history_interval": "Minuty čekání mezi načítáním historie relací z cloudu.",
-          "degraded_service_repair_issues": "Vytváří problémy v Repairs, když jsou volitelné služby Enphase zhoršené."
+          "fast_poll_interval": "Interval používaný při nabíjení nebo streamování. Výchozí: 30 s.",
+          "slow_poll_interval": "Interval používaný při nečinnosti. Výchozí: 60 s.",
+          "fast_while_streaming": "Když je povoleno, rychlé dotazování během aktivního cloudového streamu. Výchozí: Zapnuto.",
+          "api_timeout": "Sekundy, než požadavky API vyprší. Výchozí: 15 s.",
+          "session_history_interval": "Minuty čekání mezi načítáním historie relací z cloudu. Výchozí: 10 min.",
+          "degraded_service_repair_issues": "Vytváří problémy v Repairs, když jsou volitelné služby Enphase zhoršené. Výchozí: Vypnuto."
         }
       },
       "devices": {
         "title": "Vyberte zařízení",
-        "description": "Vyberte, které skupiny zařízení chcete přidat. Všechny volby sdílejí stejný interval dotazování.",
+        "description": "Vyberte kategorie zařízení, které chcete zahrnout.",
         "sections": {
           "devices": {
             "name": "Vyberte zařízení",
             "data": {
               "type_envoy": "Brána",
               "type_encharge": "Baterie",
-              "type_ac_battery": "AC baterie",
               "type_iqevse": "Nabíječky",
               "type_heatpump": "Tepelné čerpadlo",
               "type_microinverter": "Mikroinvertory"
@@ -588,89 +612,40 @@
             "data_description": {
               "type_envoy": "Zahrnuje diagnostiku konektivity brány a měřidel.",
               "type_encharge": "Zahrnuje stav a ovládací entity baterií, pokud jsou dostupné.",
-              "type_ac_battery": "Zahrnuje senzory AC baterie a ovládání režimu spánku, pokud jsou k dispozici.",
               "type_iqevse": "Zahrnuje entity a ovládání EV nabíječek.",
               "type_heatpump": "Zahrnuje senzory stavu, diagnostiky a spotřeby tepelného čerpadla.",
               "type_microinverter": "Zahrnuje senzory konektivity mikroinvertorů, počtu aktivních zařízení a celoživotní výroby."
-            }
-          },
-          "device_features": {
-            "name": "Funkce zařízení",
-            "data": {
-              "schedule_sync_enabled": "Povolit podporu plánovače",
-              "battery_schedules_enabled": "Povolit Plánovač baterie",
-              "system_event_repair_issues": "Povolit oznámení oprav systémových událostí",
-              "pricing_edits_enabled": "Povolit úpravy cen",
-              "weather_enabled": "Povolit počasí",
-              "nominal_voltage": "Jmenovité napětí nabíječky EV (V)",
-              "microinverter_lifetime_energy_enabled": "Povolit celoživotní energii mikrostřídačů",
-              "microinverter_power_enabled": "Povolit výkon mikrostřídačů",
-              "vpp_events_enabled": "Povolit události VPP",
-              "grid_profile_controls_enabled": "Povolit instalační ovládání síťového profilu"
-            },
-            "data_description": {
-              "system_event_repair_issues": "Vytváří opravy Home Assistant pro aktivní trvalé alarmy Enphase. Ve výchozím nastavení vypnuto.",
-              "pricing_edits_enabled": "Správa sazeb elektřiny IQ Gateway",
-              "weather_enabled": "Načte aktuální počasí lokality ze služby Enphase a vytvoří entitu počasí pouze tehdy, když je koncový bod dostupný.",
-              "nominal_voltage": "Typické střídavé napájecí napětí pro odhad výkonu, když není dostupné aktuální napětí.",
-              "schedule_sync_enabled": "Spravujte plány nabíječky IQ EV Charger.",
-              "battery_schedules_enabled": "Spravujte plány baterie IQ Battery.",
-              "microinverter_lifetime_energy_enabled": "Povolí všechny senzory celoživotní energie jednotlivých mikrostřídačů.",
-              "microinverter_power_enabled": "Povolí všechny senzory výkonu jednotlivých mikrostřídačů, když je dostupná telemetrie instalačního technika.",
-              "vpp_events_enabled": "Načítá plány VPP/ELRP ze služby Enphase a vytváří entity událostí jen pro zapojené lokality. Ve výchozím nastavení vypnuto.",
-              "grid_profile_controls_enabled": "Načte metadata síťového profilu dostupná pouze instalačnímu technikovi a povolí akce s profily. Ve výchozím nastavení je vypnuto."
             }
           }
         },
         "data": {
           "devices": "Vyberte zařízení",
-          "device_features": "Funkce zařízení",
           "type_envoy": "Brána",
           "type_encharge": "Baterie",
-          "type_ac_battery": "AC baterie",
           "type_iqevse": "Nabíječky",
           "type_heatpump": "Tepelné čerpadlo",
-          "type_microinverter": "Mikroinvertory",
-          "schedule_sync_enabled": "Povolit podporu plánovače",
-          "battery_schedules_enabled": "Povolit Plánovač baterie",
-          "system_event_repair_issues": "Povolit oznámení oprav systémových událostí",
-          "pricing_edits_enabled": "Povolit úpravy cen",
-          "weather_enabled": "Povolit počasí",
-          "nominal_voltage": "Jmenovité napětí nabíječky EV (V)",
-          "microinverter_lifetime_energy_enabled": "Povolit celoživotní energii mikrostřídačů",
-          "microinverter_power_enabled": "Povolit výkon mikrostřídačů",
-          "vpp_events_enabled": "Povolit události VPP",
-          "grid_profile_controls_enabled": "Povolit instalační ovládání síťového profilu"
+          "type_microinverter": "Mikroinvertory"
         },
         "data_description": {
           "type_envoy": "Zahrnuje diagnostiku konektivity brány a měřidel.",
           "type_encharge": "Zahrnuje stav a ovládací entity baterií, pokud jsou dostupné.",
-          "type_ac_battery": "Zahrnuje senzory AC baterie a ovládání režimu spánku, pokud jsou k dispozici.",
           "type_iqevse": "Zahrnuje entity a ovládání EV nabíječek.",
           "type_heatpump": "Zahrnuje senzory stavu, diagnostiky a spotřeby tepelného čerpadla.",
-          "type_microinverter": "Zahrnuje senzory konektivity mikroinvertorů, počtu aktivních zařízení a celoživotní výroby.",
-          "system_event_repair_issues": "Vytváří opravy Home Assistant pro aktivní trvalé alarmy Enphase. Ve výchozím nastavení vypnuto.",
-          "pricing_edits_enabled": "Správa sazeb elektřiny IQ Gateway",
-          "weather_enabled": "Načte aktuální počasí lokality ze služby Enphase a vytvoří entitu počasí pouze tehdy, když je koncový bod dostupný.",
-          "nominal_voltage": "Typické střídavé napájecí napětí pro odhad výkonu, když není dostupné aktuální napětí.",
-          "schedule_sync_enabled": "Spravujte plány nabíječky IQ EV Charger.",
-          "battery_schedules_enabled": "Spravujte plány baterie IQ Battery.",
-          "microinverter_lifetime_energy_enabled": "Povolí všechny senzory celoživotní energie jednotlivých mikrostřídačů.",
-          "microinverter_power_enabled": "Povolí všechny senzory výkonu jednotlivých mikrostřídačů, když je dostupná telemetrie instalačního technika.",
-          "vpp_events_enabled": "Načítá plány VPP/ELRP ze služby Enphase a vytváří entity událostí jen pro zapojené lokality. Ve výchozím nastavení vypnuto.",
-          "grid_profile_controls_enabled": "Načte metadata síťového profilu dostupná pouze instalačnímu technikovi a povolí akce s profily. Ve výchozím nastavení je vypnuto."
+          "type_microinverter": "Zahrnuje senzory konektivity mikroinvertorů, počtu aktivních zařízení a celoživotní výroby."
         }
       },
       "repair_notifications": {
         "title": "Oznámení",
-        "description": "Vyberte, které stavy Enphase vytvoří opravy Home Assistant.",
+        "description": "Správa oznámení oprav a popisných záznamů aktivity v Home Assistant.",
         "data": {
           "degraded_service_repair_issues": "Povolit opravy zhoršených služeb",
-          "system_event_repair_issues": "Povolit oznámení oprav systémových událostí"
+          "system_event_repair_issues": "Povolit oznámení oprav systémových událostí",
+          "descriptive_activity_entries": "Povolit popisné záznamy aktivity"
         },
         "data_description": {
-          "degraded_service_repair_issues": "Vytváří problémy v Repairs, když jsou volitelné služby Enphase zhoršené.",
-          "system_event_repair_issues": "Vytváří opravy Home Assistant pro aktivní trvalé alarmy Enphase. Ve výchozím nastavení vypnuto."
+          "degraded_service_repair_issues": "Vytváří problémy v Repairs, když jsou volitelné služby Enphase zhoršené. Výchozí: Vypnuto.",
+          "system_event_repair_issues": "Vytváří opravy Home Assistant pro aktivní trvalé alarmy Enphase. Ve výchozím nastavení vypnuto. Výchozí: Vypnuto.",
+          "descriptive_activity_entries": "Přidává popisné záznamy do aktivity Home Assistant při změně hlášených podmínek. Zobrazují se vedle běžných záznamů změn stavu. Ve výchozím nastavení vypnuto."
         }
       },
       "authentication_settings": {
@@ -732,11 +707,13 @@
         "description": "Instalační a servisní akce.",
         "menu_options": {
           "grid_toggle": "Režim sítě",
-          "grid_profile": "Ovládání síťového profilu"
+          "grid_profile": "Ovládání síťového profilu",
+          "export_limit": "Limit přetoků"
         },
         "menu_option_descriptions": {
           "grid_toggle": "Nastavit ruční ovládání režimu sítě.",
-          "grid_profile": "Procházení a použití síťových profilů Activation pouze pro instalátory."
+          "grid_profile": "Procházení a použití síťových profilů Activation pouze pro instalátory.",
+          "export_limit": "Nastavit limity přetoků systému."
         }
       },
       "grid_toggle": {
@@ -787,6 +764,125 @@
       "grid_toggle_applied": {
         "title": "Změna režimu sítě přijata",
         "description": "Společnost Enphase přijala požadavek na změnu režimu sítě na **{target_mode}**.\n\nFyzické relé se může stále měnit. Pomocí senzoru režimu sítě pozorujte výsledný stav."
+      },
+      "features": {
+        "title": "Funkce",
+        "description": "Nastavte funkce zařízení a pokročilé ovládání.",
+        "sections": {
+          "device_features": {
+            "name": "Funkce zařízení",
+            "data": {
+              "schedule_sync_enabled": "Povolit podporu plánovače",
+              "battery_schedules_enabled": "Povolit Plánovač baterie",
+              "system_event_repair_issues": "Povolit oznámení oprav systémových událostí",
+              "pricing_edits_enabled": "Povolit úpravy cen",
+              "weather_enabled": "Povolit počasí",
+              "nominal_voltage": "Jmenovité napětí nabíječky EV (V)",
+              "microinverter_lifetime_energy_enabled": "Povolit celoživotní energii mikrostřídačů",
+              "vpp_events_enabled": "Povolit události VPP"
+            },
+            "data_description": {
+              "system_event_repair_issues": "Vytváří opravy Home Assistant pro aktivní trvalé alarmy Enphase. Ve výchozím nastavení vypnuto. Výchozí: Vypnuto.",
+              "pricing_edits_enabled": "Správa sazeb elektřiny IQ Gateway. Výchozí: Zapnuto.",
+              "weather_enabled": "Načte aktuální počasí lokality ze služby Enphase a vytvoří entitu počasí pouze tehdy, když je koncový bod dostupný. Výchozí: Vypnuto.",
+              "nominal_voltage": "Typické střídavé napájecí napětí pro odhad výkonu, když není dostupné aktuální napětí. Výchozí: Z telemetrie nabíječky, pokud je dostupná; jinak podle oblasti Home Assistant, s náhradní hodnotou 230 V.",
+              "schedule_sync_enabled": "Spravujte plány nabíječky IQ EV Charger. Výchozí: Zapnuto.",
+              "battery_schedules_enabled": "Spravujte plány baterie IQ Battery. Výchozí: Zapnuto.",
+              "microinverter_lifetime_energy_enabled": "Povolí všechny senzory celoživotní energie jednotlivých mikrostřídačů. Výchozí: Vypnuto.",
+              "vpp_events_enabled": "Načítá plány VPP/ELRP ze služby Enphase a vytváří entity událostí jen pro zapojené lokality. Ve výchozím nastavení vypnuto. Výchozí: Vypnuto."
+            }
+          },
+          "advanced_features": {
+            "name": "Pokročilé funkce",
+            "data": {
+              "grid_profile_controls_enabled": "Povolit instalační ovládání síťového profilu",
+              "microinverter_power_enabled": "Povolit výkon mikrostřídačů",
+              "export_limit_controls_enabled": "Povolit ovládání limitu přetoků"
+            },
+            "data_description": {
+              "grid_profile_controls_enabled": "Načte metadata síťového profilu dostupná pouze instalačnímu technikovi a povolí akce s profily. Ve výchozím nastavení je vypnuto. Vyžaduje přístup instalátora. Výchozí: Vypnuto.",
+              "microinverter_power_enabled": "Povolí všechny senzory výkonu jednotlivých mikrostřídačů, když je dostupná telemetrie instalačního technika. Vyžaduje přístup instalátora. Výchozí: Vypnuto.",
+              "export_limit_controls_enabled": "Nastavit limity přetoků systému. Vyžaduje přístup instalátora. Výchozí: Vypnuto."
+            }
+          }
+        },
+        "data": {
+          "device_features": "Funkce zařízení",
+          "advanced_features": "Pokročilé funkce",
+          "schedule_sync_enabled": "Povolit podporu plánovače",
+          "battery_schedules_enabled": "Povolit Plánovač baterie",
+          "system_event_repair_issues": "Povolit oznámení oprav systémových událostí",
+          "pricing_edits_enabled": "Povolit úpravy cen",
+          "weather_enabled": "Povolit počasí",
+          "nominal_voltage": "Jmenovité napětí nabíječky EV (V)",
+          "microinverter_lifetime_energy_enabled": "Povolit celoživotní energii mikrostřídačů",
+          "microinverter_power_enabled": "Povolit výkon mikrostřídačů",
+          "vpp_events_enabled": "Povolit události VPP",
+          "grid_profile_controls_enabled": "Povolit instalační ovládání síťového profilu",
+          "export_limit_controls_enabled": "Povolit ovládání limitu přetoků"
+        },
+        "data_description": {
+          "system_event_repair_issues": "Vytváří opravy Home Assistant pro aktivní trvalé alarmy Enphase. Ve výchozím nastavení vypnuto. Výchozí: Vypnuto.",
+          "pricing_edits_enabled": "Správa sazeb elektřiny IQ Gateway. Výchozí: Zapnuto.",
+          "weather_enabled": "Načte aktuální počasí lokality ze služby Enphase a vytvoří entitu počasí pouze tehdy, když je koncový bod dostupný. Výchozí: Vypnuto.",
+          "nominal_voltage": "Typické střídavé napájecí napětí pro odhad výkonu, když není dostupné aktuální napětí. Výchozí: Z telemetrie nabíječky, pokud je dostupná; jinak podle oblasti Home Assistant, s náhradní hodnotou 230 V.",
+          "schedule_sync_enabled": "Spravujte plány nabíječky IQ EV Charger. Výchozí: Zapnuto.",
+          "battery_schedules_enabled": "Spravujte plány baterie IQ Battery. Výchozí: Zapnuto.",
+          "microinverter_lifetime_energy_enabled": "Povolí všechny senzory celoživotní energie jednotlivých mikrostřídačů. Výchozí: Vypnuto.",
+          "microinverter_power_enabled": "Povolí všechny senzory výkonu jednotlivých mikrostřídačů, když je dostupná telemetrie instalačního technika. Vyžaduje přístup instalátora. Výchozí: Vypnuto.",
+          "vpp_events_enabled": "Načítá plány VPP/ELRP ze služby Enphase a vytváří entity událostí jen pro zapojené lokality. Ve výchozím nastavení vypnuto. Výchozí: Vypnuto.",
+          "grid_profile_controls_enabled": "Načte metadata síťového profilu dostupná pouze instalačnímu technikovi a povolí akce s profily. Ve výchozím nastavení je vypnuto. Vyžaduje přístup instalátora. Výchozí: Vypnuto.",
+          "export_limit_controls_enabled": "Nastavit limity přetoků systému. Vyžaduje přístup instalátora. Výchozí: Vypnuto."
+        }
+      },
+      "export_limit": {
+        "title": "Limit přetoků",
+        "description": "Nastavit limity přetoků systému."
+      },
+      "export_limit_action": {
+        "title": "Limit přetoků",
+        "description": "Nastavte, kolik výkonu váš systém dodává do sítě. Stav požadavku sleduje změny odeslané prostřednictvím této integrace.\n\nAktuální nastavení: **{current}**\n\nČekající nastavení: **{pending}**",
+        "menu_options": {
+          "export_limit_set": "Povolit limit dodávky do sítě",
+          "export_limit_disable": "Vypnout omezení přetoků",
+          "export_limit_defaults": "Výchozí nastavení"
+        },
+        "menu_option_descriptions": {
+          "export_limit_defaults": "Uložte výchozí hodnoty pro ovládání limitu dodávky.",
+          "export_limit_set": "Nastavte maximální dodávku do sítě, včetně nulové.",
+          "export_limit_disable": "Povolte dodávku do sítě bez nastaveného limitu."
+        }
+      },
+      "export_limit_set": {
+        "title": "Povolit limit dodávky do sítě",
+        "data": {
+          "limit_watts": "Limit přetoků (W)"
+        },
+        "description": "Nastavením limitu na 0 W zabráníte dodávce do sítě. Jiné hodnoty určují maximální výkon, který může systém dodávat do sítě."
+      },
+      "export_limit_confirm": {
+        "title": "Limit přetoků",
+        "description": "Aktuální nastavení: **{current}**\n\nPožadované nastavení: **{requested}**\n\nRychlost změny (W/sec): **{current_slew}** → **{requested_slew}**",
+        "data": {
+          "confirm": "Potvrdit tuto změnu"
+        }
+      },
+      "export_limit_submitted": {
+        "title": "Limit přetoků",
+        "description": "Nastavit limity přetoků systému.\n\n**{status}**"
+      },
+      "export_limit_readonly": {
+        "title": "Limit přetoků",
+        "description": "Limit přetoků není dostupný. Je vyžadován přístup instalátora a podporovaná konfigurace s jedinou bránou.\n\nAktuální nastavení: **{current}**"
+      },
+      "export_limit_defaults": {
+        "title": "Výchozí nastavení",
+        "description": "Uložte výchozí hodnoty používané při výběru možnosti Povoleno v ovládání limitu dodávky do sítě. Uložení těchto hodnot nemění nastavení brány. Obnovení odstraní uložené přepsání rychlosti.",
+        "data": {
+          "limit_watts": "Výchozí limit přetoků (W)",
+          "slew_rate": "Rychlost změny (W/sec)",
+          "restore_slew_rate": "Obnovit rychlost změny z brány"
+        }
       }
     },
     "error": {
@@ -813,7 +909,17 @@
       "grid_otp_required": "Zadejte jednorázový kód.",
       "grid_otp_invalid_format": "Jednorázový kód musí obsahovat přesně čtyři číslice.",
       "grid_otp_invalid": "Jednorázový kód je neplatný nebo jeho platnost vypršela.",
-      "grid_envoy_serial_missing": "Bránu pro tento systém nelze určit."
+      "grid_envoy_serial_missing": "Bránu pro tento systém nelze určit.",
+      "export_limit_unavailable": "Limit přetoků není dostupný. Je vyžadován přístup instalátora a podporovaná konfigurace s jedinou bránou.",
+      "export_limit_invalid": "Zadejte celé watty od 0 do 100000.",
+      "export_limit_changed": "Konfigurace se změnila. Zkontrolujte aktualizované nastavení a znovu potvrďte.",
+      "export_limit_mismatch": "Instalační formulář Enphase neodpovídá nastavení brány. Obnovte nastavení a zkuste to znovu.",
+      "export_limit_pending": "Čeká se na potvrzení konfigurace. Před další změnou obnovte stav.",
+      "export_limit_disabled": "Povolit ovládání limitu přetoků (Funkce → Pokročilé funkce).",
+      "export_limit_confirmation": "Potvrdit tuto změnu",
+      "export_limit_invalid_slew": "Zadejte kladné číslo s nejvýše dvěma desetinnými místy.",
+      "grid_profile_session_expired": "Relace Enlighten vypršela nebo byla odmítnuta. Otevřete Ověřování, spusťte nové ověření a zkuste to znovu.",
+      "export_limit_session_expired": "Relace Enlighten vypršela nebo byla odmítnuta. Otevřete Ověřování, spusťte nové ověření a zkuste to znovu."
     },
     "abort": {
       "migration_no_envoy_sources": "Nejsou k dispozici žádné energetické senzory Enphase Envoy pro migraci.",
@@ -823,7 +929,8 @@
       "grid_profile_installer_required": "Ovládání síťového profilu vyžaduje instalační přístup k Enphase Activation.",
       "grid_profile_no_regions": "Pro zemi tohoto místa nejsou dostupné žádné oblasti síťových profilů.",
       "grid_mode_unavailable": "Ovládání režimu sítě není pro tento systém k dispozici.",
-      "grid_mode_blocked": "Ovládání režimu sítě je aktuálně zablokováno: {reasons}."
+      "grid_mode_blocked": "Ovládání režimu sítě je aktuálně zablokováno: {reasons}.",
+      "grid_profile_session_expired": "Relace Enlighten vypršela nebo byla odmítnuta. Otevřete Ověřování, spusťte nové ověření a zkuste to znovu."
     },
     "create_entry": {
       "migration_success": "Migrace dokončena. Enphase Energy nyní vlastní vybraná ID zdrojových entit. Po příští aktualizaci zkontrolujte panel Energy a Developer Tools > Statistics.",
@@ -1009,6 +1116,9 @@
           },
           "amp_control_applies_in_modes": {
             "name": "Režimy, ve kterých je řízení proudu použitelné"
+          },
+          "requested_mode": {
+            "name": "Požadovaný režim"
           }
         }
       },
@@ -1103,7 +1213,7 @@
         "name": "Neúspěšná přihlášení uloženými přihlašovacími údaji"
       },
       "current_production_power": {
-        "name": "Aktuální výrobní výkon",
+        "name": "Výrobní výkon",
         "state_attributes": {
           "sampled_at_utc": {
             "name": "Čas vzorku (UTC)"
@@ -1241,7 +1351,7 @@
         }
       },
       "site_consumption_power": {
-        "name": "Aktuální příkon",
+        "name": "Příkon",
         "state_attributes": {
           "last_window_seconds": {
             "name": "Poslední okno (s)"
@@ -1255,7 +1365,7 @@
         }
       },
       "site_grid_power": {
-        "name": "Aktuální výkon sítě",
+        "name": "Výkon sítě",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Poslední tok kWh"
@@ -1320,7 +1430,7 @@
         }
       },
       "site_battery_power": {
-        "name": "Aktuální výkon baterie",
+        "name": "Výkon baterie",
         "state_attributes": {
           "last_flow_kwh": {
             "name": "Poslední tok kWh"
@@ -1367,7 +1477,7 @@
         }
       },
       "system_profile_status": {
-        "name": "Stav profilu systému",
+        "name": "Systémový profil",
         "state": {
           "pending": "Čeká na vyřízení"
         },
@@ -1505,7 +1615,7 @@
         "name": "Měřič spotřeby"
       },
       "gateway_connectivity_status": {
-        "name": "Stav brány",
+        "name": "Konektivita",
         "state_attributes": {
           "ip_address": {
             "name": "IP adresa"
@@ -1516,7 +1626,7 @@
         }
       },
       "gateway_last_reported": {
-        "name": "Brána naposledy hlášena"
+        "name": "Naposledy hlášeno"
       },
       "tariff_billing_cycle": {
         "name": "Pristi datum fakturace",
@@ -1727,7 +1837,21 @@
         }
       },
       "microinverter_connectivity_status": {
-        "name": "Stav připojení mikroinvertorů"
+        "name": "Stav připojení mikroinvertorů",
+        "state_attributes": {
+          "power_telemetry_status": {
+            "name": "Stav telemetrie výkonu",
+            "state": {
+              "disabled": "Vypnuto",
+              "pending": "Čeká na vyřízení",
+              "ready": "Dostupné",
+              "rate_limited": "Omezení četnosti"
+            }
+          },
+          "power_telemetry_next_retry": {
+            "name": "Další pokus o telemetrii výkonu"
+          }
+        }
       },
       "microinverter_reporting_count": {
         "name": "Aktivní mikroinvertory"
@@ -1831,47 +1955,47 @@
           "error": "Chyba",
           "unknown": "Neznámý",
           "unpaired": "Nespárováno",
-          "pairing": "Párování"
+          "pairing": "Párování",
+          "activity_status": "Stav",
+          "activity_unknown": "Neznámé",
+          "activity_yes": "Ano",
+          "activity_no": "Ne",
+          "activity_more": "Další položky",
+          "activity_battery": "Baterie",
+          "activity_charger_problem": "Hlášená porucha",
+          "activity_suspended_by_evse": "Pozastaveno nabíječkou",
+          "activity_offline_since": "Offline od",
+          "activity_connected_devices": "Připojené brány",
+          "activity_disconnected_devices": "Odpojené brány",
+          "activity_unknown_connection_devices": "Brány s neznámým stavem",
+          "activity_connection_method": "Způsob připojení",
+          "activity_latest_reported_utc": "Poslední hlášení",
+          "activity_reporting_inverters": "Hlásící střídače",
+          "activity_not_reporting_inverters": "Nehlásící střídače",
+          "activity_unknown_inverters": "Střídače s neznámým stavem",
+          "activity_power_telemetry_status": "Telemetrie výkonu",
+          "activity_power_telemetry_next_retry": "Opakování telemetrie",
+          "activity_sg_ready_mode_raw": "Režim SG Ready",
+          "activity_sg_ready_contact_state": "Stav kontaktů",
+          "activity_vpp_sgready_mode_override": "Hlášené přepsání VPP",
+          "activity_confirmed_watts": "Potvrzený limit (W)",
+          "activity_requested_watts": "Požadovaný limit (W)",
+          "activity_requested_action": "Požadovaná akce",
+          "activity_request_status": "Stav požadavku",
+          "activity_active_count": "Aktivní problémy",
+          "activity_type": "Typ události",
+          "activity_device_type": "Typ zařízení",
+          "activity_severity": "Závažnost",
+          "activity_description": "Popis",
+          "activity_event_date": "První hlášení",
+          "activity_reason": "Důvod",
+          "activity_http_status": "Stav HTTP",
+          "activity_retry": "Další pokus",
+          "activity_worst_battery": "Nejhorší stav baterie",
+          "activity_reachable": "Cloud dostupný",
+          "activity_last_success": "Poslední úspěšná aktualizace",
+          "activity_standing_alarm": "Trvající alarm"
         }
-      },
-      "ac_battery_overall_status": {
-        "name": "Celkový stav AC baterie",
-        "state": {
-          "normal": "Normální",
-          "warning": "Varování",
-          "error": "Chyba",
-          "unknown": "Neznámý"
-        }
-      },
-      "ac_battery_power": {
-        "name": "Výkon AC baterie"
-      },
-      "ac_battery_last_reported": {
-        "name": "Naposledy hlášeno AC baterií"
-      },
-      "ac_battery_storage_charge": {
-        "name": "Úroveň nabití AC baterie"
-      },
-      "ac_battery_storage_status": {
-        "name": "Stav {serial}",
-        "state": {
-          "normal": "Normální",
-          "warning": "Varování",
-          "error": "Chyba",
-          "unknown": "Neznámý"
-        }
-      },
-      "ac_battery_storage_power": {
-        "name": "Výkon {serial}"
-      },
-      "ac_battery_storage_operating_mode": {
-        "name": "Provozní režim {serial}"
-      },
-      "ac_battery_storage_cycle_count": {
-        "name": "Počet cyklů {serial}"
-      },
-      "ac_battery_storage_last_reported": {
-        "name": "Naposledy hlášeno u {serial}"
       },
       "battery_cfg_schedules": {
         "name": "Plány CFG baterií"
@@ -2056,6 +2180,126 @@
       },
       "vpp_next_event_status": {
         "name": "Stav příští události VPP"
+      },
+      "export_limit": {
+        "name": "Limit přetoků",
+        "state": {
+          "disabled": "Vypnuto",
+          "zero_export": "Nulové přetoky",
+          "limited": "Omezeno",
+          "unsupported": "Nepodporováno",
+          "pending": "Čeká na vyřízení",
+          "unconfirmed": "Nepotvrzeno"
+        },
+        "state_attributes": {
+          "confirmed_watts": {
+            "name": "Aktuální nastavení"
+          },
+          "requested_watts": {
+            "name": "Požadované nastavení"
+          },
+          "requested_action": {
+            "name": "Požadované nastavení",
+            "state": {
+              "set": "Nastavit limit přetoků",
+              "disable": "Vypnout omezení přetoků"
+            }
+          },
+          "request_status": {
+            "name": "Stav požadavku",
+            "state": {
+              "idle": "Žádné",
+              "pending": "Čeká na potvrzení",
+              "confirmed": "Konfigurace potvrzena",
+              "unconfirmed": "Nepotvrzeno",
+              "rejected": "Odmítnuto"
+            }
+          },
+          "last_successful_readback": {
+            "name": "Poslední úspěšné načtení"
+          },
+          "slew_rate": {
+            "name": "Rychlost změny (W/sec)"
+          },
+          "requested_slew_rate": {
+            "name": "Požadované nastavení · Rychlost změny (W/sec)"
+          },
+          "pending": {
+            "name": "Čeká na vyřízení"
+          },
+          "pending_requested_at": {
+            "name": "Čeká na vyřízení Vyžádáno v"
+          }
+        }
+      },
+      "total_array_size": {
+        "name": "Celkový výkon solárních polí"
+      },
+      "total_inverter_capacity": {
+        "name": "Celkový výkon střídačů"
+      },
+      "account_access": {
+        "name": "Přístup účtu",
+        "state": {
+          "administrator": "Správce",
+          "installer": "Instalační technik",
+          "owner": "Vlastník",
+          "host": "Hostitel",
+          "consumption_data": "Údaje o spotřebě",
+          "viewer": "Pozorovatel"
+        },
+        "state_attributes": {
+          "administrator": {
+            "name": "Správce"
+          },
+          "installer": {
+            "name": "Instalační technik"
+          },
+          "owner": {
+            "name": "Vlastník"
+          },
+          "host": {
+            "name": "Hostitel"
+          },
+          "consumption_data": {
+            "name": "Údaje o spotřebě"
+          },
+          "viewer": {
+            "name": "Pozorovatel"
+          }
+        }
+      },
+      "site_information": {
+        "name": "Informace o lokalitě",
+        "state_attributes": {
+          "site_id": {
+            "name": "ID lokality"
+          },
+          "timezone": {
+            "name": "Časové pásmo"
+          },
+          "country": {
+            "name": "Země"
+          },
+          "currency": {
+            "name": "Měna"
+          }
+        }
+      },
+      "inverter_array_energy": {
+        "name": "{array} Celoživotní energie"
+      },
+      "inverter_array_power": {
+        "name": "{array} Aktuální výkon"
+      },
+      "update_status": {
+        "name": "Stav aktualizace",
+        "state": {
+          "idle": "Nečinné",
+          "pending": "Čeká na vyřízení",
+          "unconfirmed": "Nepotvrzeno",
+          "failed": "Selhalo"
+        }
       }
     },
     "number": {
@@ -2228,7 +2472,7 @@
     },
     "binary_sensor": {
       "plugged_in": {
-        "name": "Připojeno"
+        "name": "Připojení vozidla"
       },
       "charging": {
         "name": "Nabíjení"
@@ -2243,7 +2487,7 @@
         "name": "Konektivita",
         "state_attributes": {
           "connection": {
-            "name": "Připojení"
+            "name": "Způsob připojení"
           },
           "ip_address": {
             "name": "IP adresa"
@@ -2251,7 +2495,7 @@
         }
       },
       "active_system_events": {
-        "name": "Aktivní systémové události",
+        "name": "Systémové události",
         "state_attributes": {
           "available": {
             "name": "Služba událostí je dostupná"
@@ -2316,9 +2560,6 @@
       },
       "restrict_battery_discharge_schedule": {
         "name": "Plán omezení vybíjení baterie"
-      },
-      "ac_battery_sleep_mode": {
-        "name": "Režim spánku AC baterie"
       },
       "evse_schedule_edit_mon": {
         "name": "Harmonogram pondělí"
@@ -2391,9 +2632,6 @@
       "system_profile": {
         "name": "Systémový profil"
       },
-      "ac_battery_target_state_of_charge": {
-        "name": "Cílový stav nabití AC baterie"
-      },
       "evse_schedule_selected": {
         "name": "Harmonogram"
       },
@@ -2402,18 +2640,31 @@
       },
       "battery_schedule_selected": {
         "name": "Plán baterie"
+      },
+      "export_limit": {
+        "name": "Limit přetoků",
+        "state": {
+          "enable_limit": "Povoleno",
+          "disable_limit": "Deaktivováno"
+        },
+        "state_attributes": {
+          "default_limit_watts": {
+            "name": "Výchozí limit přetoků (W)"
+          },
+          "default_slew_rate": {
+            "name": "Rychlost změny (W/sec)"
+          },
+          "slew_rate_source": {
+            "name": "Zdroj rychlosti změny",
+            "state": {
+              "gateway": "Brána",
+              "saved_override": "Uložené přepsání"
+            }
+          }
+        }
       }
     },
     "button": {
-      "start_charging": {
-        "name": "Spustit nabíjení"
-      },
-      "stop_charging": {
-        "name": "Zastavit nabíjení"
-      },
-      "cancel_pending_profile_change": {
-        "name": "Zrušit čekající změnu profilu"
-      },
       "storm_alert_opt_out": {
         "name": "Odhlásit upozornění na bouři"
       },
@@ -2569,7 +2820,45 @@
     },
     "battery_profile_pending": {
       "title": "Probíhá aktualizace profilu baterie Enphase Energy",
-      "description": "Změna profilu baterie pro lokalitu {site_id} čeká déle než {pending_timeout_minutes} minut. Cloud může požadavek stále zpracovávat."
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Změna profilu baterie",
+            "description": "Změna profilu baterie pro lokalitu {site_id} čeká déle než {pending_timeout_minutes} minut. Cloud může požadavek stále zpracovávat.\n\nZkontrolujte stav nebo zrušte čekající požadavek.",
+            "menu_options": {
+              "check_again": "Zkontrolovat znovu",
+              "cancel_change": "Zrušit změnu"
+            }
+          },
+          "pending": {
+            "title": "Změna profilu baterie",
+            "description": "Změna stále není potvrzena. Kontroly pokračují automaticky. Můžete znovu zkontrolovat stav nebo změnu zrušit.",
+            "menu_options": {
+              "check_again": "Zkontrolovat znovu",
+              "cancel_change": "Zrušit změnu"
+            }
+          },
+          "check_failed": {
+            "title": "Změna profilu baterie",
+            "description": "Profil se nepodařilo aktualizovat. Zkuste to později nebo zrušte čekající požadavek.",
+            "menu_options": {
+              "check_again": "Zkontrolovat znovu",
+              "cancel_change": "Zrušit změnu"
+            }
+          },
+          "cancel_change": {
+            "title": "Zrušit čekající změnu profilu?",
+            "description": "Zrušte tento čekající požadavek na profil baterie v Enphase. Tím se neobnoví profil, který již vstoupil v platnost."
+          }
+        },
+        "error": {
+          "cannot_cancel": "Požadavek se nepodařilo zrušit. Zkontrolujte připojení a oprávnění účtu Enphase a zkuste to znovu."
+        },
+        "abort": {
+          "entry_unavailable": "Integrace není načtena. Načtěte ji a znovu otevřete tuto opravu.",
+          "request_changed": "Čekající požadavek se změnil. Zavřete tento průvodce a znovu otevřete aktuální opravu."
+        }
+      }
     },
     "hems_auth_degraded": {
       "title": "Enphase Energy HEMS je dočasně pozastaveno",
@@ -2578,6 +2867,14 @@
     "active_system_event": {
       "title": "Aktivní systémová událost Enphase s vysokým dopadem",
       "description": "Lokalita {site_id} má aktivní událost {severity}, která ovlivňuje {device_type} a byla poprvé hlášena v {event_date}. Podrobnosti a doporučený postup najdete v Enlighten. Tato oprava se automaticky odstraní, jakmile Enphase označí událost za vyřešenou."
+    },
+    "export_limit_pending": {
+      "title": "Změna limitu přetoků nepotvrzena",
+      "description": "Změna nebyla potvrzena po {pending_timeout_minutes} minutách. Kontroly pokračují ve standardním intervalu. Ověřte nastavení brány; zápis se automaticky neopakuje."
+    },
+    "evse_status_unavailable": {
+      "title": "Stav nabíječky není dostupný",
+      "description": "Stav nabíječky pro lokalitu {site_id} vrátil HTTP {status}. Hodnoty a ovládání nabíječky nejsou dostupné, dokud se neobnoví aktuální stav. Další pokus: {next_retry}. Ostatní koncové body se nadále dotazují nezávisle."
     }
   },
   "system_health": {
@@ -3215,6 +3512,72 @@
         "gateway_serial": {
           "name": "Sériové číslo Gateway",
           "description": "Volitelné sériové číslo Gateway, pokud Activation záznam obsahuje více Gateway."
+        }
+      }
+    },
+    "set_export_limit": {
+      "name": "Nastavit limit přetoků",
+      "description": "Nastavit limity přetoků systému.",
+      "fields": {
+        "limit_watts": {
+          "name": "Limit přetoků (W)",
+          "description": "Zadejte celé watty od 0 do 100000."
+        },
+        "site_id": {
+          "name": "ID lokality",
+          "description": "Volitelný identifikátor lokality; automaticky detekován při výběru zařízení lokality."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigurační záznam",
+          "description": "Enphase konfigurační záznam"
+        },
+        "device_id": {
+          "name": "Zařízení",
+          "description": "Zařízení"
+        },
+        "slew_rate": {
+          "name": "Rychlost změny (W/sec)",
+          "description": "Volitelné. Při vynechání se použije aktuální hodnota brány."
+        }
+      }
+    },
+    "disable_export_limit": {
+      "name": "Vypnout omezení přetoků",
+      "description": "Nastavit limity přetoků systému.",
+      "fields": {
+        "site_id": {
+          "name": "ID lokality",
+          "description": "Volitelný identifikátor lokality; automaticky detekován při výběru zařízení lokality."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigurační záznam",
+          "description": "Enphase konfigurační záznam"
+        },
+        "device_id": {
+          "name": "Zařízení",
+          "description": "Zařízení"
+        },
+        "slew_rate": {
+          "name": "Rychlost změny (W/sec)",
+          "description": "Volitelné. Při vynechání se použije aktuální hodnota brány."
+        }
+      }
+    },
+    "refresh_export_limit": {
+      "name": "Obnovit limit přetoků",
+      "description": "Nastavit limity přetoků systému.",
+      "fields": {
+        "site_id": {
+          "name": "ID lokality",
+          "description": "Volitelný identifikátor lokality; automaticky detekován při výběru zařízení lokality."
+        },
+        "config_entry_id": {
+          "name": "Enphase konfigurační záznam",
+          "description": "Enphase konfigurační záznam"
+        },
+        "device_id": {
+          "name": "Zařízení",
+          "description": "Zařízení"
         }
       }
     }

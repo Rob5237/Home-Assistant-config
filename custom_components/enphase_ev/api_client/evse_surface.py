@@ -115,7 +115,7 @@ async def status(self: EnphaseEVClient) -> JsonDict:
                         "sn": c.get("sn"),
                         "name": c.get("name"),
                         "displayName": c.get("displayName"),
-                        "connected": bool(c.get("connected")),
+                        "connected": c.get("connected"),
                         "pluggedIn": bool(c.get("pluggedIn") or conn.get("pluggedIn")),
                         "charging": bool(c.get("charging")),
                         "faulted": bool(c.get("faulted")),
@@ -864,13 +864,22 @@ async def get_schedules(self: EnphaseEVClient, sn: str) -> JsonDict:
         if is_scheduler_unavailable_error(err.message, err.status, url):
             raise SchedulerUnavailable(str(err)) from err
         raise
-    if not isinstance(payload, dict):
-        return {"meta": None, "config": None, "slots": []}
-    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    data = payload.get("data") if isinstance(payload, dict) else None
+    slots = data.get("slots") if isinstance(data, dict) else None
+    if not isinstance(slots, list) or any(
+        not isinstance(slot, dict) or not str(slot.get("id") or "").strip()
+        for slot in slots
+    ):
+        raise self._invalid_payload_error(
+            endpoint=url,
+            summary="Scheduler response must include a valid slots list",
+            failure_kind="shape",
+            payload=payload,
+        )
     return {
         "meta": payload.get("meta"),
-        "config": (data or {}).get("config"),
-        "slots": (data or {}).get("slots") or [],
+        "config": cast(JsonDict, data).get("config"),
+        "slots": slots,
     }
 
 

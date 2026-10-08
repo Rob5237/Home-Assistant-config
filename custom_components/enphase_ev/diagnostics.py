@@ -12,6 +12,7 @@ from homeassistant.helpers import device_registry as dr
 from .const import CONF_EMAIL, CONF_SITE_ID, DOMAIN
 from .device_types import parse_type_identifier
 from .energy import SiteEnergyFlow
+from .evse_status_health import async_load_status_history
 from .log_redaction import redact_text
 from .runtime_data import EnphaseConfigEntry, get_runtime_data
 from .scalar_helpers import coerce_snapshot_bool
@@ -448,28 +449,6 @@ def _battery_status_summary_for_diagnostics(summary: Any) -> dict[str, Any]:
     }
 
 
-def _ac_battery_status_summary_for_diagnostics(summary: Any) -> dict[str, Any]:
-    """Return an AC battery summary without identifier-keyed maps."""
-
-    if not isinstance(summary, dict):
-        return {}
-    safe_keys = (
-        "aggregate_status",
-        "battery_count",
-        "sleep_state",
-        "selected_sleep_min_soc",
-        "worst_status",
-        "power_w",
-        "latest_reported_utc",
-        "latest_reported_key",
-    )
-    return {
-        key: summary.get(key)
-        for key in safe_keys
-        if summary.get(key) not in (None, {}, [])
-    }
-
-
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: EnphaseConfigEntry
 ) -> dict[str, Any]:
@@ -488,6 +467,7 @@ async def async_get_config_entry_diagnostics(
         runtime_data = get_runtime_data(entry)
         coord = runtime_data.coordinator
     except RuntimeError:
+        diag["charger_status"] = await async_load_status_history(hass, entry.entry_id)
         return _redact_diagnostics_payload(diag, site_ids=site_ids)
 
     try:
@@ -882,36 +862,6 @@ async def async_get_device_diagnostics(
             )
             if battery_status_summary:
                 payload["battery_status_summary"] = battery_status_summary
-        if type_key == "ac_battery" and coord is not None:
-            ac_battery_devices_payload = getattr(
-                coord, "_ac_battery_devices_payload", None
-            )
-            if (
-                isinstance(ac_battery_devices_payload, dict)
-                and ac_battery_devices_payload
-            ):
-                payload["ac_battery_devices_payload"] = ac_battery_devices_payload
-            ac_battery_telemetry_payloads = getattr(
-                coord, "_ac_battery_telemetry_payloads", None
-            )
-            if (
-                isinstance(ac_battery_telemetry_payloads, dict)
-                and ac_battery_telemetry_payloads
-            ):
-                payload["ac_battery_telemetry_payloads"] = ac_battery_telemetry_payloads
-            ac_battery_events_payloads = getattr(
-                coord, "_ac_battery_events_payloads", None
-            )
-            if (
-                isinstance(ac_battery_events_payloads, dict)
-                and ac_battery_events_payloads
-            ):
-                payload["ac_battery_events_payloads"] = ac_battery_events_payloads
-            ac_battery_status_summary = _ac_battery_status_summary_for_diagnostics(
-                getattr(coord, "ac_battery_status_summary", None)
-            )
-            if ac_battery_status_summary:
-                payload["ac_battery_status_summary"] = ac_battery_status_summary
         if type_key == "heatpump" and coord is not None:
             helper = getattr(coord, "heatpump_runtime_diagnostics", None)
             if callable(helper):

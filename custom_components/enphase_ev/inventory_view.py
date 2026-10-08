@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING, Iterable
 
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity import DeviceInfo
 
 from .device_info_helpers import _cloud_device_info
-from .device_info_helpers import _is_redundant_model_id
+from .device_info_helpers import _is_redundant_model_id, _site_configuration_url
 from .device_types import (
     normalize_type_key,
     parse_type_identifier,
@@ -28,6 +29,20 @@ class InventoryView:
 
     def __init__(self, coordinator: EnphaseCoordinator) -> None:
         self.coordinator = coordinator
+        self._device_metadata_revision = 0
+        self._device_metadata_cache: dict[
+            str, tuple[object, object, int, object, DeviceInfo]
+        ] = {}
+
+    def invalidate_device_metadata(self) -> None:
+        """Advance the metadata revision after inventory acquisition or enrichment.
+
+        Membership can stay unchanged while firmware, models, or the preferred
+        gateway change. Keep this invalidation separate from topology signals.
+        """
+
+        self._device_metadata_revision += 1
+        self._device_metadata_cache.clear()
 
     @property
     def site_id(self) -> str:
@@ -73,8 +88,6 @@ class InventoryView:
             inferred.append("iqevse")
         if getattr(self.coordinator, "_battery_has_encharge", None) is True:
             inferred.append("encharge")
-        if getattr(self.coordinator, "_battery_has_acb", None) is True:
-            inferred.append("ac_battery")
         return [key for key in inferred if self._type_is_selected(key)]
 
     def _type_is_selected(self, type_key: object) -> bool:
@@ -82,7 +95,7 @@ class InventoryView:
         if not normalized:
             return False
         selected = getattr(self.coordinator, "_selected_type_keys", None)
-        if selected is None or not selected:
+        if selected is None:
             return True
         return normalized in selected
 
@@ -127,8 +140,6 @@ class InventoryView:
                     return False
         if normalized == "encharge":
             return getattr(self.coordinator, "_battery_has_encharge", None) is True
-        if normalized == "ac_battery":
-            return getattr(self.coordinator, "_battery_has_acb", None) is True
         if normalized == "iqevse":
             return self._has_known_chargers()
         return False
@@ -187,7 +198,7 @@ class InventoryView:
         if self.has_type(normalized):
             identifier = type_identifier(self.site_id, normalized)
             return identifier if isinstance(identifier, tuple) else None
-        if normalized not in {"encharge", "ac_battery"}:
+        if normalized != "encharge":
             return None
         # Battery controls can be discovered through BatteryConfig before the
         # generic devices inventory exposes a concrete member bucket.
@@ -243,7 +254,6 @@ class InventoryView:
         return {
             "envoy": "IQ Gateway",
             "encharge": "IQ Battery",
-            "ac_battery": "AC Battery",
             "iqevse": "IQ EV Charger",
             "heatpump": "Heat Pump",
             "microinverter": "IQ Microinverters",
@@ -513,6 +523,21 @@ class InventoryView:
                 return summary_model
             return self.type_device_name(normalized) or self.type_label(normalized)
         members = self._type_bucket_members(normalized)
+        if normalized in ("encharge", "microinverter"):
+            model_keys = (
+                "name",
+                "model",
+                "sku_id",
+                "model_id",
+                "part_num",
+                "part_number",
+                "channel_type",
+            )
+            friendly_model = self._type_member_single_value(
+                members, *model_keys
+            ) or self._type_member_summary(members, *model_keys)
+            if friendly_model:
+                return friendly_model
         model = self._type_member_single_value(
             members,
             "model",
@@ -717,10 +742,6 @@ class InventoryView:
                 "hw_version",
                 "hardware_version",
                 "hardwareVersion",
-                "hardware_sku",
-                "part_num",
-                "part_number",
-                "sku_id",
             )
             if hw_version:
                 return hw_version
@@ -729,10 +750,6 @@ class InventoryView:
                 "hw_version",
                 "hardware_version",
                 "hardwareVersion",
-                "hardware_sku",
-                "part_num",
-                "part_number",
-                "sku_id",
             )
             if hw_version:
                 return hw_version
@@ -741,10 +758,6 @@ class InventoryView:
                 "hw_version",
                 "hardware_version",
                 "hardwareVersion",
-                "hardware_sku",
-                "part_num",
-                "part_number",
-                "sku_id",
             )
         if normalized in ("microinverter", "encharge", "iqevse", "generator"):
             return self._type_member_single_value(
@@ -752,9 +765,6 @@ class InventoryView:
                 "hw_version",
                 "hardware_version",
                 "hardwareVersion",
-                "part_num",
-                "part_number",
-                "sku_id",
             )
         return None
 
@@ -769,6 +779,18 @@ class InventoryView:
         identifier = self.type_identifier(type_key)
         if identifier is None:
             return None
+        buckets = getattr(self.coordinator, "_type_device_buckets", None)
+        bucket = buckets.get(normalized) if isinstance(buckets, dict) else None
+        members = bucket.get("devices") if isinstance(bucket, dict) else None
+        cached = self._device_metadata_cache.get(normalized)
+        if (
+            cached is not None
+            and cached[0] is bucket
+            and cached[1] is members
+            and cached[2] == self._device_metadata_revision
+            and cached[3] == identifier
+        ):
+            return deepcopy(cached[4])
         label = self.type_label(type_key) or "Device"
         name = self.type_device_name(type_key) or label
         model = self.type_device_model(type_key) or label
@@ -777,6 +799,7 @@ class InventoryView:
             "manufacturer": "Enphase",
             "model": model,
             "name": name,
+            "configuration_url": _site_configuration_url(self.site_id),
         }
         serial_number = self.type_device_serial_number(type_key)
         if serial_number:
@@ -794,7 +817,15 @@ class InventoryView:
             controller_mac = self._envoy_controller_mac()
             if controller_mac:
                 info_kwargs["connections"] = {(CONNECTION_NETWORK_MAC, controller_mac)}
-        return DeviceInfo(**info_kwargs)
+        info = DeviceInfo(**info_kwargs)
+        self._device_metadata_cache[normalized] = (
+            bucket,
+            members,
+            self._device_metadata_revision,
+            identifier,
+            info,
+        )
+        return deepcopy(info)
 
     def gateway_iq_energy_router_records(self) -> list[dict[str, object]]:
         records = self.coordinator.discovery_snapshot.gateway_iq_energy_router_records()
