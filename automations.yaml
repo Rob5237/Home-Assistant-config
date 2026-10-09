@@ -982,8 +982,17 @@
           - TDI-doel: **{{ states('number.luxtronik_280807_0450_dhw_thermal_desinfection_target') }}°C**
           - Trigger: {{ trigger.id }}
 
-          Zet `thermal_desinfection_day` terug op **None** en
-          `dhw_thermal_desinfection_target` op **62°C** in de Luxtronik-card.
+          **Aanpassen kan op twee plekken (schrijven naar hetzelfde register):**
+
+          - **In HA** (aanbevolen — snelst): open de Luxtronik-card of
+            Instellingen → Apparaten → Novelan @192.168.1.39:8889.
+            Zet `select.luxtronik_280807_0450_thermal_desinfection_day`
+            op **None** en
+            `number.luxtronik_280807_0450_dhw_thermal_desinfection_target`
+            op **62°C**.
+          - **Op het Luxtronik-display**: Service → Instellingen → Warmwater →
+            Thermische desinfectie → Weekdag op **Uit** en Temperatuur op
+            **62°C**.
   mode: single
 
 - id: github_nachtelijke_backup
