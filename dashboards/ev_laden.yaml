@@ -12,7 +12,7 @@
 #         show_in_sidebar: true
 #         filename: dashboards/ev_laden.yaml
 # Daarna 1x herstarten; latere wijzigingen: browser verversen.
-# Lader A = Sonia (charger2), Lader B = Rob (charger3).
+# Lader A = Sonia (chargersonia), Lader B = Rob (charger3).
 # =====================================================================
 views:
   - title: Laden
@@ -108,7 +108,7 @@ views:
             title: Laatste 24 uur
             hours_to_show: 24
             entities:
-              - entity: sensor.charger2_power_active_import
+              - entity: sensor.chargersonia_power_active_import
                 name: Lader A
               - entity: sensor.charger3_power_active_import
                 name: Lader B
@@ -122,18 +122,18 @@ views:
             heading: Lader A – Sonia
             icon: mdi:ev-plug-type2
           - type: tile
-            entity: sensor.charger2_status_connector
+            entity: sensor.chargersonia_status_connector
             name: Status
           - type: tile
             entity: input_select.ev_a_auto
             name: Auto
             icon: mdi:car-electric
           - type: tile
-            entity: sensor.charger2_power_active_import
+            entity: sensor.chargersonia_power_active_import
             name: Vermogen
             color: blue
           - type: tile
-            entity: sensor.charger2_energy_session
+            entity: sensor.chargersonia_energy_session
             name: Deze sessie
             color: blue
           - type: tile
