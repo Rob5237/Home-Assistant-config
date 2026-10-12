@@ -388,3 +388,21 @@
       {% else %}
         {{ (this.state | int(0)) + 1 }}
       {% endif %}
+
+# Beslissing: is er genoeg koude-weer-geschiedenis gelogd om de heuristische
+# pre-17:00 buffer-formule (middag_start_uur hierboven) te vervangen door een
+# echt empirisch model? Bron: packages/warmtepomp_data_analyse.yaml (SQL-query
+# op de recorder-database). Drempels zijn ruwe vuistregels, geen harde eis:
+# 500 samples <5°C ≈ meerdere dagen cumulatieve koude-blootstelling bij de
+# ~7 min logfrequentie van deze sensor; laagste_buitentemp ≤2°C bevestigt dat
+# er echt een koudeperiode bij zat, niet alleen een paar frisse ochtenden.
+- binary_sensor:
+  - name: "Warmtepomp Data-analyse Zinvol"
+    unique_id: "warmtepomp_data_analyse_zinvol"
+    icon: mdi:chart-line
+    state: >
+      {{ (states('sensor.warmtepomp_data_analyse_koude_samples') | int(0)) >= 500
+         and (states('sensor.warmtepomp_data_analyse_laagste_buitentemp_ooit_gelogd') | float(99)) <= 2.0 }}
+    attributes:
+      koude_samples: "{{ states('sensor.warmtepomp_data_analyse_koude_samples') }}"
+      laagste_buitentemp: "{{ states('sensor.warmtepomp_data_analyse_laagste_buitentemp_ooit_gelogd') }}"

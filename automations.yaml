@@ -179,6 +179,45 @@
         value: 0
   mode: single
 
+- id: warmtepomp_data_analyse_zinvol_signaal
+  alias: "Warmtepomp: data-analyse vloerbuffer zinvol"
+  description: >
+    Notificatie als er genoeg koude-weer-geschiedenis gelogd is
+    (binary_sensor.warmtepomp_data_analyse_zinvol) om de heuristische
+    pre-17:00 buffer-formule (middag_start_uur in sensor.warmtepomp_optimaal_startuur_middag)
+    te vervangen door een empirisch gefit model op basis van
+    sensor.luxtronik_280807_0450_room_thermostat_temperature +
+    sensor.luxtronik_280807_0450_outdoor_temperature historie. Vuurt eenmalig
+    (lock warmtepomp_data_analyse_signaal_actief) — de onderliggende
+    conditie is monotoon (koude_samples en laagste_buitentemp kunnen niet
+    weer "verslechteren"), dus geen reset-automatie nodig.
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.warmtepomp_data_analyse_zinvol
+      from: "off"
+      to: "on"
+  conditions:
+    - condition: state
+      entity_id: input_boolean.warmtepomp_data_analyse_signaal_actief
+      state: "off"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Warmtepomp: data-analyse vloerbuffer zinvol"
+        message: >
+          Er is nu genoeg koude-weer-geschiedenis gelogd
+          ({{ state_attr('binary_sensor.warmtepomp_data_analyse_zinvol', 'koude_samples') }}
+          samples <5°C, laagste gemeten buitentemp
+          {{ state_attr('binary_sensor.warmtepomp_data_analyse_zinvol', 'laagste_buitentemp') }}°C)
+          om de pre-17:00 vloerbuffer-formule te vervangen door een echt
+          gekalibreerd model i.p.v. de huidige heuristiek. Vraag Claude Code
+          om de analyse te doen op sensor.luxtronik_280807_0450_room_thermostat_temperature
+          vs. sensor.luxtronik_280807_0450_outdoor_temperature historie.
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.warmtepomp_data_analyse_signaal_actief
+  mode: single
+
 - id: warmtepomp_pre17_buffer_verificatie
   alias: "Warmtepomp: eenmalige verificatie pre-17:00 vloerbuffer (13-10-2026)"
   description: >

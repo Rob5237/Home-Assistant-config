@@ -133,8 +133,13 @@ views:
         title: Pre-17:00 Vloerbuffer
         entities:
           - entity: sensor.warmtepomp_optimaal_startuur_middag
-            name: Goedkoopste middaguur (12:00-16:00)
+            name: Goedkoopste moment (venster schuift bij kou)
             icon: mdi:clock-start
+          - type: attribute
+            entity: sensor.warmtepomp_optimaal_startuur_middag
+            attribute: middag_start_uur
+            name: Zoekvenster start-uur
+            icon: mdi:arrow-collapse-left
           - type: attribute
             entity: sensor.warmtepomp_optimaal_startuur_middag
             attribute: kosten_per_kwh_warmte
@@ -149,6 +154,17 @@ views:
             name: Kamertemperatuur
           - entity: sensor.luxtronik_280807_0450_room_thermostat_temperature_target
             name: Ingestelde setpoint
+
+      # Data-analyse status (koude-weer-historie voor gekalibreerd model)
+      - type: entities
+        title: Vloerbuffer — Data-analyse Status
+        entities:
+          - entity: binary_sensor.warmtepomp_data_analyse_zinvol
+            name: Genoeg koude-data voor echt model
+          - entity: sensor.warmtepomp_data_analyse_koude_samples
+            name: Samples <5°C gelogd
+          - entity: sensor.warmtepomp_data_analyse_laagste_buitentemp_ooit_gelogd
+            name: Laagste buitentemp ooit gelogd
 
   # ==============================
   # Laadpalen

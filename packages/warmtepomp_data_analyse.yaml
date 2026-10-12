@@ -1,0 +1,33 @@
+# packages/warmtepomp_data_analyse.yaml
+#
+# SQL-sensoren die rechtstreeks de recorder-database bevragen om te bepalen
+# wanneer er genoeg koude-weer-geschiedenis gelogd is om de pre-17:00
+# vloerbuffer (zie templates/warmtepomp.yaml, sensor.warmtepomp_optimaal_startuur_middag)
+# te vervangen door een echt empirisch gefit model in plaats van de huidige
+# heuristische clamp-formule. Achtergrond: recorder-historie startte pas
+# 2026-09-28 en heeft tot dusver alleen mild herfstweer gezien.
+sql:
+  - name: "Warmtepomp data-analyse: koude samples"
+    unique_id: warmtepomp_data_analyse_koude_samples
+    query: >
+      SELECT COUNT(*) AS value_field
+      FROM states s
+      JOIN states_meta m ON s.metadata_id = m.metadata_id
+      WHERE m.entity_id = 'sensor.luxtronik_280807_0450_outdoor_temperature'
+        AND s.state NOT IN ('unknown', 'unavailable')
+        AND CAST(s.state AS FLOAT) < 5.0;
+    column: "value_field"
+    unit_of_measurement: "samples"
+    icon: mdi:snowflake-thermometer
+
+  - name: "Warmtepomp data-analyse: laagste buitentemp ooit gelogd"
+    unique_id: warmtepomp_data_analyse_laagste_buitentemp
+    query: >
+      SELECT MIN(CAST(s.state AS FLOAT)) AS value_field
+      FROM states s
+      JOIN states_meta m ON s.metadata_id = m.metadata_id
+      WHERE m.entity_id = 'sensor.luxtronik_280807_0450_outdoor_temperature'
+        AND s.state NOT IN ('unknown', 'unavailable');
+    column: "value_field"
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-low

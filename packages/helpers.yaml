@@ -89,6 +89,10 @@ input_boolean:
     name: "Nachtventilatie-signaal reeds verstuurd"
     icon: mdi:bell-check
 
+  warmtepomp_data_analyse_signaal_actief:
+    name: "Warmtepomp data-analyse-signaal reeds verstuurd"
+    icon: mdi:bell-check
+
   kamer_stijgt:
     name: "Kamer temp trend: stijgend"
     icon: mdi:trending-up
