@@ -519,6 +519,9 @@ automation:
                   {% set f = 3 %}
                   {% set a = [10, r_all] | min %}
                 {% elif vol %}
+                  {# 3-fase: krapste fase bepaalt A per fase (r_all = min(r1,r2,r3)),
+                     die A wordt over 3 fasen geladen. Streven = max_a (16 A = 11 kW)
+                     maar bij minder ruimte proportioneel lager. #}
                   {% if drie %}
                     {% set f = 3 %}
                     {% set a = [max_a, r_all] | min %}
