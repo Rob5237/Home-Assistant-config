@@ -616,7 +616,7 @@ automation:
                   then:
                     - action: input_datetime.set_datetime
                       target:
-                        entity_id: "input_datetime.ev_{{ x }}_fasewissel"
+                        entity_id: "input_datetime.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_fasewissel"
                       data:
                         timestamp: "{{ now().timestamp() }}"
                 - action: script.ev_zet_laadprofiel
@@ -626,12 +626,12 @@ automation:
                     fasen: "{{ fasen }}"
                 - action: input_number.set_value
                   target:
-                    entity_id: "input_number.ev_{{ x }}_laatst_gezet"
+                    entity_id: "input_number.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_laatst_gezet"
                   data:
                     value: "{{ amps }}"
                 - action: input_number.set_value
                   target:
-                    entity_id: "input_number.ev_{{ x }}_fasen"
+                    entity_id: "input_number.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_fasen"
                   data:
                     value: "{{ fasen }}"
 
@@ -715,7 +715,7 @@ automation:
                     fasen: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_fasen') | int(3) }}"
                 - action: input_number.set_value
                   target:
-                    entity_id: "input_number.ev_{{ repeat.item }}_laatst_gezet"
+                    entity_id: "input_number.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] }}_laatst_gezet"
                   data:
                     value: "{{ nood[repeat.item] | int }}"
                 - action: logbook.log
@@ -764,14 +764,14 @@ automation:
                       sequence:
                         - action: input_select.select_option
                           target:
-                            entity_id: "input_select.ev_{{ x }}_auto"
+                            entity_id: "input_select.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_auto"
                           data:
                             option: "3-fase"
                     - conditions: "{{ ratio <= 1.3 }}"
                       sequence:
                         - action: input_select.select_option
                           target:
-                            entity_id: "input_select.ev_{{ x }}_auto"
+                            entity_id: "input_select.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_auto"
                           data:
                             option: "1-fase"
 
@@ -806,12 +806,12 @@ automation:
           ingestoken: "{{ trigger.id.endswith('_in') }}"
       - action: input_select.select_option
         target:
-          entity_id: "input_select.ev_{{ x }}_auto"
+          entity_id: "input_select.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_auto"
         data:
           option: "Onbekend"
       - action: input_number.set_value
         target:
-          entity_id: "input_number.ev_{{ x }}_laatst_gezet"
+          entity_id: "input_number.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_laatst_gezet"
         data:
           value: -1
       - if:
@@ -820,16 +820,16 @@ automation:
         then:
           - action: input_datetime.set_datetime
             target:
-              entity_id: "input_datetime.ev_{{ x }}_ingeplugd"
+              entity_id: "input_datetime.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_ingeplugd"
             data:
               timestamp: "{{ now().timestamp() }}"
         else:
           - action: input_boolean.turn_off
             target:
-              entity_id: "input_boolean.ev_{{ x }}_direct_laden"
+              entity_id: "input_boolean.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_direct_laden"
           - action: input_number.set_value
             target:
-              entity_id: "input_number.ev_{{ x }}_fasen"
+              entity_id: "input_number.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}_fasen"
             data:
               value: 3
 
@@ -853,6 +853,6 @@ automation:
                 fasen: 3
             - action: input_number.set_value
               target:
-                entity_id: "input_number.ev_{{ repeat.item }}_laatst_gezet"
+                entity_id: "input_number.{{ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] }}_laatst_gezet"
               data:
                 value: -1
