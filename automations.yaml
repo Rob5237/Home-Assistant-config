@@ -80,8 +80,10 @@
 - id: warmtepomp_pre17_buffer_start
   alias: "Warmtepomp: pre-17:00 vloerbuffer start"
   description: >
-    Zet de kamerthermostaat-setpoint op het goedkoopste middaguur (12:00-16:00,
-    sensor.warmtepomp_optimaal_startuur_middag) tijdelijk naar 21°C, zodat de
+    Zet de kamerthermostaat-setpoint op het goedkoopste uur binnen het
+    pre-17:00-venster (sensor.warmtepomp_optimaal_startuur_middag — venster
+    schuift van 12:00-16:00 bij mild weer tot 09:00-16:00 bij kou) tijdelijk
+    naar 21°C, zodat de
     vloer vóór de dure uren vanaf 17:00 thermisch wordt opgeladen. De
     oorspronkelijke setpoint gaat naar input_number.warmtepomp_kamertemp_backup
     (0 = geen backup actief) en wordt om 17:00 teruggezet door
@@ -176,6 +178,57 @@
       data:
         value: 0
   mode: single
+
+- id: warmtepomp_pre17_buffer_verificatie
+  alias: "Warmtepomp: eenmalige verificatie pre-17:00 vloerbuffer (13-10-2026)"
+  description: >
+    Eenmalige sanity-check voor de nieuwe pre-17:00 vloerbuffer-feature:
+    stuurt een persistent notification op het moment dat de boost start
+    (backup-helper 0→>0) en op het moment dat hij eindigt (backup-helper
+    >0→0), met het verwachte uur (sensor.warmtepomp_optimaal_startuur_middag)
+    vs. het werkelijke kloktijdstip en de echte climate-setpoint. Alleen
+    actief op 2026-10-13 (condition op datum) — na die dag kan deze
+    automatie verwijderd worden, was puur een eenmalige verificatie.
+  triggers:
+    - id: start
+      trigger: numeric_state
+      entity_id: input_number.warmtepomp_kamertemp_backup
+      above: 0.01
+    - id: einde
+      trigger: numeric_state
+      entity_id: input_number.warmtepomp_kamertemp_backup
+      below: 0.01
+  conditions:
+    - condition: template
+      value_template: "{{ now().strftime('%Y-%m-%d') == '2026-10-13' }}"
+  actions:
+    - choose:
+        - conditions:
+            - condition: trigger
+              id: start
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: "Vloerbuffer-check: start"
+                message: >
+                  Tijd: {{ now().strftime('%H:%M') }}.
+                  Sensor voorspelde uur: {{ states('sensor.warmtepomp_optimaal_startuur_middag') }}.
+                  Komt overeen met nu: {{ 'JA' if states('sensor.warmtepomp_optimaal_startuur_middag')[:2] | int(-1) == now().hour else 'NEE' }}.
+                  Backup-setpoint weggeschreven: {{ states('input_number.warmtepomp_kamertemp_backup') }}°C.
+                  Climate-setpoint nu: {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}°C (verwacht 21°C).
+        - conditions:
+            - condition: trigger
+              id: einde
+          sequence:
+            - action: persistent_notification.create
+              data:
+                title: "Vloerbuffer-check: einde"
+                message: >
+                  Tijd: {{ now().strftime('%H:%M') }}.
+                  Backup-waarde die teruggezet is: {{ trigger.from_state.state }}°C.
+                  Climate-setpoint nu: {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}°C
+                  (verwacht gelijk aan de teruggezette backup-waarde).
+  mode: queued
 
 - id: waarschuwing_bij_herinstallatie
   alias: "Systeem: waarschuwing bij herinstallatie"

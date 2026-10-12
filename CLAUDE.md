@@ -61,6 +61,7 @@ het tweede her-evalueert de templates die ze gebruiken.
 - **Optimaal startuur**: berekent goedkoopste stookuur via Zonneplan forecast × COP × dynamische stooklijn
   - Stooklijn: aanvoertemperatuur lineair van `heating_min_flow_out_temperature` tot `heating_curve_end_temperature` over bereik -10°C tot `heating_threshold_temperature`
 - **TDI-kandidaat uur**: goedkoopste uur overdag (09:00-16:00) op de eerste dag waarop TDI ≥7 dagen geleden is
+- **Pre-17:00 vloerbuffer**: `sensor.warmtepomp_optimaal_startuur_middag` kiest het goedkoopste uur binnen een venster dat eindigt om 17:00 en start op `middag_start_uur` (attribuut) — 12:00 bij mild weer (≥`heating_threshold_temperature`), schuivend tot 09:00 bij kou (heuristische clamp-formule, GEEN gekalibreerd model — recorder-historie start pas 2026-09-28 en heeft nog geen koude dagen gezien; later vervangen door een empirisch model zodra die data er is). `warmtepomp_pre17_buffer_start` zet op dat uur de kamerthermostaat (`climate.luxtronik_280807_0450_heating`) naar 21°C, met de oude setpoint weggeschreven in `input_number.warmtepomp_kamertemp_backup` (0 = geen backup actief). `warmtepomp_pre17_buffer_einde` zet om 17:00 de setpoint terug. `warmtepomp_pre17_buffer_reset_bij_gemiste_trigger` is het vangnet bij een HA-herstart rond 17:00. Losstaand van de dagbrede `warmtepomp_goedkoop_uur_opwarmen` (+0.5°C correctie, geen setpoint-wijziging) — beide kunnen onafhankelijk van elkaar draaien.
 
 ## Automaties (algemeen)
 | Alias | Trigger | Doel |

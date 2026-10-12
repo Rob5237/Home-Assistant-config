@@ -243,10 +243,26 @@
           {% endif %}
 
     # Zelfde kosten_warmte-berekening (prijs × geschatte COP) als hierboven,
-    # maar gefilterd op vandaag 12:00-16:00. Doel: goedkoopste middaguur om de
-    # vloer thermisch op te laden vóór de dure uren vanaf 17:00 (zie
-    # warmtepomp_pre17_buffer_start/einde in automations.yaml). Losstaand van
-    # het dagbrede optimaal_startuur, dat bv. ook een nachtuur kan kiezen.
+    # maar gefilterd op vandaag, venster [middag_start_uur, 17). Doel:
+    # goedkoopste moment om de vloer thermisch op te laden vóór de dure uren
+    # vanaf 17:00 (zie warmtepomp_pre17_buffer_start/einde in automations.yaml).
+    # Losstaand van het dagbrede optimaal_startuur, dat bv. ook een nachtuur
+    # kan kiezen.
+    #
+    # middag_start_uur schuift naar voren (vroeger op de dag) naarmate het
+    # kouder is buiten — vloerverwarming warmt trager op bij kou, dus eerder
+    # starten vergroot de kans dat 21°C echt gehaald wordt om 17:00. Heuristische
+    # clamp-formule (zelfde stijl als window_min in warmtepomp_goedkoop_uur_opwarmen),
+    # GEEN gekalibreerd model: daarvoor ontbreekt historische data bij koud
+    # weer (recorder-geschiedenis start 2026-09-28, enkel mild herfstweer
+    # gezien). Zodra er een winter met koude dagen is gelogd, kan dit vervangen
+    # worden door een empirisch gefit model (opwarmsnelheid °C/uur vs.
+    # buitentemp, af te leiden uit sensor.luxtronik_280807_0450_room_thermostat_temperature
+    # + sensor.luxtronik_280807_0450_outdoor_temperature historie).
+    # Bij t_buiten >= t_drempel: 5 uur vooraf (venster blijft 12:00-16:00,
+    # ongewijzigd t.o.v. het oorspronkelijke vaste venster). Bij t_buiten ver
+    # onder t_drempel: oploop tot 8 uur vooraf (venster vanaf 09:00), geclampt
+    # zodat het niet overlapt met het TDI-venster vóór 09:00.
     - name: "Warmtepomp Optimaal Startuur Middag"
       unique_id: "warmtepomp_optimaal_startuur_middag"
       icon: mdi:clock-start
@@ -258,9 +274,12 @@
           {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
           {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
           {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+          {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+          {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
+          {% set middag_start_uur = (17 - uren_vooraf) | round | int %}
           {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
           {% set vandaag = now().strftime('%Y-%m-%d') %}
-          {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', 12) | selectattr('uur', 'lt', 17) | list %}
+          {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', middag_start_uur) | selectattr('uur', 'lt', 17) | list %}
           {% if middag %}
             {% set best = middag | min(attribute='kosten_warmte') %}
             {{ '%02d:00' | format(best.uur) }}
@@ -271,6 +290,11 @@
           onbekend
         {% endif %}
       attributes:
+        middag_start_uur: >
+          {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+          {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+          {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
+          {{ ((17 - uren_vooraf) | round | int) }}
         kosten_per_kwh_warmte: >
           {% from 'warmtepomp_macros.jinja' import bereken_uren %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
@@ -279,9 +303,12 @@
             {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
             {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
             {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+            {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
+            {% set middag_start_uur = (17 - uren_vooraf) | round | int %}
             {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
             {% set vandaag = now().strftime('%Y-%m-%d') %}
-            {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', 12) | selectattr('uur', 'lt', 17) | list %}
+            {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', middag_start_uur) | selectattr('uur', 'lt', 17) | list %}
             {% if middag %}
               {{ (middag | min(attribute='kosten_warmte')).kosten_warmte }}
             {% else %}
