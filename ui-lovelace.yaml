@@ -166,6 +166,15 @@ views:
           - entity: sensor.warmtepomp_data_analyse_laagste_buitentemp_ooit_gelogd
             name: Laagste buitentemp ooit gelogd
 
+      - type: history-graph
+        title: Vloerbuffer — Data-analyse Trend
+        hours_to_show: 4320
+        entities:
+          - entity: sensor.warmtepomp_data_analyse_koude_samples
+            name: Samples <5°C gelogd
+          - entity: sensor.warmtepomp_data_analyse_laagste_buitentemp_ooit_gelogd
+            name: Laagste buitentemp ooit gelogd
+
   # ==============================
   # Laadpalen
   # ==============================
