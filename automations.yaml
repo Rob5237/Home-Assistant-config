@@ -1014,11 +1014,16 @@
     input_number.vakantie_parallel_shift_backup en backup → 0.
 
     TDI catch-up: als laatste TDI ≥7 dgn geleden was, wordt direct een
-    thermische desinfectie-cyclus gestart (setpoint 62°C, dhw_mode Automatic,
-    heating-switch aan, lock on) ongeacht zon, tijd of goedkoopste-uur. Reset
-    via tdi_einde_reset (DHW > 60). Vermijdt dat boiler na vakantie nog dagen
-    op niet-legionellaveilige 57°C draait voordat reguliere TDI-automation aan
-    de beurt komt.
+    thermische desinfectie-cyclus gestart (setpoint 65°C, dhw_mode Automatic,
+    heating-switch aan, lock on) ongeacht zon, tijd of goedkoopste-uur. Setpoint
+    65°C (niet 62°C) is bewust gelijk aan de reguliere tdi_legionella_solar_overschot
+    — zodat tdi_einde_reset (die target_temperature > 63 als conditie heeft)
+    deze cyclus ook daadwerkelijk herkent en reset. Met 62°C bleef de reset
+    nooit afgaan (geen enkele reset-automation herkende setpoint 62 +
+    mode Automatic) en bleef de boiler voor onbepaalde tijd op 62°C/Automatic
+    staan (gefixt 12-10-2026). Reset via tdi_einde_reset (DHW > 60°C voor
+    15 min). Vermijdt dat boiler na vakantie nog dagen op niet-legionellaveilige
+    57°C draait voordat reguliere TDI-automation aan de beurt komt.
 
     Notificatie toont DHW/kamer/buiten-temp, laatste TDI, heating-switch en
     de herstelde parallel_shift.
@@ -1096,7 +1101,7 @@
         target:
           entity_id: number.luxtronik_280807_0450_dhw_target_temperature
         data:
-          value: 62
+          value: 65
       - action: switch.turn_on
         target:
           entity_id: switch.luxtronik_280807_0450_heating
@@ -1108,9 +1113,9 @@
           title: "TDI catch-up na vakantie"
           notification_id: tdi_catchup_vakantie
           message: >-
-            Laatste TDI was ≥7 dgn geleden — TDI nu gestart (setpoint 62°C,
+            Laatste TDI was ≥7 dgn geleden — TDI nu gestart (setpoint 65°C,
             mode Automatic, heating-switch aan). Reset volgt via tdi_einde_reset
-            zodra DHW > 60°C.
+            zodra DHW > 60°C voor 15 min.
     - action: persistent_notification.create
       data:
         title: "Vakantie uitgeschakeld"
