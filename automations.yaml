@@ -77,6 +77,106 @@
         value: 0
   mode: single
 
+- id: warmtepomp_pre17_buffer_start
+  alias: "Warmtepomp: pre-17:00 vloerbuffer start"
+  description: >
+    Zet de kamerthermostaat-setpoint op het goedkoopste middaguur (12:00-16:00,
+    sensor.warmtepomp_optimaal_startuur_middag) tijdelijk naar 21°C, zodat de
+    vloer vóór de dure uren vanaf 17:00 thermisch wordt opgeladen. De
+    oorspronkelijke setpoint gaat naar input_number.warmtepomp_kamertemp_backup
+    (0 = geen backup actief) en wordt om 17:00 teruggezet door
+    warmtepomp_pre17_buffer_einde. Losstaand van warmtepomp_goedkoop_uur_opwarmen
+    (dagbrede +0.5°C correctie) — dit zet de setpoint zelf, niet de correctie.
+  triggers:
+    - trigger: time_pattern
+      minutes: '1'
+  conditions:
+    - condition: template
+      value_template: >
+        {% set opt = states('sensor.warmtepomp_optimaal_startuur_middag') %}
+        {{ opt not in ('unknown', 'unavailable', 'onbekend')
+           and opt | length >= 2
+           and now().hour == opt[:2] | int(-1) }}
+    - condition: numeric_state
+      entity_id: input_number.warmtepomp_kamertemp_backup
+      below: 0.01
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_heating_mode
+          state: "Off"
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "off"
+  actions:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.warmtepomp_kamertemp_backup
+      data:
+        value: "{{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}"
+    - action: climate.set_temperature
+      target:
+        entity_id: climate.luxtronik_280807_0450_heating
+      data:
+        temperature: 21
+  mode: single
+
+- id: warmtepomp_pre17_buffer_einde
+  alias: "Warmtepomp: pre-17:00 vloerbuffer einde"
+  description: >
+    Zet om 17:00 de kamerthermostaat-setpoint terug naar de waarde van vóór de
+    boost (input_number.warmtepomp_kamertemp_backup), en reset de backup naar 0.
+  triggers:
+    - trigger: time
+      at: "17:00:00"
+  conditions:
+    - condition: numeric_state
+      entity_id: input_number.warmtepomp_kamertemp_backup
+      above: 0.01
+  actions:
+    - action: climate.set_temperature
+      target:
+        entity_id: climate.luxtronik_280807_0450_heating
+      data:
+        temperature: "{{ states('input_number.warmtepomp_kamertemp_backup') | float }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.warmtepomp_kamertemp_backup
+      data:
+        value: 0
+  mode: single
+
+- id: warmtepomp_pre17_buffer_reset_bij_gemiste_trigger
+  alias: "Warmtepomp: vloerbuffer reset bij gemiste 17:00-trigger"
+  description: >
+    Vangnet voor als HA rond 17:00 niet actief was (bv. herstart) waardoor
+    warmtepomp_pre17_buffer_einde niet afging: bij HA-start buiten het
+    12:00-17:00 venster, met een nog actieve backup, direct terugzetten i.p.v.
+    tot de volgende dag op 21°C laten staan.
+  triggers:
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: numeric_state
+      entity_id: input_number.warmtepomp_kamertemp_backup
+      above: 0.01
+    - condition: template
+      value_template: "{{ not (12 <= now().hour < 17) }}"
+  actions:
+    - delay:
+        seconds: 30
+    - action: climate.set_temperature
+      target:
+        entity_id: climate.luxtronik_280807_0450_heating
+      data:
+        temperature: "{{ states('input_number.warmtepomp_kamertemp_backup') | float }}"
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.warmtepomp_kamertemp_backup
+      data:
+        value: 0
+  mode: single
+
 - id: waarschuwing_bij_herinstallatie
   alias: "Systeem: waarschuwing bij herinstallatie"
   triggers:

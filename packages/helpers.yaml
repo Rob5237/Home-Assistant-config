@@ -51,6 +51,15 @@ input_number:
     unit_of_measurement: "°C"
     icon: mdi:thermometer-lines
 
+  warmtepomp_kamertemp_backup:
+    name: "Backup kamerthermostaat-setpoint voor pre-17u vloerbuffer (0 = geen backup)"
+    initial: 0
+    min: 0
+    max: 35
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:content-save-cog
+
 input_boolean:
   vakantie_actief:
     name: "Vakantiemodus actief"

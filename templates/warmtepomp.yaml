@@ -242,6 +242,55 @@
             {{ [] }}
           {% endif %}
 
+    # Zelfde kosten_warmte-berekening (prijs × geschatte COP) als hierboven,
+    # maar gefilterd op vandaag 12:00-16:00. Doel: goedkoopste middaguur om de
+    # vloer thermisch op te laden vóór de dure uren vanaf 17:00 (zie
+    # warmtepomp_pre17_buffer_start/einde in automations.yaml). Losstaand van
+    # het dagbrede optimaal_startuur, dat bv. ook een nachtuur kan kiezen.
+    - name: "Warmtepomp Optimaal Startuur Middag"
+      unique_id: "warmtepomp_optimaal_startuur_middag"
+      icon: mdi:clock-start
+      state: >
+        {% from 'warmtepomp_macros.jinja' import bereken_uren %}
+        {% set weer = weer_forecast['weather.thuis'].forecast %}
+        {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+        {% if weer and prijzen %}
+          {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+          {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+          {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+          {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+          {% set vandaag = now().strftime('%Y-%m-%d') %}
+          {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', 12) | selectattr('uur', 'lt', 17) | list %}
+          {% if middag %}
+            {% set best = middag | min(attribute='kosten_warmte') %}
+            {{ '%02d:00' | format(best.uur) }}
+          {% else %}
+            onbekend
+          {% endif %}
+        {% else %}
+          onbekend
+        {% endif %}
+      attributes:
+        kosten_per_kwh_warmte: >
+          {% from 'warmtepomp_macros.jinja' import bereken_uren %}
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set vandaag = now().strftime('%Y-%m-%d') %}
+            {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', 12) | selectattr('uur', 'lt', 17) | list %}
+            {% if middag %}
+              {{ (middag | min(attribute='kosten_warmte')).kosten_warmte }}
+            {% else %}
+              {{ none }}
+            {% endif %}
+          {% else %}
+            {{ none }}
+          {% endif %}
+
 # DHW delta-T bij compressor-start: 57 - DHW-temp op moment van compressor
 # off→on. Hoge waarde (>10K) = diepe ontlading vóór start = lange cyclus in
 # koude tank = mindere gemiddelde COP. Streefwaarde na drempel-verhoging
