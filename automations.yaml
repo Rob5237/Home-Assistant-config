@@ -1437,6 +1437,40 @@
         Mode {{ states('select.luxtronik_280807_0450_dhw_mode') }}.
   mode: single
 
+- id: dhw_hysteresis_handmatige_wijziging_blokkeren
+  alias: "Tapwater: handmatige wijziging dhw_hysteresis blokkeren"
+  description: >
+    dhw_hysteresis wordt door de tapwater-automaties zelf beheerd (tijdelijk
+    3K tijdens TDI/groot-overschot-boost, anders 10K — zie
+    dhw_hysteresis_watchdog). Een handmatige wijziging via HA UI/app of
+    Luxtronik-display/RBE wordt binnen enkele seconden teruggedraaid naar de
+    waarde van vóór de wijziging, zodat de waarde effectief niet aanpasbaar
+    is voor gebruikers, terwijl de automaties gewoon kunnen blijven schakelen
+    tussen 3K en 10K.
+
+    Context-detectie (zelfde patroon als tapwater_overschot_user_intervention):
+    • UI/app-actie → context.user_id is gevuld
+    • Luxtronik RBE/integration push → context.parent_id is None
+    • Onze eigen automation-actie → context.parent_id is gevuld én
+      user_id is None → condition matched niet → wijziging blijft staan
+  triggers:
+    - trigger: state
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+  conditions:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.context.user_id is not none
+           or trigger.to_state.context.parent_id is none }}
+    - condition: template
+      value_template: "{{ trigger.from_state is not none }}"
+  actions:
+    - action: number.set_value
+      target:
+        entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+      data:
+        value: "{{ trigger.from_state.state }}"
+  mode: single
+
 - id: compressor_starts_monthly_reset
   alias: "Warmtepomp: maandelijkse reset compressor-tellers"
   description: >
