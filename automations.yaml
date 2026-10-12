@@ -2469,3 +2469,29 @@
       notification_id: kamer_reversal
       message: "{{ reversal_msg }}"
   mode: single
+
+- id: ev_chargersonia_laadsessie_start
+  alias: "EV: melding bij start laadsessie Sonia"
+  description: >
+    Eenmalige melding wanneer Sonia's laadpaal (chargersonia) daadwerkelijk
+    begint met laden (OCPP ChargePointStatus connector -> Charging), ter
+    bevestiging dat de nieuwe OCPP-koppeling in de praktijk werkt.
+  triggers:
+    - trigger: state
+      entity_id: sensor.chargersonia_status_connector
+      to: "Charging"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Laadpaal Sonia: laadsessie gestart"
+        message: >-
+          Tijd: {{ now().strftime('%H:%M') }}.
+          Status: {{ states('sensor.chargersonia_status_connector') }}.
+    - action: notify.mobile_app_sm_g781b
+      data:
+        title: "Laadpaal Sonia: laadsessie gestart"
+        message: "{{ now().strftime('%H:%M') }} — chargersonia is begonnen met laden."
+        data:
+          tag: chargersonia_laadsessie_start
+          channel: "EV laden"
+  mode: single
