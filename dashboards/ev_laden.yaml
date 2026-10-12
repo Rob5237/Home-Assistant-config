@@ -43,6 +43,20 @@ views:
           - type: tile
             entity: input_select.ev_prioriteit
             name: Prioriteit
+          - type: tile
+            entity: input_boolean.ev_a_direct_laden
+            name: Boost Lader A
+            icon: mdi:lightning-bolt
+            color: red
+            tap_action:
+              action: toggle
+          - type: tile
+            entity: input_boolean.ev_b_direct_laden
+            name: Boost Lader B
+            icon: mdi:lightning-bolt
+            color: red
+            tap_action:
+              action: toggle
           - type: entities
             title: Load balancing
             show_header_toggle: false
@@ -62,6 +76,34 @@ views:
                 name: Altijd laden onder
               - entity: input_boolean.ev_1fase_ondersteund
                 name: 1/3-fase wissel
+          - type: markdown
+            title: 1-fase advies per lader
+            content: |
+              {% macro row(label, sensor) -%}
+              {%- set advies = states(sensor) -%}
+              {%- set ingesteld = state_attr(sensor, 'ingesteld') -%}
+              {%- set r1 = state_attr(sensor, 'ruimte_l1')|int(0) -%}
+              {%- set r2 = state_attr(sensor, 'ruimte_l2')|int(0) -%}
+              {%- set r3 = state_attr(sensor, 'ruimte_l3')|int(0) -%}
+              {%- set max_r = [r1, r2, r3] | max -%}
+              {%- set bar = namespace(l1='', l2='', l3='') -%}
+              {%- set bar.l1 = '█' * (r1 if r1>0 else 0) + '░' * (max_r - (r1 if r1>0 else 0)) -%}
+              {%- set bar.l2 = '█' * (r2 if r2>0 else 0) + '░' * (max_r - (r2 if r2>0 else 0)) -%}
+              {%- set bar.l3 = '█' * (r3 if r3>0 else 0) + '░' * (max_r - (r3 if r3>0 else 0)) -%}
+              {%- set w = state_attr(sensor, 'advies_vermogen_w')|int(0) -%}
+              **{{ label }}** — ingesteld **{{ ingesteld }}** · advies **{{ advies }}** {% if advies == ingesteld %}✓{% else %}⚠️ wissel overwegen{% endif %}
+
+              Max op advies-fase: **{{ (w/1000) | round(2) }} kW**
+
+              ```
+              L1 {{ '%2d A' | format(r1) }}  {{ bar.l1 }}
+              L2 {{ '%2d A' | format(r2) }}  {{ bar.l2 }}
+              L3 {{ '%2d A' | format(r3) }}  {{ bar.l3 }}
+              ```
+              {% endmacro -%}
+              {{ row('Lader A – Sonia', 'sensor.ev_a_optimale_fase_1_fase') }}
+              ---
+              {{ row('Lader B – Rob',   'sensor.ev_b_optimale_fase_1_fase') }}
           - type: history-graph
             title: Laatste 24 uur
             hours_to_show: 24

@@ -252,6 +252,59 @@ template:
           {{ (states('input_number.ev_hoofdzekering')|float(25) - states('input_number.ev_marge')|float(2)
               - states('sensor.ev_huis_stroom_l3')|float) | round(0, 'floor') | int }}
 
+      # ---------- Optimale 1-fase keuze per lader (minst belaste fase) ----------
+      # Advies-sensor: welke fase heeft nu de meeste ruimte voor 1-fase laden.
+      # Hysterese 3 A: wisselt alleen als een andere fase >=3 A méér ruimte heeft
+      # dan de huidig ingestelde fase; voorkomt gefladder bij kleine schommelingen.
+      # LET OP: dit stuurt niets fysiek. De Ratio laadt 1-fase op de fase die
+      # fysiek bedraad is als primary. Pas input_select.ev_X_eenfase_op (en zo
+      # nodig de bedrading) aan op basis van deze sensor.
+      - name: "EV A optimale fase"
+        unique_id: ev_a_optimale_fase
+        availability: "{{ has_value('sensor.ev_ruimte_l1') and has_value('sensor.ev_ruimte_l2') and has_value('sensor.ev_ruimte_l3') }}"
+        state: >
+          {% set r = {'L1': states('sensor.ev_ruimte_l1')|int(0),
+                      'L2': states('sensor.ev_ruimte_l2')|int(0),
+                      'L3': states('sensor.ev_ruimte_l3')|int(0)} %}
+          {% set huidig = states('input_select.ev_a_eenfase_op') %}
+          {% set beste = (r.items() | sort(attribute=1, reverse=true) | list)[0] %}
+          {% if beste[1] >= r.get(huidig, 0) + 3 %}{{ beste[0] }}{% else %}{{ huidig }}{% endif %}
+        attributes:
+          ruimte_l1: "{{ states('sensor.ev_ruimte_l1') }}"
+          ruimte_l2: "{{ states('sensor.ev_ruimte_l2') }}"
+          ruimte_l3: "{{ states('sensor.ev_ruimte_l3') }}"
+          ingesteld: "{{ states('input_select.ev_a_eenfase_op') }}"
+          advies_vermogen_w: >
+            {% set r = {'L1': states('sensor.ev_ruimte_l1')|int(0),
+                        'L2': states('sensor.ev_ruimte_l2')|int(0),
+                        'L3': states('sensor.ev_ruimte_l3')|int(0)} %}
+            {% set max_a = [states('input_number.ev_a_max_stroom')|int(16),
+                            (r.values() | list | max)] | min %}
+            {{ (max_a * 230) | int }}
+
+      - name: "EV B optimale fase"
+        unique_id: ev_b_optimale_fase
+        availability: "{{ has_value('sensor.ev_ruimte_l1') and has_value('sensor.ev_ruimte_l2') and has_value('sensor.ev_ruimte_l3') }}"
+        state: >
+          {% set r = {'L1': states('sensor.ev_ruimte_l1')|int(0),
+                      'L2': states('sensor.ev_ruimte_l2')|int(0),
+                      'L3': states('sensor.ev_ruimte_l3')|int(0)} %}
+          {% set huidig = states('input_select.ev_b_eenfase_op') %}
+          {% set beste = (r.items() | sort(attribute=1, reverse=true) | list)[0] %}
+          {% if beste[1] >= r.get(huidig, 0) + 3 %}{{ beste[0] }}{% else %}{{ huidig }}{% endif %}
+        attributes:
+          ruimte_l1: "{{ states('sensor.ev_ruimte_l1') }}"
+          ruimte_l2: "{{ states('sensor.ev_ruimte_l2') }}"
+          ruimte_l3: "{{ states('sensor.ev_ruimte_l3') }}"
+          ingesteld: "{{ states('input_select.ev_b_eenfase_op') }}"
+          advies_vermogen_w: >
+            {% set r = {'L1': states('sensor.ev_ruimte_l1')|int(0),
+                        'L2': states('sensor.ev_ruimte_l2')|int(0),
+                        'L3': states('sensor.ev_ruimte_l3')|int(0)} %}
+            {% set max_a = [states('input_number.ev_b_max_stroom')|int(16),
+                            (r.values() | list | max)] | min %}
+            {{ (max_a * 230) | int }}
+
       # ---------- Laadplan per lader: state = nog te laden kWh ----------
       - name: "EV A laadplan"
         unique_id: ev_a_laadplan
