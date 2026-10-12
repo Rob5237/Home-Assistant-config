@@ -2526,13 +2526,13 @@
   description: >
     Melding wanneer de regelaar (ev_regelaar_epex_pv_fase_load_balancing)
     een lader daadwerkelijk tussen 1-fase en 3-fase laden omschakelt
-    (input_number.chargersonia_fasen / ev_b_fasen verandert van waarde). Vereist
+    (input_number.chargersonia_fasen / chargerrob_fasen verandert van waarde). Vereist
     input_boolean.ev_1fase_ondersteund aan.
   triggers:
     - trigger: state
       entity_id:
         - input_number.chargersonia_fasen
-        - input_number.ev_b_fasen
+        - input_number.chargerrob_fasen
   conditions:
     - condition: template
       value_template: >

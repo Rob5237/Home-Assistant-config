@@ -12,7 +12,7 @@
 #         show_in_sidebar: true
 #         filename: dashboards/ev_laden.yaml
 # Daarna 1x herstarten; latere wijzigingen: browser verversen.
-# chargersonia = Sonia (chargersonia), Lader B = Rob (charger3).
+# chargersonia = Sonia (chargersonia), chargerrob = Rob (charger3).
 # =====================================================================
 views:
   - title: Laden
@@ -51,8 +51,8 @@ views:
             tap_action:
               action: toggle
           - type: tile
-            entity: input_boolean.ev_b_direct_laden
-            name: Boost Lader B
+            entity: input_boolean.chargerrob_direct_laden
+            name: Boost chargerrob
             icon: mdi:lightning-bolt
             color: red
             tap_action:
@@ -103,7 +103,7 @@ views:
               {% endmacro -%}
               {{ row('chargersonia – Sonia', 'sensor.chargersonia_optimale_fase') }}
               ---
-              {{ row('Lader B – Rob',   'sensor.ev_b_optimale_fase_1_fase') }}
+              {{ row('chargerrob – Rob',   'sensor.chargerrob_optimale_fase') }}
           - type: history-graph
             title: Laatste 24 uur
             hours_to_show: 24
@@ -111,7 +111,7 @@ views:
               - entity: sensor.chargersonia_power_active_import
                 name: chargersonia
               - entity: sensor.charger3_power_active_import
-                name: Lader B
+                name: chargerrob
               - entity: sensor.ev_pv_overschot
                 name: PV-overschot
 
@@ -178,13 +178,13 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Lader B – Rob
+            heading: chargerrob – Rob
             icon: mdi:ev-plug-type2
           - type: tile
             entity: sensor.charger3_status_connector
             name: Status
           - type: tile
-            entity: input_select.ev_b_auto
+            entity: input_select.chargerrob_auto
             name: Auto
             icon: mdi:car-electric
           - type: tile
@@ -196,7 +196,7 @@ views:
             name: Deze sessie
             color: blue
           - type: tile
-            entity: input_boolean.ev_b_direct_laden
+            entity: input_boolean.chargerrob_direct_laden
             name: Boost – nu laden
             color: red
             tap_action:
@@ -207,28 +207,28 @@ views:
             title: Planning
             show_header_toggle: false
             entities:
-              - entity: input_number.ev_b_benodigde_kwh
+              - entity: input_number.chargerrob_benodigde_kwh
                 name: Benodigd
-              - entity: input_datetime.ev_b_vertrek
+              - entity: input_datetime.chargerrob_vertrek
                 name: Vertrek
-              - entity: sensor.ev_b_laadplan
+              - entity: sensor.chargerrob_laadplan
                 name: Nog te laden
               - type: attribute
-                entity: sensor.ev_b_laadplan
+                entity: sensor.chargerrob_laadplan
                 attribute: plan_leesbaar
                 name: Geplande slots
-              - entity: binary_sensor.ev_b_goedkoop_slot
+              - entity: binary_sensor.chargerrob_goedkoop_slot
                 name: Nu goedkoop slot
           - type: entities
             title: Techniek
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: input_number.ev_b_laatst_gezet
+              - entity: input_number.chargerrob_laatst_gezet
                 name: Toegewezen stroom (A)
-              - entity: input_number.ev_b_fasen
+              - entity: input_number.chargerrob_fasen
                 name: Actieve fasen
-              - entity: input_number.ev_b_max_stroom
+              - entity: input_number.chargerrob_max_stroom
                 name: Max laadstroom
-              - entity: input_select.ev_b_eenfase_op
+              - entity: input_select.chargerrob_eenfase_op
                 name: 1-fase laden op
