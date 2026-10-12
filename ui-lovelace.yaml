@@ -128,6 +128,28 @@ views:
             name: Buitentemperatuur
             icon: mdi:thermometer
 
+      # Pre-17:00 Vloerbuffer
+      - type: entities
+        title: Pre-17:00 Vloerbuffer
+        entities:
+          - entity: sensor.warmtepomp_optimaal_startuur_middag
+            name: Goedkoopste middaguur (12:00-16:00)
+            icon: mdi:clock-start
+          - type: attribute
+            entity: sensor.warmtepomp_optimaal_startuur_middag
+            attribute: kosten_per_kwh_warmte
+            name: Laagste warmtekosten (€/kWh)
+            icon: mdi:currency-eur
+          - entity: input_number.warmtepomp_kamertemp_backup
+            name: Backup-setpoint (0 = buffer niet actief)
+            icon: mdi:content-save-cog
+          - entity: climate.luxtronik_280807_0450_heating
+            name: Kamerthermostaat
+          - entity: sensor.luxtronik_280807_0450_room_thermostat_temperature
+            name: Kamertemperatuur
+          - entity: sensor.luxtronik_280807_0450_room_thermostat_temperature_target
+            name: Ingestelde setpoint
+
   # ==============================
   # Laadpalen
   # ==============================
