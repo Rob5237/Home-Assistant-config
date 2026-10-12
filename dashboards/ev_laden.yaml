@@ -68,7 +68,7 @@ views:
               - entity: sensor.ev_ruimte_l3
                 name: Ruimte L3
               - type: divider
-              - entity: input_number.ev_hoofdzekering
+              - entity: sensor.ev_hoofdzekering_weergave
                 name: Hoofdzekering
               - entity: input_number.ev_marge
                 name: Marge

@@ -156,6 +156,18 @@ input_datetime:
 
 template:
   - sensor:
+      # Read-only weergave van input_number.ev_hoofdzekering voor het Laden-
+      # dashboard: een input_number-rij in een entities-kaart toont altijd een
+      # schuifregelaar/invoerveld (vast HA-gedrag, niet uit te zetten zonder
+      # custom card). Deze sensor spiegelt de waarde als platte tekst, niet
+      # aanpasbaar vanaf het dashboard. De echte instelbare input_number blijft
+      # ongewijzigd beschikbaar via Instellingen > Apparaten & services > Helpers.
+      - name: "EV hoofdzekering weergave"
+        unique_id: ev_hoofdzekering_weergave
+        unit_of_measurement: A
+        availability: "{{ has_value('input_number.ev_hoofdzekering') }}"
+        state: "{{ states('input_number.ev_hoofdzekering') | float }}"
+
       # ---------- P1 netto per fase (W, + afname / - teruglevering) ----------
       - name: "EV P1 net L1"
         unique_id: ev_p1_net_l1
