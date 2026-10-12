@@ -2558,3 +2558,59 @@
           tag: ev_fasewissel
           channel: "EV laden"
   mode: queued
+
+- id: ev_charger3_laadsessie_einde
+  alias: "EV: melding bij einde laadsessie Rob"
+  description: >
+    Eenmalige melding wanneer Rob's laadpaal (charger3) stopt met laden
+    (OCPP ChargePointStatus connector verlaat Charging).
+  triggers:
+    - trigger: state
+      entity_id: sensor.charger3_status_connector
+      from: "Charging"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Laadpaal Rob: laadsessie beëindigd"
+        message: >-
+          Tijd: {{ now().strftime('%H:%M') }}.
+          Status: {{ states('sensor.charger3_status_connector') }}.
+          Energie deze sessie: {{ states('sensor.charger3_energy_session') }} kWh.
+    - action: notify.mobile_app_sm_g781b
+      data:
+        title: "Laadpaal Rob: laadsessie beëindigd"
+        message: >-
+          {{ now().strftime('%H:%M') }} — charger3 is gestopt met laden
+          ({{ states('sensor.charger3_energy_session') }} kWh deze sessie).
+        data:
+          tag: charger3_laadsessie_einde
+          channel: "EV laden"
+  mode: single
+
+- id: ev_chargersonia_laadsessie_einde
+  alias: "EV: melding bij einde laadsessie Sonia"
+  description: >
+    Eenmalige melding wanneer Sonia's laadpaal (chargersonia) stopt met
+    laden (OCPP ChargePointStatus connector verlaat Charging).
+  triggers:
+    - trigger: state
+      entity_id: sensor.chargersonia_status_connector
+      from: "Charging"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Laadpaal Sonia: laadsessie beëindigd"
+        message: >-
+          Tijd: {{ now().strftime('%H:%M') }}.
+          Status: {{ states('sensor.chargersonia_status_connector') }}.
+          Energie deze sessie: {{ states('sensor.chargersonia_energy_session') }} kWh.
+    - action: notify.mobile_app_sm_g781b
+      data:
+        title: "Laadpaal Sonia: laadsessie beëindigd"
+        message: >-
+          {{ now().strftime('%H:%M') }} — chargersonia is gestopt met laden
+          ({{ states('sensor.chargersonia_energy_session') }} kWh deze sessie).
+        data:
+          tag: chargersonia_laadsessie_einde
+          channel: "EV laden"
+  mode: single
