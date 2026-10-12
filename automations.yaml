@@ -2495,3 +2495,28 @@
           tag: chargersonia_laadsessie_start
           channel: "EV laden"
   mode: single
+
+- id: ev_charger3_laadsessie_start
+  alias: "EV: melding bij start laadsessie Rob"
+  description: >
+    Eenmalige melding wanneer Rob's laadpaal (charger3) daadwerkelijk begint
+    met laden (OCPP ChargePointStatus connector -> Charging).
+  triggers:
+    - trigger: state
+      entity_id: sensor.charger3_status_connector
+      to: "Charging"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Laadpaal Rob: laadsessie gestart"
+        message: >-
+          Tijd: {{ now().strftime('%H:%M') }}.
+          Status: {{ states('sensor.charger3_status_connector') }}.
+    - action: notify.mobile_app_sm_g781b
+      data:
+        title: "Laadpaal Rob: laadsessie gestart"
+        message: "{{ now().strftime('%H:%M') }} — charger3 is begonnen met laden."
+        data:
+          tag: charger3_laadsessie_start
+          channel: "EV laden"
+  mode: single
