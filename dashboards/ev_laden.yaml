@@ -12,7 +12,7 @@
 #         show_in_sidebar: true
 #         filename: dashboards/ev_laden.yaml
 # Daarna 1x herstarten; latere wijzigingen: browser verversen.
-# Lader A = Sonia (chargersonia), Lader B = Rob (charger3).
+# chargersonia = Sonia (chargersonia), Lader B = Rob (charger3).
 # =====================================================================
 views:
   - title: Laden
@@ -44,8 +44,8 @@ views:
             entity: input_select.ev_prioriteit
             name: Prioriteit
           - type: tile
-            entity: input_boolean.ev_a_direct_laden
-            name: Boost Lader A
+            entity: input_boolean.chargersonia_direct_laden
+            name: Boost chargersonia
             icon: mdi:lightning-bolt
             color: red
             tap_action:
@@ -101,7 +101,7 @@ views:
               L3 {{ '%2d A' | format(r3) }}  {{ bar.l3 }}
               ```
               {% endmacro -%}
-              {{ row('Lader A – Sonia', 'sensor.ev_a_optimale_fase_1_fase') }}
+              {{ row('chargersonia – Sonia', 'sensor.chargersonia_optimale_fase') }}
               ---
               {{ row('Lader B – Rob',   'sensor.ev_b_optimale_fase_1_fase') }}
           - type: history-graph
@@ -109,7 +109,7 @@ views:
             hours_to_show: 24
             entities:
               - entity: sensor.chargersonia_power_active_import
-                name: Lader A
+                name: chargersonia
               - entity: sensor.charger3_power_active_import
                 name: Lader B
               - entity: sensor.ev_pv_overschot
@@ -119,13 +119,13 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Lader A – Sonia
+            heading: chargersonia – Sonia
             icon: mdi:ev-plug-type2
           - type: tile
             entity: sensor.chargersonia_status_connector
             name: Status
           - type: tile
-            entity: input_select.ev_a_auto
+            entity: input_select.chargersonia_auto
             name: Auto
             icon: mdi:car-electric
           - type: tile
@@ -137,7 +137,7 @@ views:
             name: Deze sessie
             color: blue
           - type: tile
-            entity: input_boolean.ev_a_direct_laden
+            entity: input_boolean.chargersonia_direct_laden
             name: Boost – nu laden
             color: red
             tap_action:
@@ -148,30 +148,30 @@ views:
             title: Planning
             show_header_toggle: false
             entities:
-              - entity: input_number.ev_a_benodigde_kwh
+              - entity: input_number.chargersonia_benodigde_kwh
                 name: Benodigd
-              - entity: input_datetime.ev_a_vertrek
+              - entity: input_datetime.chargersonia_vertrek
                 name: Vertrek
-              - entity: sensor.ev_a_laadplan
+              - entity: sensor.chargersonia_laadplan
                 name: Nog te laden
               - type: attribute
-                entity: sensor.ev_a_laadplan
+                entity: sensor.chargersonia_laadplan
                 attribute: plan_leesbaar
                 name: Geplande slots
-              - entity: binary_sensor.ev_a_goedkoop_slot
+              - entity: binary_sensor.chargersonia_goedkoop_slot
                 name: Nu goedkoop slot
           - type: entities
             title: Techniek
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: input_number.ev_a_laatst_gezet
+              - entity: input_number.chargersonia_laatst_gezet
                 name: Toegewezen stroom (A)
-              - entity: input_number.ev_a_fasen
+              - entity: input_number.chargersonia_fasen
                 name: Actieve fasen
-              - entity: input_number.ev_a_max_stroom
+              - entity: input_number.chargersonia_max_stroom
                 name: Max laadstroom
-              - entity: input_select.ev_a_eenfase_op
+              - entity: input_select.chargersonia_eenfase_op
                 name: 1-fase laden op
 
       # ---------------------------------------------------------------

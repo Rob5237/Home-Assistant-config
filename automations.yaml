@@ -2526,12 +2526,12 @@
   description: >
     Melding wanneer de regelaar (ev_regelaar_epex_pv_fase_load_balancing)
     een lader daadwerkelijk tussen 1-fase en 3-fase laden omschakelt
-    (input_number.ev_a_fasen / ev_b_fasen verandert van waarde). Vereist
+    (input_number.chargersonia_fasen / ev_b_fasen verandert van waarde). Vereist
     input_boolean.ev_1fase_ondersteund aan.
   triggers:
     - trigger: state
       entity_id:
-        - input_number.ev_a_fasen
+        - input_number.chargersonia_fasen
         - input_number.ev_b_fasen
   conditions:
     - condition: template
@@ -2541,7 +2541,7 @@
            and trigger.from_state.state != trigger.to_state.state }}
   actions:
     - variables:
-        lader: "{{ 'Sonia' if trigger.entity_id == 'input_number.ev_a_fasen' else 'Rob' }}"
+        lader: "{{ 'Sonia' if trigger.entity_id == 'input_number.chargersonia_fasen' else 'Rob' }}"
     - action: persistent_notification.create
       data:
         title: "EV: fasewissel ({{ lader }})"

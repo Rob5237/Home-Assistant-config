@@ -11,7 +11,7 @@
 #  - Load balancing per fase over beide laders (prioriteit of gelijk verdelen)
 #
 # KOPPELING (ingevuld):
-#   Lader A = EV-Lader 1 Sonia = HA entity chargersonia_* (OCPP chargePointId chargersonia, van leverancier)
+#   chargersonia = EV-Lader 1 Sonia = HA entity chargersonia_* (OCPP chargePointId chargersonia, van leverancier)
 #   Lader B = EV-Lader 2 Rob   = HA entity charger3_* (OCPP chargePointId charger3, van leverancier)
 #   P1 = HomeWizard, sensor.p1_meter_power_phase_1..3 (W, negatief = teruglevering)
 #   Prijs = sensor.zonneplan_current_electricity_tariff
@@ -31,8 +31,8 @@ input_boolean:
   ev_1fase_ondersteund:
     name: "EV – 1/3-fase wissel via OCPP (na test aanzetten)"
     icon: mdi:sine-wave
-  ev_a_direct_laden:
-    name: "Lader A – direct laden (boost)"
+  chargersonia_direct_laden:
+    name: "chargersonia – direct laden (boost)"
     icon: mdi:lightning-bolt
   ev_b_direct_laden:
     name: "Lader B – direct laden (boost)"
@@ -41,15 +41,15 @@ input_boolean:
 input_select:
   ev_prioriteit:
     name: "EV – prioriteit bij krapte"
-    options: ["Lader A", "Lader B", "Gelijk verdelen"]
-  ev_a_auto:
-    name: "Lader A – auto"
+    options: ["chargersonia", "Lader B", "Gelijk verdelen"]
+  chargersonia_auto:
+    name: "chargersonia – auto"
     options: ["Onbekend", "3-fase", "1-fase"]
   ev_b_auto:
     name: "Lader B – auto"
     options: ["Onbekend", "3-fase", "1-fase"]
-  ev_a_eenfase_op:
-    name: "Lader A – 1-fase laden op"
+  chargersonia_eenfase_op:
+    name: "chargersonia – 1-fase laden op"
     options: ["L1", "L2", "L3"]
   ev_b_eenfase_op:
     name: "Lader B – 1-fase laden op"
@@ -76,8 +76,8 @@ input_number:
     step: 0.01
     unit_of_measurement: "€/kWh"
     mode: box
-  ev_a_benodigde_kwh:
-    name: "Lader A – benodigde kWh deze sessie"
+  chargersonia_benodigde_kwh:
+    name: "chargersonia – benodigde kWh deze sessie"
     min: 0
     max: 100
     step: 1
@@ -90,8 +90,8 @@ input_number:
     step: 1
     unit_of_measurement: kWh
     mode: box
-  ev_a_max_stroom:
-    name: "Lader A – max laadstroom"
+  chargersonia_max_stroom:
+    name: "chargersonia – max laadstroom"
     min: 6
     max: 16
     step: 1
@@ -103,8 +103,8 @@ input_number:
     step: 1
     unit_of_measurement: A
   # interne toestand
-  ev_a_laatst_gezet:
-    name: "Lader A – laatst gezette stroom (intern)"
+  chargersonia_laatst_gezet:
+    name: "chargersonia – laatst gezette stroom (intern)"
     min: -1
     max: 32
     step: 1
@@ -115,8 +115,8 @@ input_number:
     max: 32
     step: 1
     mode: box
-  ev_a_fasen:
-    name: "Lader A – actieve fasen (intern)"
+  chargersonia_fasen:
+    name: "chargersonia – actieve fasen (intern)"
     min: 1
     max: 3
     step: 2
@@ -129,24 +129,24 @@ input_number:
     mode: box
 
 input_datetime:
-  ev_a_vertrek:
-    name: "Lader A – vertrektijd"
+  chargersonia_vertrek:
+    name: "chargersonia – vertrektijd"
     has_date: false
     has_time: true
   ev_b_vertrek:
     name: "Lader B – vertrektijd"
     has_date: false
     has_time: true
-  ev_a_ingeplugd:
-    name: "Lader A – ingeplugd (intern)"
+  chargersonia_ingeplugd:
+    name: "chargersonia – ingeplugd (intern)"
     has_date: true
     has_time: true
   ev_b_ingeplugd:
     name: "Lader B – ingeplugd (intern)"
     has_date: true
     has_time: true
-  ev_a_fasewissel:
-    name: "Lader A – laatste fasewissel (intern)"
+  chargersonia_fasewissel:
+    name: "chargersonia – laatste fasewissel (intern)"
     has_date: true
     has_time: true
   ev_b_fasewissel:
@@ -209,9 +209,9 @@ template:
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
             {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
-            {% set een = is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') or states('input_number.ev_' ~ x ~ '_fasen')|int(3) == 1 %}
+            {% set een = is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', '1-fase') or states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
-            {% elif is_state('input_select.ev_' ~ x ~ '_eenfase_op', 'L1') %}{% set ns.w = ns.w + p %}{% endif %}
+            {% elif is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_eenfase_op', 'L1') %}{% set ns.w = ns.w + p %}{% endif %}
           {% endfor %}
           {{ ((states('sensor.ev_p1_net_l1')|float - ns.w) / 230) | round(1) }}
       - name: "EV huis stroom L2"
@@ -222,9 +222,9 @@ template:
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
             {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
-            {% set een = is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') or states('input_number.ev_' ~ x ~ '_fasen')|int(3) == 1 %}
+            {% set een = is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', '1-fase') or states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
-            {% elif is_state('input_select.ev_' ~ x ~ '_eenfase_op', 'L2') %}{% set ns.w = ns.w + p %}{% endif %}
+            {% elif is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_eenfase_op', 'L2') %}{% set ns.w = ns.w + p %}{% endif %}
           {% endfor %}
           {{ ((states('sensor.ev_p1_net_l2')|float - ns.w) / 230) | round(1) }}
       - name: "EV huis stroom L3"
@@ -235,9 +235,9 @@ template:
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
             {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
-            {% set een = is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') or states('input_number.ev_' ~ x ~ '_fasen')|int(3) == 1 %}
+            {% set een = is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', '1-fase') or states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
-            {% elif is_state('input_select.ev_' ~ x ~ '_eenfase_op', 'L3') %}{% set ns.w = ns.w + p %}{% endif %}
+            {% elif is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_eenfase_op', 'L3') %}{% set ns.w = ns.w + p %}{% endif %}
           {% endfor %}
           {{ ((states('sensor.ev_p1_net_l3')|float - ns.w) / 230) | round(1) }}
 
@@ -271,26 +271,26 @@ template:
       # LET OP: dit stuurt niets fysiek. De Ratio laadt 1-fase op de fase die
       # fysiek bedraad is als primary. Pas input_select.ev_X_eenfase_op (en zo
       # nodig de bedrading) aan op basis van deze sensor.
-      - name: "EV A optimale fase"
-        unique_id: ev_a_optimale_fase
+      - name: "chargersonia optimale fase"
+        unique_id: chargersonia_optimale_fase
         availability: "{{ has_value('sensor.ev_ruimte_l1') and has_value('sensor.ev_ruimte_l2') and has_value('sensor.ev_ruimte_l3') }}"
         state: >
           {% set r = {'L1': states('sensor.ev_ruimte_l1')|int(0),
                       'L2': states('sensor.ev_ruimte_l2')|int(0),
                       'L3': states('sensor.ev_ruimte_l3')|int(0)} %}
-          {% set huidig = states('input_select.ev_a_eenfase_op') %}
+          {% set huidig = states('input_select.chargersonia_eenfase_op') %}
           {% set beste = (r.items() | sort(attribute=1, reverse=true) | list)[0] %}
           {% if beste[1] >= r.get(huidig, 0) + 3 %}{{ beste[0] }}{% else %}{{ huidig }}{% endif %}
         attributes:
           ruimte_l1: "{{ states('sensor.ev_ruimte_l1') }}"
           ruimte_l2: "{{ states('sensor.ev_ruimte_l2') }}"
           ruimte_l3: "{{ states('sensor.ev_ruimte_l3') }}"
-          ingesteld: "{{ states('input_select.ev_a_eenfase_op') }}"
+          ingesteld: "{{ states('input_select.chargersonia_eenfase_op') }}"
           advies_vermogen_w: >
             {% set r = {'L1': states('sensor.ev_ruimte_l1')|int(0),
                         'L2': states('sensor.ev_ruimte_l2')|int(0),
                         'L3': states('sensor.ev_ruimte_l3')|int(0)} %}
-            {% set max_a = [states('input_number.ev_a_max_stroom')|int(16),
+            {% set max_a = [states('input_number.chargersonia_max_stroom')|int(16),
                             (r.values() | list | max)] | min %}
             {{ (max_a * 230) | int }}
 
@@ -318,12 +318,12 @@ template:
             {{ (max_a * 230) | int }}
 
       # ---------- Laadplan per lader: state = nog te laden kWh ----------
-      - name: "EV A laadplan"
-        unique_id: ev_a_laadplan
+      - name: "chargersonia laadplan"
+        unique_id: chargersonia_laadplan
         unit_of_measurement: kWh
         state: >
           {% set x = 'a' %}
-          {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
+          {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_benodigde_kwh') | float(0) %}
           {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
@@ -341,14 +341,14 @@ template:
             {% if fc | count > 1 %}
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
-            {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
+            {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_benodigde_kwh') | float(0) %}
             {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {# kW per A: 3-fase 0,65 / 1-fase 0,215 (incl. marge voor verliezen) #}
-            {% set kwa = 0.215 if is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') else 0.65 %}
-            {% set kw = states('input_number.ev_' ~ x ~ '_max_stroom') | float(16) * kwa %}
+            {% set kwa = 0.215 if is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', '1-fase') else 0.65 %}
+            {% set kw = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_max_stroom') | float(16) * kwa %}
             {% set n = ((rest / kw) * 3600 / slot) | round(0, 'ceil') | int %}
-            {% set dl = today_at(states('input_datetime.ev_' ~ x ~ '_vertrek')) %}
+            {% set dl = today_at(states('input_datetime.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
             {% set ns = namespace(s=[]) %}
             {% for f in fc %}
@@ -366,7 +366,7 @@ template:
         unit_of_measurement: kWh
         state: >
           {% set x = 'b' %}
-          {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
+          {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_benodigde_kwh') | float(0) %}
           {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
@@ -379,13 +379,13 @@ template:
             {% if fc | count > 1 %}
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
-            {% set need = states('input_number.ev_' ~ x ~ '_benodigde_kwh') | float(0) %}
+            {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_benodigde_kwh') | float(0) %}
             {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
             {% set rest = [need - done, 0] | max %}
-            {% set kwa = 0.215 if is_state('input_select.ev_' ~ x ~ '_auto', '1-fase') else 0.65 %}
-            {% set kw = states('input_number.ev_' ~ x ~ '_max_stroom') | float(16) * kwa %}
+            {% set kwa = 0.215 if is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', '1-fase') else 0.65 %}
+            {% set kw = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_max_stroom') | float(16) * kwa %}
             {% set n = ((rest / kw) * 3600 / slot) | round(0, 'ceil') | int %}
-            {% set dl = today_at(states('input_datetime.ev_' ~ x ~ '_vertrek')) %}
+            {% set dl = today_at(states('input_datetime.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
             {% set ns = namespace(s=[]) %}
             {% for f in fc %}
@@ -398,11 +398,11 @@ template:
           plan_leesbaar: *plan_leesbaar
 
   - binary_sensor:
-      - name: "EV A goedkoop slot"
-        unique_id: ev_a_goedkoop_slot
+      - name: "chargersonia goedkoop slot"
+        unique_id: chargersonia_goedkoop_slot
         state: >
-          {% set p = state_attr('sensor.ev_a_laadplan','plan') or [] %}
-          {% set slot = state_attr('sensor.ev_a_laadplan','slot_s') | int(3600) %}
+          {% set p = state_attr('sensor.chargersonia_laadplan','plan') or [] %}
+          {% set slot = state_attr('sensor.chargersonia_laadplan','slot_s') | int(3600) %}
           {% set t = now().timestamp() %}
           {{ p | select('le', t) | select('gt', t - slot) | list | count > 0 }}
       - name: "EV B goedkoop slot"
@@ -469,11 +469,11 @@ automation:
         id: plug
       - trigger: state
         entity_id:
-          - input_boolean.ev_a_direct_laden
+          - input_boolean.chargersonia_direct_laden
           - input_boolean.ev_b_direct_laden
-          - binary_sensor.ev_a_goedkoop_slot
+          - binary_sensor.chargersonia_goedkoop_slot
           - binary_sensor.ev_b_goedkoop_slot
-          - input_select.ev_a_auto
+          - input_select.chargersonia_auto
           - input_select.ev_b_auto
         id: beslissing
       - trigger: homeassistant
@@ -506,18 +506,18 @@ automation:
                                   a_amps=0, a_fasen=3, b_amps=0, b_fasen=3) %}
             {% for x in volgorde %}
               {% set actief = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_status_connector') not in niet_aan %}
-              {% set auto = states('input_select.ev_' ~ x ~ '_auto') %}
+              {% set auto = states('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto') %}
               {% set drie = auto != '1-fase' %}
-              {% set max_a = states('input_number.ev_' ~ x ~ '_max_stroom') | int(16) %}
-              {% set huidig_f = states('input_number.ev_' ~ x ~ '_fasen') | int(3) %}
-              {% set laatst = states('input_number.ev_' ~ x ~ '_laatst_gezet') | int(-1) %}
-              {% set eenfase = states('input_select.ev_' ~ x ~ '_eenfase_op') | lower %}
-              {% set rest = states('sensor.ev_' ~ x ~ '_laadplan') | float(0) %}
-              {% set vol = is_state('input_boolean.ev_' ~ x ~ '_direct_laden', 'on') or prijs_laag
-                           or (rest > 0 and (is_state('binary_sensor.ev_' ~ x ~ '_goedkoop_slot', 'on')
-                                             or not state_attr('sensor.ev_' ~ x ~ '_laadplan', 'forecast_ok'))) %}
-              {% set sinds_plug = t - state_attr('input_datetime.ev_' ~ x ~ '_ingeplugd', 'timestamp') | float(0) %}
-              {% set sinds_wissel = t - state_attr('input_datetime.ev_' ~ x ~ '_fasewissel', 'timestamp') | float(0) %}
+              {% set max_a = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_max_stroom') | int(16) %}
+              {% set huidig_f = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasen') | int(3) %}
+              {% set laatst = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_laatst_gezet') | int(-1) %}
+              {% set eenfase = states('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_eenfase_op') | lower %}
+              {% set rest = states('sensor.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_laadplan') | float(0) %}
+              {% set vol = is_state('input_boolean.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_direct_laden', 'on') or prijs_laag
+                           or (rest > 0 and (is_state('binary_sensor.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_goedkoop_slot', 'on')
+                                             or not state_attr('sensor.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_laadplan', 'forecast_ok'))) %}
+              {% set sinds_plug = t - state_attr('input_datetime.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_ingeplugd', 'timestamp') | float(0) %}
+              {% set sinds_wissel = t - state_attr('input_datetime.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasewissel', 'timestamp') | float(0) %}
               {% set detectie = auto == 'Onbekend' and sinds_plug < 300 %}
               {% set deel = 0.5 if (gelijk and loop.first) else 1 %}
               {% set rf = {'l1': ns.r1, 'l2': ns.r2, 'l3': ns.r3} %}
@@ -591,8 +591,8 @@ automation:
                 x: "{{ repeat.item }}"
                 amps: "{{ besluit[repeat.item ~ '_amps'] | int }}"
                 fasen: "{{ besluit[repeat.item ~ '_fasen'] | int }}"
-                huidig_f: "{{ states('input_number.ev_' ~ repeat.item ~ '_fasen') | int(3) }}"
-                laatst: "{{ states('input_number.ev_' ~ repeat.item ~ '_laatst_gezet') | int(-1) }}"
+                huidig_f: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[repeat.item] ~ '_fasen') | int(3) }}"
+                laatst: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[repeat.item] ~ '_laatst_gezet') | int(-1) }}"
                 actief: "{{ states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] ~ '_status_connector') not in niet_aan }}"
             - if:
                 - condition: template
@@ -676,10 +676,10 @@ automation:
                                   t3=[0 - states('sensor.ev_ruimte_l3') | int(0), 0] | max,
                                   a=-1, b=-1) %}
             {% for x in volgorde %}
-              {% set laatst = states('input_number.ev_' ~ x ~ '_laatst_gezet') | int(-1) %}
-              {% set drie = not is_state('input_select.ev_' ~ x ~ '_auto', '1-fase')
-                            and states('input_number.ev_' ~ x ~ '_fasen') | int(3) == 3 %}
-              {% set een = states('input_select.ev_' ~ x ~ '_eenfase_op') | lower %}
+              {% set laatst = states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_laatst_gezet') | int(-1) %}
+              {% set drie = not is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', '1-fase')
+                            and states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasen') | int(3) == 3 %}
+              {% set een = states('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_eenfase_op') | lower %}
               {% if laatst > 0 %}
                 {% if drie %}{% set tekort = [ns.t1, ns.t2, ns.t3] | max %}
                 {% elif een == 'l2' %}{% set tekort = ns.t2 %}
@@ -712,7 +712,7 @@ automation:
                   data:
                     devid: "{{ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] }}"
                     amps: "{{ nood[repeat.item] | int }}"
-                    fasen: "{{ states('input_number.ev_' ~ repeat.item ~ '_fasen') | int(3) }}"
+                    fasen: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[repeat.item] ~ '_fasen') | int(3) }}"
                 - action: input_number.set_value
                   target:
                     entity_id: "input_number.ev_{{ repeat.item }}_laatst_gezet"
@@ -746,15 +746,15 @@ automation:
             - variables:
                 x: "{{ repeat.item }}"
                 p: "{{ states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] ~ '_power_active_import') | float(0) * 1000 }}"
-                i: "{{ states('input_number.ev_' ~ repeat.item ~ '_laatst_gezet') | int(0) }}"
+                i: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[repeat.item] ~ '_laatst_gezet') | int(0) }}"
             - if:
                 - condition: template
                   value_template: >
                     {% set st = states.sensor[{'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_status_connector'] %}
-                    {{ is_state('input_select.ev_' ~ x ~ '_auto', 'Onbekend')
+                    {{ is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_auto', 'Onbekend')
                        and st is not none and st.state == 'Charging'
                        and (now() - st.last_changed).total_seconds() > 60
-                       and states('input_number.ev_' ~ x ~ '_fasen') | int(3) == 3
+                       and states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[x] ~ '_fasen') | int(3) == 3
                        and i >= 8 and p > 1000 }}
               then:
                 - variables:
@@ -849,7 +849,7 @@ automation:
             - action: script.ev_zet_laadprofiel
               data:
                 devid: "{{ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] }}"
-                amps: "{{ states('input_number.ev_' ~ repeat.item ~ '_max_stroom') | int(16) }}"
+                amps: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'ev_b'}[repeat.item] ~ '_max_stroom') | int(16) }}"
                 fasen: 3
             - action: input_number.set_value
               target:
