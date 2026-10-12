@@ -119,7 +119,7 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: EV-Sonia – Sonia
+            heading: EV-Sonia
             icon: mdi:ev-plug-type2
           - type: tile
             entity: sensor.ev_sonia_status_connector
