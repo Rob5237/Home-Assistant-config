@@ -12,7 +12,7 @@
 #
 # KOPPELING (ingevuld):
 #   chargersonia = EV-Lader 1 Sonia = HA entity chargersonia_* (OCPP chargePointId chargersonia, van leverancier)
-#   chargerrob = EV-Lader 2 Rob   = HA entity charger3_* (OCPP chargePointId charger3, van leverancier)
+#   chargerrob = EV-Lader 2 Rob   = HA entity chargerrob_* (OCPP chargePointId chargerrob, van leverancier)
 #   P1 = HomeWizard, sensor.p1_meter_power_phase_1..3 (W, negatief = teruglevering)
 #   Prijs = sensor.zonneplan_current_electricity_tariff
 #   Aanname: 1-fase laden op L1 (per lader aan te passen via select).
@@ -197,7 +197,7 @@ template:
         state: >
           {% set net = states('sensor.ev_p1_net_l1')|float + states('sensor.ev_p1_net_l2')|float + states('sensor.ev_p1_net_l3')|float %}
           {% set laders = (states('sensor.chargersonia_power_active_import')|float(0)
-                         + states('sensor.charger3_power_active_import')|float(0)) * 1000 %}
+                         + states('sensor.chargerrob_power_active_import')|float(0)) * 1000 %}
           {{ [laders - net, 0] | max | round(0) }}
 
       # ---------- Huisstroom per fase zonder laders (A) ----------
@@ -208,7 +208,7 @@ template:
         state: >
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
-            {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
+            {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_power_active_import')|float(0) * 1000 %}
             {% set een = is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto', '1-fase') or states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
             {% elif is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_eenfase_op', 'L1') %}{% set ns.w = ns.w + p %}{% endif %}
@@ -221,7 +221,7 @@ template:
         state: >
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
-            {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
+            {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_power_active_import')|float(0) * 1000 %}
             {% set een = is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto', '1-fase') or states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
             {% elif is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_eenfase_op', 'L2') %}{% set ns.w = ns.w + p %}{% endif %}
@@ -234,7 +234,7 @@ template:
         state: >
           {% set ns = namespace(w=0) %}
           {% for x in ['a', 'b'] %}
-            {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_power_active_import')|float(0) * 1000 %}
+            {% set p = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_power_active_import')|float(0) * 1000 %}
             {% set een = is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto', '1-fase') or states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_fasen')|int(3) == 1 %}
             {% if not een %}{% set ns.w = ns.w + p / 3 %}
             {% elif is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_eenfase_op', 'L3') %}{% set ns.w = ns.w + p %}{% endif %}
@@ -324,7 +324,7 @@ template:
         state: >
           {% set x = 'a' %}
           {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_benodigde_kwh') | float(0) %}
-          {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+          {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_energy_session') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
           forecast_ok: &forecast_ok >
@@ -342,7 +342,7 @@ template:
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
             {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_benodigde_kwh') | float(0) %}
-            {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+            {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_energy_session') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {# kW per A: 3-fase 0,65 / 1-fase 0,215 (incl. marge voor verliezen) #}
             {% set kwa = 0.215 if is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto', '1-fase') else 0.65 %}
@@ -367,7 +367,7 @@ template:
         state: >
           {% set x = 'b' %}
           {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_benodigde_kwh') | float(0) %}
-          {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+          {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_energy_session') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
           forecast_ok: *forecast_ok
@@ -380,7 +380,7 @@ template:
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
             {% set need = states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_benodigde_kwh') | float(0) %}
-            {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_energy_session') | float(0) %}
+            {% set done = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_energy_session') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {% set kwa = 0.215 if is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto', '1-fase') else 0.65 %}
             {% set kw = states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_max_stroom') | float(16) * kwa %}
@@ -465,7 +465,7 @@ automation:
       - trigger: state
         entity_id:
           - sensor.chargersonia_status_connector
-          - sensor.charger3_status_connector
+          - sensor.chargerrob_status_connector
         id: plug
       - trigger: state
         entity_id:
@@ -495,7 +495,7 @@ automation:
             {% set prio = states('input_select.ev_prioriteit') %}
             {% set volgorde = ['b', 'a'] if prio == 'chargerrob' else ['a', 'b'] %}
             {% set beide = states('sensor.chargersonia_status_connector') not in niet_aan
-                           and states('sensor.charger3_status_connector') not in niet_aan %}
+                           and states('sensor.chargerrob_status_connector') not in niet_aan %}
             {% set gelijk = prio == 'Gelijk verdelen' and beide %}
             {% set t = now().timestamp() %}
             {# Geen P1? Dan 6 A per fase aannemen; Ratio Sense P1 beveiligt #}
@@ -505,7 +505,7 @@ automation:
                                   s=states('sensor.ev_pv_overschot') | float(0),
                                   a_amps=0, a_fasen=3, b_amps=0, b_fasen=3) %}
             {% for x in volgorde %}
-              {% set actief = states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_status_connector') not in niet_aan %}
+              {% set actief = states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_status_connector') not in niet_aan %}
               {% set auto = states('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto') %}
               {% set drie = auto != '1-fase' %}
               {% set max_a = states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_max_stroom') | int(16) %}
@@ -593,7 +593,7 @@ automation:
                 fasen: "{{ besluit[repeat.item ~ '_fasen'] | int }}"
                 huidig_f: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_fasen') | int(3) }}"
                 laatst: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_laatst_gezet') | int(-1) }}"
-                actief: "{{ states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] ~ '_status_connector') not in niet_aan }}"
+                actief: "{{ states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_status_connector') not in niet_aan }}"
             - if:
                 - condition: template
                   value_template: >
@@ -606,7 +606,7 @@ automation:
                     # eerst pauzeren, dan van fase wisselen
                     - action: script.ev_zet_laadprofiel
                       data:
-                        devid: "{{ {'a': 'chargersonia', 'b': 'charger3'}[x] }}"
+                        devid: "{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}"
                         amps: 0
                         fasen: "{{ huidig_f }}"
                     - delay: "00:00:30"
@@ -621,7 +621,7 @@ automation:
                         timestamp: "{{ now().timestamp() }}"
                 - action: script.ev_zet_laadprofiel
                   data:
-                    devid: "{{ {'a': 'chargersonia', 'b': 'charger3'}[x] }}"
+                    devid: "{{ {'a': 'chargersonia', 'b': 'chargerrob'}[x] }}"
                     amps: "{{ amps }}"
                     fasen: "{{ fasen }}"
                 - action: input_number.set_value
@@ -710,7 +710,7 @@ automation:
               then:
                 - action: script.ev_zet_laadprofiel
                   data:
-                    devid: "{{ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] }}"
+                    devid: "{{ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] }}"
                     amps: "{{ nood[repeat.item] | int }}"
                     fasen: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_fasen') | int(3) }}"
                 - action: input_number.set_value
@@ -745,12 +745,12 @@ automation:
           sequence:
             - variables:
                 x: "{{ repeat.item }}"
-                p: "{{ states('sensor.' ~ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] ~ '_power_active_import') | float(0) * 1000 }}"
+                p: "{{ states('sensor.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_power_active_import') | float(0) * 1000 }}"
                 i: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_laatst_gezet') | int(0) }}"
             - if:
                 - condition: template
                   value_template: >
-                    {% set st = states.sensor[{'a': 'chargersonia', 'b': 'charger3'}[x] ~ '_status_connector'] %}
+                    {% set st = states.sensor[{'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_status_connector'] %}
                     {{ is_state('input_select.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[x] ~ '_auto', 'Onbekend')
                        and st is not none and st.state == 'Charging'
                        and (now() - st.last_changed).total_seconds() > 60
@@ -788,7 +788,7 @@ automation:
         not_to: ["Unavailable", "unavailable", "unknown", "Faulted"]
         id: a_in
       - trigger: state
-        entity_id: sensor.charger3_status_connector
+        entity_id: sensor.chargerrob_status_connector
         from: "Available"
         not_to: ["Unavailable", "unavailable", "unknown", "Faulted"]
         id: b_in
@@ -797,7 +797,7 @@ automation:
         to: "Available"
         id: a_uit
       - trigger: state
-        entity_id: sensor.charger3_status_connector
+        entity_id: sensor.chargerrob_status_connector
         to: "Available"
         id: b_uit
     actions:
@@ -848,7 +848,7 @@ automation:
           sequence:
             - action: script.ev_zet_laadprofiel
               data:
-                devid: "{{ {'a': 'chargersonia', 'b': 'charger3'}[repeat.item] }}"
+                devid: "{{ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] }}"
                 amps: "{{ states('input_number.' ~ {'a': 'chargersonia', 'b': 'chargerrob'}[repeat.item] ~ '_max_stroom') | int(16) }}"
                 fasen: 3
             - action: input_number.set_value

@@ -2496,14 +2496,14 @@
           channel: "EV laden"
   mode: single
 
-- id: ev_charger3_laadsessie_start
+- id: ev_chargerrob_laadsessie_start
   alias: "EV: melding bij start laadsessie Rob"
   description: >
-    Eenmalige melding wanneer Rob's laadpaal (charger3) daadwerkelijk begint
+    Eenmalige melding wanneer Rob's laadpaal (chargerrob) daadwerkelijk begint
     met laden (OCPP ChargePointStatus connector -> Charging).
   triggers:
     - trigger: state
-      entity_id: sensor.charger3_status_connector
+      entity_id: sensor.chargerrob_status_connector
       to: "Charging"
   actions:
     - action: persistent_notification.create
@@ -2511,13 +2511,13 @@
         title: "Laadpaal Rob: laadsessie gestart"
         message: >-
           Tijd: {{ now().strftime('%H:%M') }}.
-          Status: {{ states('sensor.charger3_status_connector') }}.
+          Status: {{ states('sensor.chargerrob_status_connector') }}.
     - action: notify.mobile_app_sm_g781b
       data:
         title: "Laadpaal Rob: laadsessie gestart"
-        message: "{{ now().strftime('%H:%M') }} — charger3 is begonnen met laden."
+        message: "{{ now().strftime('%H:%M') }} — chargerrob is begonnen met laden."
         data:
-          tag: charger3_laadsessie_start
+          tag: chargerrob_laadsessie_start
           channel: "EV laden"
   mode: single
 
@@ -2559,14 +2559,14 @@
           channel: "EV laden"
   mode: queued
 
-- id: ev_charger3_laadsessie_einde
+- id: ev_chargerrob_laadsessie_einde
   alias: "EV: melding bij einde laadsessie Rob"
   description: >
-    Eenmalige melding wanneer Rob's laadpaal (charger3) stopt met laden
+    Eenmalige melding wanneer Rob's laadpaal (chargerrob) stopt met laden
     (OCPP ChargePointStatus connector verlaat Charging).
   triggers:
     - trigger: state
-      entity_id: sensor.charger3_status_connector
+      entity_id: sensor.chargerrob_status_connector
       from: "Charging"
   actions:
     - action: persistent_notification.create
@@ -2574,16 +2574,16 @@
         title: "Laadpaal Rob: laadsessie beëindigd"
         message: >-
           Tijd: {{ now().strftime('%H:%M') }}.
-          Status: {{ states('sensor.charger3_status_connector') }}.
-          Energie deze sessie: {{ states('sensor.charger3_energy_session') }} kWh.
+          Status: {{ states('sensor.chargerrob_status_connector') }}.
+          Energie deze sessie: {{ states('sensor.chargerrob_energy_session') }} kWh.
     - action: notify.mobile_app_sm_g781b
       data:
         title: "Laadpaal Rob: laadsessie beëindigd"
         message: >-
-          {{ now().strftime('%H:%M') }} — charger3 is gestopt met laden
-          ({{ states('sensor.charger3_energy_session') }} kWh deze sessie).
+          {{ now().strftime('%H:%M') }} — chargerrob is gestopt met laden
+          ({{ states('sensor.chargerrob_energy_session') }} kWh deze sessie).
         data:
-          tag: charger3_laadsessie_einde
+          tag: chargerrob_laadsessie_einde
           channel: "EV laden"
   mode: single
 

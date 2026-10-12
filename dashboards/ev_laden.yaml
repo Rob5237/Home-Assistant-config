@@ -12,7 +12,7 @@
 #         show_in_sidebar: true
 #         filename: dashboards/ev_laden.yaml
 # Daarna 1x herstarten; latere wijzigingen: browser verversen.
-# chargersonia = Sonia (chargersonia), chargerrob = Rob (charger3).
+# chargersonia = Sonia (chargersonia), chargerrob = Rob (chargerrob).
 # =====================================================================
 views:
   - title: Laden
@@ -110,7 +110,7 @@ views:
             entities:
               - entity: sensor.chargersonia_power_active_import
                 name: chargersonia
-              - entity: sensor.charger3_power_active_import
+              - entity: sensor.chargerrob_power_active_import
                 name: chargerrob
               - entity: sensor.ev_pv_overschot
                 name: PV-overschot
@@ -181,18 +181,18 @@ views:
             heading: chargerrob – Rob
             icon: mdi:ev-plug-type2
           - type: tile
-            entity: sensor.charger3_status_connector
+            entity: sensor.chargerrob_status_connector
             name: Status
           - type: tile
             entity: input_select.chargerrob_auto
             name: Auto
             icon: mdi:car-electric
           - type: tile
-            entity: sensor.charger3_power_active_import
+            entity: sensor.chargerrob_power_active_import
             name: Vermogen
             color: blue
           - type: tile
-            entity: sensor.charger3_energy_session
+            entity: sensor.chargerrob_energy_session
             name: Deze sessie
             color: blue
           - type: tile
