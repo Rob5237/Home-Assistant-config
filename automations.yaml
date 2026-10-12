@@ -2470,15 +2470,15 @@
       message: "{{ reversal_msg }}"
   mode: single
 
-- id: ev_chargersonia_laadsessie_start
+- id: ev_ev_sonia_laadsessie_start
   alias: "EV: melding bij start laadsessie Sonia"
   description: >
-    Eenmalige melding wanneer Sonia's laadpaal (chargersonia) daadwerkelijk
+    Eenmalige melding wanneer Sonia's laadpaal (EV-Sonia) daadwerkelijk
     begint met laden (OCPP ChargePointStatus connector -> Charging), ter
     bevestiging dat de nieuwe OCPP-koppeling in de praktijk werkt.
   triggers:
     - trigger: state
-      entity_id: sensor.chargersonia_status_connector
+      entity_id: sensor.ev_sonia_status_connector
       to: "Charging"
   actions:
     - action: persistent_notification.create
@@ -2486,13 +2486,13 @@
         title: "Laadpaal Sonia: laadsessie gestart"
         message: >-
           Tijd: {{ now().strftime('%H:%M') }}.
-          Status: {{ states('sensor.chargersonia_status_connector') }}.
+          Status: {{ states('sensor.ev_sonia_status_connector') }}.
     - action: notify.mobile_app_sm_g781b
       data:
         title: "Laadpaal Sonia: laadsessie gestart"
-        message: "{{ now().strftime('%H:%M') }} — chargersonia is begonnen met laden."
+        message: "{{ now().strftime('%H:%M') }} — EV-Sonia is begonnen met laden."
         data:
-          tag: chargersonia_laadsessie_start
+          tag: ev_sonia_laadsessie_start
           channel: "EV laden"
   mode: single
 
@@ -2526,12 +2526,12 @@
   description: >
     Melding wanneer de regelaar (ev_regelaar_epex_pv_fase_load_balancing)
     een lader daadwerkelijk tussen 1-fase en 3-fase laden omschakelt
-    (input_number.chargersonia_fasen / ev_rob_fasen verandert van waarde). Vereist
+    (input_number.ev_sonia_fasen / ev_rob_fasen verandert van waarde). Vereist
     input_boolean.ev_1fase_ondersteund aan.
   triggers:
     - trigger: state
       entity_id:
-        - input_number.chargersonia_fasen
+        - input_number.ev_sonia_fasen
         - input_number.ev_rob_fasen
   conditions:
     - condition: template
@@ -2541,7 +2541,7 @@
            and trigger.from_state.state != trigger.to_state.state }}
   actions:
     - variables:
-        lader: "{{ 'Sonia' if trigger.entity_id == 'input_number.chargersonia_fasen' else 'Rob' }}"
+        lader: "{{ 'Sonia' if trigger.entity_id == 'input_number.ev_sonia_fasen' else 'Rob' }}"
     - action: persistent_notification.create
       data:
         title: "EV: fasewissel ({{ lader }})"
@@ -2587,14 +2587,14 @@
           channel: "EV laden"
   mode: single
 
-- id: ev_chargersonia_laadsessie_einde
+- id: ev_ev_sonia_laadsessie_einde
   alias: "EV: melding bij einde laadsessie Sonia"
   description: >
-    Eenmalige melding wanneer Sonia's laadpaal (chargersonia) stopt met
+    Eenmalige melding wanneer Sonia's laadpaal (EV-Sonia) stopt met
     laden (OCPP ChargePointStatus connector verlaat Charging).
   triggers:
     - trigger: state
-      entity_id: sensor.chargersonia_status_connector
+      entity_id: sensor.ev_sonia_status_connector
       from: "Charging"
   actions:
     - action: persistent_notification.create
@@ -2602,15 +2602,15 @@
         title: "Laadpaal Sonia: laadsessie beëindigd"
         message: >-
           Tijd: {{ now().strftime('%H:%M') }}.
-          Status: {{ states('sensor.chargersonia_status_connector') }}.
-          Energie deze sessie: {{ states('sensor.chargersonia_energy_session') }} kWh.
+          Status: {{ states('sensor.ev_sonia_status_connector') }}.
+          Energie deze sessie: {{ states('sensor.ev_sonia_energy_session') }} kWh.
     - action: notify.mobile_app_sm_g781b
       data:
         title: "Laadpaal Sonia: laadsessie beëindigd"
         message: >-
-          {{ now().strftime('%H:%M') }} — chargersonia is gestopt met laden
-          ({{ states('sensor.chargersonia_energy_session') }} kWh deze sessie).
+          {{ now().strftime('%H:%M') }} — EV-Sonia is gestopt met laden
+          ({{ states('sensor.ev_sonia_energy_session') }} kWh deze sessie).
         data:
-          tag: chargersonia_laadsessie_einde
+          tag: ev_sonia_laadsessie_einde
           channel: "EV laden"
   mode: single

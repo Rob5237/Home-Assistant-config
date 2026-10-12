@@ -12,7 +12,7 @@
 #         show_in_sidebar: true
 #         filename: dashboards/ev_laden.yaml
 # Daarna 1x herstarten; latere wijzigingen: browser verversen.
-# chargersonia = Sonia (chargersonia), EV-Rob = Rob (EV-Rob).
+# EV-Sonia = Sonia (EV-Sonia), EV-Rob = Rob (EV-Rob).
 # =====================================================================
 views:
   - title: Laden
@@ -44,8 +44,8 @@ views:
             entity: input_select.ev_prioriteit
             name: Prioriteit
           - type: tile
-            entity: input_boolean.chargersonia_direct_laden
-            name: Boost chargersonia
+            entity: input_boolean.ev_sonia_direct_laden
+            name: Boost EV-Sonia
             icon: mdi:lightning-bolt
             color: red
             tap_action:
@@ -101,15 +101,15 @@ views:
               L3 {{ '%2d A' | format(r3) }}  {{ bar.l3 }}
               ```
               {% endmacro -%}
-              {{ row('chargersonia – Sonia', 'sensor.chargersonia_optimale_fase') }}
+              {{ row('EV-Sonia – Sonia', 'sensor.ev_sonia_optimale_fase') }}
               ---
               {{ row('EV-Rob – Rob',   'sensor.ev_rob_optimale_fase') }}
           - type: history-graph
             title: Laatste 24 uur
             hours_to_show: 24
             entities:
-              - entity: sensor.chargersonia_power_active_import
-                name: chargersonia
+              - entity: sensor.ev_sonia_power_active_import
+                name: EV-Sonia
               - entity: sensor.ev_rob_power_active_import
                 name: EV-Rob
               - entity: sensor.ev_pv_overschot
@@ -119,25 +119,25 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: chargersonia – Sonia
+            heading: EV-Sonia – Sonia
             icon: mdi:ev-plug-type2
           - type: tile
-            entity: sensor.chargersonia_status_connector
+            entity: sensor.ev_sonia_status_connector
             name: Status
           - type: tile
-            entity: input_select.chargersonia_auto
+            entity: input_select.ev_sonia_auto
             name: Auto
             icon: mdi:car-electric
           - type: tile
-            entity: sensor.chargersonia_power_active_import
+            entity: sensor.ev_sonia_power_active_import
             name: Vermogen
             color: blue
           - type: tile
-            entity: sensor.chargersonia_energy_session
+            entity: sensor.ev_sonia_energy_session
             name: Deze sessie
             color: blue
           - type: tile
-            entity: input_boolean.chargersonia_direct_laden
+            entity: input_boolean.ev_sonia_direct_laden
             name: Boost – nu laden
             color: red
             tap_action:
@@ -148,30 +148,30 @@ views:
             title: Planning
             show_header_toggle: false
             entities:
-              - entity: input_number.chargersonia_benodigde_kwh
+              - entity: input_number.ev_sonia_benodigde_kwh
                 name: Benodigd
-              - entity: input_datetime.chargersonia_vertrek
+              - entity: input_datetime.ev_sonia_vertrek
                 name: Vertrek
-              - entity: sensor.chargersonia_laadplan
+              - entity: sensor.ev_sonia_laadplan
                 name: Nog te laden
               - type: attribute
-                entity: sensor.chargersonia_laadplan
+                entity: sensor.ev_sonia_laadplan
                 attribute: plan_leesbaar
                 name: Geplande slots
-              - entity: binary_sensor.chargersonia_goedkoop_slot
+              - entity: binary_sensor.ev_sonia_goedkoop_slot
                 name: Nu goedkoop slot
           - type: entities
             title: Techniek
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: input_number.chargersonia_laatst_gezet
+              - entity: input_number.ev_sonia_laatst_gezet
                 name: Toegewezen stroom (A)
-              - entity: input_number.chargersonia_fasen
+              - entity: input_number.ev_sonia_fasen
                 name: Actieve fasen
-              - entity: input_number.chargersonia_max_stroom
+              - entity: input_number.ev_sonia_max_stroom
                 name: Max laadstroom
-              - entity: input_select.chargersonia_eenfase_op
+              - entity: input_select.ev_sonia_eenfase_op
                 name: 1-fase laden op
 
       # ---------------------------------------------------------------
