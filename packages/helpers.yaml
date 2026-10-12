@@ -65,6 +65,10 @@ input_boolean:
     name: "Vakantiemodus actief"
     icon: mdi:airplane
 
+  warmtepomp_goedkoop_uur_boost_actief:
+    name: "Warmtepomp goedkoop-uur boost actief (mutex voor kamertemp-correctie)"
+    icon: mdi:lock-clock
+
   tapwater_overschot_lock:
     name: "Tapwater opwarm-cyclus actief (reset-lock)"
     icon: mdi:lock-clock

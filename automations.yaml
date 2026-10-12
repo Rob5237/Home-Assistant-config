@@ -8,6 +8,9 @@
     Luxtronik setpoint ligt.
     Trigger op minutes:'1' (i.p.v. elke minuut) geeft de optimaal-startuur
     sensor tijd om te verversen op het hele uur.
+    Zet input_boolean.warmtepomp_goedkoop_uur_boost_actief aan bij start en
+    uit bij einde — mutex zodat warmtepomp_kamertemp_correctie niet
+    tegelijkertijd aan dezelfde heating_target_correction zit te draaien.
   triggers:
     - trigger: time_pattern
       minutes: '1'
@@ -39,6 +42,9 @@
           {% set t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
           {% set raw = 1 + 2 * (14 - t) / 24 %}
           {{ [[60, (raw * 2) | round | int * 30] | max, 180] | min }}
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
     - action: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
@@ -51,6 +57,62 @@
         entity_id: number.luxtronik_280807_0450_heating_target_correction
       data:
         value: 0
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
+  mode: single
+
+- id: warmtepomp_kamertemp_correctie
+  alias: "Warmtepomp: zachte kamertemp-correctie"
+  description: >
+    Software-matige kamertemp-regelaar bovenop de open-loop stooklijn: de
+    Luxtronik heeft geen "kamerinvloed"-parameter, dus zonder dit blijft de
+    kamertemp structureel een beetje afwijken van het setpoint. Elke 15 min
+    wordt heating_target_correction bijgesteld richting het setpoint, in
+    stappen van 0.5°C (de kleinste stap die de entiteit toelaat) —
+    correctie = round((setpoint − kamertemp) / 0.5) × 0.5, geclamped op
+    ±2°C zodat een incidentele uitschieter niet tot een extreme correctie
+    leidt. Schrijft alleen als de berekende waarde afwijkt van de huidige
+    (voorkomt onnodige writes/logruis).
+    Mutex met warmtepomp_goedkoop_uur_opwarmen via
+    input_boolean.warmtepomp_goedkoop_uur_boost_actief — beide automaties
+    sturen dezelfde heating_target_correction aan, dus deze slaat over
+    zolang de goedkoop-uur-boost loopt (anders overschrijven ze elkaar).
+  triggers:
+    - trigger: time_pattern
+      minutes: "/15"
+  conditions:
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_heating_mode
+          state: "Off"
+    - condition: state
+      entity_id: input_boolean.vakantie_actief
+      state: "off"
+    - condition: state
+      entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
+      state: "off"
+    - condition: template
+      value_template: >
+        {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(none) is not none
+           and states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') | float(none) is not none }}
+  actions:
+    - variables:
+        kamer: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float }}"
+        setpoint: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') | float }}"
+        huidig: "{{ states('number.luxtronik_280807_0450_heating_target_correction') | float(0) }}"
+        nieuw: >
+          {% set fout = setpoint - kamer %}
+          {% set stappen = (fout / 0.5) | round(0, 'common') %}
+          {{ [[-2.0, stappen * 0.5] | max, 2.0] | min }}
+    - condition: template
+      value_template: "{{ nieuw != huidig }}"
+    - action: number.set_value
+      target:
+        entity_id: number.luxtronik_280807_0450_heating_target_correction
+      data:
+        value: "{{ nieuw }}"
   mode: single
 
 - id: warmtepomp_correction_reset_op_start
