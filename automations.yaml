@@ -1447,25 +1447,29 @@
   description: >
     dhw_hysteresis wordt door de tapwater-automaties zelf beheerd (tijdelijk
     3K tijdens TDI/groot-overschot-boost, anders 10K — zie
-    dhw_hysteresis_watchdog). Een handmatige wijziging via HA UI/app of
-    Luxtronik-display/RBE wordt binnen enkele seconden teruggedraaid naar de
-    waarde van vóór de wijziging, zodat de waarde effectief niet aanpasbaar
-    is voor gebruikers, terwijl de automaties gewoon kunnen blijven schakelen
-    tussen 3K en 10K.
+    dhw_hysteresis_watchdog). Een handmatige wijziging via HA UI/app wordt
+    binnen enkele seconden teruggedraaid naar de waarde van vóór de
+    wijziging, zodat de waarde effectief niet aanpasbaar is voor gebruikers,
+    terwijl de automaties gewoon kunnen blijven schakelen tussen 3K en 10K.
 
-    Context-detectie (zelfde patroon als tapwater_overschot_user_intervention):
-    • UI/app-actie → context.user_id is gevuld
-    • Luxtronik RBE/integration push → context.parent_id is None
-    • Onze eigen automation-actie → context.parent_id is gevuld én
-      user_id is None → condition matched niet → wijziging blijft staan
+    Context-detectie: ALLEEN context.user_id is gevuld (= HA UI/app-actie
+    door een ingelogde gebruiker). Oorspronkelijk (12-10-2026) ook
+    `context.parent_id is none` als tweede voorwaarde — analoog aan
+    tapwater_overschot_user_intervention, waar dat Luxtronik RBE-wijzigingen
+    detecteert. Voor dhw_hysteresis bleek dat fout: dit register fluctueert
+    af en toe spontaan een paar tienden (bevestigd 12-10-2026, Luxtronik-
+    polling), en die parentloze device-updates voldeden ook aan `parent_id
+    is none`. Elke terugzet-actie veroorzaakte zelf weer een korte
+    nasettling-ruis, die opnieuw als "externe wijziging" werd gezien —
+    oscillatie tussen 9.5-10.2 i.p.v. stabiel op 10. Met alleen user_id
+    reageert de automatie nooit meer op device-afkomstige fluctuaties.
   triggers:
     - trigger: state
       entity_id: number.luxtronik_280807_0450_dhw_hysteresis
   conditions:
     - condition: template
       value_template: >
-        {{ trigger.to_state.context.user_id is not none
-           or trigger.to_state.context.parent_id is none }}
+        {{ trigger.to_state.context.user_id is not none }}
     - condition: template
       value_template: "{{ trigger.from_state is not none }}"
   actions:
