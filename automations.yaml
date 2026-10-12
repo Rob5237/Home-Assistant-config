@@ -222,12 +222,13 @@
   alias: "Warmtepomp: eenmalige verificatie pre-17:00 vloerbuffer (13-10-2026)"
   description: >
     Eenmalige sanity-check voor de nieuwe pre-17:00 vloerbuffer-feature:
-    stuurt een persistent notification op het moment dat de boost start
-    (backup-helper 0→>0) en op het moment dat hij eindigt (backup-helper
-    >0→0), met het verwachte uur (sensor.warmtepomp_optimaal_startuur_middag)
-    vs. het werkelijke kloktijdstip en de echte climate-setpoint. Alleen
-    actief op 2026-10-13 (condition op datum) — na die dag kan deze
-    automatie verwijderd worden, was puur een eenmalige verificatie.
+    stuurt een persistent notification + app-pushmelding op het moment dat
+    de boost start (backup-helper 0→>0) en op het moment dat hij eindigt
+    (backup-helper >0→0), met het verwachte uur
+    (sensor.warmtepomp_optimaal_startuur_middag) vs. het werkelijke
+    kloktijdstip en de echte climate-setpoint. Alleen actief op 2026-10-13
+    (condition op datum) — na die dag kan deze automatie verwijderd worden,
+    was puur een eenmalige verificatie.
   triggers:
     - id: start
       trigger: numeric_state
@@ -255,6 +256,17 @@
                   Komt overeen met nu: {{ 'JA' if states('sensor.warmtepomp_optimaal_startuur_middag')[:2] | int(-1) == now().hour else 'NEE' }}.
                   Backup-setpoint weggeschreven: {{ states('input_number.warmtepomp_kamertemp_backup') }}°C.
                   Climate-setpoint nu: {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}°C (verwacht 21°C).
+            - action: notify.mobile_app_sm_g781b
+              data:
+                title: "Vloerbuffer-check: start"
+                message: >-
+                  {{ now().strftime('%H:%M') }} — voorspeld
+                  {{ states('sensor.warmtepomp_optimaal_startuur_middag') }}
+                  ({{ 'klopt' if states('sensor.warmtepomp_optimaal_startuur_middag')[:2] | int(-1) == now().hour else 'KLOPT NIET' }}).
+                  Setpoint nu {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}°C (verwacht 21°C).
+                data:
+                  tag: vloerbuffer_check_start
+                  channel: "Warmtepomp verificatie"
         - conditions:
             - condition: trigger
               id: einde
@@ -267,6 +279,16 @@
                   Backup-waarde die teruggezet is: {{ trigger.from_state.state }}°C.
                   Climate-setpoint nu: {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}°C
                   (verwacht gelijk aan de teruggezette backup-waarde).
+            - action: notify.mobile_app_sm_g781b
+              data:
+                title: "Vloerbuffer-check: einde"
+                message: >-
+                  {{ now().strftime('%H:%M') }} — teruggezet naar
+                  {{ trigger.from_state.state }}°C, setpoint nu
+                  {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}°C.
+                data:
+                  tag: vloerbuffer_check_einde
+                  channel: "Warmtepomp verificatie"
   mode: queued
 
 - id: waarschuwing_bij_herinstallatie
