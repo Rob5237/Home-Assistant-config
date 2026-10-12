@@ -101,9 +101,9 @@ views:
               L3 {{ '%2d A' | format(r3) }}  {{ bar.l3 }}
               ```
               {% endmacro -%}
-              {{ row('EV-Sonia – Sonia', 'sensor.ev_sonia_optimale_fase') }}
+              {{ row('EV-Sonia', 'sensor.ev_sonia_optimale_fase') }}
               ---
-              {{ row('EV-Rob – Rob',   'sensor.ev_rob_optimale_fase') }}
+              {{ row('EV-Rob', 'sensor.ev_rob_optimale_fase') }}
           - type: history-graph
             title: Laatste 24 uur
             hours_to_show: 24
@@ -178,7 +178,7 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: EV-Rob – Rob
+            heading: EV-Rob
             icon: mdi:ev-plug-type2
           - type: tile
             entity: sensor.ev_rob_status_connector
