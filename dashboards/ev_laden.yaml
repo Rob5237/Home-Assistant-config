@@ -26,6 +26,7 @@ views:
         cards:
           - type: heading
             heading: Algemeen
+            heading_style: subtitle
             icon: mdi:home-lightning-bolt
           - type: tile
             entity: input_boolean.ev_slimme_sturing
@@ -120,6 +121,7 @@ views:
         cards:
           - type: heading
             heading: EV-Sonia
+            heading_style: subtitle
             icon: mdi:ev-plug-type2
           - type: tile
             entity: sensor.ev_sonia_status_connector
@@ -179,6 +181,7 @@ views:
         cards:
           - type: heading
             heading: EV-Rob
+            heading_style: subtitle
             icon: mdi:ev-plug-type2
           - type: tile
             entity: sensor.ev_rob_status_connector
