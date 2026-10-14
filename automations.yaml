@@ -672,6 +672,52 @@
     target:
       entity_id: input_boolean.tapwater_overschot_lock
   mode: single
+
+- id: tapwater_negatieve_prijs_opwarmen
+  alias: "Tapwater: opwarmen bij negatieve stroomprijs"
+  description: >
+    Elk kwartier wordt gecheckt of het huidige Zonneplan-kwartiertarief onder
+    -2 ct/kWh ligt (je krijgt dan betaald om stroom te verbruiken). Zo ja en
+    DHW < 60°C → setpoint 65°C + hysterese 10K→3K + Party, zelfde combinatie
+    als TDI. Setpoint bewust 65°C (niet een eigen waarde): hergebruikt
+    daardoor automatisch de bestaande tdi_einde_reset (die op setpoint > 63
+    reageert, ongeacht welke automatie 'm zette) — geen aparte reset-automatie
+    nodig. Blijft actief tijdens vakantie, net als de andere opportunistische-
+    energie-automaties (zonne-overschot, extra opslag) — negatieve prijs is
+    net zo goed "gratis energie" als PV-overschot.
+    Startguard DHW < 60 (i.p.v. 58 zoals extra-opslag): voorkomt onnodig
+    herstarten vlak voordat tdi_einde_reset toch al zou resetten.
+  triggers:
+    - trigger: time_pattern
+      minutes: "/15"
+  conditions:
+    - condition: numeric_state
+      entity_id: sensor.zonneplan_current_quarter_hourly_electricity_tariff
+      below: -0.02
+    - condition: numeric_state
+      entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+      below: 60
+  actions:
+    - target:
+        entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+      data:
+        value: 3
+      action: number.set_value
+    - target:
+        entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+      data:
+        value: 65
+      action: number.set_value
+    - target:
+        entity_id: select.luxtronik_280807_0450_dhw_mode
+      data:
+        option: Party
+      action: select.select_option
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.tapwater_overschot_lock
+  mode: single
+
 - id: tdi_einde_reset
   alias: "TDI: reset na cyclus"
   description: >
