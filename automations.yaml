@@ -353,6 +353,43 @@
                   channel: "Warmtepomp verificatie"
   mode: queued
 
+- id: warmtepomp_kamertemp_check_ochtend_14okt
+  alias: "Warmtepomp: eenmalige check kamertemp ochtend (14-10-2026)"
+  description: >
+    Eenmalige check na de structurele drempelverhoging
+    (heating_threshold_temperature 14→18°C) en de geforceerde stookcyclus
+    van 13-10-2026: stuurt om 08:00 een persistent notification + app-
+    pushmelding met kamertemp, setpoint en buitentemp, zodat er een
+    referentiepunt is voor hoe de nacht is verlopen met de nieuwe drempel.
+    Alleen actief op 2026-10-14 (condition op datum) — kan daarna verwijderd
+    worden, was puur een eenmalige check.
+  triggers:
+    - trigger: time
+      at: "08:00:00"
+  conditions:
+    - condition: template
+      value_template: "{{ now().strftime('%Y-%m-%d') == '2026-10-14' }}"
+  actions:
+    - action: persistent_notification.create
+      data:
+        title: "Kamertemp-check ochtend"
+        message: >
+          Kamertemp: {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}°C.
+          Setpoint: {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') }}°C.
+          Buitentemp: {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C.
+          Drempel (heating_threshold_temperature): {{ states('number.luxtronik_280807_0450_heating_threshold_temperature') }}°C.
+    - action: notify.mobile_app_sm_g781b
+      data:
+        title: "Kamertemp-check ochtend"
+        message: >-
+          Kamer {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}°C
+          (setpoint {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') }}°C),
+          buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C.
+        data:
+          tag: kamertemp_check_ochtend
+          channel: "Warmtepomp verificatie"
+  mode: single
+
 - id: waarschuwing_bij_herinstallatie
   alias: "Systeem: waarschuwing bij herinstallatie"
   triggers:

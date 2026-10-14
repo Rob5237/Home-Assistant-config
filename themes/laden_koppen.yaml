@@ -1,0 +1,4 @@
+# Thema voor het Laden-dashboard: sectiekoppen even groot als kaarttitels
+laden_koppen:
+  ha-heading-card-title-font-size: 24px
+  ha-heading-card-title-line-height: 28.8px
