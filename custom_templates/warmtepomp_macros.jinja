@@ -294,3 +294,83 @@
   {%- endfor -%}
   {{ (ns.resultaat if ns.resultaat is not none else {'gevonden': false}) | tojson }}
 {%- endmacro %}
+
+{#
+  bereken_dhw_kwartieren: zelfde idee als bereken_kwartieren, maar voor
+  tapwater (boiler) i.p.v. CV — geen stooklijn (die is CV-specifiek), de
+  aanvoertemp is hier gewoon het vaste DHW-setpoint van de cyclus (57°C
+  nachtcyclus, 65°C TDI). Zelfde live-buitentemp-fallback voor het lopende
+  uur als bereken_kwartieren (weather.get_forecasts mist het huidige uur
+  zodra het begint). Output bevat ook 'start'/'einde' (ISO) zodat de
+  aanroeper kan checken of "nu" binnen het beste kwartier-interval valt.
+#}
+{%- macro bereken_dhw_kwartieren(prijzen_kw, weer, t_aanvoer_vast) -%}
+  {%- set ns = namespace(uren=[]) -%}
+  {%- for p in prijzen_kw -%}
+    {%- set p_start = as_datetime(p.start_date) | as_local -%}
+    {%- set p_end = as_datetime(p.end_date) | as_local -%}
+    {%- if p_end > now() -%}
+      {%- set m = namespace(t=none) -%}
+      {%- for w in weer -%}
+        {%- set w_dt = as_datetime(w.datetime) | as_local -%}
+        {%- if w_dt.date() == p_start.date() and w_dt.hour == p_start.hour -%}
+          {%- set m.t = w.temperature | float(10) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if m.t is none and p_start.date() == now().date() and p_start.hour == now().hour -%}
+        {%- set m.t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(none) -%}
+      {%- endif -%}
+      {%- if m.t is not none -%}
+        {%- set t = m.t -%}
+        {%- set lift = [1, t_aanvoer_vast - t] | max -%}
+        {%- set c = [[1.5, 0.4 * (t_aanvoer_vast + 273) / lift] | max, 6.0] | min -%}
+        {%- set prijs_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+        {%- set k = prijs_eur / c -%}
+        {%- set ns.uren = ns.uren + [{
+          'dag': p_start.strftime('%Y-%m-%d'),
+          'uur': p_start.hour,
+          'kwartier': p_start.minute,
+          'label': p_start.strftime('%d-%m %H:%M'),
+          'start': p_start.isoformat(),
+          'einde': p_end.isoformat(),
+          'cop_geschat': c | round(2),
+          'prijs': prijs_eur | round(4),
+          'kosten_warmte': k | round(4)
+        }] -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ ns.uren | tojson }}
+{%- endmacro %}
+
+{#
+  beste_nachtmoment: zoekt het goedkoopste kwartier binnen de ÉÉN
+  eerstvolgende/lopende nachtvenster (22:00-06:00), niet over meerdere
+  nachten heen. Puur op hour-of-day filteren (uur in [22,23,0..5]) over de
+  hele ~32-57 uur prijs-horizon zou per ongeluk twee verschillende nachten
+  samenvoegen en de goedkoopste van de VERKEERDE nacht kunnen kiezen — dit
+  bakent daarom expliciet de datetime-grenzen van precies één nachtvenster
+  af (22:00 vandaag t/m 06:00 morgen, of — als het nu al na middernacht is
+  — 22:00 gisteren t/m 06:00 vandaag).
+  Input `uren` = output van bereken_dhw_kwartieren. Retourneert JSON:
+  {gevonden, start, einde, kosten_warmte, label} of {gevonden: false}.
+#}
+{%- macro beste_nachtmoment(uren) -%}
+  {%- set referentie = now() if now().hour >= 6 else (now() - timedelta(days=1)) -%}
+  {%- set venster_start = referentie.replace(hour=22, minute=0, second=0, microsecond=0) -%}
+  {%- set venster_eind = venster_start + timedelta(hours=8) -%}
+  {%- set ns = namespace(resultaat=none) -%}
+  {%- for u in uren -%}
+    {%- set u_start = as_datetime(u.start) -%}
+    {%- if u_start >= venster_start and u_start < venster_eind -%}
+      {%- if ns.resultaat is none or u.kosten_warmte < ns.resultaat.kosten_warmte -%}
+        {%- set ns.resultaat = u -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- if ns.resultaat is not none -%}
+    {{ {'gevonden': true, 'start': ns.resultaat.start, 'einde': ns.resultaat.einde, 'kosten_warmte': ns.resultaat.kosten_warmte, 'label': ns.resultaat.label} | tojson }}
+  {%- else -%}
+    {{ {'gevonden': false} | tojson }}
+  {%- endif -%}
+{%- endmacro %}

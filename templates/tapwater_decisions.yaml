@@ -20,63 +20,109 @@
       drempel_kwh: >
         {{ states('input_number.zon_forecast_drempel_kwh') | float(2.0) }}
 
-  - name: "Goedkoopste nachtuur nu"
-    unique_id: "goedkoopste_nachtuur_nu"
-    icon: mdi:weather-night
-    state: >
-      {# Kwartierprecisie (14-10-2026): Zonneplan varieert per 15 min, niet
-         per uur. Was eerder uur-gebaseerd met een dt >= now()-filter dat
-         het lopende kwartier/uur al uitsloot zodra het begon — zelfde
-         "verschuift exact op het kritieke moment"-bug als bij de
-         warmtepomp-macro's (zie custom_templates/warmtepomp_macros.jinja).
-         Fix: filter op p_end > now() (kwartier pas uitsluiten als het echt
-         voorbij is) en check of "nu" binnen het beste kwartier-interval valt
-         i.p.v. alleen hetzelfde uur. #}
-      {% set forecast = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
-      {% if forecast %}
-        {% set ns = namespace(min_price=none, best_start=none, best_end=none) %}
-        {% for p in forecast %}
-          {% set p_start = as_datetime(p.start_date) | as_local %}
-          {% set p_end = as_datetime(p.end_date) | as_local %}
-          {% set hr = p_start.hour %}
-          {% if (hr >= 22 or hr < 6) and p_end > now() %}
-            {% set prijs = p.price_tax_included.amount %}
-            {% if ns.min_price is none or prijs < ns.min_price %}
-              {% set ns.min_price = prijs %}
-              {% set ns.best_start = p_start %}
-              {% set ns.best_end = p_end %}
-            {% endif %}
+# Kwartierprecisie + COP (14-10-2026): de boiler is bij hogere buitentemp
+# zuiniger (hogere COP), net als bij CV-verwarming — "goedkoopste moment"
+# voor tapwater moet dus ook prijs ÷ COP optimaliseren, niet alleen de
+# kale stroomprijs. Vereist een weersverwachting (voor de COP-schatting per
+# kwartier), vandaar deze trigger-based vorm (net als de warmtepomp-sensoren
+# in templates/warmtepomp.yaml) i.p.v. een losse state-template.
+- trigger:
+    - platform: time_pattern
+      minutes: "/15"
+    - platform: homeassistant
+      event: start
+  action:
+    - action: weather.get_forecasts
+      target:
+        entity_id: weather.thuis
+      data:
+        type: hourly
+      response_variable: weer_forecast_tapwater
+  binary_sensor:
+    - name: "Goedkoopste nachtuur nu"
+      unique_id: "goedkoopste_nachtuur_nu"
+      icon: mdi:weather-night
+      state: >
+        {% from 'warmtepomp_macros.jinja' import bereken_dhw_kwartieren, beste_nachtmoment %}
+        {% set weer = weer_forecast_tapwater['weather.thuis'].forecast %}
+        {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+        {% if weer and prijzen %}
+          {% set uren = bereken_dhw_kwartieren(prijzen, weer, 57) | from_json %}
+          {% set best = beste_nachtmoment(uren) | from_json %}
+          {% if best.gevonden %}
+            {{ as_datetime(best.start) <= now() < as_datetime(best.einde) }}
+          {% else %}
+            false
           {% endif %}
-        {% endfor %}
-        {{ ns.best_start is not none and ns.best_start <= now() < ns.best_end }}
-      {% else %}
-        false
-      {% endif %}
+        {% else %}
+          false
+        {% endif %}
+      attributes:
+        kosten_per_kwh_warmte: >
+          {% from 'warmtepomp_macros.jinja' import bereken_dhw_kwartieren, beste_nachtmoment %}
+          {% set weer = weer_forecast_tapwater['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set uren = bereken_dhw_kwartieren(prijzen, weer, 57) | from_json %}
+            {% set best = beste_nachtmoment(uren) | from_json %}
+            {{ best.kosten_warmte if best.gevonden else none }}
+          {% else %}
+            {{ none }}
+          {% endif %}
+        goedkoopste_moment: >
+          {% from 'warmtepomp_macros.jinja' import bereken_dhw_kwartieren, beste_nachtmoment %}
+          {% set weer = weer_forecast_tapwater['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set uren = bereken_dhw_kwartieren(prijzen, weer, 57) | from_json %}
+            {% set best = beste_nachtmoment(uren) | from_json %}
+            {{ best.label if best.gevonden else 'onbekend' }}
+          {% else %}
+            onbekend
+          {% endif %}
 
-  - name: "Goedkoopste TDI uur nu"
-    unique_id: "goedkoopste_tdi_uur_nu"
-    icon: mdi:bacteria-outline
-    state: >
-      {# Kwartierprecisie (14-10-2026), zie toelichting bij
-         "Goedkoopste nachtuur nu" hierboven. Window blijft "vanaf nu tot
-         16:00 vandaag" (de 09:00-ondergrens wordt elders bewaakt door de
-         automatie zelf). #}
-      {% set forecast = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
-      {% if forecast %}
-        {% set ns = namespace(min_price=none, best_start=none, best_end=none) %}
-        {% for p in forecast %}
-          {% set p_start = as_datetime(p.start_date) | as_local %}
-          {% set p_end = as_datetime(p.end_date) | as_local %}
-          {% if p_start.date() == now().date() and p_start.hour < 16 and p_end > now() %}
-            {% set prijs = p.price_tax_included.amount %}
-            {% if ns.min_price is none or prijs < ns.min_price %}
-              {% set ns.min_price = prijs %}
-              {% set ns.best_start = p_start %}
-              {% set ns.best_end = p_end %}
-            {% endif %}
+    - name: "Goedkoopste TDI uur nu"
+      unique_id: "goedkoopste_tdi_uur_nu"
+      icon: mdi:bacteria-outline
+      state: >
+        {% from 'warmtepomp_macros.jinja' import bereken_dhw_kwartieren %}
+        {% set weer = weer_forecast_tapwater['weather.thuis'].forecast %}
+        {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+        {% if weer and prijzen %}
+          {% set uren = bereken_dhw_kwartieren(prijzen, weer, 65) | from_json %}
+          {% set vandaag = now().strftime('%Y-%m-%d') %}
+          {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 16) | list %}
+          {% if venster %}
+            {% set best = venster | min(attribute='kosten_warmte') %}
+            {{ as_datetime(best.start) <= now() < as_datetime(best.einde) }}
+          {% else %}
+            false
           {% endif %}
-        {% endfor %}
-        {{ ns.best_start is not none and ns.best_start <= now() < ns.best_end }}
-      {% else %}
-        false
-      {% endif %}
+        {% else %}
+          false
+        {% endif %}
+      attributes:
+        kosten_per_kwh_warmte: >
+          {% from 'warmtepomp_macros.jinja' import bereken_dhw_kwartieren %}
+          {% set weer = weer_forecast_tapwater['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set uren = bereken_dhw_kwartieren(prijzen, weer, 65) | from_json %}
+            {% set vandaag = now().strftime('%Y-%m-%d') %}
+            {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 16) | list %}
+            {{ (venster | min(attribute='kosten_warmte')).kosten_warmte if venster else none }}
+          {% else %}
+            {{ none }}
+          {% endif %}
+        goedkoopste_moment: >
+          {% from 'warmtepomp_macros.jinja' import bereken_dhw_kwartieren %}
+          {% set weer = weer_forecast_tapwater['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set uren = bereken_dhw_kwartieren(prijzen, weer, 65) | from_json %}
+            {% set vandaag = now().strftime('%Y-%m-%d') %}
+            {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 16) | list %}
+            {{ (venster | min(attribute='kosten_warmte')).label if venster else 'onbekend' }}
+          {% else %}
+            onbekend
+          {% endif %}
