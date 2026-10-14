@@ -84,13 +84,15 @@ het tweede her-evalueert de templates die ze gebruiken.
 | DHW < 46°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 41°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
 | Heel uur 22:00-06:00 | goedkoopste nachtuur **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
 | P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh **EN** Enphase nu > 1500W **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
-| P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C | Party | `tapwater_extra_opslag_groot_overschot` |
-| Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden **EN** DHW < 58°C | 62°C | Party | `tdi_legionella_solar_overschot` |
-| Autonome WP-cyclus | DHW ≤ setpoint − 10K (hysterese) | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
+| P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C (+ hysterese 10K→3K) | Party | `tapwater_extra_opslag_groot_overschot` |
+| Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tdi_legionella_solar_overschot` |
+| Autonome WP-cyclus | DHW ≤ setpoint − hysterese | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
 
-De `dhw_mode ≠ Party` guard op klein-overschot voorkomt dat een zojuist gestarte groot-overschot boost of TDI-cyclus (beide setpoint 62 + Party) door klein-overschot wordt overschreven (setpoint→57 + mode→Automatic). Zonder die guard breekt de Party→Automatic-overschrijving `zonne_overschot_extra_opslag_reset` (conditie `mode = Party`) en degradeert de boost-target.
+De `dhw_mode ≠ Party` guard op klein-overschot voorkomt dat een zojuist gestarte groot-overschot boost (setpoint 62) of TDI-cyclus (setpoint 65) — beide Party-mode — door klein-overschot wordt overschreven (setpoint→57 + mode→Automatic). Zonder die guard breekt de Party→Automatic-overschrijving `zonne_overschot_extra_opslag_reset` (conditie `mode = Party`) en degradeert de boost-target.
 
-TDI gebruikt Party-mode om de 10K-hysterese te negeren: bij DHW al > 52°C door een eerdere zonne-cyclus zou Automatic + setpoint 62 niet starten (62-10=52). Met Party start de WP gegarandeerd binnen het goedkoopste-uur venster.
+TDI en extra-opslag gebruiken Party-mode om het tijdschema en de interne Sperrzeit te negeren — **niet** om de hysterese te omzeilen: bevestigd 23-09-2026 dat Party alléén de 10K-hysterese niet negeert op deze firmware (bij DHW ≥52°C bleef de WP 9u stil ondanks Party+62). Beide automaties verlagen daarom zelf ook `dhw_hysteresis` tijdelijk naar 3K zodat de compressor gegarandeerd start, en zetten 'm bij reset terug naar 10K. TDI zet bovendien `select.luxtronik_280807_0450_thermal_desinfection_day` op `None` om Luxtronik's eigen wekelijkse TDI-scheduler uit te schakelen (voorkomt een dubbele, autonome TDI-cyclus op de geconfigureerde dag naast de door HA aangestuurde cyclus).
+
+TDI-setpoint is bewust 65°C i.p.v. 62°C (compressor-maximum): bij setpoint 62 stopte de compressor zodra de interne top-sensor 62 raakte, terwijl de HA-exposed mid-tanksensor (`dhw_temperature`) door stratificatie achterbleef op ~59°C — te laag voor Legionella-borging. Met setpoint 65 loopt de compressor door tot de mid-sensor ook richting 60+ getrokken wordt.
 
 De realtime Enphase-check (`> 1500W`) op klein-overschot is een tweede guard naast de forecast: het uurgemiddelde-forecast detecteert een wolkenfront aan begin van het uur niet, de realtime productie wel. Voorkomt dat een cyclus start vlak nadat de zon plots wegvalt en daarna uit het net trekt tot DHW > 57.
 
@@ -98,13 +100,13 @@ De realtime Enphase-check (`> 1500W`) op klein-overschot is een tweede guard naa
 | Trigger | Conditie | Nieuwe setpoint | Nieuwe mode | Automatie |
 |---|---|---|---|---|
 | DHW > 57°C voor 1 min **OF** 13:55 (lock=on, DHW>56) **OF** 21:55 (lock=on) | 50 < setpoint < 60 **EN** P1 > -1500W | 50°C | (ongewijzigd) | `tapwater_reset_na_bijverwarmen` |
-| DHW > 58°C **OF** 21:55 (lock=on) | mode = Party **EN** setpoint > 55 | 50°C | Automatic (of Holidays) | `zonne_overschot_extra_opslag_reset` |
-| DHW > 61°C voor 10 min | setpoint > 60 | 50°C | Automatic (of Holidays) | `tdi_einde_reset` — verwarming-switch uit bij warm weer, geen mode-check meer (TDI loopt nu in Party) |
+| DHW > 58°C (alleen setpoint 55-64) **OF** 21:55 (lock=on, setpoint > 55) | mode = Party | 50°C (+ hysterese→10K) | Automatic (of Holidays) | `zonne_overschot_extra_opslag_reset` |
+| DHW ≥ 60°C voor 15 min | setpoint > 63 | 50°C (+ hysterese→10K) | Automatic | `tdi_einde_reset` — verwarming-switch uit bij warm weer, geen mode-check meer (TDI loopt nu in Party) |
 | Autonome WP-stop | DHW ≥ setpoint | (ongewijzigd) | (ongewijzigd) | Luxtronik intern |
 
 Watchdogs in `tapwater_reset_na_bijverwarmen`: 13:55 vóór het TDI-venster (~14:00) en 21:55 vóór het nachtuur-venster (22:00). Beide vangen op als de DHW>57-transitie-trigger gemist is (bv. P1 op moment van stijging niet > -1500W). De dag-watchdog heeft `DHW > 56` als extra guard om een actief lopende ochtend-cyclus niet af te breken; de avond-watchdog niet (om 21:55 zijn cycli normaal allang afgerond).
 
-`tdi_einde_reset` heeft GEEN mode-conditie meer: TDI kan nu in Party of Automatic draaien (sinds Party-overrule). Onderscheid van zonne-overschot extra-opslag (ook Party, setpoint 62): de `zonne_overschot_extra_opslag_reset` triggert al bij DHW > 58, dus wanneer DHW > 61 voor 10 min haalbaar is, staat setpoint al lang op 50 — in praktijk firet `tdi_einde_reset` alleen na een TDI-cyclus.
+`tdi_einde_reset` heeft GEEN mode-conditie meer: TDI kan nu in Party of Automatic draaien (sinds Party-overrule). De "voor 15 min"-eis borgt Legionella-protocol óók voor de mid-tanksensor (de interne top-sensor stopt snel bij setpoint 65, de mid-sensor loopt door stratificatie achter). Onderscheid van zonne-overschot extra-opslag: expliciete `setpoint > 63`-conditie — TDI (65°C) matcht, extra-opslag (62°C) niet. `zonne_overschot_extra_opslag_reset` beperkt zijn DHW>58-trigger op zijn beurt tot `setpoint` tussen 55 en 64, zodat die niet op een lopende TDI-cyclus reageert.
 
 Safety-reset in `tapwater_extra_opslag_groot_overschot`: na 45 min interne delay (was 90 min) wordt setpoint geforceerd naar 50 als de reguliere DHW>58-reset niet activeerde. Kortere termijn = kleiner pendel-venster.
 
@@ -118,10 +120,11 @@ Safety-reset in `tapwater_extra_opslag_groot_overschot`: na 45 min interne delay
 | **54°C** | Bovengrens nachtuur start |
 | **57°C** | Target voor bijverwarmen/nacht/overschot + reset-trigger bijverwarmen (voor 1 min) |
 | **58°C** | Reset-trigger zonne-overschot extra opslag |
-| **61°C** | Reset-trigger TDI (voor 10 min — borgt Legionella-houdtijd) |
-| **62°C** | Target voor TDI + extra opslag |
+| **60°C** | Reset-trigger TDI (voor 15 min — borgt Legionella-houdtijd voor mid-tanksensor) |
+| **62°C** | Target voor extra opslag |
+| **65°C** | Target voor TDI (compressor-maximum, zodat ook de mid-tanksensor richting 60+ getrokken wordt) |
 
-Luxtronik DHW-hysterese: 10K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`).
+Luxtronik DHW-hysterese: standaard 10K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`), tijdelijk verlaagd naar 3K tijdens een actieve TDI- of extra-opslag-cyclus (anders start de compressor niet ondanks Party-mode — zie hierboven) en teruggezet naar 10K door de bijbehorende reset-automatie.
 
 ## Vakantiemodus
 Single source of truth: `input_boolean.vakantie_actief`. Sync via `vakantie_sync_aan` (trigger: dhw_mode of heating_mode → Holidays, óf boolean → on) en `vakantie_sync_uit` (trigger: alleen boolean → off). Dhw_mode is géén sync-uit trigger omdat zonne-overschot die kortstondig naar Automatic wijzigt. Heating_mode `from: Holidays` is óók geen sync-uit trigger meer — sync_aan zet heating zelf van Holidays → Automatic, dat zou anders sync_uit direct triggeren (race).
