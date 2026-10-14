@@ -22,16 +22,23 @@
 │   ├── tapwater_decisions.yaml # beslissings-binary_sensors voor tapwater-automaties
 │   └── elektriciteit_verbruik.yaml  # alleen nog export_365dagen (rest opgeruimd als dead code)
 └── custom_templates/
-    └── warmtepomp_macros.jinja # gedeelde stooklijn/COP/kosten + bereken_uren / bereken_tdi_uren
+    └── warmtepomp_macros.jinja # gedeelde stooklijn/COP/kosten + bereken_kwartieren / bereken_tdi_kwartieren
+                                 # (oudere bereken_uren / bereken_tdi_uren staan er nog, maar worden sinds
+                                 # 14-10-2026 nergens meer aangeroepen — zie "Kwartierprecisie" hieronder)
 ```
 
 Bij wijzigen van `custom_templates/*.jinja`: `homeassistant.reload_custom_templates`
 gevolgd door `template.reload`. Het eerste leest de macros opnieuw in,
-het tweede her-evalueert de templates die ze gebruiken.
+het tweede her-evalueert de templates die ze gebruiken. **Let op (ontdekt
+14-10-2026)**: dit volstaat niet altijd — als de aanroepende YAML-tekst zelf
+niet wijzigt (alleen de .jinja-macro erachter), lijkt HA de oude gecompileerde
+template te hergebruiken i.p.v. de nieuwe macro-code te binden. Bij twijfel
+na een macro-wijziging: een volledige `core/restart` forceert altijd een
+verse herlading.
 
 ## Integraties
 - **Luxtronik** — warmtepomp (entiteit-prefix: `luxtronik_280807_0450_`)
-- **Zonneplan** — dynamisch elektricteitstarief (`sensor.zonneplan_current_electricity_tariff`, forecast in attribuut)
+- **Zonneplan** — dynamisch elektricteitstarief. Twee forecast-sensoren: `sensor.zonneplan_current_electricity_tariff` (uurlijkse forecast, attribuut `forecast`, velden `datetime`/`electricity_price`/`tariff_group`) en `sensor.zonneplan_current_quarter_hourly_electricity_tariff` (kwartier-forecast, attribuut `forecast`, andere veldnamen: `start_date`/`end_date`/`price_tax_included.amount`/`sustainability_score.permille`, geen `tariff_group`). Zonneplan varieert het tarief daadwerkelijk per 15 minuten — sinds 14-10-2026 gebruiken alle "goedkoopste moment"-routines (zie hieronder) de kwartier-sensor, niet meer de uur-sensor.
 - **P1-meter** — slimme meter (import: `sensor.p1_meter_energy_import`, export: `sensor.p1_meter_energy_export`, vermogen: `sensor.p1_meter_power`)
 - **Enphase Envoy** — zonnepanelen (`sensor.envoy_122331077486_current_power_production`, `..._lifetime_energy_production`)
 - **OCPP** — laadpalen (certificaten: `ocpp_cert.pem`, `ocpp_key.pem`)
@@ -48,8 +55,8 @@ het tweede her-evalueert de templates die ze gebruiken.
 
 ## Beslissings-binary_sensors (templates/tapwater_decisions.yaml)
 - `binary_sensor.zon_forecast_volgend_uur_voldoende` — `on` als som van 3 dakgedeeltes (`sensor.energy_next_hour[_2][_3]`) ≥ 2.0 kWh. Gebruikt door zonne-overschot automaties (klein + groot) als forecast-conditie. Attributen: `forecast_kwh`, `drempel_kwh`.
-- `binary_sensor.goedkoopste_nachtuur_nu` — `on` als huidig uur het goedkoopste resterende uur is binnen het 22:00-06:00 venster (Zonneplan forecast). Gebruikt door `tapwater_goedkoopste_nachtuur`.
-- `binary_sensor.goedkoopste_tdi_uur_nu` — `on` als huidig uur het goedkoopste resterende uur is binnen 09:00-16:00 vandaag. Gebruikt door `tdi_legionella_solar_overschot`.
+- `binary_sensor.goedkoopste_nachtuur_nu` — `on` als het huidige kwartier het goedkoopste resterende kwartier is binnen het 22:00-06:00 venster (Zonneplan kwartier-forecast). Gebruikt door `tapwater_goedkoopste_nachtuur`. Kwartierprecisie sinds 14-10-2026 (zie "Kwartierprecisie" onder Warmtepomp-logica) — had voorheen dezelfde "sluit lopend uur exact op het kritieke moment uit"-bug als de warmtepomp-macro's; nu gefixt.
+- `binary_sensor.goedkoopste_tdi_uur_nu` — `on` als het huidige kwartier het goedkoopste resterende kwartier is binnen 09:00-16:00 vandaag. Gebruikt door `tdi_legionella_solar_overschot`. Had de bug hierboven niet (gebruikte al `now().hour <= dt.hour`), maar is voor consistentie ook naar kwartierprecisie gemigreerd.
 
 ## Energie-meters (utility_meter)
 - `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
@@ -58,10 +65,16 @@ het tweede her-evalueert de templates die ze gebruiken.
 
 ## Warmtepomp-logica
 - **COP-sensoren**: Verwarming, Tapwater, Totaal, Geschat (op basis van aanvoer- en buitentemperatuur)
-- **Optimaal startuur**: berekent goedkoopste stookuur via Zonneplan forecast × COP × dynamische stooklijn
+- **Optimaal startuur**: berekent goedkoopste stookmoment via Zonneplan kwartier-forecast × COP × dynamische stooklijn
   - Stooklijn: aanvoertemperatuur lineair van `heating_min_flow_out_temperature` tot `heating_curve_end_temperature` over bereik -10°C tot `heating_threshold_temperature`
-- **TDI-kandidaat uur**: goedkoopste uur overdag (09:00-16:00) op de eerste dag waarop TDI ≥7 dagen geleden is
-- **Pre-17:00 vloerbuffer**: `sensor.warmtepomp_optimaal_startuur_middag` kiest het goedkoopste uur binnen een venster dat eindigt om 17:00 en start op `middag_start_uur` (attribuut) — 12:00 bij mild weer (≥`heating_threshold_temperature`), schuivend tot 09:00 bij kou (heuristische clamp-formule, GEEN gekalibreerd model — recorder-historie start pas 2026-09-28 en heeft nog geen koude dagen gezien; later vervangen door een empirisch model zodra die data er is). `warmtepomp_pre17_buffer_start` zet op dat uur de kamerthermostaat (`climate.luxtronik_280807_0450_heating`) naar 21°C, met de oude setpoint weggeschreven in `input_number.warmtepomp_kamertemp_backup` (0 = geen backup actief). `warmtepomp_pre17_buffer_einde` zet om 17:00 de setpoint terug. `warmtepomp_pre17_buffer_reset_bij_gemiste_trigger` is het vangnet bij een HA-herstart rond 17:00. Losstaand van de dagbrede `warmtepomp_goedkoop_uur_opwarmen` (+0.5°C correctie, geen setpoint-wijziging) — beide kunnen onafhankelijk van elkaar draaien.
+- **TDI-kandidaat moment**: goedkoopste kwartier overdag (09:00-16:00) op de eerste dag waarop TDI ≥7 dagen geleden is
+- **Pre-17:00 vloerbuffer**: `sensor.warmtepomp_optimaal_startuur_middag` kiest het goedkoopste kwartier binnen een venster dat eindigt om 17:00 en start op `middag_start_uur` (attribuut) — 12:00 bij mild weer (≥`heating_threshold_temperature`), schuivend tot 09:00 bij kou (heuristische clamp-formule, GEEN gekalibreerd model — recorder-historie start pas 2026-09-28 en heeft nog geen koude dagen gezien; later vervangen door een empirisch model zodra die data er is). `warmtepomp_pre17_buffer_start` zet op dat kwartier de kamerthermostaat (`climate.luxtronik_280807_0450_heating`) naar 21°C, met de oude setpoint weggeschreven in `input_number.warmtepomp_kamertemp_backup` (0 = geen backup actief). `warmtepomp_pre17_buffer_einde` zet om 17:00 de setpoint terug. `warmtepomp_pre17_buffer_reset_bij_gemiste_trigger` is het vangnet bij een HA-herstart rond 17:00. Losstaand van de dagbrede `warmtepomp_goedkoop_uur_opwarmen` (+0.5°C correctie, geen setpoint-wijziging) — beide kunnen onafhankelijk van elkaar draaien.
+- **Kwartierprecisie (14-10-2026)**: Zonneplan varieert het tarief per 15 minuten, niet per uur. Alle "goedkoopste moment"-sensoren (Optimaal Startuur, pre-17 middagbuffer, TDI-kandidaat, `goedkoopste_nachtuur_nu`, `goedkoopste_tdi_uur_nu`) zijn gemigreerd van de uur-forecast-sensor naar `sensor.zonneplan_current_quarter_hourly_electricity_tariff`. State-format van de twee "Optimaal Startuur"-sensoren is nu `HH:MM` i.p.v. `HH:00`.
+  - **Kernbug gevonden en gefixt**: de macro's (`bereken_uren`/`bereken_tdi_uren` in `warmtepomp_macros.jinja`) filterden prijsuren met `p_dt >= now()` — dat sluit een uur/kwartier al uit zodra het **begint**, niet pas als het voorbij is. Gevolg: het voorspelde goedkoopste moment schoof exact op het kritieke moment een stap door (bevestigd via sensor-historie: sprong 13:00→14:00→15:00→16:00, telkens precies op het hele uur), waardoor `warmtepomp_pre17_buffer_start` **nog nooit** was afgegaan sinds de feature bestaat. Fix: `p_dt + timedelta(hours=1) > now()` (uur-macro's) resp. `p_end > now()` (kwartier-macro's `bereken_kwartieren`/`bereken_tdi_kwartieren`, die met `start_date`/`end_date` werken i.p.v. een enkel tijdstip). Bevestigd werkend: `warmtepomp_pre17_buffer_start` activeerde voor het eerst ooit op 14-10-2026 16:00.
+  - **Weerforecast-gat**: `weather.get_forecasts` (actie, type hourly) geeft alleen nog-niet-begonnen uren terug — het huidige, lopende uur ontbreekt daardoor zodra het begint. Zonder maatregel verdwijnen alle kwartieren van het lopende uur uit de berekening (geen temp-match → stilletjes overgeslagen), waardoor de middagbuffer-sensor soms `onbekend` toont terwijl er wél nog een geldig kwartier in het venster zit. Fix: bij een ontbrekende weer-match voor het huidige uur valt de kwartier-macro terug op de live `sensor.luxtronik_280807_0450_outdoor_temperature` i.p.v. het kwartier te laten vervallen.
+  - **Caching-valkuil**: na het wijzigen van alleen de `.jinja`-macro (niet de aanroepende YAML-tekst) bleven `homeassistant.reload_custom_templates` + `template.reload` de OUDE macro-code gebruiken — zie opmerking bij "Bestandsstructuur" hierboven. Altijd een volledige `core/restart` doen na een macro-wijziging om zeker te zijn.
+  - Triggers van `warmtepomp_pre17_buffer_start` en `warmtepomp_goedkoop_uur_opwarmen` draaien sindsdien elke minuut (`seconds: '0'`, was `minutes: '1'` = elk heel uur) en matchen het volledige `HH:MM` i.p.v. alleen het uur.
+  - `tapwater_goedkoopste_nachtuur` en `tdi_legionella_solar_overschot` draaien sindsdien elk kwartier (`minutes: '/15'`, was `minutes: '0'` = elk heel uur) — anders zou de nu kwartier-precieze `goedkoopste_*_nu`-sensor alleen toevallig op het hele uur gecheckt worden. **Let op**: `time_pattern` accepteert geen komma-lijst (`'0,15,30,45'` faalt stil met "invalid time_pattern value, Got None" en zet de automatie uit) — gebruik de deler-vorm `'/15'`.
 - **Zachte kamertemp-correctie** (`warmtepomp_kamertemp_correctie`): de Luxtronik heeft geen "kamerinvloed"-parameter, dus de stooklijn regelt open-loop op aanvoertemp, niet op kamertemp — kamertemp wijkt daardoor structureel iets af van het setpoint. Elke 15 min wordt `heating_target_correction` bijgesteld richting het setpoint in stappen van 0.5°C (kleinste stap van de entiteit), geclamped op ±2°C. Mutex via `input_boolean.warmtepomp_goedkoop_uur_boost_actief` met `warmtepomp_goedkoop_uur_opwarmen` (die dezelfde `heating_target_correction` tijdelijk op +0.5°C zet) — zonder mutex zouden beide automaties elkaar overschrijven.
 - **`heating_threshold_temperature`** (stooklijn-drempel) verhoogd 2026-10-13 van 14.0°C naar **18.0°C**: bij 14.0°C clampte de stooklijn bij mild weer (16-17°C buiten) op de vaste bodemwaarde `heating_min_flow_out_temperature` — geen enkele compressorvraag, kamertemp bleef dagenlang onder setpoint hangen zonder dat er ooit boven-bodem werd aangestuurd. Met 18.0°C krijgt dit soort dagen voortaan een echte, boven-bodem aanvoertemp uit de stooklijn. Nog niet verder gevalideerd over meerdere dagen; bij te hoge stookkosten op milde dagen is dit de eerste parameter om weer te verlagen.
   - Zelfde dag (13-10-2026) ook getest: een geforceerde stookcyclus (`heating_min_flow_out_temperature` tijdelijk 19→29°C) om de kamer direct naar het setpoint (19,5°C) te krijgen — gelukt, afgebroken zodra kamertemp het setpoint bereikte (auto-revert naar 19,0°C), zie [[project_warmtepomp_aanvoer_traagheid]]. Bij 15,9°C buiten en de nieuwe drempel van 18,0°C berekent de stooklijn structureel maar ~20,2°C aanvoer (bodem 19,0°C + kleine marge) — bescheiden effect zo dicht bij de drempel, groter bij kouder weer. Besloten: eerst een paar dagen observeren met drempel 18,0°C voordat `heating_min_flow_out_temperature` zelf (permanent, voor alle dagen) wordt verhoogd voor een stevigere marge.
@@ -69,7 +82,7 @@ het tweede her-evalueert de templates die ze gebruiken.
 ## Automaties (algemeen)
 | Alias | Trigger | Doel |
 |---|---|---|
-| Warmtepomp: extra opwarmen bij goedkoopste uur | xx:01 (1×/uur) | +0.5°C correction op optimaal uur, window afhankelijk van buitentemp |
+| Warmtepomp: extra opwarmen bij goedkoopste uur | elke minuut (HH:MM-match) | +0.5°C correction op optimaal kwartier, window afhankelijk van buitentemp |
 | Warmtepomp: reset correction bij HA-start | HA start | Reset heating_target_correction als die nog ≠0 na HA-restart tijdens delay-fase |
 | GitHub: nachtelijke config backup | 03:00 dagelijks | `git add -A && commit && push` |
 | Waarschuwing bij herinstallatie | HA start | Notificatie over /share-map risico |
@@ -82,10 +95,10 @@ het tweede her-evalueert de templates die ze gebruiken.
 | Trigger | Conditie | Doel-setpoint | DHW-mode | Automatie |
 |---|---|---|---|---|
 | DHW < 46°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 41°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
-| Heel uur 22:00-06:00 | goedkoopste nachtuur **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
+| Elk kwartier 22:00-06:00 | goedkoopste kwartier **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
 | P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh **EN** Enphase nu > 1500W **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C (+ hysterese 10K→3K) | Party | `tapwater_extra_opslag_groot_overschot` |
-| Heel uur 09:00-16:00 | goedkoopste uur **EN** TDI ≥7 dgn geleden **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tdi_legionella_solar_overschot` |
+| Elk kwartier 09:00-16:00 | goedkoopste kwartier **EN** TDI ≥7 dgn geleden **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tdi_legionella_solar_overschot` |
 | Autonome WP-cyclus | DHW ≤ setpoint − hysterese | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
 
 De `dhw_mode ≠ Party` guard op klein-overschot voorkomt dat een zojuist gestarte groot-overschot boost (setpoint 62) of TDI-cyclus (setpoint 65) — beide Party-mode — door klein-overschot wordt overschreven (setpoint→57 + mode→Automatic). Zonder die guard breekt de Party→Automatic-overschrijving `zonne_overschot_extra_opslag_reset` (conditie `mode = Party`) en degradeert de boost-target.

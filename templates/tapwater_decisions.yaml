@@ -24,22 +24,31 @@
     unique_id: "goedkoopste_nachtuur_nu"
     icon: mdi:weather-night
     state: >
-      {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+      {# Kwartierprecisie (14-10-2026): Zonneplan varieert per 15 min, niet
+         per uur. Was eerder uur-gebaseerd met een dt >= now()-filter dat
+         het lopende kwartier/uur al uitsloot zodra het begon — zelfde
+         "verschuift exact op het kritieke moment"-bug als bij de
+         warmtepomp-macro's (zie custom_templates/warmtepomp_macros.jinja).
+         Fix: filter op p_end > now() (kwartier pas uitsluiten als het echt
+         voorbij is) en check of "nu" binnen het beste kwartier-interval valt
+         i.p.v. alleen hetzelfde uur. #}
+      {% set forecast = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
       {% if forecast %}
-        {% set ns = namespace(min_price=none, min_dt=none) %}
-        {% for h in forecast %}
-          {% set dt = as_datetime(h.datetime) | as_local %}
-          {% set hr = dt.hour %}
-          {% if (hr >= 22 or hr < 6) and dt >= now() %}
-            {% if ns.min_price is none or h.electricity_price < ns.min_price %}
-              {% set ns.min_price = h.electricity_price %}
-              {% set ns.min_dt = dt %}
+        {% set ns = namespace(min_price=none, best_start=none, best_end=none) %}
+        {% for p in forecast %}
+          {% set p_start = as_datetime(p.start_date) | as_local %}
+          {% set p_end = as_datetime(p.end_date) | as_local %}
+          {% set hr = p_start.hour %}
+          {% if (hr >= 22 or hr < 6) and p_end > now() %}
+            {% set prijs = p.price_tax_included.amount %}
+            {% if ns.min_price is none or prijs < ns.min_price %}
+              {% set ns.min_price = prijs %}
+              {% set ns.best_start = p_start %}
+              {% set ns.best_end = p_end %}
             {% endif %}
           {% endif %}
         {% endfor %}
-        {{ ns.min_dt is not none
-           and now().hour == ns.min_dt.hour
-           and now().date() == ns.min_dt.date() }}
+        {{ ns.best_start is not none and ns.best_start <= now() < ns.best_end }}
       {% else %}
         false
       {% endif %}
@@ -48,19 +57,26 @@
     unique_id: "goedkoopste_tdi_uur_nu"
     icon: mdi:bacteria-outline
     state: >
-      {% set forecast = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+      {# Kwartierprecisie (14-10-2026), zie toelichting bij
+         "Goedkoopste nachtuur nu" hierboven. Window blijft "vanaf nu tot
+         16:00 vandaag" (de 09:00-ondergrens wordt elders bewaakt door de
+         automatie zelf). #}
+      {% set forecast = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
       {% if forecast %}
-        {% set ns = namespace(min_price=none, min_hour=none) %}
-        {% for h in forecast %}
-          {% set dt = as_datetime(h.datetime) | as_local %}
-          {% if dt.date() == now().date() and now().hour <= dt.hour < 16 %}
-            {% if ns.min_price is none or h.electricity_price < ns.min_price %}
-              {% set ns.min_price = h.electricity_price %}
-              {% set ns.min_hour = dt.hour %}
+        {% set ns = namespace(min_price=none, best_start=none, best_end=none) %}
+        {% for p in forecast %}
+          {% set p_start = as_datetime(p.start_date) | as_local %}
+          {% set p_end = as_datetime(p.end_date) | as_local %}
+          {% if p_start.date() == now().date() and p_start.hour < 16 and p_end > now() %}
+            {% set prijs = p.price_tax_included.amount %}
+            {% if ns.min_price is none or prijs < ns.min_price %}
+              {% set ns.min_price = prijs %}
+              {% set ns.best_start = p_start %}
+              {% set ns.best_end = p_end %}
             {% endif %}
           {% endif %}
         {% endfor %}
-        {{ ns.min_hour is not none and now().hour == ns.min_hour }}
+        {{ ns.best_start is not none and ns.best_start <= now() < ns.best_end }}
       {% else %}
         false
       {% endif %}

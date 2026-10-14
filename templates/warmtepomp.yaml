@@ -152,17 +152,17 @@
       unique_id: "warmtepomp_optimaal_startuur"
       icon: mdi:clock-start
       state: >
-        {% from 'warmtepomp_macros.jinja' import bereken_uren %}
+        {% from 'warmtepomp_macros.jinja' import bereken_kwartieren %}
         {% set weer = weer_forecast['weather.thuis'].forecast %}
-        {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+        {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
         {% if weer and prijzen %}
           {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
           {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
           {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
-          {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+          {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
           {% if uren %}
             {% set best = uren | min(attribute='kosten_warmte') %}
-            {{ '%02d:00' | format(best.uur) }}
+            {{ '%02d:%02d' | format(best.uur, best.kwartier) }}
           {% else %}
             onbekend
           {% endif %}
@@ -171,14 +171,14 @@
         {% endif %}
       attributes:
         kosten_per_kwh_warmte: >
-          {% from 'warmtepomp_macros.jinja' import bereken_uren %}
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
-          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
             {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
             {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
             {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
-            {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
             {% if uren %}
               {{ (uren | min(attribute='kosten_warmte')).kosten_warmte }}
             {% else %}
@@ -195,13 +195,13 @@
             {{ (now().date() - (as_datetime(s) | as_local).date()).days }}
           {% endif %}
         tdi_kandidaat_uur: >
-          {% from 'warmtepomp_macros.jinja' import bereken_tdi_uren %}
-          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% from 'warmtepomp_macros.jinja' import bereken_tdi_kwartieren %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
           {% set s = states('input_datetime.tdi_laatste_start') %}
           {% set tdi_dagen = (now().date() - (as_datetime(s) | as_local).date()).days if s not in ('unknown', 'unavailable') else 999 %}
           {% if prijzen and weer %}
-            {% set tdi_uren = bereken_tdi_uren(prijzen, weer, tdi_dagen) | from_json %}
+            {% set tdi_uren = bereken_tdi_kwartieren(prijzen, weer, tdi_dagen) | from_json %}
             {% if tdi_uren %}
               {{ (tdi_uren | min(attribute='kosten_warmte')).label }}
             {% else %}
@@ -211,20 +211,21 @@
             onbekend
           {% endif %}
         uurlijks_overzicht: >
-          {% from 'warmtepomp_macros.jinja' import bereken_uren, bereken_tdi_uren %}
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bereken_tdi_kwartieren %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
-          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
             {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
             {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
             {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
             {% set s = states('input_datetime.tdi_laatste_start') %}
             {% set tdi_dagen = (now().date() - (as_datetime(s) | as_local).date()).days if s not in ('unknown', 'unavailable') else 999 %}
-            {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
-            {% set tdi_uren = bereken_tdi_uren(prijzen, weer, tdi_dagen) | from_json %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set tdi_uren = bereken_tdi_kwartieren(prijzen, weer, tdi_dagen) | from_json %}
             {% set tdi_best = (tdi_uren | min(attribute='kosten_warmte')) if tdi_uren else none %}
             {% set tdi_dag = tdi_best.dag if tdi_best else '' %}
             {% set tdi_uur = tdi_best.uur if tdi_best else -1 %}
+            {% set tdi_kwartier = tdi_best.kwartier if tdi_best else -1 %}
             {% set ns = namespace(uren=[]) %}
             {% for u in uren %}
               {% set ns.uren = ns.uren + [{
@@ -234,7 +235,7 @@
                 'cop': u.cop_geschat,
                 'prijs': u.prijs,
                 'kosten_warmte': u.kosten_warmte,
-                'tdi_kandidaat': u.dag == tdi_dag and u.uur == tdi_uur
+                'tdi_kandidaat': u.dag == tdi_dag and u.uur == tdi_uur and u.kwartier == tdi_kwartier
               }] %}
             {% endfor %}
             {{ ns.uren }}
@@ -267,9 +268,9 @@
       unique_id: "warmtepomp_optimaal_startuur_middag"
       icon: mdi:clock-start
       state: >
-        {% from 'warmtepomp_macros.jinja' import bereken_uren %}
+        {% from 'warmtepomp_macros.jinja' import bereken_kwartieren %}
         {% set weer = weer_forecast['weather.thuis'].forecast %}
-        {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+        {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
         {% if weer and prijzen %}
           {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
           {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
@@ -277,12 +278,12 @@
           {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
           {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
           {% set middag_start_uur = (17 - uren_vooraf) | round | int %}
-          {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+          {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
           {% set vandaag = now().strftime('%Y-%m-%d') %}
           {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', middag_start_uur) | selectattr('uur', 'lt', 17) | list %}
           {% if middag %}
             {% set best = middag | min(attribute='kosten_warmte') %}
-            {{ '%02d:00' | format(best.uur) }}
+            {{ '%02d:%02d' | format(best.uur, best.kwartier) }}
           {% else %}
             onbekend
           {% endif %}
@@ -296,9 +297,9 @@
           {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
           {{ ((17 - uren_vooraf) | round | int) }}
         kosten_per_kwh_warmte: >
-          {% from 'warmtepomp_macros.jinja' import bereken_uren %}
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
-          {% set prijzen = state_attr('sensor.zonneplan_current_electricity_tariff', 'forecast') %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
             {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
             {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
@@ -306,7 +307,7 @@
             {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
             {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
             {% set middag_start_uur = (17 - uren_vooraf) | round | int %}
-            {% set uren = bereken_uren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
             {% set vandaag = now().strftime('%Y-%m-%d') %}
             {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', middag_start_uur) | selectattr('uur', 'lt', 17) | list %}
             {% if middag %}

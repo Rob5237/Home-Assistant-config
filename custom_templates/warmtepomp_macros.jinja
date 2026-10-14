@@ -47,7 +47,7 @@
   {%- set ns = namespace(uren=[]) -%}
   {%- for p in prijzen -%}
     {%- set p_dt = as_datetime(p.datetime) | as_local -%}
-    {%- if p_dt >= now() -%}
+    {%- if p_dt + timedelta(hours=1) > now() -%}
       {%- for w in weer -%}
         {%- set w_dt = as_datetime(w.datetime) | as_local -%}
         {%- if w_dt.date() == p_dt.date() and w_dt.hour == p_dt.hour -%}
@@ -75,6 +75,62 @@
 {%- endmacro %}
 
 {#
+  bereken_kwartieren: kwartier-precisie variant van bereken_uren. Zonneplan
+  publiceert prijzen per 15 minuten (sensor.zonneplan_current_quarter_hourly_
+  electricity_tariff, attribuut forecast) — andere structuur dan de uur-
+  sensor: start_date/end_date i.p.v. datetime, price_tax_included.amount
+  i.p.v. electricity_price. Buitentemp blijft per uur (weather.thuis geeft
+  geen kwartier-forecast) — alle 4 kwartieren binnen een uur delen dezelfde
+  temp/aanvoer/COP, alleen de prijs varieert per kwartier.
+  Output: zelfde velden als bereken_uren plus 'kwartier' (0/15/30/45).
+#}
+{%- macro bereken_kwartieren(prijzen_kw, weer, t_min, t_max, t_drempel) -%}
+  {%- set helling = (t_max - t_min) / (t_drempel - (-10)) -%}
+  {%- set ns = namespace(uren=[]) -%}
+  {%- for p in prijzen_kw -%}
+    {%- set p_start = as_datetime(p.start_date) | as_local -%}
+    {%- set p_end = as_datetime(p.end_date) | as_local -%}
+    {%- if p_end > now() -%}
+      {%- set m = namespace(t=none) -%}
+      {%- for w in weer -%}
+        {%- set w_dt = as_datetime(w.datetime) | as_local -%}
+        {%- if w_dt.date() == p_start.date() and w_dt.hour == p_start.hour -%}
+          {%- set m.t = w.temperature | float(10) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {#- weather.get_forecasts (hourly) geeft alleen nog niet-begonnen uren;
+          het huidige, nog lopende uur ontbreekt daardoor zodra het begint —
+          val dan terug op de live buitentemp i.p.v. dit kwartier te laten
+          verdwijnen (anders mist de middagbuffer precies het laatste,
+          lopende uur van zijn venster, bevestigd 14-10-2026). -#}
+      {%- if m.t is none and p_start.date() == now().date() and p_start.hour == now().hour -%}
+        {%- set m.t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(none) -%}
+      {%- endif -%}
+      {%- if m.t is not none -%}
+        {%- set t = m.t -%}
+        {%- set t_a = [[t_min, t_min + helling * (t_drempel - t)] | max, t_max] | min -%}
+        {%- set lift = [1, t_a - t] | max -%}
+        {%- set c = [[1.5, 0.4 * (t_a + 273) / lift] | max, 6.0] | min -%}
+        {%- set prijs_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+        {%- set k = prijs_eur / c -%}
+        {%- set ns.uren = ns.uren + [{
+          'dag': p_start.strftime('%Y-%m-%d'),
+          'uur': p_start.hour,
+          'kwartier': p_start.minute,
+          'label': p_start.strftime('%d-%m %H:%M'),
+          'temp': t | round(1),
+          'aanvoer': t_a | round(1),
+          'cop_geschat': c | round(2),
+          'prijs': prijs_eur | round(4),
+          'kosten_warmte': k | round(4)
+        }] -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ ns.uren | tojson }}
+{%- endmacro %}
+
+{#
   bereken_tdi_uren: vindt de eerste dag waarop een TDI-cyclus mag plaatsvinden
   (tdi_dagen_offset + dagen_vooruit >= 7) en levert de uren 09-16 van die dag
   als JSON-lijst, met vaste aanvoertemperatuur 65°C.
@@ -87,7 +143,7 @@
   {%- set ns = namespace(eerste_dag=none) -%}
   {%- for p in prijzen -%}
     {%- set p_dt = as_datetime(p.datetime) | as_local -%}
-    {%- if p_dt >= now() and 9 <= p_dt.hour < 16 and ns.eerste_dag is none -%}
+    {%- if p_dt + timedelta(hours=1) > now() and 9 <= p_dt.hour < 16 and ns.eerste_dag is none -%}
       {%- if tdi_dagen + (p_dt.date() - now().date()).days >= 7 -%}
         {%- set ns.eerste_dag = p_dt.strftime('%Y-%m-%d') -%}
       {%- endif -%}
@@ -116,6 +172,61 @@
             }] -%}
           {%- endif -%}
         {%- endfor -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {{ ns2.uren | tojson }}
+{%- endmacro %}
+
+{#
+  bereken_tdi_kwartieren: kwartier-precisie variant van bereken_tdi_uren,
+  zelfde dag-selectielogica (eerste dag waarop tdi_dagen + dagen_vooruit >=
+  7), maar daarna alle kwartieren binnen 09:00-16:00 van die dag i.p.v. hele
+  uren. Zie bereken_kwartieren voor de forecast-structuurverschillen.
+#}
+{%- macro bereken_tdi_kwartieren(prijzen_kw, weer, tdi_dagen) -%}
+  {%- set t_aanvoer_tdi = 65 -%}
+  {%- set ns = namespace(eerste_dag=none) -%}
+  {%- for p in prijzen_kw -%}
+    {%- set p_start = as_datetime(p.start_date) | as_local -%}
+    {%- set p_end = as_datetime(p.end_date) | as_local -%}
+    {%- if p_end > now() and 9 <= p_start.hour < 16 and ns.eerste_dag is none -%}
+      {%- if tdi_dagen + (p_start.date() - now().date()).days >= 7 -%}
+        {%- set ns.eerste_dag = p_start.strftime('%Y-%m-%d') -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set ns2 = namespace(uren=[]) -%}
+  {%- if ns.eerste_dag is not none -%}
+    {%- for p in prijzen_kw -%}
+      {%- set p_start = as_datetime(p.start_date) | as_local -%}
+      {%- if p_start.strftime('%Y-%m-%d') == ns.eerste_dag and 9 <= p_start.hour < 16 -%}
+        {%- set m = namespace(t=none) -%}
+        {%- for w in weer -%}
+          {%- set w_dt = as_datetime(w.datetime) | as_local -%}
+          {%- if w_dt.date() == p_start.date() and w_dt.hour == p_start.hour -%}
+            {%- set m.t = w.temperature | float(10) -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if m.t is none and p_start.date() == now().date() and p_start.hour == now().hour -%}
+          {%- set m.t = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(none) -%}
+        {%- endif -%}
+        {%- if m.t is not none -%}
+          {%- set t = m.t -%}
+          {%- set lift = [1, t_aanvoer_tdi - t] | max -%}
+          {%- set c = [[1.5, 0.4 * (t_aanvoer_tdi + 273) / lift] | max, 6.0] | min -%}
+          {%- set prijs_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+          {%- set k = prijs_eur / c -%}
+          {%- set ns2.uren = ns2.uren + [{
+            'dag': p_start.strftime('%Y-%m-%d'),
+            'uur': p_start.hour,
+            'kwartier': p_start.minute,
+            'label': p_start.strftime('%d-%m %H:%M'),
+            'cop_geschat': c | round(2),
+            'prijs': prijs_eur | round(4),
+            'kosten_warmte': k | round(4)
+          }] -%}
+        {%- endif -%}
       {%- endif -%}
     {%- endfor -%}
   {%- endif -%}

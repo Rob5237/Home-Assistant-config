@@ -1,26 +1,29 @@
 - id: warmtepomp_goedkoop_uur_opwarmen
   alias: "Warmtepomp: extra opwarmen bij goedkoopste uur"
   description: >
-    Zet heating_target_correction tijdelijk op +0.5°C op het optimale stookuur.
-    Het tijdswindow is groter bij koud weer (meer thermische opslag nodig) en
-    kleiner bij mild weer. Formule: clamp(60min…180min, raw×2×30) waarbij
-    raw = 1 + 2×(14−t)/24. Alleen actief als kamertemperatuur onder het
-    Luxtronik setpoint ligt.
-    Trigger op minutes:'1' (i.p.v. elke minuut) geeft de optimaal-startuur
-    sensor tijd om te verversen op het hele uur.
+    Zet heating_target_correction tijdelijk op +0.5°C op het optimale
+    stookkwartier. Het tijdswindow is groter bij koud weer (meer thermische
+    opslag nodig) en kleiner bij mild weer. Formule: clamp(60min…180min,
+    raw×2×30) waarbij raw = 1 + 2×(14−t)/24. Alleen actief als
+    kamertemperatuur onder het Luxtronik setpoint ligt.
+    Kwartierprecisie (14-10-2026, was uur-gebaseerd): Zonneplan varieert per
+    15 min, niet per uur — de oude uur-matching liet de sensor zichzelf
+    exact op het kritieke moment een uur laten doorschuiven (zie
+    custom_templates/warmtepomp_macros.jinja), waardoor dit nooit afging.
+    Trigger nu elke minuut, conditie matcht het volledige HH:MM.
     Zet input_boolean.warmtepomp_goedkoop_uur_boost_actief aan bij start en
     uit bij einde — mutex zodat warmtepomp_kamertemp_correctie niet
     tegelijkertijd aan dezelfde heating_target_correction zit te draaien.
   triggers:
     - trigger: time_pattern
-      minutes: '1'
+      seconds: '0'
   conditions:
     - condition: template
       value_template: >
         {% set opt = states('sensor.warmtepomp_optimaal_startuur') %}
         {{ opt not in ('unknown', 'unavailable', 'onbekend')
-           and opt | length >= 2
-           and now().hour == opt[:2] | int(-1) }}
+           and opt | length >= 4
+           and now().strftime('%H:%M') == opt }}
     - condition: not
       conditions:
         - condition: state
@@ -142,7 +145,7 @@
 - id: warmtepomp_pre17_buffer_start
   alias: "Warmtepomp: pre-17:00 vloerbuffer start"
   description: >
-    Zet de kamerthermostaat-setpoint op het goedkoopste uur binnen het
+    Zet de kamerthermostaat-setpoint op het goedkoopste kwartier binnen het
     pre-17:00-venster (sensor.warmtepomp_optimaal_startuur_middag — venster
     schuift van 12:00-16:00 bij mild weer tot 09:00-16:00 bij kou) tijdelijk
     naar 21°C, zodat de
@@ -151,16 +154,19 @@
     (0 = geen backup actief) en wordt om 17:00 teruggezet door
     warmtepomp_pre17_buffer_einde. Losstaand van warmtepomp_goedkoop_uur_opwarmen
     (dagbrede +0.5°C correctie) — dit zet de setpoint zelf, niet de correctie.
+    Kwartierprecisie (14-10-2026, was uur-gebaseerd): Zonneplan varieert per
+    15 min. Trigger nu elke minuut i.p.v. alleen xx:01, conditie matcht het
+    volledige HH:MM i.p.v. alleen het uur.
   triggers:
     - trigger: time_pattern
-      minutes: '1'
+      seconds: '0'
   conditions:
     - condition: template
       value_template: >
         {% set opt = states('sensor.warmtepomp_optimaal_startuur_middag') %}
         {{ opt not in ('unknown', 'unavailable', 'onbekend')
-           and opt | length >= 2
-           and now().hour == opt[:2] | int(-1) }}
+           and opt | length >= 4
+           and now().strftime('%H:%M') == opt }}
     - condition: numeric_state
       entity_id: input_number.warmtepomp_kamertemp_backup
       below: 0.01
@@ -577,9 +583,11 @@
 - id: tdi_legionella_solar_overschot
   alias: "TDI: legionella-cyclus bij laagste daguur"
   description: >
-    Elk heel uur overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
-    resterende uur is op basis van Zonneplan tarieven. Klokprogramma 09:30-16:00
-    (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).
+    Elk kwartier overdag (09:00-16:00) wordt gecheckt of dit het goedkoopste
+    resterende kwartier is op basis van Zonneplan kwartier-tarieven.
+    Klokprogramma 09:30-16:00 (buiten >= 15°C) of 12:00-16:00 (buiten < 15°C).
+    Kwartierprecisie (14-10-2026, was elk heel uur): trigger nu elk kwartier
+    i.p.v. alleen xx:00.
 
     dhw_mode wordt op Party gezet én dhw_hysteresis tijdelijk 10K → 3K:
     Party overrulet het tijdschema, hysterese-verlaging overrulet de
@@ -603,7 +611,7 @@
     we óók over zodat de check volgende dag opnieuw activeert wanneer nodig.
   triggers:
   - trigger: time_pattern
-    minutes: '0'
+    minutes: '/15'
   conditions:
   - condition: time
     after: '09:00:00'
@@ -951,12 +959,16 @@
 - id: tapwater_goedkoopste_nachtuur
   alias: "Tapwater: opwarmen in goedkoopste nachtuur"
   description: >
-    Elk heel uur tussen 22:00 en 06:00 wordt gecheckt of dit het goedkoopste uur
-    in het nachtvenster is (Zonneplan forecast). Als ja en tapwater < 54°C → opwarmen
-    naar 57°C. Reset volgt via tapwater_reset_na_bijverwarmen.
+    Elk kwartier tussen 22:00 en 06:00 wordt gecheckt of dit het goedkoopste
+    kwartier in het nachtvenster is (Zonneplan kwartier-forecast). Als ja en
+    tapwater < 54°C → opwarmen naar 57°C. Reset volgt via
+    tapwater_reset_na_bijverwarmen.
+    Kwartierprecisie (14-10-2026, was elk heel uur): trigger nu elk kwartier
+    i.p.v. alleen xx:00, zodat het goedkoopste kwartier (niet per se op het
+    hele uur) ook daadwerkelijk gecheckt wordt.
   triggers:
   - trigger: time_pattern
-    minutes: '0'
+    minutes: '/15'
   conditions:
   - condition: state
     entity_id: input_boolean.vakantie_actief
