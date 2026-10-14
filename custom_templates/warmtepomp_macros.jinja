@@ -232,3 +232,65 @@
   {%- endif -%}
   {{ ns2.uren | tojson }}
 {%- endmacro %}
+
+{#
+  bepaal_middag_venster: zoekt het eerstvolgende moment waarop het pre-17-
+  vloerbuffer-venster openstaat — vandaag als dat nog kan, anders morgen
+  (en zo verder), nooit "onbekend" zolang er ergens in de beschikbare
+  prijs-horizon (via `uren`, output van bereken_kwartieren) nog een dag met
+  een geldig venster zit. Zonneplan publiceert day-ahead, dus "morgen" is al
+  net zo goed bekend als "vandaag" — geen reden om tot morgenochtend te
+  wachten met vooruitkijken.
+
+  Elke dag heeft zijn eigen middag_start_uur, dat afhangt van de
+  buitentemp rond het middaguur — voor vandaag de live sensor, voor
+  toekomstige dagen de weersverwachting op 14:00 lokale tijd van die dag
+  (ruwe schatting van "rond het middaguur", maar wel met echte voorspelde
+  data i.p.v. een slag in de lucht).
+
+  Input `uren` moet al door bereken_kwartieren berekend zijn (COP/aanvoer
+  zijn al ingerekend); deze macro doet alleen de venster-selectie, niet de
+  stooklijn-berekening zelf (die heeft t_min/t_max/t_drempel nodig die hier
+  niet beschikbaar zijn).
+
+  Retourneert JSON: {gevonden, dag, middag_start_uur, uur, kwartier,
+  kosten_warmte, label} of {gevonden: false} als zelfs de verste dag in de
+  prijs-horizon geen geldig venster oplevert (zou feitelijk nooit moeten
+  gebeuren met de huidige ~32-57 uur vooruitkijkende Zonneplan-forecast).
+#}
+{%- macro bepaal_middag_venster(uren, weer, t_drempel) -%}
+  {%- set dagen = uren | map(attribute='dag') | unique | sort | list -%}
+  {%- set ns = namespace(resultaat=none) -%}
+  {%- for dag in dagen -%}
+    {%- if ns.resultaat is none -%}
+      {%- if dag == now().strftime('%Y-%m-%d') -%}
+        {%- set t_mid = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) -%}
+      {%- else -%}
+        {%- set ns2 = namespace(t=10) -%}
+        {%- for w in weer -%}
+          {%- set w_dt = as_datetime(w.datetime) | as_local -%}
+          {%- if w_dt.strftime('%Y-%m-%d') == dag and w_dt.hour == 14 -%}
+            {%- set ns2.t = w.temperature | float(10) -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- set t_mid = ns2.t -%}
+      {%- endif -%}
+      {%- set uren_vooraf = [[5, 5 + (t_drempel - t_mid) / 8] | max, 8] | min -%}
+      {%- set msu = (17 - uren_vooraf) | round | int -%}
+      {%- set middag = uren | selectattr('dag', 'equalto', dag) | selectattr('uur', 'ge', msu) | selectattr('uur', 'lt', 17) | list -%}
+      {%- if middag -%}
+        {%- set best = middag | min(attribute='kosten_warmte') -%}
+        {%- set ns.resultaat = {
+          'gevonden': true,
+          'dag': dag,
+          'middag_start_uur': msu,
+          'uur': best.uur,
+          'kwartier': best.kwartier,
+          'kosten_warmte': best.kosten_warmte,
+          'label': best.label
+        } -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ (ns.resultaat if ns.resultaat is not none else {'gevonden': false}) | tojson }}
+{%- endmacro %}

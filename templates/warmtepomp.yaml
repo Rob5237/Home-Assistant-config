@@ -135,9 +135,44 @@
       aanvoertemperatuur: >
         {{ states('sensor.luxtronik_280807_0450_flow_in_temperature') | float(None) }}
 
+  - name: "Warmtepomp Pre-17 Tijdelijke Verhoging"
+    unique_id: "warmtepomp_pre17_tijdelijke_verhoging"
+    icon: mdi:thermometer-chevron-up
+    state: >
+      {% if states('input_number.warmtepomp_kamertemp_backup') | float(0) > 0.01 %}
+        {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}
+      {% else %}
+        Niet actief
+      {% endif %}
+
+  - name: "Warmtepomp Pre-17 Normale Temperatuur"
+    unique_id: "warmtepomp_pre17_normale_temperatuur"
+    icon: mdi:thermometer
+    unit_of_measurement: "°C"
+    state: >
+      {% if states('input_number.warmtepomp_kamertemp_backup') | float(0) > 0.01 %}
+        {{ states('input_number.warmtepomp_kamertemp_backup') }}
+      {% else %}
+        {{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}
+      {% endif %}
+
+  - name: "Warmtepomp Pre-17 Zoekvenster Start"
+    unique_id: "warmtepomp_pre17_zoekvenster_start"
+    icon: mdi:clock-start
+    state: >
+      {{ '%02d:00' | format(state_attr('sensor.warmtepomp_optimaal_startuur_middag', 'middag_start_uur') | int(12)) }}
+
+# Kwartierprecisie (14-10-2026): was hours:"/1" (eens per uur). De
+# consumerende automaties (warmtepomp_pre17_buffer_start, warmtepomp_goedkoop_
+# uur_opwarmen) checken sinds de kwartier-migratie elke minuut op een exacte
+# HH:MM-match — met een sensor die maar eens per uur herberekent, bleef het
+# weergegeven "optimale moment" de rest van het uur stilstaan (verwarrend,
+# ook al is de eenmaal-per-uur-berekening zelf correct omdat Zonneplan-
+# dagprijzen toch al vooraf vastliggen). Elke 15 min herberekenen houdt
+# weergave en beslissing consistent.
 - trigger:
     - platform: time_pattern
-      hours: "/1"
+      minutes: "/15"
     - platform: homeassistant
       event: start
   action:
@@ -268,22 +303,17 @@
       unique_id: "warmtepomp_optimaal_startuur_middag"
       icon: mdi:clock-start
       state: >
-        {% from 'warmtepomp_macros.jinja' import bereken_kwartieren %}
+        {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
         {% set weer = weer_forecast['weather.thuis'].forecast %}
         {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
         {% if weer and prijzen %}
           {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
           {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
           {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
-          {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
-          {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
-          {% set middag_start_uur = (17 - uren_vooraf) | round | int %}
           {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
-          {% set vandaag = now().strftime('%Y-%m-%d') %}
-          {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', middag_start_uur) | selectattr('uur', 'lt', 17) | list %}
-          {% if middag %}
-            {% set best = middag | min(attribute='kosten_warmte') %}
-            {{ '%02d:%02d' | format(best.uur, best.kwartier) }}
+          {% set venster = bepaal_middag_venster(uren, weer, t_drempel) | from_json %}
+          {% if venster.gevonden %}
+            {{ '%02d:%02d' | format(venster.uur, venster.kwartier) }}
           {% else %}
             onbekend
           {% endif %}
@@ -292,26 +322,64 @@
         {% endif %}
       attributes:
         middag_start_uur: >
-          {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
-          {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
-          {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
-          {{ ((17 - uren_vooraf) | round | int) }}
-        kosten_per_kwh_warmte: >
-          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren %}
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
           {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
           {% if weer and prijzen %}
             {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
             {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
             {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set venster = bepaal_middag_venster(uren, weer, t_drempel) | from_json %}
+            {% if venster.gevonden %}
+              {{ venster.middag_start_uur }}
+            {% else %}
+              {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+              {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
+              {{ ((17 - uren_vooraf) | round | int) }}
+            {% endif %}
+          {% else %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
             {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
             {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
-            {% set middag_start_uur = (17 - uren_vooraf) | round | int %}
+            {{ ((17 - uren_vooraf) | round | int) }}
+          {% endif %}
+        venster_dag: >
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
             {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
-            {% set vandaag = now().strftime('%Y-%m-%d') %}
-            {% set middag = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'ge', middag_start_uur) | selectattr('uur', 'lt', 17) | list %}
-            {% if middag %}
-              {{ (middag | min(attribute='kosten_warmte')).kosten_warmte }}
+            {% set venster = bepaal_middag_venster(uren, weer, t_drempel) | from_json %}
+            {% if venster.gevonden %}
+              {% if venster.dag == now().strftime('%Y-%m-%d') %}
+                vandaag
+              {% elif venster.dag == (now() + timedelta(days=1)).strftime('%Y-%m-%d') %}
+                morgen
+              {% else %}
+                {{ venster.dag }}
+              {% endif %}
+            {% else %}
+              onbekend
+            {% endif %}
+          {% else %}
+            onbekend
+          {% endif %}
+        kosten_per_kwh_warmte: >
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set venster = bepaal_middag_venster(uren, weer, t_drempel) | from_json %}
+            {% if venster.gevonden %}
+              {{ venster.kosten_warmte }}
             {% else %}
               {{ none }}
             {% endif %}

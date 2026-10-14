@@ -157,6 +157,10 @@
     Kwartierprecisie (14-10-2026, was uur-gebaseerd): Zonneplan varieert per
     15 min. Trigger nu elke minuut i.p.v. alleen xx:01, conditie matcht het
     volledige HH:MM i.p.v. alleen het uur.
+    Vooruitkijk-fix (14-10-2026): de sensor kijkt sinds kort ook naar morgen
+    zodra het vandaag-venster al gesloten is (attribuut venster_dag: vandaag/
+    morgen) — zonder onderstaande dag-check zou een "morgen"-tijdstip dat
+    toevallig overeenkomt met de huidige kloktijd vandaag al verkeerd triggeren.
   triggers:
     - trigger: time_pattern
       seconds: '0'
@@ -166,7 +170,8 @@
         {% set opt = states('sensor.warmtepomp_optimaal_startuur_middag') %}
         {{ opt not in ('unknown', 'unavailable', 'onbekend')
            and opt | length >= 4
-           and now().strftime('%H:%M') == opt }}
+           and now().strftime('%H:%M') == opt
+           and state_attr('sensor.warmtepomp_optimaal_startuur_middag', 'venster_dag') == 'vandaag' }}
     - condition: numeric_state
       entity_id: input_number.warmtepomp_kamertemp_backup
       below: 0.01
