@@ -184,6 +184,39 @@
       entity_id: input_boolean.vakantie_actief
       state: "off"
   actions:
+    # Warmtegrens-guard (15-10-2026): boven heating_threshold_temperature
+    # schakelt de Luxtronik de verwarming zelf uit, dus de buffer heeft dan
+    # geen effect. Slaat over als de live buitentemp of de forecast-max
+    # tot 17:00 de drempel haalt.
+    - action: weather.get_forecasts
+      target:
+        entity_id: weather.thuis
+      data:
+        type: hourly
+      response_variable: weerforecast
+    - variables:
+        drempel: "{{ states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(18) }}"
+        buiten_nu: "{{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(0) }}"
+        temp_max: >
+          {% set ns = namespace(m=states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(-99)) %}
+          {% for f in weerforecast['weather.thuis'].forecast %}
+            {% set t = as_datetime(f.datetime) | as_local %}
+            {% if t.date() == now().date() and t.hour < 17 and f.temperature is number and f.temperature > ns.m %}
+              {% set ns.m = f.temperature %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.m }}
+    - if:
+        - condition: template
+          value_template: "{{ temp_max >= drempel }}"
+      then:
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: >-
+              Overgeslagen: verwachte buitentemp tot 17:00 max {{ temp_max }}°C
+              ≥ stooklijn-drempel {{ drempel }}°C (warmtepomp verwarmt dan niet).
+        - stop: "Buitentemp ≥ stooklijn-drempel"
     - action: input_number.set_value
       target:
         entity_id: input_number.warmtepomp_kamertemp_backup
