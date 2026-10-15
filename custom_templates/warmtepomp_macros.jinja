@@ -259,6 +259,14 @@
   gebeuren met de huidige ~32-57 uur vooruitkijkende Zonneplan-forecast).
 #}
 {%- macro bepaal_middag_venster(uren, weer, t_drempel) -%}
+  {#- Bovengrens-fix (15-10-2026): het venster liep voorheen door tot 17:00
+     zelf, waardoor een kwartier vlak vóór 17:00 (bv. 16:45) als "goedkoopste"
+     gekozen kon worden terwijl er dan geen tijd meer over is om echt op te
+     warmen. laatste_start_uur is een voorzichtige, NIET-gekalibreerde
+     ondergrens voor de benodigde opwarmtijd (vloerverwarming is traag, ook
+     bij mild weer) — zie CLAUDE.md "Kwartierprecisie"/aanvoer-traagheid
+     voor de aantekening dat dit later vervangen moet worden door een echt
+     model zodra er meetdata is (aanvoer−retour-delta × tijd vs. ΔT). -#}
   {%- set dagen = uren | map(attribute='dag') | unique | sort | list -%}
   {%- set ns = namespace(resultaat=none) -%}
   {%- for dag in dagen -%}
@@ -276,14 +284,17 @@
         {%- set t_mid = ns2.t -%}
       {%- endif -%}
       {%- set uren_vooraf = [[5, 5 + (t_drempel - t_mid) / 8] | max, 8] | min -%}
+      {%- set uren_vooraf_min = [[2, 2 + (t_drempel - t_mid) / 16] | max, 4] | min -%}
       {%- set msu = (17 - uren_vooraf) | round | int -%}
-      {%- set middag = uren | selectattr('dag', 'equalto', dag) | selectattr('uur', 'ge', msu) | selectattr('uur', 'lt', 17) | list -%}
+      {%- set laatste_start_uur = (17 - uren_vooraf_min) | round | int -%}
+      {%- set middag = uren | selectattr('dag', 'equalto', dag) | selectattr('uur', 'ge', msu) | selectattr('uur', 'lt', laatste_start_uur) | list -%}
       {%- if middag -%}
         {%- set best = middag | min(attribute='kosten_warmte') -%}
         {%- set ns.resultaat = {
           'gevonden': true,
           'dag': dag,
           'middag_start_uur': msu,
+          'laatste_start_uur': laatste_start_uur,
           'uur': best.uur,
           'kwartier': best.kwartier,
           'kosten_warmte': best.kosten_warmte,

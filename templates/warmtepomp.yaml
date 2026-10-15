@@ -344,6 +344,33 @@
             {% set uren_vooraf = [[5, 5 + (t_drempel - t_buiten) / 8] | max, 8] | min %}
             {{ ((17 - uren_vooraf) | round | int) }}
           {% endif %}
+        laatste_start_uur: >
+          {# Nieuw (15-10-2026): bovengrens van het venster — later starten
+             dan dit uur laat te weinig tijd over om vóór 17:00 op te warmen.
+             Nog NIET gekalibreerd aan echte opwarmdata, zie macro-toelichting
+             in warmtepomp_macros.jinja. #}
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set venster = bepaal_middag_venster(uren, weer, t_drempel) | from_json %}
+            {% if venster.gevonden %}
+              {{ venster.laatste_start_uur }}
+            {% else %}
+              {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+              {% set uren_vooraf_min = [[2, 2 + (t_drempel - t_buiten) / 16] | max, 4] | min %}
+              {{ ((17 - uren_vooraf_min) | round | int) }}
+            {% endif %}
+          {% else %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set t_buiten = states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(10) %}
+            {% set uren_vooraf_min = [[2, 2 + (t_drempel - t_buiten) / 16] | max, 4] | min %}
+            {{ ((17 - uren_vooraf_min) | round | int) }}
+          {% endif %}
         venster_dag: >
           {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
           {% set weer = weer_forecast['weather.thuis'].forecast %}
