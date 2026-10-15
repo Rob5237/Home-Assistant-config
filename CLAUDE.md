@@ -50,7 +50,7 @@ verse herlading.
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
 - `input_datetime.last_github_backup` — marker voor dagelijkse backup-poging
 - `input_boolean.vakantie_actief` — single source of truth voor vakantiemodus. Sync bidirectioneel met Luxtronik dhw_mode/heating_mode "Holidays" via `vakantie_sync_aan`/`vakantie_sync_uit`.
-- `input_boolean.tapwater_overschot_lock` — actief tijdens een opwarm-cyclus. Gezet door alle 5 start-automaties, gecheckt door 3 reset-automaties voor de "vakantie → Holidays" terugzet-actie, uitgezet door `tapwater_overschot_user_intervention` bij handmatige dhw_mode-wijziging.
+- `input_boolean.tapwater_overschot_lock` — actief tijdens een opwarm-cyclus. Gezet door alle 6 start-automaties, gecheckt door 3 reset-automaties voor de "vakantie → Holidays" terugzet-actie, uitgezet door `tapwater_overschot_user_intervention` bij handmatige dhw_mode-wijziging.
 - `input_number.compressor_starts_dag` / `..._nacht` — KPI-tellers voor compressor off→on transities, gesplitst op tijdvenster (06:00-22:00 vs 22:00-06:00 lokaal). Doel: meten of wijzigingen aan rust-setpoint/hysterese de starts richting zonne-uren verschuiven. Geïncrementeerd door `automation.compressor_starts_counter`, maandelijks gereset (1e v/d maand 00:01) door `automation.compressor_starts_monthly_reset`. Gebruikt `input_number` i.p.v. `counter` omdat counter geen reload-service heeft.
 
 ## Beslissings-binary_sensors (templates/tapwater_decisions.yaml)
@@ -99,6 +99,7 @@ verse herlading.
 | P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh **EN** Enphase nu > 1500W **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C (+ hysterese 10K→3K) | Party | `tapwater_extra_opslag_groot_overschot` |
 | Elk kwartier 09:00-16:00 | goedkoopste kwartier **EN** TDI ≥7 dgn geleden **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tdi_legionella_solar_overschot` |
+| Elk kwartier (hele dag) | Zonneplan kwartiertarief < -0.02 €/kWh **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tapwater_negatieve_prijs_opwarmen` |
 | Autonome WP-cyclus | DHW ≤ setpoint − hysterese | (volgt setpoint) | (ongewijzigd) | Luxtronik intern |
 
 De `dhw_mode ≠ Party` guard op klein-overschot voorkomt dat een zojuist gestarte groot-overschot boost (setpoint 62) of TDI-cyclus (setpoint 65) — beide Party-mode — door klein-overschot wordt overschreven (setpoint→57 + mode→Automatic). Zonder die guard breekt de Party→Automatic-overschrijving `zonne_overschot_extra_opslag_reset` (conditie `mode = Party`) en degradeert de boost-target.
@@ -121,6 +122,8 @@ Watchdogs in `tapwater_reset_na_bijverwarmen`: 13:55 vóór het TDI-venster (~14
 
 `tdi_einde_reset` heeft GEEN mode-conditie meer: TDI kan nu in Party of Automatic draaien (sinds Party-overrule). De "voor 15 min"-eis borgt Legionella-protocol óók voor de mid-tanksensor (de interne top-sensor stopt snel bij setpoint 65, de mid-sensor loopt door stratificatie achter). Onderscheid van zonne-overschot extra-opslag: expliciete `setpoint > 63`-conditie — TDI (65°C) matcht, extra-opslag (62°C) niet. `zonne_overschot_extra_opslag_reset` beperkt zijn DHW>58-trigger op zijn beurt tot `setpoint` tussen 55 en 64, zodat die niet op een lopende TDI-cyclus reageert.
 
+`tapwater_negatieve_prijs_opwarmen` gebruikt bewust dezelfde combinatie als TDI (setpoint 65°C + hysterese 3K + Party): daardoor wordt de cyclus afgesloten door de bestaande `tdi_einde_reset` (conditie `setpoint > 63`), zonder eigen reset-automatie. Startguard DHW < 60 (i.p.v. 58 zoals extra-opslag) voorkomt onnodig herstarten vlak voordat `tdi_einde_reset` toch al zou resetten. Zet géén `tdi_laatste_start` — telt dus niet als TDI-cyclus.
+
 Safety-reset in `tapwater_extra_opslag_groot_overschot`: na 45 min interne delay (was 90 min) wordt setpoint geforceerd naar 50 als de reguliere DHW>58-reset niet activeerde. Kortere termijn = kleiner pendel-venster.
 
 ## Tapwater drempel-temperaturen
@@ -135,7 +138,7 @@ Safety-reset in `tapwater_extra_opslag_groot_overschot`: na 45 min interne delay
 | **58°C** | Reset-trigger zonne-overschot extra opslag |
 | **60°C** | Reset-trigger TDI (voor 15 min — borgt Legionella-houdtijd voor mid-tanksensor) |
 | **62°C** | Target voor extra opslag |
-| **65°C** | Target voor TDI (compressor-maximum, zodat ook de mid-tanksensor richting 60+ getrokken wordt) |
+| **65°C** | Target voor TDI (compressor-maximum, zodat ook de mid-tanksensor richting 60+ getrokken wordt) en voor opwarmen bij negatieve prijs |
 
 Luxtronik DHW-hysterese: standaard 10K (entiteit `number.luxtronik_280807_0450_dhw_hysteresis`), tijdelijk verlaagd naar 3K tijdens een actieve TDI- of extra-opslag-cyclus (anders start de compressor niet ondanks Party-mode — zie hierboven) en teruggezet naar 10K door de bijbehorende reset-automatie.
 
@@ -160,10 +163,11 @@ Gedrag tijdens vakantie:
 | `tapwater_zonne_overschot_klein` | actief (overschot opslaan blijft) |
 | `tapwater_extra_opslag_groot_overschot` | actief |
 | `tdi_legionella_solar_overschot` | actief, maar `switch.heating` aan-actie geskipt |
+| `tapwater_negatieve_prijs_opwarmen` | actief (negatieve prijs = gratis energie, net als PV-overschot) |
 
 Reset-automaties (`tapwater_reset_na_bijverwarmen`, `zonne_overschot_extra_opslag_reset`, `tdi_einde_reset`) zetten dhw_mode terug naar Holidays als `vakantie_actief = on` **EN** `tapwater_overschot_lock = on`. Heating-switch-uit in tdi_einde_reset is geskipt tijdens vakantie (respecteert user-keuze om heating aan te laten voor bv. vorstbescherming).
 
-**User-intervention lock**: alle 5 start-automaties (`tapwater_bijverwarmen`, `tapwater_goedkoopste_nachtuur`, `tapwater_zonne_overschot_klein`, `tapwater_extra_opslag_groot_overschot`, `tdi_legionella_solar_overschot`) zetten `tapwater_overschot_lock = on` als laatste actie. De automation `tapwater_overschot_user_intervention` luistert op alle dhw_mode-wijzigingen en zet de lock uit zodra een wijziging niet van een eigen automation-context komt (context.user_id gevuld → UI; context.parent_id None → Luxtronik RBE/integration). De 3 reset-automaties checken de lock voor de Holidays-terugzet en clearen de lock altijd aan het eind.
+**User-intervention lock**: alle 6 start-automaties (`tapwater_bijverwarmen`, `tapwater_goedkoopste_nachtuur`, `tapwater_zonne_overschot_klein`, `tapwater_extra_opslag_groot_overschot`, `tdi_legionella_solar_overschot`, `tapwater_negatieve_prijs_opwarmen`) zetten `tapwater_overschot_lock = on` als laatste actie. De automation `tapwater_overschot_user_intervention` luistert op alle dhw_mode-wijzigingen en zet de lock uit zodra een wijziging niet van een eigen automation-context komt (context.user_id gevuld → UI; context.parent_id None → Luxtronik RBE/integration). De 3 reset-automaties checken de lock voor de Holidays-terugzet en clearen de lock altijd aan het eind.
 
 Bij `vakantie_sync_uit`: persistent notification met DHW/kamer/buiten-temp, laatste TDI en heating-switch stand.
 

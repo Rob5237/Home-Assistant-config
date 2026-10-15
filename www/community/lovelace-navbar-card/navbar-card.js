@@ -817,6 +817,7 @@ var init_config = __esm(() => {
     },
     mobile: {
       mode: "docked",
+      safe_area: false,
       show_labels: false,
       show_popup_label_backgrounds: false
     },
@@ -1886,9 +1887,13 @@ var init_styles = __esm(() => {
     width: 90%;
   }
 
-  /* Lift mobile navbar above Android system gesture/nav bars (HA Companion edge-to-edge). */
-  .navbar.mobile {
-    bottom: var(--safe-area-inset-bottom, 0px);
+  /* Safe area: padding for "docked", margin for "floating" */
+  .navbar.mobile.safe-area:not(.floating) .navbar-card {
+    padding-bottom: calc(12px + var(--safe-area-inset-bottom, 0px));
+  }
+
+  .navbar.mobile.safe-area.floating .navbar-card {
+    margin-bottom: calc(10px + var(--safe-area-inset-bottom, 0px));
   }
 
   /* Desktop mode styles */
@@ -3955,6 +3960,11 @@ var init_navbar_card_editor = __esm(() => {
         disabled: ![true, "popup_only"].includes(labelVisibility),
         label: "Show popup label backgrounds"
       })}
+          ${this.makeSwitch({
+        configKey: "mobile.safe_area",
+        defaultValue: DEFAULT_NAVBAR_CONFIG.mobile?.safe_area,
+        label: "Respect safe area insets"
+      })}
           ${this.makeTemplateEditor({
         configKey: "mobile.hidden",
         helper: BOOLEAN_JS_TEMPLATE_HELPER,
@@ -5348,7 +5358,7 @@ init_types();
 init_utils();
 init_docs_links();
 // package.json
-var version = "1.7.0";
+var version = "1.7.1";
 
 // src/navbar-card.ts
 window.customCards = window.customCards || [];
@@ -5457,13 +5467,14 @@ ${DOCS_LINKS.template}
     const editClass = this.isInEditMode ? "edit-mode" : "";
     const mobileModeClass = this.config.mobile?.mode === "floating" ? "floating" : "";
     const desktopModeClass = this.isDesktop && this.config.desktop?.mode === "docked" ? "docked" : "";
+    const safeAreaClass = !this.isDesktop && this.config.mobile?.safe_area ? "safe-area" : "";
     const shouldRenderMediaPlayerInsideNavbar = this._shouldRenderMediaPlayerInsideNavbar();
     return x`
       ${!shouldRenderMediaPlayerInsideNavbar ? this._mediaPlayer.render({
       isInsideNavbar: false
     }) : x``}
       <div
-        class="navbar ${editClass} ${deviceClass} ${this.desktopPosition} ${mobileModeClass} ${desktopModeClass}">
+        class="navbar ${editClass} ${deviceClass} ${this.desktopPosition} ${mobileModeClass} ${desktopModeClass} ${safeAreaClass}">
         ${shouldRenderMediaPlayerInsideNavbar ? this._mediaPlayer.render({
       isInsideNavbar: true
     }) : x``}
