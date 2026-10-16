@@ -39,7 +39,6 @@ from ..const import (
 )
 from ..helpers.utils import get_is_sun_rising, get_sun_elevation, log_is_event_loop
 from ..models.model_charge_control import ChargeControl
-from ..models.model_schedule_data import ScheduleData
 from ..state_machine.solar_charge import SolarCharge
 from .tracker import Tracker
 
@@ -409,48 +408,57 @@ class ChargeController(ScOptionState):
             self._hass.loop.create_task(action(turn_on))
 
     # ----------------------------------------------------------------------------
-    async def async_check_if_need_to_reschedule_charge(self) -> None:
+    async def _async_reschedule_charge(self, msg: str) -> None:
         """Reschedule charge due to schedule update."""
 
-        if self.is_updated_today_tomorrow_schedule:
-            try:
-                _LOGGER.info(
-                    "%s: Checking if need to reschedule charge due to schedule update",
-                    self.caller,
-                )
-                if (
-                    self.charge_control.instance_count == 0
-                    and self.is_schedule_charge()
+        try:
+            _LOGGER.info(
+                "%s: Checking if need to reschedule charge",
+                self.caller,
+            )
+            if self.charge_control.instance_count == 0 and self.is_schedule_charge():
+                await self.solar_charge.async_wake_up_and_update_ha(self._chargeable)
+                goal = await self.solar_charge.async_get_current_schedule_data()
+                if goal.use_charge_schedule and (
+                    goal.has_charge_endtime
+                    or (
+                        goal.battery_soc is not None
+                        and goal.battery_soc < goal.new_charge_limit
+                    )
                 ):
-                    await self.solar_charge.async_wake_up_and_update_ha(
-                        self._chargeable
-                    )
-                    goal: ScheduleData = (
-                        await self.solar_charge.async_get_current_schedule_data()
-                    )
-                    if goal.use_charge_schedule and (
-                        goal.has_charge_endtime
-                        or (
-                            goal.battery_soc is not None
-                            and goal.battery_soc < goal.new_charge_limit
-                        )
-                    ):
-                        if self.solar_charge.is_device_at_location_and_connected():
-                            _LOGGER.warning(
-                                "%s: Rescheduling charge due to schedule update",
-                                self.caller,
-                            )
-                            self._turn_charger_switch(turn_on=True)
+                    if self.solar_charge.is_device_at_location_and_connected():
+                        _LOGGER.warning("%s: %s", self.caller, msg)
+                        self._turn_charger_switch(turn_on=True)
 
-            except Exception:
-                _LOGGER.exception(
-                    "%s: Failed to check if need to reschedule charge", self.caller
-                )
+        except Exception:
+            _LOGGER.exception("%s: Failed to reschedule charge", self.caller)
 
+    # ----------------------------------------------------------------------------
+    async def async_check_if_need_to_reschedule_charge(self) -> None:
+        """Check if need to reschedule charge."""
+
+        if self.is_updated_today_tomorrow_schedule:
+            msg = "Rescheduling due to schedule update"
+            await self._async_reschedule_charge(msg)
             self.set_updated_today_tomorrow_schedule(False)
 
     # ----------------------------------------------------------------------------
     # Tracker callbacks
+    # ----------------------------------------------------------------------------
+    async def _async_midnight_maintenance(self, now_time: datetime) -> None:
+        """Perform midnight maintenance tasks."""
+
+        msg = "Rescheduling due to new charge limit for today"
+        await self._async_reschedule_charge(msg)
+
+    # ----------------------------------------------------------------------------
+    async def _async_schedule_midnight_maintenance(self) -> None:
+        """Schedule midnight maintenance task."""
+
+        self._tracker.schedule_controller_midnight_maintenance(
+            self._async_midnight_maintenance
+        )
+
     # ----------------------------------------------------------------------------
     async def async_handle_sun_elevation_update(
         self, event: Event[EventStateChangedData]
@@ -1050,6 +1058,9 @@ class ChargeController(ScOptionState):
     ) -> None:
         """Instantiates the power allocator and track net power updates."""
 
+        # Remove HA started callback if exists
+        self._tracker.remove_ha_started_callback()
+
         # coordinator: SolarChargerCoordinator = hass.data[DOMAIN][config_entry.entry_id]
         # Deferred import: allocator.py imports DeviceControl, which imports
         # ChargeController from this module -- a top-level import here would
@@ -1075,9 +1086,6 @@ class ChargeController(ScOptionState):
 
         self._track_net_power_update()
 
-        # Remove HA started callback if exists
-        self._tracker.remove_ha_started_callback()
-
     # ----------------------------------------------------------------------------
     async def _async_init_global_defaults_device(self) -> None:
         """Init global defaults device."""
@@ -1100,9 +1108,13 @@ class ChargeController(ScOptionState):
         # Only activate switch actions when HA has fully started, otherwise will hang others during startup.
         # eg. Switch on charge while HA is still starting up.
         self._initialising = False
+        # Remove HA started callback if exists
+        self._tracker.remove_ha_started_callback()
 
         # Permanent subscriptions
         self._subscribe_next_charge_time_update()
+        # Schedule controller midnight maintenance.
+        await self._async_schedule_midnight_maintenance()
 
         # Track next charge time trigger
         await self.async_switch_schedule_charge(self.is_schedule_charge())
@@ -1124,9 +1136,6 @@ class ChargeController(ScOptionState):
         await self.async_switch_calibrate_max_charge_speed(
             self.is_calibrate_max_charge_speed()
         )
-
-        # Remove HA started callback if exists
-        self._tracker.remove_ha_started_callback()
 
     # ----------------------------------------------------------------------------
     async def _async_init_charger_device(self) -> None:
@@ -1169,5 +1178,5 @@ class ChargeController(ScOptionState):
             await self._async_abort_solar_charger(None)
             await self._charger.async_unload()
 
-        # Unload tracker.
+        # Unload tracker for both charger and global defaults device.
         await self._tracker.async_unload()

@@ -880,14 +880,18 @@ class SolarCharge(ScOptionState):
 
     # ----------------------------------------------------------------------------
     def _is_below_charge_limit(
-        self, chargeable: Chargeable, val_dict: ConfigValueDict | None = None
+        self,
+        chargeable: Chargeable,
+        charge_limit: float | None,
+        val_dict: ConfigValueDict | None = None,
     ) -> bool:
         """Is device SOC below charge limit? Always return true if SOC entity ID is not defined."""
 
         is_below_limit = True
 
         try:
-            charge_limit = chargeable.get_charge_limit()
+            if charge_limit is None:
+                charge_limit = chargeable.get_charge_limit()
 
             config_item = ENTITY_DEVICE_SOC_SENSOR
             if val_dict is None:
@@ -914,7 +918,7 @@ class SolarCharge(ScOptionState):
     def is_below_charge_limit(self, val_dict: ConfigValueDict | None = None) -> bool:
         """Is device SOC below charge limit? Always return true if SOC entity ID is not defined."""
 
-        return self._is_below_charge_limit(self.chargeable, val_dict)
+        return self._is_below_charge_limit(self.chargeable, None, val_dict)
 
     # ----------------------------------------------------------------------------
     def is_charging(
@@ -985,14 +989,14 @@ class SolarCharge(ScOptionState):
         return allow_to_pause
 
     # ----------------------------------------------------------------------------
-    def _is_allowed_to_discharge(self) -> bool:
-        """Check if power source is allowed to discharge."""
-        allow_to_discharge = True
+    def _is_allowed_to_supply_power(self) -> bool:
+        """Check if power source is allowed to supply power."""
+        allow_to_supply = True
 
         if self.is_max_speed_charge():
-            allow_to_discharge = False
+            allow_to_supply = False
 
-        return allow_to_discharge
+        return allow_to_supply
 
     # ----------------------------------------------------------------------------
     # Machine state functions
@@ -1033,7 +1037,17 @@ class SolarCharge(ScOptionState):
         # Device charge limit must have already been set before this check.
         soc_tag = ENTITY_DEVICE_SOC_SENSOR
         val_dict = ConfigValueDict(soc_tag, {})
-        context.below_charge_limit = self._is_below_charge_limit(chargeable, val_dict)
+        if state == RunState.PAUSE:
+            # For pause state, use charge limit from schedule goal because charge limit
+            # from device may not have been set yet.
+            context.below_charge_limit = self._is_below_charge_limit(
+                chargeable, goal.new_charge_limit, val_dict
+            )
+        else:
+            # Get charge limit from device for all other states.
+            context.below_charge_limit = self._is_below_charge_limit(
+                chargeable, None, val_dict
+            )
         context.real_soc = val_dict.config_values[soc_tag].entity_id is not None
 
         val_dict = ConfigValueDict(ENTITY_CHARGER_CHARGING_SENSOR, {})
@@ -1281,7 +1295,7 @@ class SolarCharge(ScOptionState):
             # Power source.
             #####################################
             if context.cap_supply_power:
-                # Discharge power if any of the following conditions are true.
+                # Supply power if any of the following conditions are true.
                 if (
                     # Real SOC and SOC at or above limit.
                     # (context.real_soc and not context.below_charge_limit)
@@ -1290,7 +1304,7 @@ class SolarCharge(ScOptionState):
                     or (context.stats.loop_success_count > 0 and not context.charging)
                     # Not enough power.
                     or (
-                        self._is_allowed_to_discharge()
+                        self._is_allowed_to_supply_power()
                         and (
                             context.enough_power is not None
                             and not context.enough_power
@@ -1485,10 +1499,11 @@ class SolarCharge(ScOptionState):
     async def async_get_current_schedule_data(self) -> ScheduleData:
         """Get current schedule data."""
 
+        include_tomorrow = self.is_time_between_sunset_and_midnight()
         return await self.scheduler.async_get_schedule_data(
             self.chargeable,
             timer_session=False,
-            include_tomorrow=True,
+            include_tomorrow=include_tomorrow,
             started_calibration=False,
             started_max_charge=0,
             msg="Schedule",
