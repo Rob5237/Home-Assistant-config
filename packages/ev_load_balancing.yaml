@@ -970,7 +970,9 @@ automation:
             - if:
                 - condition: template
                   value_template: >
-                    {# Rob start pas als Sonia op haar max zit (of niet laadt/mag laden) #}
+                    {# Rob start pas als Sonia op haar max zit (of niet laadt/mag laden)
+                       EN er minstens 7 A ruimte is (6 A minimum + 1 A buffer); zonder ruimte
+                       gaf de start een piek van > 23 A op de zwaarst belaste fase. #}
                     {% set sonia_wacht = repeat.item.naam == 'rob'
                          and states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
                          and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
@@ -979,7 +981,8 @@ automation:
                              < states('input_number.ev_lb_max_sonia') | int(16) %}
                     {{ is_state(status, 'Preparing') and (is_state(toegestaan, 'on') or is_state(pv, 'on'))
                        and is_state(controle, 'on') and is_state(schakelaar, 'off')
-                       and not sonia_wacht }}
+                       and not sonia_wacht
+                       and (repeat.item.naam != 'rob' or states('sensor.ev_lb_ruimte') | float(0) >= 7) }}
               then:
                 - action: script.ev_lb_profiel
                   data:
