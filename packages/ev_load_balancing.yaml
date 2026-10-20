@@ -1,0 +1,828 @@
+# =====================================================================
+#  packages/ev_load_balancing.yaml  —  versie 3 (zonder Ratio Sense)
+#  Dynamische load balancing voor 2× Ratio Solar via OCPP (lbbrhzn)
+#  op basis van de HomeWizard P1-meter. Huisaansluiting 3×25A.
+#
+#  Kernidee: "dodemansknop" op de lader zelf.
+#   - Elke lader krijgt een BASISPROFIEL (stackLevel 0, zonder einde)
+#     met een veilige stroom (standaard 6 A).
+#   - De dynamische stroom wordt gestuurd als profiel met stackLevel 2
+#     dat na 60 s VERLOOPT. HA ververst het elke 20 s.
+#   - Valt HA, de Pi, wifi, OCPP of de P1-meter weg, dan stopt het
+#     verversen en valt de lader binnen 60 s vanzelf terug op het
+#     basisprofiel. Daar is géén HA voor nodig.
+#
+#  Lagen:
+#   1. Snel omlaag bij elke P1-meting (officiële HomeWizard-integratie
+#      ~5 s; met de websocket-integratie op DSMR5 ~1 s)
+#   2. Langzaam omhoog: max +2 A per 10 s, 1 A buffer
+#   3. Huislasten afschakelen (afschakellijst) als de laders al op 0 A
+#      staan en er nog steeds tekort is; herstel in omgekeerde volgorde
+#   3b. Noodstop: fase > 25 A gedurende 3 s → laders 0 A en in één keer
+#      genoeg huislasten uit; melding (+ kritieke melding na 20 s)
+#
+#  Ontwerpdoel 3×25A:
+#   - continu nooit boven 23 A per fase (regelgrens = 25 − 2 A marge)
+#   - boven 25 A: binnen ~10–15 s terug onder de grens (meetinterval
+#     P1 + 3 s bevestiging + reactietijd lader/apparaat)
+#   - korte inschakelpieken (< 3 s) worden genegeerd; die kan de
+#     hoofdzekering (gG, traag) ruimschoots aan
+#   4. P1 verouderd (>30 s) → niet meer verversen → terugval op basis
+#   5. Op de lader: verlopend profiel → basisprofiel (dodemansknop)
+#   6. Op de lader: maximum_current eenmalig op de max van die lader
+#      (Sonia 16 A, Rob 9 A) als harde bovengrens — ingesteld in de Ratio-app
+#   7. Voorrang: EV-Lader Sonia krijgt ruimte als eerste en laadt zo
+#      hoog als kan; Rob krijgt de rest en wijkt zo nodig
+#
+#  EERST TESTEN of je Ratio verlopende profielen respecteert (zie chat).
+#  Regels met  controleren tegen je eigen entity-id's.
+# =====================================================================
+
+input_boolean:
+  ev_lb_actief:
+    name: "EV load balancing actief"
+    icon: mdi:scale-balance
+
+input_number:
+  ev_lb_zekering:
+    name: "EV LB – hoofdzekering per fase"
+    min: 16
+    max: 40
+    step: 1
+    initial: 25
+    unit_of_measurement: A
+    mode: box
+  ev_lb_marge:
+    name: "EV LB – veiligheidsmarge"
+    min: 0
+    max: 5
+    step: 0.5
+    initial: 2
+    unit_of_measurement: A
+    mode: box
+  # Sonia heeft voorrang: krijgt ruimte als eerste en mag tot haar max.
+  # 16 A 3-fase = 11 kW. Kan de auto 22 kW, dan hoger (max 23 A bij 3×25A).
+  ev_lb_max_sonia:
+    name: "EV LB – max stroom EV-Lader Sonia"
+    min: 6
+    max: 23
+    step: 1
+    initial: 16
+    unit_of_measurement: A
+    mode: box
+  ev_lb_max_rob:
+    name: "EV LB – max stroom EV-Lader Rob"
+    min: 6
+    max: 23
+    step: 1
+    initial: 9   # gelijk aan max in Ratio-app
+    unit_of_measurement: A
+    mode: box
+  # Ondergrens voor Rob als Sonia meer wil: 6 = Rob blijft langzaam laden,
+  # 0 = Rob pauzeert volledig zodat Sonia alles krijgt.
+  ev_lb_min_rob:
+    name: "EV LB – min stroom Rob bij voorrang Sonia"
+    min: 0
+    max: 16
+    step: 1
+    initial: 6
+    unit_of_measurement: A
+    mode: box
+  # Stroom waarop de laders terugvallen als HA niets meer stuurt.
+  # 6 A = laden gaat door, langzaam. 0 A = laden stopt helemaal (veiligst).
+  ev_lb_terugval:
+    name: "EV LB – terugvalstroom zonder HA"
+    min: 0
+    max: 10
+    step: 6
+    initial: 6
+    unit_of_measurement: A
+    mode: box
+  # Hoeveel lasten uit de afschakellijst nu zijn afgeschakeld (0 = geen)
+  ev_lb_afschakel_niveau:
+    name: "EV LB – afschakelniveau huislasten"
+    min: 0
+    max: 10
+    step: 1
+    mode: box
+  # Hulpteller: hoeveel ampère er in de huidige afschakelronde al uit is gezet
+  ev_lb_afgeschakeld_a:
+    name: "EV LB – afgeschakeld in deze ronde"
+    min: 0
+    max: 200
+    step: 0.5
+    unit_of_measurement: A
+    mode: box
+  ev_lb_setpunt_rob:
+    name: "EV LB – setpunt EV-Lader Rob"
+    min: 0
+    max: 32
+    step: 1
+    unit_of_measurement: A
+  ev_lb_setpunt_sonia:
+    name: "EV LB – setpunt EV-Lader Sonia"
+    min: 0
+    max: 32
+    step: 1
+    unit_of_measurement: A
+
+template:
+  - sensor:
+      - name: "EV LB stroom L1"
+        unique_id: ev_lb_stroom_l1
+        unit_of_measurement: A
+        device_class: current
+        state_class: measurement
+        availability: "{{ has_value('sensor.p1_meter_power_phase_1') }}"
+        state: >
+          {% set p = states('sensor.p1_meter_power_phase_1') | float(0) %}
+          {% set u = states('sensor.p1_meter_voltage_phase_1') | float(230) %}
+          {{ (p / ([u, 200] | max)) | round(2) }}
+      - name: "EV LB stroom L2"
+        unique_id: ev_lb_stroom_l2
+        unit_of_measurement: A
+        device_class: current
+        state_class: measurement
+        availability: "{{ has_value('sensor.p1_meter_power_phase_2') }}"
+        state: >
+          {% set p = states('sensor.p1_meter_power_phase_2') | float(0) %}
+          {% set u = states('sensor.p1_meter_voltage_phase_2') | float(230) %}
+          {{ (p / ([u, 200] | max)) | round(2) }}
+      - name: "EV LB stroom L3"
+        unique_id: ev_lb_stroom_l3
+        unit_of_measurement: A
+        device_class: current
+        state_class: measurement
+        availability: "{{ has_value('sensor.p1_meter_power_phase_3') }}"
+        state: >
+          {% set p = states('sensor.p1_meter_power_phase_3') | float(0) %}
+          {% set u = states('sensor.p1_meter_voltage_phase_3') | float(230) %}
+          {{ (p / ([u, 200] | max)) | round(2) }}
+      - name: "EV LB ruimte"
+        unique_id: ev_lb_ruimte
+        unit_of_measurement: A
+        device_class: current
+        state_class: measurement
+        availability: >
+          {{ has_value('sensor.ev_lb_stroom_l1') and has_value('sensor.ev_lb_stroom_l2')
+             and has_value('sensor.ev_lb_stroom_l3') }}
+        state: >
+          {% set grens = states('input_number.ev_lb_zekering') | float(25)
+                       - states('input_number.ev_lb_marge') | float(2) %}
+          {% set i = [ states('sensor.ev_lb_stroom_l1') | float(0),
+                       states('sensor.ev_lb_stroom_l2') | float(0),
+                       states('sensor.ev_lb_stroom_l3') | float(0) ] %}
+          {{ (grens - (i | max)) | round(1) }}
+
+      # ---------------------------------------------------------------
+      # AFSCHAKELLIJST huislasten — in volgorde van afschakelen.
+      # Bovenaan = minst merkbaar. Herstel gaat in omgekeerde volgorde.
+      #   type:   switch (aan/uit) of select (optie 'uit' / vorige stand)
+      #   ampere: geschatte stroom op de zwaarst belaste fase (voor herstel)
+      # Niet-bestaande entiteiten worden overgeslagen; je kunt dus
+      # alvast regels laten staan voor apparaten die je nog toevoegt.
+      # ---------------------------------------------------------------
+      - name: "EV LB afschakellijst"
+        unique_id: ev_lb_afschakellijst
+        state: "{{ 'ok' }}"
+        attributes:
+          lasten: >
+            {{ [
+              {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1},
+              {'naam': 'Stekkerbatterij wasmachine','type': 'switch','entity': 'switch.stekkerbatterij_wasmachine_laden','ampere': 4},
+              {'naam': 'Stekkerbatterij droger',  'type': 'switch', 'entity': 'switch.stekkerbatterij_droger_laden',   'ampere': 4},
+              {'naam': 'Bijverwarming WP (6 kW)', 'type': 'switch', 'entity': 'switch.luxtronik_zwe_bijverwarming',   'ampere': 9},
+              {'naam': 'Warmtepomp warm water',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_dhw_mode', 'uit': 'Off', 'ampere': 5},
+              {'naam': 'Warmtepomp verwarming',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_heating_mode',        'uit': 'Off', 'ampere': 5},
+              {'naam': 'Droger',                  'type': 'switch', 'entity': 'switch.droger',                         'ampere': 10},
+              {'naam': 'Wasmachine',              'type': 'switch', 'entity': 'switch.wasmachine',                     'ampere': 10}
+            ] }}
+
+  - binary_sensor:
+      # ---------------------------------------------------------------
+      # Is de lader echt verbonden en onder controle van HA?
+      # De OCPP-integratie houdt na een verbroken verbinding soms de
+      # oude waarden vast. Daarom kijken we naar de latency-sensor die
+      # bij elke websocket-ping wordt bijgewerkt: is die > 120 s oud,
+      # dan is de verbinding weg (bijv. OCPP uitgezet in de Ratio-app).
+      # ---------------------------------------------------------------
+      - name: "EV LB Rob onder controle"
+        unique_id: ev_lb_rob_onder_controle
+        device_class: connectivity
+        state: >
+          {% set e = states.sensor.ev_rob_latency_ping %}
+          {{ e is not none and e.state not in ['unavailable', 'unknown']
+             and (now() - e.last_reported).total_seconds() < 120
+             and has_value('sensor.ev_rob_status_connector') }}
+      - name: "EV LB Sonia onder controle"
+        unique_id: ev_lb_sonia_onder_controle
+        device_class: connectivity
+        state: >
+          {% set e = states.sensor.ev_sonia_latency_ping %}
+          {{ e is not none and e.state not in ['unavailable', 'unknown']
+             and (now() - e.last_reported).total_seconds() < 120
+             and has_value('sensor.ev_sonia_status_connector') }}
+
+      # Tekort t.o.v. regelgrens, 3 s aanhoudend (korte inschakelpieken negeren)
+      - name: "EV LB tekort"
+        unique_id: ev_lb_tekort
+        delay_on: "00:00:03"
+        availability: "{{ has_value('sensor.ev_lb_ruimte') }}"
+        state: "{{ states('sensor.ev_lb_ruimte') | float(0) < 0 }}"
+      # Echte overschrijding van 25 A, 3 s aanhoudend
+      - name: "EV LB overbelasting"
+        unique_id: ev_lb_overbelasting
+        device_class: problem
+        delay_on: "00:00:03"
+        state: >
+          {% set z = states('input_number.ev_lb_zekering') | float(25) %}
+          {{ [ states('sensor.ev_lb_stroom_l1') | float(0),
+               states('sensor.ev_lb_stroom_l2') | float(0),
+               states('sensor.ev_lb_stroom_l3') | float(0) ] | max > z }}
+
+script:
+  # Schakelt huislasten uit (in lijstvolgorde, alleen wat aan staat)
+  # tot er minstens 'nodig' ampère is afgeschakeld.
+  # nodig = 0 → precies één last.
+  ev_lb_volgende_uit:
+    alias: "EV LB – huislasten afschakelen"
+    mode: single
+    fields:
+      nodig:
+        description: "Minimaal af te schakelen stroom in A (0 = één last)"
+        default: 0
+    sequence:
+      - variables:
+          lasten: "{{ state_attr('sensor.ev_lb_afschakellijst', 'lasten') or [] }}"
+          doel: "{{ [nodig | float(0), 0.1] | max }}"
+      - condition: template
+        value_template: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) < lasten | count }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_lb_afgeschakeld_a
+        data:
+          value: 0
+      - repeat:
+          sequence:
+            - variables:
+                idx: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) + 1 }}"
+                l: "{{ lasten[idx - 1] }}"
+                staat_aan: >
+                  {{ states(l.entity) not in ['off', 'unavailable', 'unknown', l.uit | default('off')] }}
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.ev_lb_afschakel_niveau
+              data:
+                value: "{{ idx }}"
+            - if: "{{ staat_aan }}"
+              then:
+                - action: scene.create
+                  data:
+                    scene_id: "ev_lb_last_{{ idx }}"
+                    snapshot_entities:
+                      - "{{ l.entity }}"
+                - choose:
+                    - conditions: "{{ l.type == 'select' }}"
+                      sequence:
+                        - action: select.select_option
+                          target:
+                            entity_id: "{{ l.entity }}"
+                          data:
+                            option: "{{ l.uit }}"
+                  default:
+                    - action: homeassistant.turn_off
+                      target:
+                        entity_id: "{{ l.entity }}"
+                - action: input_number.set_value
+                  target:
+                    entity_id: input_number.ev_lb_afgeschakeld_a
+                  data:
+                    value: >
+                      {{ [states('input_number.ev_lb_afgeschakeld_a') | float(0) + l.ampere | float(0), 200] | min }}
+                - action: logbook.log
+                  data:
+                    name: "EV load balancing"
+                    message: "Afgeschakeld: {{ l.naam }} (ruimte {{ states('sensor.ev_lb_ruimte') }} A)"
+          until: >
+            {{ states('input_number.ev_lb_afschakel_niveau') | int(0) >= lasten | count
+               or states('input_number.ev_lb_afgeschakeld_a') | float(0) >= doel }}
+
+  # Zet de laatst afgeschakelde last terug in zijn vorige stand
+  ev_lb_volgende_aan:
+    alias: "EV LB – volgende huislast herstellen"
+    mode: single
+    sequence:
+      - variables:
+          lasten: "{{ state_attr('sensor.ev_lb_afschakellijst', 'lasten') or [] }}"
+      - condition: template
+        value_template: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) > 0 }}"
+      - repeat:
+          sequence:
+            - variables:
+                idx: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) }}"
+                sc: "scene.ev_lb_last_{{ idx }}"
+                heeft_scene: "{{ sc in (states.scene | map(attribute='entity_id') | list) }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.ev_lb_afschakel_niveau
+              data:
+                value: "{{ idx - 1 }}"
+            - if: "{{ heeft_scene }}"
+              then:
+                - action: scene.turn_on
+                  target:
+                    entity_id: "{{ sc }}"
+                - action: scene.delete
+                  target:
+                    entity_id: "{{ sc }}"
+                  continue_on_error: true
+                - action: logbook.log
+                  data:
+                    name: "EV load balancing"
+                    message: "Hersteld: {{ lasten[idx - 1].naam if idx <= lasten | count else sc }}"
+                - stop: "Eén last hersteld"
+          until: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) <= 0 }}"
+
+  # Dynamisch profiel dat na 'duur' seconden vanzelf verloopt
+  ev_lb_profiel:
+    alias: "EV LB – verlopend laadprofiel sturen"
+    mode: parallel
+    fields:
+      devid:
+        description: "Charge point id"
+      ampere:
+        description: "Laadstroom in A"
+      duur:
+        description: "Geldigheid in seconden"
+        default: 60
+    sequence:
+      - action: ocpp.set_charge_rate
+        data:
+          devid: "{{ devid }}"
+          conn_id: 0
+          custom_profile:
+            chargingProfileId: 10
+            stackLevel: 2
+            chargingProfilePurpose: TxDefaultProfile
+            chargingProfileKind: Absolute
+            chargingSchedule:
+              chargingRateUnit: A
+              duration: "{{ duur | int(60) }}"
+              startSchedule: "{{ now() | as_timestamp | timestamp_custom('%Y-%m-%dT%H:%M:%SZ', false) }}"
+              chargingSchedulePeriod:
+                - startPeriod: 0
+                  limit: "{{ ampere | int }}"
+        continue_on_error: true
+
+  # Basisprofiel zonder einde: hier valt de lader op terug
+  ev_lb_basisprofiel:
+    alias: "EV LB – basisprofiel (terugval) instellen"
+    mode: queued
+    sequence:
+      - repeat:
+          for_each:
+            - "ev_rob"
+            - "ev_sonia"
+          sequence:
+            - action: ocpp.set_charge_rate
+              data:
+                devid: "{{ repeat.item }}"
+                conn_id: 0
+                custom_profile:
+                  chargingProfileId: 1
+                  stackLevel: 0
+                  chargingProfilePurpose: TxDefaultProfile
+                  chargingProfileKind: Absolute
+                  chargingSchedule:
+                    chargingRateUnit: A
+                    startSchedule: "2020-01-01T00:00:00Z"
+                    chargingSchedulePeriod:
+                      - startPeriod: 0
+                        limit: "{{ states('input_number.ev_lb_terugval') | int(6) }}"
+              continue_on_error: true
+
+automation:
+  # ---------------------------------------------------------------
+  # Basisprofiel bij opstarten, bij herverbinden van een lader en elk uur
+  # ---------------------------------------------------------------
+  - id: ev_lb_basis
+    alias: "EV – basisprofiel laders bijhouden"
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id:
+          - sensor.ev_rob_status_connector
+          - sensor.ev_sonia_status_connector
+        from: "unavailable"
+      - trigger: state
+        entity_id: input_number.ev_lb_terugval
+      - trigger: time_pattern
+        minutes: "7"
+    actions:
+      # Na een herstart (bijv. update) weten we niet wat er intussen is
+      # veranderd: setpunten op 6 A, daarna weer rustig opbouwen.
+      - if: "{{ trigger.platform == 'homeassistant' }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id:
+                - input_number.ev_lb_setpunt_rob
+                - input_number.ev_lb_setpunt_sonia
+            data:
+              value: 6
+      - delay: "00:00:20"
+      - action: script.ev_lb_basisprofiel
+
+  # ---------------------------------------------------------------
+  # Dynamische regeling: snel omlaag, langzaam omhoog, elke 20 s verversen
+  # ---------------------------------------------------------------
+  - id: ev_lb_dynamisch
+    alias: "EV – dynamische load balancing (P1, voorrang Sonia)"
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_lb_ruimte
+        id: meting
+      - trigger: state
+        entity_id: binary_sensor.ev_lb_overbelasting
+        to: "on"
+        id: meting
+      - trigger: time_pattern
+        seconds: "/10"
+        id: ramp
+      - trigger: state
+        entity_id:
+          - sensor.ev_rob_status_connector
+          - sensor.ev_sonia_status_connector
+        to: "Charging"
+        id: start
+    conditions:
+      - condition: state
+        entity_id: input_boolean.ev_lb_actief
+        state: "on"
+      # P1-data moet vers zijn; anders niets sturen → lader valt terug op basis
+      - condition: template
+        value_template: >
+          {% set ns = namespace(ok=true) %}
+          {% for f in [1, 2, 3] %}
+            {% set e = states['sensor.p1_meter_power_phase_' ~ f] %}
+            {% if e is none or e.state in ['unavailable', 'unknown']
+                  or (now() - e.last_reported).total_seconds() > 30 %}
+              {% set ns.ok = false %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ok and has_value('sensor.ev_lb_ruimte') }}
+    variables:
+      # VOLGORDE = VOORRANG. De eerste krijgt als eerste ruimte bij opregelen;
+      # bij terugregelen gaat de laatste (Rob) als eerste omlaag.
+      laders:
+        - naam: sonia
+          devid: "ev_sonia"
+          status: sensor.ev_sonia_status_connector
+          setpunt: input_number.ev_lb_setpunt_sonia
+          max: input_number.ev_lb_max_sonia
+          stap: 4          # sneller omhoog: +4 A per 10 s
+          controle: binary_sensor.ev_lb_sonia_onder_controle
+        - naam: rob
+          devid: "ev_rob"
+          status: sensor.ev_rob_status_connector
+          setpunt: input_number.ev_lb_setpunt_rob
+          max: input_number.ev_lb_max_rob
+          stap: 2
+          controle: binary_sensor.ev_lb_rob_onder_controle
+      # Werkelijke laadstroom van Sonia's lader (OCPP), om te zien of haar auto
+      # het aangeboden vermogen ook echt afneemt.
+      sonia_stroom: sensor.ev_lader_sonia_current_import   # AANPASSEN
+      bezig_statussen: ["Charging", "SuspendedEVSE"]
+    actions:
+      - variables:
+          ruimte: "{{ states('sensor.ev_lb_ruimte') | float(0) }}"
+          overbelast: "{{ is_state('binary_sensor.ev_lb_overbelasting', 'on') }}"
+          niveau: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) }}"
+          verversen: "{{ trigger.id == 'ramp' and now().second % 20 < 10 }}"
+      - condition: template
+        value_template: "{{ trigger.id != 'meting' or ruimte < 0 or overbelast }}"
+      - variables:
+          plan: >
+            {% set ns = namespace(rest=ruimte, out={}) %}
+            {% for l in laders %}
+              {# Niet verbonden = niet stuurbaar: telt niet mee als 'bezig'.
+                 Zijn stroom zit wel in de P1-meting, dus de rest regelt eromheen. #}
+              {% set b = states(l.status) in bezig_statussen and is_state(l.controle, 'on') %}
+              {% set h = states(l.setpunt) | int(0) %}
+              {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6)}}) %}
+            {% endfor %}
+
+            {% if overbelast %}
+              {# Noodstop: alles wat laadt naar 0 A #}
+              {% for l in laders %}
+                {% set o = ns.out[l.naam] %}
+                {% if o.bezig %}{% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=0)}) %}{% endif %}
+              {% endfor %}
+
+            {% elif ruimte < 0 %}
+              {# OMLAAG, direct: eerst Rob, dan pas Sonia #}
+              {% for l in laders | reverse %}
+                {% set o = ns.out[l.naam] %}
+                {% if o.bezig and ns.rest < 0 and o.huidig > 0 %}
+                  {% set x = (o.huidig + ns.rest) | round(0, 'floor') | int %}
+                  {% set x = x if x >= 6 else 0 %}
+                  {% set ns.rest = ns.rest + (o.huidig - x) %}
+                  {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=x)}) %}
+                {% endif %}
+              {% endfor %}
+
+            {% elif trigger.id == 'start' %}
+              {# Nieuwe sessie op de lader die de trigger gaf: laag beginnen #}
+              {% for l in laders %}
+                {% set o = ns.out[l.naam] %}
+                {% if o.bezig and trigger.entity_id == l.status %}
+                  {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if ruimte >= 0 else 0))}) %}
+                {% endif %}
+              {% endfor %}
+
+            {% elif trigger.id == 'ramp' and niveau == 0 %}
+              {# OMHOOG: Sonia eerst, Rob krijgt wat overblijft; 1 A buffer #}
+              {% set ns.rest = ns.rest - 1 %}
+              {% for l in laders %}
+                {% set o = ns.out[l.naam] %}
+                {% set mx = states(l.max) | int(10) %}
+                {% if o.bezig %}
+                  {% if o.huidig > mx %}
+                    {% set x = mx %}
+                  {% elif o.huidig == 0 %}
+                    {% set x = 6 if ns.rest >= 7 else 0 %}
+                  {% else %}
+                    {% set st = [[l.stap, ns.rest | round(0, 'floor') | int] | min, 0] | max %}
+                    {% set x = [o.huidig + st, mx] | min %}
+                  {% endif %}
+                  {% set ns.rest = ns.rest - (x - o.huidig) %}
+                  {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=x)}) %}
+                {% endif %}
+              {% endfor %}
+
+              {# VOORRANG: Sonia zit niet op max, krijgt geen ruimte erbij en haar
+                 auto neemt het aanbod echt af → Rob 2 A omlaag. De vrijgekomen
+                 ruimte gaat bij de volgende ronde (10 s) naar Sonia. #}
+              {% set s = ns.out['sonia'] %}
+              {% set r = ns.out['rob'] %}
+              {% set smax = states('input_number.ev_lb_max_sonia') | int(16) %}
+              {% set rmin = states('input_number.ev_lb_min_rob') | int(6) %}
+              {% set s_neemt_af = states(sonia_stroom) | float(99) >= s.huidig - 2 %}
+              {% if s.bezig and r.bezig and s.huidig > 0 and s.nieuw == s.huidig
+                    and s.nieuw < smax and s_neemt_af and r.nieuw > rmin and r.nieuw > 0 %}
+                {% set x = [r.nieuw - 2, rmin] | max %}
+                {% set x = x if x >= 6 else 0 %}
+                {% set ns.out = dict(ns.out, **{'rob': dict(r, nieuw=x)}) %}
+              {% endif %}
+            {% endif %}
+            {{ ns.out }}
+      - repeat:
+          for_each: "{{ laders }}"
+          sequence:
+            - variables:
+                o: "{{ plan[repeat.item.naam] }}"
+            - if: >
+                {{ o.bezig and ((o.nieuw | int) != (o.huidig | int) or trigger.id == 'start' or verversen) }}
+              then:
+                - action: script.ev_lb_profiel
+                  data:
+                    devid: "{{ repeat.item.devid }}"
+                    ampere: "{{ o.nieuw | int }}"
+                    duur: 60
+            - if: "{{ (o.nieuw | int) != (o.huidig | int) }}"
+              then:
+                - action: input_number.set_value
+                  target:
+                    entity_id: "{{ repeat.item.setpunt }}"
+                  data:
+                    value: "{{ o.nieuw | int }}"
+
+  # ---------------------------------------------------------------
+  # Noodstop-acties naast de regeling (bijverwarming uit + melding)
+  # ---------------------------------------------------------------
+  - id: ev_lb_noodstop
+    alias: "EV – noodstop overbelasting hoofdaansluiting"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.ev_lb_overbelasting
+        to: "on"
+    actions:
+      - action: persistent_notification.create
+        data:
+          notification_id: ev_lb_overbelasting
+          title: "⚡ Overbelasting huisaansluiting"
+          message: >
+            Fase boven {{ states('input_number.ev_lb_zekering') }} A
+            (L1 {{ states('sensor.ev_lb_stroom_l1') }} A,
+             L2 {{ states('sensor.ev_lb_stroom_l2') }} A,
+             L3 {{ states('sensor.ev_lb_stroom_l3') }} A).
+            Laders gepauzeerd; huislasten worden afgeschakeld.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "⚡ Overbelasting huisaansluiting"
+          message: >
+            Laders gepauzeerd en huislasten worden afgeschakeld.
+            Zet zware apparaten (oven, inductie, Quooker) even uit.
+        continue_on_error: true
+      # Blijft het na 20 s nog steeds overbelast: dringende tweede melding.
+      # Dan is alles wat HA kan uitzetten al uit; de rest moet met de hand.
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: binary_sensor.ev_lb_overbelasting
+            to: "off"
+        timeout: "00:00:20"
+      - if: "{{ is_state('binary_sensor.ev_lb_overbelasting', 'on') }}"
+        then:
+          - action: notify.mobile_app_sm_g781b
+            data:
+              title: "⚡⚡ Nog steeds overbelast"
+              message: >
+                Alle stuurbare lasten zijn uit, maar een fase blijft boven
+                {{ states('input_number.ev_lb_zekering') }} A. Zet nu handmatig
+                oven/inductie/Quooker uit, anders kan de hoofdzekering eruit.
+              data:
+                push:
+                  interruption-level: critical
+            continue_on_error: true
+
+  # ---------------------------------------------------------------
+  # Huislasten afschakelen — pas NADAT de laders al op 0 A staan
+  # ---------------------------------------------------------------
+  - id: ev_lb_afschakelen
+    alias: "EV – huislasten afschakelen bij tekort"
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.ev_lb_tekort
+          - binary_sensor.ev_lb_overbelasting
+        to: "on"
+      - trigger: time_pattern
+        seconds: "/5"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.ev_lb_actief
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ is_state('binary_sensor.ev_lb_tekort', 'on')
+             or is_state('binary_sensor.ev_lb_overbelasting', 'on') }}
+      # Auto's eerst: zolang een lader nog stroom krijgt, regelt die eerst af.
+      # Bij echte overbelasting (>25 A) niet wachten.
+      - condition: template
+        value_template: >
+          {# Een niet-verbonden lader kan HA niet terugregelen: dan meteen huislasten #}
+          {% set rob_laadt = is_state('binary_sensor.ev_lb_rob_onder_controle', 'on')
+               and is_state('sensor.ev_rob_status_connector', 'Charging')
+               and states('input_number.ev_lb_setpunt_rob') | int(0) > 0 %}
+          {% set sonia_laadt = is_state('binary_sensor.ev_lb_sonia_onder_controle', 'on')
+               and is_state('sensor.ev_sonia_status_connector', 'Charging')
+               and states('input_number.ev_lb_setpunt_sonia') | int(0) > 0 %}
+          {{ is_state('binary_sensor.ev_lb_overbelasting', 'on')
+             or not (rob_laadt or sonia_laadt) }}
+      # Max één last per 5 s, zodat de meting kan bijkomen
+      - condition: template
+        value_template: >
+          {{ (now() - states.input_number.ev_lb_afschakel_niveau.last_changed).total_seconds() >= 5 }}
+    actions:
+      # Gewoon tekort: één last per keer.
+      # Echte overbelasting: in één keer genoeg lasten om terug onder
+      # de regelgrens (zekering − marge) te komen, plus 1 A extra.
+      - action: script.ev_lb_volgende_uit
+        data:
+          nodig: >
+            {% if is_state('binary_sensor.ev_lb_overbelasting', 'on') %}
+              {{ ([0 - states('sensor.ev_lb_ruimte') | float(0), 0] | max + 1) | round(1) }}
+            {% else %}
+              0
+            {% endif %}
+
+  # ---------------------------------------------------------------
+  # Huislasten herstellen — één per keer, pas als er ruim plek is
+  # ---------------------------------------------------------------
+  - id: ev_lb_herstellen
+    alias: "EV – afgeschakelde huislasten herstellen"
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        seconds: "/30"
+    conditions:
+      - condition: template
+        value_template: >
+          {% set n = states('input_number.ev_lb_afschakel_niveau') | int(0) %}
+          {% set lasten = state_attr('sensor.ev_lb_afschakellijst', 'lasten') or [] %}
+          {% set nodig = (lasten[n - 1].ampere if 0 < n <= lasten | count else 10) + 2 %}
+          {{ n > 0
+             and is_state('binary_sensor.ev_lb_tekort', 'off')
+             and is_state('binary_sensor.ev_lb_overbelasting', 'off')
+             and states('sensor.ev_lb_ruimte') | float(0) >= nodig
+             and (now() - states.input_number.ev_lb_afschakel_niveau.last_changed).total_seconds() >= 120 }}
+    actions:
+      - action: script.ev_lb_volgende_aan
+
+  # ---------------------------------------------------------------
+  # Na herstart: snapshots zijn weg → melden en niveau resetten
+  # ---------------------------------------------------------------
+  - id: ev_lb_herstart
+    alias: "EV – afschakelniveau na herstart"
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    conditions:
+      - condition: template
+        value_template: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) > 0 }}"
+    actions:
+      - variables:
+          lasten: "{{ state_attr('sensor.ev_lb_afschakellijst', 'lasten') or [] }}"
+          n: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) }}"
+      - action: persistent_notification.create
+        data:
+          notification_id: ev_lb_herstart
+          title: "EV load balancing – controleer huislasten"
+          message: >
+            HA is herstart terwijl er lasten afgeschakeld waren. Controleer of deze
+            weer aan staan: {{ lasten[:n] | map(attribute='naam') | join(', ') }}.
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_lb_afschakel_niveau
+        data:
+          value: 0
+
+  # ---------------------------------------------------------------
+  # Melding als P1-data verouderd is (regeling stuurt dan niets meer)
+  # ---------------------------------------------------------------
+  - id: ev_lb_p1_melding
+    alias: "EV – melding P1-data verouderd"
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+    conditions:
+      - condition: template
+        value_template: >
+          {% set e = states.sensor.p1_meter_power_phase_1 %}
+          {{ e is none or e.state in ['unavailable', 'unknown']
+             or (now() - e.last_reported).total_seconds() > 60 }}
+    actions:
+      - action: persistent_notification.create
+        data:
+          notification_id: ev_lb_p1
+          title: "EV load balancing – P1-data ontbreekt"
+          message: >
+            Geen verse P1-data. Laders vallen terug op
+            {{ states('input_number.ev_lb_terugval') }} A.
+
+  # ---------------------------------------------------------------
+  # Melding als een lader niet meer verbonden is (OCPP uit / offline)
+  # ---------------------------------------------------------------
+  - id: ev_lb_lader_verbinding
+    alias: "EV – melding lader niet onder controle"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.ev_lb_rob_onder_controle
+          - binary_sensor.ev_lb_sonia_onder_controle
+        to: "off"
+        for: "00:00:30"
+        id: weg
+      - trigger: state
+        entity_id:
+          - binary_sensor.ev_lb_rob_onder_controle
+          - binary_sensor.ev_lb_sonia_onder_controle
+        to: "on"
+        id: terug
+    actions:
+      - choose:
+          - conditions: "{{ trigger.id == 'weg' }}"
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  notification_id: "ev_lb_verbinding_{{ trigger.entity_id }}"
+                  title: "⚠️ {{ trigger.to_state.name | replace(' onder controle', '') | replace('EV LB ', 'EV-Lader ') }} niet verbonden"
+                  message: >
+                    HA kan deze lader niet meer sturen (OCPP uit in de Ratio-app,
+                    wifi of lader offline). Hij laadt nu met de maximale stroom
+                    uit de Ratio-app. De andere lader en de huislasten regelen
+                    eromheen, maar zet OCPP zo snel mogelijk weer aan.
+              - action: notify.mobile_app_sm_g781b
+                data:
+                  title: "⚠️ Laadpaal niet onder controle van HA"
+                  message: >
+                    {{ trigger.to_state.name | replace(' onder controle', '') | replace('EV LB ', 'EV-Lader ') }}
+                    is niet verbonden. Load balancing werkt voor deze lader niet.
+                continue_on_error: true
+          - conditions: "{{ trigger.id == 'terug' }}"
+            sequence:
+              - action: persistent_notification.dismiss
+                data:
+                  notification_id: "ev_lb_verbinding_{{ trigger.entity_id }}"
+              # Weer verbonden: direct basisprofiel opnieuw zetten
+              - action: script.ev_lb_basisprofiel
