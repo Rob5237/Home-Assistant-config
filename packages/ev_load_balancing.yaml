@@ -180,8 +180,10 @@ template:
       # Bovenaan = minst merkbaar. Herstel gaat in omgekeerde volgorde.
       #   type:   switch (aan/uit) of select (optie 'uit' / vorige stand)
       #   ampere: geschatte stroom op de zwaarst belaste fase (voor herstel)
-      # Niet-bestaande entiteiten worden overgeslagen; je kunt dus
-      # alvast regels laten staan voor apparaten die je nog toevoegt.
+      # Opgeschoond 20-10-2026: alleen entiteiten die in HA bestaan. Zijn
+      # verwijderd (bestonden niet): stekkerbatterij wasmachine/droger, ZWE-
+      # bijverwarming (Luxtronik toont geen schakelaar), droger, wasmachine.
+      # Voeg een regel pas toe als de entiteit bestaat.
       # ---------------------------------------------------------------
       - name: "EV LB afschakellijst"
         unique_id: ev_lb_afschakellijst
@@ -190,13 +192,8 @@ template:
           lasten: >
             {{ [
               {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1},
-              {'naam': 'Stekkerbatterij wasmachine','type': 'switch','entity': 'switch.stekkerbatterij_wasmachine_laden','ampere': 4},
-              {'naam': 'Stekkerbatterij droger',  'type': 'switch', 'entity': 'switch.stekkerbatterij_droger_laden',   'ampere': 4},
-              {'naam': 'Bijverwarming WP (6 kW)', 'type': 'switch', 'entity': 'switch.luxtronik_zwe_bijverwarming',   'ampere': 9},
-              {'naam': 'Warmtepomp warm water',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_dhw_mode', 'uit': 'Off', 'ampere': 5},
-              {'naam': 'Warmtepomp verwarming',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_heating_mode',        'uit': 'Off', 'ampere': 5},
-              {'naam': 'Droger',                  'type': 'switch', 'entity': 'switch.droger',                         'ampere': 10},
-              {'naam': 'Wasmachine',              'type': 'switch', 'entity': 'switch.wasmachine',                     'ampere': 10}
+              {'naam': 'Warmtepomp warm water',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_dhw_mode',     'uit': 'Off', 'ampere': 5},
+              {'naam': 'Warmtepomp verwarming',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_heating_mode', 'uit': 'Off', 'ampere': 5}
             ] }}
 
   - binary_sensor:

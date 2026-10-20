@@ -643,6 +643,8 @@ automation:
   # -------------------------------------------------------------------
   - id: ev_noodrem
     alias: "EV – noodrem bij overbelasting"
+    # UIT (20-10-2026): vervangen door packages/ev_load_balancing.yaml
+    initial_state: false
     mode: single
     max_exceeded: silent
     triggers:
@@ -730,6 +732,8 @@ automation:
   # -------------------------------------------------------------------
   - id: ev_herken_auto
     alias: "EV – auto herkennen (1- of 3-fase)"
+    # UIT (20-10-2026): vervangen door packages/ev_load_balancing.yaml
+    initial_state: false
     mode: single
     max_exceeded: silent
     triggers:
@@ -838,6 +842,8 @@ automation:
   # -------------------------------------------------------------------
   - id: ev_sturing_uit_vrijgeven
     alias: "EV – sturing uit: laders vrijgeven"
+    # UIT (20-10-2026): hoort bij de oude sturing, niet meer nodig met ev_load_balancing
+    initial_state: false
     triggers:
       - trigger: state
         entity_id: input_boolean.ev_slimme_sturing
