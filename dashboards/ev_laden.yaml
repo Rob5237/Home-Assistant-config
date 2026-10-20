@@ -314,9 +314,12 @@ views:
             grid_options:
               columns: 12
           - type: button
+            entity: input_boolean.ev_sonia_direct_laden
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                {% if is_state('input_boolean.ev_sonia_direct_laden', 'on') %}
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.45), rgba(76, 175, 80, 0.45)), var(--card-background-color); }
+                {% endif %}
             name: Accu Opladen
             icon: mdi:battery-charging
             show_state: false
@@ -341,6 +344,15 @@ views:
               perform_action: input_boolean.turn_off
               target:
                 entity_id: input_boolean.ev_sonia_direct_laden
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+            entity: sensor.ev_sonia_vermogen_kw
+            name: Vermogen
+            icon: mdi:flash
+            grid_options:
+              columns: 12
       - type: grid
         cards:
           - type: heading
@@ -356,9 +368,12 @@ views:
             grid_options:
               columns: 12
           - type: button
+            entity: input_boolean.ev_rob_direct_laden
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                {% if is_state('input_boolean.ev_rob_direct_laden', 'on') %}
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.45), rgba(33, 150, 243, 0.45)), var(--card-background-color); }
+                {% endif %}
             name: Accu Opladen
             icon: mdi:battery-charging
             show_state: false
@@ -383,3 +398,12 @@ views:
               perform_action: input_boolean.turn_off
               target:
                 entity_id: input_boolean.ev_rob_direct_laden
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+            entity: sensor.ev_rob_vermogen_kw
+            name: Vermogen
+            icon: mdi:flash
+            grid_options:
+              columns: 12

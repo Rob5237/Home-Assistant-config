@@ -400,6 +400,21 @@ template:
               states('sensor.ev_rob_status_connector')) }}
 
   - sensor:
+      # Laadvermogen in kW (weergave op het dashboard), uit de afgeleide W-sensoren.
+      - name: "EV Sonia vermogen kW"
+        unique_id: ev_sonia_vermogen_kw
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) | round(2) }}"
+      - name: "EV Rob vermogen kW"
+        unique_id: ev_rob_vermogen_kw
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) | round(2) }}"
+
+  - sensor:
       # PV-overschot voor de laders: wat er na het huisverbruik overblijft.
       # P1 (negatief = teruglevering) + wat de laders nu zelf afnemen.
       - name: "EV LB PV overschot"
