@@ -4,14 +4,14 @@
 #  op basis van de HomeWizard P1-meter. Huisaansluiting 3×25A.
 #
 #  Kernidee: "dodemansknop" op de lader zelf.
-#   - Elke lader krijgt een BASISPROFIEL (stackLevel 0, zonder einde)
-#     met een veilige stroom (standaard 6 A).
-#   - De dynamische stroom wordt gestuurd als profiel op connector 1 (stackLevel 0;
-#     Rob's lader weigert stackLevel >= 1)
-#     dat na 60 s VERLOOPT. HA ververst het elke 20 s.
+#   - Elke lader krijgt EEN dynamisch profiel op connector 1 (stackLevel 0;
+#     de Ratio-laders weigeren stackLevel >= 1) met twee periodes:
+#     periode 0 = gevraagde stroom, periode 1 (na 60 s, zonder einde) =
+#     terugvalstroom (standaard 6 A). HA ververst het elke 20 s.
+#     Een apart basisprofiel werkt niet: de lader neemt het LAAGSTE profiel.
 #   - Valt HA, de Pi, wifi, OCPP of de P1-meter weg, dan stopt het
 #     verversen en valt de lader binnen 60 s vanzelf terug op het
-#     basisprofiel. Daar is géén HA voor nodig.
+#     terugvalstroom. Daar is géén HA voor nodig.
 #
 #  Lagen:
 #   1. Snel omlaag bij elke P1-meting (officiële HomeWizard-integratie
@@ -368,11 +368,14 @@ script:
             chargingProfileKind: Absolute
             chargingSchedule:
               chargingRateUnit: A
-              duration: "{{ duur | int(60) }}"
               startSchedule: "{{ now() | as_timestamp | timestamp_custom('%Y-%m-%dT%H:%M:%SZ', false) }}"
+              # Geen duration: de laatste periode blijft gelden. Na 'duur' s zonder
+              # verversing valt de lader dus zelf terug op de terugvalstroom.
               chargingSchedulePeriod:
                 - startPeriod: 0
                   limit: "{{ ampere | int }}"
+                - startPeriod: "{{ duur | int(60) }}"
+                  limit: "{{ states('input_number.ev_lb_terugval') | int(6) }}"
         continue_on_error: true
 
   # Basisprofiel zonder einde: hier valt de lader op terug
@@ -408,6 +411,10 @@ automation:
   # ---------------------------------------------------------------
   - id: ev_lb_basis
     alias: "EV – basisprofiel laders bijhouden"
+    # UIT (20-10-2026): de lader neemt het LAAGSTE van alle profielen, een apart
+    # basisprofiel (6 A) begrenst dus de dynamische stroom. De terugval zit nu
+    # in de tweede periode van ev_lb_profiel zelf.
+    initial_state: false
     mode: single
     triggers:
       - trigger: homeassistant
