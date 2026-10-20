@@ -383,11 +383,17 @@ template:
         unit_of_measurement: W
         device_class: power
         state_class: measurement
-        availability: "{{ has_value('sensor.p1_meter_power') }}"
+        availability: "{{ has_value('sensor.p1_meter_power') and has_value('sensor.envoy_122331077486_current_power_production') }}"
+        # Overschot = teruglevering + wat de laders nu zelf afnemen, MAAR:
+        # - het laadvermogen telt alleen mee als de lader echt laadt (het afgeleide
+        #   vermogen blijft na een pauze nog tot 150 s op de oude waarde staan en
+        #   gaf zo een nep-overschot, 20-10-2026 's avonds);
+        # - nooit meer dan de echte PV-productie (Enphase).
         state: >
-          {{ [0 - states('sensor.p1_meter_power') | float(0)
-              + states('sensor.ev_rob_vermogen') | float(0)
-              + states('sensor.ev_sonia_vermogen') | float(0), 0] | max | round(0) }}
+          {% set rob = states('sensor.ev_rob_vermogen') | float(0) if is_state('sensor.ev_rob_status_connector', 'Charging') else 0 %}
+          {% set sonia = states('sensor.ev_sonia_vermogen') | float(0) if is_state('sensor.ev_sonia_status_connector', 'Charging') else 0 %}
+          {% set pv = states('sensor.envoy_122331077486_current_power_production') | float(0) %}
+          {{ [[0 - states('sensor.p1_meter_power') | float(0) + rob + sonia, pv] | min, 0] | max | round(0) }}
 
   - binary_sensor:
       # Zonlading: genoeg PV-overschot (start 1500 W, blijft aan tot 1300 W)
