@@ -456,6 +456,9 @@ automation:
   # -------------------------------------------------------------------
   - id: ev_regelaar
     alias: "EV – regelaar (EPEX, PV, fase, load balancing)"
+    # UIT (20-10-2026): vervangen door packages/ev_load_balancing.yaml (prijs- en zonsturing).
+    # Twee schrijvers naar dezelfde lader geven restprofielen, dus er mag er maar een zijn.
+    initial_state: false
     mode: single
     max_exceeded: silent
     triggers:

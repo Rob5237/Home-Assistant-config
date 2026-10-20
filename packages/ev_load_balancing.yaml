@@ -58,6 +58,22 @@ input_select:
     icon: mdi:sine-wave
 
 input_number:
+  # Hoeveel van de goedkoopste uren (tot de vertrektijd) mag deze lader laden?
+  # Geen initial: wordt bewaard. 6 u x 3,5 kW = 21 kWh.
+  ev_lb_rob_goedkoop_uren:
+    name: "EV LB – goedkoopste uren laden Rob"
+    min: 0
+    max: 24
+    step: 0.25
+    unit_of_measurement: u
+    mode: box
+  ev_lb_sonia_goedkoop_uren:
+    name: "EV LB – goedkoopste uren laden Sonia"
+    min: 0
+    max: 24
+    step: 0.25
+    unit_of_measurement: u
+    mode: box
   ev_lb_zekering:
     name: "EV LB – hoofdzekering per fase"
     min: 16
@@ -365,32 +381,96 @@ template:
           {% set k = states('input_select.ev_lb_sonia_fase') %}
           {{ states('sensor.ev_sonia_stroom') | float(0) if k in ['3-fase', 'L3'] else 0 }}
 
+  - sensor:
+      # PV-overschot voor de laders: wat er na het huisverbruik overblijft.
+      # P1 (negatief = teruglevering) + wat de laders nu zelf afnemen.
+      - name: "EV LB PV overschot"
+        unique_id: ev_lb_pv_overschot
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        availability: "{{ has_value('sensor.p1_meter_power') }}"
+        state: >
+          {{ [0 - states('sensor.p1_meter_power') | float(0)
+              + states('sensor.ev_rob_vermogen') | float(0)
+              + states('sensor.ev_sonia_vermogen') | float(0), 0] | max | round(0) }}
+
+  - binary_sensor:
+      # Zonlading: genoeg PV-overschot (start 1500 W, blijft aan tot 1300 W)
+      - name: "EV LB Rob PV laden"
+        unique_id: ev_lb_rob_pv_laden
+        state: >
+          {% set o = states('sensor.ev_lb_pv_overschot') | float(0) %}
+          {{ o >= 1500 or (this.state == 'on' and o >= 1300) }}
+      - name: "EV LB Sonia PV laden"
+        unique_id: ev_lb_sonia_pv_laden
+        state: >
+          {% set o = states('sensor.ev_lb_pv_overschot') | float(0) %}
+          {{ o >= 1500 or (this.state == 'on' and o >= 1300) }}
+
   - binary_sensor:
       # ---------------------------------------------------------------
-      # PRIJSSTURING (20-10-2026): mag deze lader nu laden? Zelfde regel als
-      # de oude ev_regelaar: boost (direct laden), OF tarief <= ev_prijsdrempel,
-      # OF er is nog te laden (laadplan) en dit is een goedkoop slot (of er is
-      # geen prijsvoorspelling). De load balancing houdt zich daaraan: niet
-      # toegestaan = 0 A (pauze), toegestaan = zo hoog als de ruimte toelaat.
+      # PRIJSSTURING (20-10-2026): mag deze lader nu laden? Ja bij: boost
+      # (direct laden), OF tarief <= ev_prijsdrempel, OF het huidige kwartier
+      # hoort bij de goedkoopste N uren (input_number.ev_lb_<lader>_goedkoop_uren)
+      # tot de vertrektijd (Zonneplan kwartier-forecast). Het aantal benodigde
+      # kWh is dus NIET nodig: de auto laadt op die momenten tot hij vol is.
+      # Niet toegestaan = 0 A (pauze), toegestaan = zo hoog als de ruimte toelaat.
       # ---------------------------------------------------------------
+      - name: "EV LB Sonia goedkoop uur"
+        unique_id: ev_lb_sonia_goedkoop_uur
+        state: >
+          {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+          {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
+          {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
+          {% set n = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+          {% set ns = namespace(l=[]) %}
+          {% for f in fc %}
+            {% set st = as_datetime(f.start_date) %}
+            {% set en = as_datetime(f.end_date) %}
+            {% if st is not none and en is not none and en > now() and st < dl %}
+              {% set ns.l = ns.l + [{'t': st.timestamp(), 'e': en.timestamp(), 'p': f.price_tax_included.amount | float(0)}] %}
+            {% endif %}
+          {% endfor %}
+          {% set goed = (ns.l | sort(attribute='p'))[:n] %}
+          {% set nu = now().timestamp() %}
+          {{ goed | selectattr('t', 'le', nu) | selectattr('e', 'gt', nu) | list | count > 0 }}
+        attributes:
+          doel_tijd: "{{ today_at(states('input_datetime.ev_sonia_vertrek')) if today_at(states('input_datetime.ev_sonia_vertrek')) > now() else today_at(states('input_datetime.ev_sonia_vertrek')) + timedelta(days=1) }}"
+      - name: "EV LB Rob goedkoop uur"
+        unique_id: ev_lb_rob_goedkoop_uur
+        state: >
+          {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+          {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
+          {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
+          {% set n = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+          {% set ns = namespace(l=[]) %}
+          {% for f in fc %}
+            {% set st = as_datetime(f.start_date) %}
+            {% set en = as_datetime(f.end_date) %}
+            {% if st is not none and en is not none and en > now() and st < dl %}
+              {% set ns.l = ns.l + [{'t': st.timestamp(), 'e': en.timestamp(), 'p': f.price_tax_included.amount | float(0)}] %}
+            {% endif %}
+          {% endfor %}
+          {% set goed = (ns.l | sort(attribute='p'))[:n] %}
+          {% set nu = now().timestamp() %}
+          {{ goed | selectattr('t', 'le', nu) | selectattr('e', 'gt', nu) | list | count > 0 }}
+        attributes:
+          doel_tijd: "{{ today_at(states('input_datetime.ev_rob_vertrek')) if today_at(states('input_datetime.ev_rob_vertrek')) > now() else today_at(states('input_datetime.ev_rob_vertrek')) + timedelta(days=1) }}"
       - name: "EV LB Sonia laden toegestaan"
         unique_id: ev_lb_sonia_laden_toegestaan
         state: >
           {{ is_state('input_boolean.ev_sonia_direct_laden', 'on')
              or states('sensor.zonneplan_current_electricity_tariff') | float(99)
                 <= states('input_number.ev_prijsdrempel') | float(-99)
-             or (states('sensor.ev_sonia_laadplan') | float(0) > 0
-                 and (is_state('binary_sensor.ev_sonia_goedkoop_slot', 'on')
-                      or not state_attr('sensor.ev_sonia_laadplan', 'forecast_ok'))) }}
+             or is_state('binary_sensor.ev_lb_sonia_goedkoop_uur', 'on') }}
       - name: "EV LB Rob laden toegestaan"
         unique_id: ev_lb_rob_laden_toegestaan
         state: >
           {{ is_state('input_boolean.ev_rob_direct_laden', 'on')
              or states('sensor.zonneplan_current_electricity_tariff') | float(99)
                 <= states('input_number.ev_prijsdrempel') | float(-99)
-             or (states('sensor.ev_rob_laadplan') | float(0) > 0
-                 and (is_state('binary_sensor.ev_rob_goedkoop_slot', 'on')
-                      or not state_attr('sensor.ev_rob_laadplan', 'forecast_ok'))) }}
+             or is_state('binary_sensor.ev_lb_rob_goedkoop_uur', 'on') }}
 
       # ---------------------------------------------------------------
       # Is de lader echt verbonden en onder controle van HA?
@@ -692,6 +772,9 @@ automation:
           stap: 4          # sneller omhoog: +4 A per 10 s
           controle: binary_sensor.ev_lb_sonia_onder_controle
           toegestaan: binary_sensor.ev_lb_sonia_laden_toegestaan
+          pv: binary_sensor.ev_lb_sonia_pv_laden
+          vermogen: sensor.ev_sonia_vermogen
+          fase: input_select.ev_lb_sonia_fase
         - naam: rob
           devid: "ev_rob"
           status: sensor.ev_rob_status_connector
@@ -700,6 +783,9 @@ automation:
           stap: 2
           controle: binary_sensor.ev_lb_rob_onder_controle
           toegestaan: binary_sensor.ev_lb_rob_laden_toegestaan
+          pv: binary_sensor.ev_lb_rob_pv_laden
+          vermogen: sensor.ev_rob_vermogen
+          fase: input_select.ev_lb_rob_fase
       # Werkelijke laadstroom van Sonia's lader (OCPP), om te zien of haar auto
       # het aangeboden vermogen ook echt afneemt.
       sonia_stroom: sensor.ev_lader_sonia_current_import   # AANPASSEN
@@ -720,7 +806,7 @@ automation:
                  Zijn stroom zit wel in de P1-meting, dus de rest regelt eromheen. #}
               {% set b = states(l.status) in bezig_statussen and is_state(l.controle, 'on') %}
               {% set h = states(l.setpunt) | int(0) %}
-              {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on')}}) %}
+              {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on')}}) %}
             {% endfor %}
 
             {% if overbelast %}
@@ -757,7 +843,7 @@ automation:
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
                 {% set mx = states(l.max) | int(10) %}
-                {% if o.bezig and o.tg %}
+                {% if o.bezig and (o.tg or o.pv) %}
                   {% if o.huidig > mx %}
                     {% set x = mx %}
                   {% elif o.huidig == 0 %}
@@ -786,11 +872,24 @@ automation:
                 {% set ns.out = dict(ns.out, **{'rob': dict(r, nieuw=x)}) %}
               {% endif %}
             {% endif %}
-            {# PRIJSSTURING: lader die nu niet mag laden gaat naar 0 A (pauze) #}
+            {# PRIJSSTURING: lader die om prijsredenen mag laden krijgt de volle
+               ruimte. Een lader die dat niet mag maar wel zon heeft (pv), wordt
+               begrensd op het PV-overschot (A = W / (230 x fasen)), na aftrek van
+               wat de prijs-laders al afnemen. Geen van beide: 0 A (pauze). #}
+            {% set pvs = namespace(w=states('sensor.ev_lb_pv_overschot') | float(0)) %}
+            {% for l in laders %}
+              {% if ns.out[l.naam].tg %}{% set pvs.w = pvs.w - states(l.vermogen) | float(0) %}{% endif %}
+            {% endfor %}
             {% for l in laders %}
               {% set o = ns.out[l.naam] %}
-              {% if o.bezig and not o.tg and o.nieuw != 0 %}
-                {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=0)}) %}
+              {% if o.bezig and not o.tg %}
+                {% set f = 3 if is_state(l.fase, '3-fase') else 1 %}
+                {% set cap = ([pvs.w, 0] | max / (230 * f)) | int if o.pv else 0 %}
+                {% set cap = cap if cap >= 6 else 0 %}
+                {% set pvs.w = pvs.w - cap * 230 * f %}
+                {% set x = [o.nieuw, cap] | min %}
+                {% set x = x if x >= 6 else 0 %}
+                {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=x)}) %}
               {% endif %}
             {% endfor %}
             {{ ns.out }}
@@ -836,6 +935,8 @@ automation:
         entity_id:
           - binary_sensor.ev_lb_rob_laden_toegestaan
           - binary_sensor.ev_lb_sonia_laden_toegestaan
+          - binary_sensor.ev_lb_rob_pv_laden
+          - binary_sensor.ev_lb_sonia_pv_laden
         to: "on"
       - trigger: time_pattern
         minutes: "/1"
@@ -852,12 +953,13 @@ automation:
             - variables:
                 status: "sensor.ev_{{ repeat.item.naam }}_status_connector"
                 toegestaan: "binary_sensor.ev_lb_{{ repeat.item.naam }}_laden_toegestaan"
+                pv: "binary_sensor.ev_lb_{{ repeat.item.naam }}_pv_laden"
                 controle: "binary_sensor.ev_lb_{{ repeat.item.naam }}_onder_controle"
                 schakelaar: "switch.ev_{{ repeat.item.naam }}_charge_control"
             - if:
                 - condition: template
                   value_template: >
-                    {{ is_state(status, 'Preparing') and is_state(toegestaan, 'on')
+                    {{ is_state(status, 'Preparing') and (is_state(toegestaan, 'on') or is_state(pv, 'on'))
                        and is_state(controle, 'on') and is_state(schakelaar, 'off') }}
               then:
                 - action: script.ev_lb_profiel
