@@ -313,6 +313,14 @@ views:
             name: Status
             grid_options:
               columns: 12
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+            entity: sensor.ev_sonia_verwachte_start
+            name: Verwachte laadstart
+            grid_options:
+              columns: 12
           - type: button
             entity: input_boolean.ev_sonia_direct_laden
             card_mod:
@@ -365,6 +373,14 @@ views:
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
             entity: sensor.ev_rob_status_nl
             name: Status
+            grid_options:
+              columns: 12
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+            entity: sensor.ev_rob_verwachte_start
+            name: Verwachte laadstart
             grid_options:
               columns: 12
           - type: button

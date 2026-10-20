@@ -415,6 +415,68 @@ template:
         state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) | round(2) }}"
 
   - sensor:
+      # Verwachte laadstart (weergave): eerstvolgende kwartier van de goedkoopste
+      # uren tot de vertrektijd. Rob start in de praktijk pas als Sonia vol is.
+      - name: "EV Sonia verwachte start"
+        unique_id: ev_sonia_verwachte_start
+        icon: mdi:clock-start
+        state: >-
+          {% if states('sensor.ev_sonia_status_connector') in ['Available', 'unavailable', 'unknown'] %}
+            Niet aangesloten
+          {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
+            Nu
+          {% else %}
+            {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+            {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
+            {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
+            {% set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+            {% set ns = namespace(l=[]) %}
+            {% for f in fc %}
+              {% set st = as_datetime(f.start_date) %}
+              {% set en = as_datetime(f.end_date) %}
+              {% if st is not none and en is not none and en > now() and st < dl %}
+                {% set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] %}
+              {% endif %}
+            {% endfor %}
+            {% set goed = (ns.l | sort(attribute='p'))[:k] | sort(attribute='t') %}
+            {% if goed | count == 0 %}
+              Geen goedkoop uur gepland
+            {% else %}
+              {% set s = goed[0].t | as_local %}
+              {{ 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}
+            {% endif %}
+          {% endif %}
+      - name: "EV Rob verwachte start"
+        unique_id: ev_rob_verwachte_start
+        icon: mdi:clock-start
+        state: >-
+          {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
+            Niet aangesloten
+          {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
+            Nu
+          {% else %}
+            {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+            {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
+            {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
+            {% set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+            {% set ns = namespace(l=[]) %}
+            {% for f in fc %}
+              {% set st = as_datetime(f.start_date) %}
+              {% set en = as_datetime(f.end_date) %}
+              {% if st is not none and en is not none and en > now() and st < dl %}
+                {% set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] %}
+              {% endif %}
+            {% endfor %}
+            {% set goed = (ns.l | sort(attribute='p'))[:k] | sort(attribute='t') %}
+            {% if goed | count == 0 %}
+              Geen goedkoop uur gepland
+            {% else %}
+              {% set s = goed[0].t | as_local %}
+              {{ 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}
+            {% endif %}
+          {% endif %}
+
+  - sensor:
       # PV-overschot voor de laders: wat er na het huisverbruik overblijft.
       # P1 (negatief = teruglevering) + wat de laders nu zelf afnemen.
       - name: "EV LB PV overschot"
