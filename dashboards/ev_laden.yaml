@@ -295,6 +295,7 @@ views:
   - title: Bediening
     path: bediening
     icon: mdi:ev-plug-type2
+    theme: laden_koppen
     type: sections
     max_columns: 2
     sections:
@@ -302,23 +303,39 @@ views:
         cards:
           - type: heading
             heading: EV Sonia
+            heading_style: title
             icon: mdi:car-electric
           - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
             entity: sensor.ev_sonia_status_connector
             name: Status
+            grid_options:
+              columns: 12
           - type: button
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
             name: Accu Opladen
             icon: mdi:battery-charging
             show_state: false
+            grid_options:
+              columns: 6
             tap_action:
               action: perform-action
               perform_action: input_boolean.turn_on
               target:
                 entity_id: input_boolean.ev_sonia_direct_laden
           - type: button
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
             name: Opladen uitzetten
             icon: mdi:battery-off
             show_state: false
+            grid_options:
+              columns: 6
             tap_action:
               action: perform-action
               perform_action: input_boolean.turn_off
@@ -328,23 +345,39 @@ views:
         cards:
           - type: heading
             heading: EV Rob
+            heading_style: title
             icon: mdi:car-electric
           - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
             entity: sensor.ev_rob_status_connector
             name: Status
+            grid_options:
+              columns: 12
           - type: button
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
             name: Accu Opladen
             icon: mdi:battery-charging
             show_state: false
+            grid_options:
+              columns: 6
             tap_action:
               action: perform-action
               perform_action: input_boolean.turn_on
               target:
                 entity_id: input_boolean.ev_rob_direct_laden
           - type: button
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
             name: Opladen uitzetten
             icon: mdi:battery-off
             show_state: false
+            grid_options:
+              columns: 6
             tap_action:
               action: perform-action
               perform_action: input_boolean.turn_off
