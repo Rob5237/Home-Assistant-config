@@ -212,6 +212,8 @@ template:
       # Opgeschoond 20-10-2026: alleen entiteiten die in HA bestaan. Zijn
       # verwijderd (bestonden niet): stekkerbatterij wasmachine/droger, ZWE-
       # bijverwarming (Luxtronik toont geen schakelaar), droger, wasmachine.
+      # Warmtepomp (warm water, verwarming) eruit gehaald 20-10-2026: bij een
+      # korte noodstop zette dat de warmtepomp onnodig op Off.
       # Voeg een regel pas toe als de entiteit bestaat.
       # ---------------------------------------------------------------
       - name: "EV LB afschakellijst"
@@ -220,33 +222,22 @@ template:
         attributes:
           lasten: >
             {{ [
-              {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1},
-              {'naam': 'Warmtepomp warm water',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_dhw_mode',     'uit': 'Off', 'ampere': 5},
-              {'naam': 'Warmtepomp verwarming',   'type': 'select', 'entity': 'select.luxtronik_280807_0450_heating_mode', 'uit': 'Off', 'ampere': 5}
+              {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1}
             ] }}
 
   # -------------------------------------------------------------------
   # Afgeleid laadvermogen en -stroom Rob: de lader meldt alleen de
   # energieteller (Energy.Active.Import.Register), geen stroom of vermogen.
   # Vermogen = verschil in kWh tussen twee referentiemomenten (>= 30 s uit
-  # elkaar) per tijd. Stroom = stroom PER FASE = W / (230 x aantal fasen); het
-  # aantal fasen en de fase staan in input_select.ev_lb_<lader>_fase.
-  # Per-fase-sensoren: sensor.ev_<lader>_stroom_l1/l2/l3.
+  # elkaar) per tijd. Stroom = vermogen / (230 V x aantal fasen); het aantal
+  # fasen en de fase staan in input_select.ev_lb_rob_fase.
+  # NB: 'this' werkt alleen in state/attributes, niet in 'variables'.
   # -------------------------------------------------------------------
   - triggers:
       - trigger: state
         entity_id: sensor.ev_rob_energy_active_import_register
       - trigger: time_pattern
         seconds: "/15"
-    variables:
-      e: "{{ states('sensor.ev_rob_energy_active_import_register') | float(none) }}"
-      ref_e: "{{ this.attributes.get('ref_energie') if this is defined and this.attributes is defined else none }}"
-      ref_t: "{{ this.attributes.get('ref_tijd') if this is defined and this.attributes is defined else none }}"
-      dt: "{{ (now().timestamp() - ref_t) if ref_t is number else none }}"
-      ref_ok: "{{ e is number and ref_e is number and dt is number and e >= ref_e and dt <= 600 }}"
-      rekenen: "{{ ref_ok and dt >= 30 }}"
-      p: "{{ (((e - ref_e) * 3600000 / dt) | round(0)) if rekenen else none }}"
-      n: "{{ 3 if is_state('input_select.ev_lb_rob_fase', '3-fase') else 1 }}"
     sensor:
       - name: "EV Rob vermogen"
         unique_id: ev_rob_vermogen_afgeleid
@@ -254,48 +245,52 @@ template:
         device_class: power
         state_class: measurement
         state: >
+          {% set e = states('sensor.ev_rob_energy_active_import_register') | float(none) %}
+          {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
+          {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
+          {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
           {% if e is not number %}unavailable
-          {% elif p is number %}{{ p }}
+          {% elif ref_e is number and dt is number and e >= ref_e and dt >= 30 and dt <= 600 %}{{ (((e - ref_e) * 3600000 / dt) | round(0)) }}
           {% else %}{{ this.state if this is defined and this.state not in ['unknown', 'unavailable'] else 0 }}
           {% endif %}
         attributes:
           ref_energie: >
-            {{ ref_e if (ref_ok and not rekenen) else e }}
+            {% set e = states('sensor.ev_rob_energy_active_import_register') | float(none) %}
+            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
+            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
+            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
+            {{ ref_e if (ref_e is number and dt is number and e >= ref_e and dt < 30) else e }}
           ref_tijd: >
-            {{ ref_t if (ref_ok and not rekenen) else now().timestamp() }}
+            {% set e = states('sensor.ev_rob_energy_active_import_register') | float(none) %}
+            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
+            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
+            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
+            {{ ref_t if (ref_e is number and dt is number and e >= ref_e and dt < 30) else now().timestamp() }}
+
+  - sensor:
       - name: "EV Rob stroom"
         unique_id: ev_rob_stroom_afgeleid
         unit_of_measurement: A
         device_class: current
         state_class: measurement
+        availability: "{{ has_value('sensor.ev_rob_vermogen') }}"
         state: >
-          {% if e is not number %}unavailable
-          {% elif p is number %}{{ (p / (230 * n)) | round(1) }}
-          {% else %}{{ this.state if this is defined and this.state not in ['unknown', 'unavailable'] else 0 }}
-          {% endif %}
+          {% set n = 3 if is_state('input_select.ev_lb_rob_fase', '3-fase') else 1 %}
+          {{ (states('sensor.ev_rob_vermogen') | float(0) / (230 * n)) | round(1) }}
 
   # -------------------------------------------------------------------
   # Afgeleid laadvermogen en -stroom Sonia: de lader meldt alleen de
   # energieteller (Energy.Active.Import.Register), geen stroom of vermogen.
   # Vermogen = verschil in kWh tussen twee referentiemomenten (>= 30 s uit
-  # elkaar) per tijd. Stroom = stroom PER FASE = W / (230 x aantal fasen); het
-  # aantal fasen en de fase staan in input_select.ev_lb_<lader>_fase.
-  # Per-fase-sensoren: sensor.ev_<lader>_stroom_l1/l2/l3.
+  # elkaar) per tijd. Stroom = vermogen / (230 V x aantal fasen); het aantal
+  # fasen en de fase staan in input_select.ev_lb_sonia_fase.
+  # NB: 'this' werkt alleen in state/attributes, niet in 'variables'.
   # -------------------------------------------------------------------
   - triggers:
       - trigger: state
         entity_id: sensor.ev_sonia_energy_active_import_register
       - trigger: time_pattern
         seconds: "/15"
-    variables:
-      e: "{{ states('sensor.ev_sonia_energy_active_import_register') | float(none) }}"
-      ref_e: "{{ this.attributes.get('ref_energie') if this is defined and this.attributes is defined else none }}"
-      ref_t: "{{ this.attributes.get('ref_tijd') if this is defined and this.attributes is defined else none }}"
-      dt: "{{ (now().timestamp() - ref_t) if ref_t is number else none }}"
-      ref_ok: "{{ e is number and ref_e is number and dt is number and e >= ref_e and dt <= 600 }}"
-      rekenen: "{{ ref_ok and dt >= 30 }}"
-      p: "{{ (((e - ref_e) * 3600000 / dt) | round(0)) if rekenen else none }}"
-      n: "{{ 3 if is_state('input_select.ev_lb_sonia_fase', '3-fase') else 1 }}"
     sensor:
       - name: "EV Sonia vermogen"
         unique_id: ev_sonia_vermogen_afgeleid
@@ -303,25 +298,38 @@ template:
         device_class: power
         state_class: measurement
         state: >
+          {% set e = states('sensor.ev_sonia_energy_active_import_register') | float(none) %}
+          {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
+          {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
+          {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
           {% if e is not number %}unavailable
-          {% elif p is number %}{{ p }}
+          {% elif ref_e is number and dt is number and e >= ref_e and dt >= 30 and dt <= 600 %}{{ (((e - ref_e) * 3600000 / dt) | round(0)) }}
           {% else %}{{ this.state if this is defined and this.state not in ['unknown', 'unavailable'] else 0 }}
           {% endif %}
         attributes:
           ref_energie: >
-            {{ ref_e if (ref_ok and not rekenen) else e }}
+            {% set e = states('sensor.ev_sonia_energy_active_import_register') | float(none) %}
+            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
+            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
+            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
+            {{ ref_e if (ref_e is number and dt is number and e >= ref_e and dt < 30) else e }}
           ref_tijd: >
-            {{ ref_t if (ref_ok and not rekenen) else now().timestamp() }}
+            {% set e = states('sensor.ev_sonia_energy_active_import_register') | float(none) %}
+            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
+            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
+            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
+            {{ ref_t if (ref_e is number and dt is number and e >= ref_e and dt < 30) else now().timestamp() }}
+
+  - sensor:
       - name: "EV Sonia stroom"
         unique_id: ev_sonia_stroom_afgeleid
         unit_of_measurement: A
         device_class: current
         state_class: measurement
+        availability: "{{ has_value('sensor.ev_sonia_vermogen') }}"
         state: >
-          {% if e is not number %}unavailable
-          {% elif p is number %}{{ (p / (230 * n)) | round(1) }}
-          {% else %}{{ this.state if this is defined and this.state not in ['unknown', 'unavailable'] else 0 }}
-          {% endif %}
+          {% set n = 3 if is_state('input_select.ev_lb_sonia_fase', '3-fase') else 1 %}
+          {{ (states('sensor.ev_sonia_vermogen') | float(0) / (230 * n)) | round(1) }}
 
   - sensor:
       - name: "EV Rob stroom L1"
@@ -788,7 +796,7 @@ automation:
           fase: input_select.ev_lb_rob_fase
       # Werkelijke laadstroom van Sonia's lader (OCPP), om te zien of haar auto
       # het aangeboden vermogen ook echt afneemt.
-      sonia_stroom: sensor.ev_lader_sonia_current_import   # AANPASSEN
+      sonia_stroom: sensor.ev_sonia_stroom   # afgeleid uit de energieteller (A per fase)
       bezig_statussen: ["Charging", "SuspendedEVSE"]
     actions:
       - variables:
@@ -832,8 +840,10 @@ automation:
               {# Nieuwe sessie op de lader die de trigger gaf: laag beginnen #}
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
+                {% set sw = l.naam != 'sonia' and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
+                            and ns.out['sonia'].huidig < states('input_number.ev_lb_max_sonia') | int(16) %}
                 {% if o.bezig and trigger.entity_id == l.status %}
-                  {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if ruimte >= 0 else 0))}) %}
+                  {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if (ruimte >= 0 and not sw) else 0))}) %}
                 {% endif %}
               {% endfor %}
 
@@ -843,7 +853,10 @@ automation:
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
                 {% set mx = states(l.max) | int(10) %}
-                {% if o.bezig and (o.tg or o.pv) %}
+                {# STRIKTE VOORRANG: Rob mag pas omhoog als Sonia op haar max zit (of niet laadt/mag laden) #}
+                {% set wacht = l.naam != 'sonia' and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
+                               and ns.out['sonia'].nieuw < states('input_number.ev_lb_max_sonia') | int(16) %}
+                {% if o.bezig and (o.tg or o.pv) and not wacht %}
                   {% if o.huidig > mx %}
                     {% set x = mx %}
                   {% elif o.huidig == 0 %}
@@ -947,8 +960,8 @@ automation:
     actions:
       - repeat:
           for_each:
-            - {naam: rob, devid: ev_rob}
             - {naam: sonia, devid: ev_sonia}
+            - {naam: rob, devid: ev_rob}
           sequence:
             - variables:
                 status: "sensor.ev_{{ repeat.item.naam }}_status_connector"
@@ -959,8 +972,16 @@ automation:
             - if:
                 - condition: template
                   value_template: >
+                    {# Rob start pas als Sonia op haar max zit (of niet laadt/mag laden) #}
+                    {% set sonia_wacht = repeat.item.naam == 'rob'
+                         and states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
+                         and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
+                              or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on'))
+                         and states('input_number.ev_lb_setpunt_sonia') | int(0)
+                             < states('input_number.ev_lb_max_sonia') | int(16) %}
                     {{ is_state(status, 'Preparing') and (is_state(toegestaan, 'on') or is_state(pv, 'on'))
-                       and is_state(controle, 'on') and is_state(schakelaar, 'off') }}
+                       and is_state(controle, 'on') and is_state(schakelaar, 'off')
+                       and not sonia_wacht }}
               then:
                 - action: script.ev_lb_profiel
                   data:
@@ -971,6 +992,21 @@ automation:
                 - action: switch.turn_on
                   target:
                     entity_id: "{{ schakelaar }}"
+                # De lader legt bij de start een profiel vast dat ons dynamische
+                # profiel niet meer overschrijft (auto bleef op 6 A). Daarom na
+                # de start eenmalig wissen en direct een nieuw profiel sturen.
+                - wait_template: "{{ is_state(status, 'Charging') }}"
+                  timeout: "00:00:30"
+                  continue_on_timeout: true
+                - action: ocpp.clear_profile
+                  data:
+                    devid: "{{ repeat.item.devid }}"
+                  continue_on_error: true
+                - action: script.ev_lb_profiel
+                  data:
+                    devid: "{{ repeat.item.devid }}"
+                    ampere: 6
+                    duur: 60
                 - action: logbook.log
                   data:
                     name: "EV load balancing"
