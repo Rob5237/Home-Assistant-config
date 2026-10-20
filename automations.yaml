@@ -172,18 +172,41 @@
            and opt | length >= 4
            and now().strftime('%H:%M') == opt
            and state_attr('sensor.warmtepomp_optimaal_startuur_middag', 'venster_dag') == 'vandaag' }}
-    - condition: numeric_state
-      entity_id: input_number.warmtepomp_kamertemp_backup
-      below: 0.01
-    - condition: not
-      conditions:
+  actions:
+    # Logging (19-10-2026): de overige voorwaarden staan hier i.p.v. onder
+    # conditions, zodat een afgebroken run altijd een logboek-regel achterlaat.
+    - if:
+        - condition: numeric_state
+          entity_id: input_number.warmtepomp_kamertemp_backup
+          above: 0.01
+      then:
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: >-
+              Overgeslagen: er is al een backup-setpoint actief
+              ({{ states('input_number.warmtepomp_kamertemp_backup') }}°C).
+        - stop: "Backup al actief"
+    - if:
         - condition: state
           entity_id: select.luxtronik_280807_0450_heating_mode
           state: "Off"
-    - condition: state
-      entity_id: input_boolean.vakantie_actief
-      state: "off"
-  actions:
+      then:
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: "Overgeslagen: heating_mode staat op Off."
+        - stop: "Heating Off"
+    - if:
+        - condition: state
+          entity_id: input_boolean.vakantie_actief
+          state: "on"
+      then:
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: "Overgeslagen: vakantiemodus actief."
+        - stop: "Vakantie actief"
     # Warmtegrens-guard (15-10-2026): boven heating_threshold_temperature
     # schakelt de Luxtronik de verwarming zelf uit, dus de buffer heeft dan
     # geen effect. Slaat over als de live buitentemp of de forecast-max
@@ -227,6 +250,13 @@
         entity_id: climate.luxtronik_280807_0450_heating
       data:
         temperature: 21
+    - action: logbook.log
+      data:
+        name: "Pre-17:00 vloerbuffer"
+        message: >-
+          Gestart om {{ now().strftime('%H:%M') }}: setpoint 21°C
+          (was {{ states('input_number.warmtepomp_kamertemp_backup') }}°C,
+          buiten max {{ temp_max }}°C, drempel {{ drempel }}°C).
   mode: single
 
 - id: warmtepomp_pre17_buffer_einde
@@ -237,11 +267,24 @@
   triggers:
     - trigger: time
       at: "17:00:00"
-  conditions:
-    - condition: numeric_state
-      entity_id: input_number.warmtepomp_kamertemp_backup
-      above: 0.01
+  conditions: []
   actions:
+    - if:
+        - condition: numeric_state
+          entity_id: input_number.warmtepomp_kamertemp_backup
+          below: 0.01
+      then:
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: "17:00: geen backup actief, niets terug te zetten."
+        - stop: "Geen backup"
+    - action: logbook.log
+      data:
+        name: "Pre-17:00 vloerbuffer"
+        message: >-
+          Einde 17:00: setpoint terug naar
+          {{ states('input_number.warmtepomp_kamertemp_backup') }}°C.
     - action: climate.set_temperature
       target:
         entity_id: climate.luxtronik_280807_0450_heating
