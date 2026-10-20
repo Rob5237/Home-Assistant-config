@@ -376,6 +376,30 @@ template:
           {{ states('sensor.ev_sonia_stroom') | float(0) if k in ['3-fase', 'L3'] else 0 }}
 
   - sensor:
+      # Nederlandse weergave van de OCPP-status voor het dashboard. Alleen
+      # voor weergave; de automatiseringen blijven de Engelse status gebruiken.
+      - name: "EV Sonia status NL"
+        unique_id: ev_sonia_status_nl
+        icon: mdi:ev-plug-type2
+        state: >-
+          {{ {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
+              'Charging': 'Laden', 'SuspendedEVSE': 'Gepauzeerd door lader',
+              'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
+              'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
+              'Faulted': 'Storing'}.get(states('sensor.ev_sonia_status_connector'),
+              states('sensor.ev_sonia_status_connector')) }}
+      - name: "EV Rob status NL"
+        unique_id: ev_rob_status_nl
+        icon: mdi:ev-plug-type2
+        state: >-
+          {{ {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
+              'Charging': 'Laden', 'SuspendedEVSE': 'Gepauzeerd door lader',
+              'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
+              'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
+              'Faulted': 'Storing'}.get(states('sensor.ev_rob_status_connector'),
+              states('sensor.ev_rob_status_connector')) }}
+
+  - sensor:
       # PV-overschot voor de laders: wat er na het huisverbruik overblijft.
       # P1 (negatief = teruglevering) + wat de laders nu zelf afnemen.
       - name: "EV LB PV overschot"
