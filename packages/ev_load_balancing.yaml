@@ -68,7 +68,7 @@ input_number:
     min: 6
     max: 23
     step: 1
-    initial: 23   # plafond bepaalt de lader (Ratio-app); HA kapt niet eerder af
+    initial: 16   # gelijk aan max in Ratio-app (anders loopt het setpunt boven de echte stroom)
     unit_of_measurement: A
     mode: box
   ev_lb_max_rob:
@@ -76,7 +76,7 @@ input_number:
     min: 6
     max: 23
     step: 1
-    initial: 23   # plafond bepaalt de lader (Ratio-app); HA kapt niet eerder af
+    initial: 16   # gelijk aan max in Ratio-app (anders loopt het setpunt boven de echte stroom)
     unit_of_measurement: A
     mode: box
   # Ondergrens voor Rob als Sonia meer wil: 6 = Rob blijft langzaam laden,
