@@ -228,10 +228,11 @@ template:
   # -------------------------------------------------------------------
   # Afgeleid laadvermogen en -stroom Rob: de lader meldt alleen de
   # energieteller (Energy.Active.Import.Register), geen stroom of vermogen.
-  # Vermogen = verschil in kWh tussen twee referentiemomenten (>= 30 s uit
-  # elkaar) per tijd. Stroom = vermogen / (230 V x aantal fasen); het aantal
-  # fasen en de fase staan in input_select.ev_lb_rob_fase.
-  # NB: 'this' werkt alleen in state/attributes, niet in 'variables'.
+  # Vermogen = verschil tussen twee OPEENVOLGENDE meterstanden gedeeld door de
+  # tijd tussen die twee standen (hun eigen tijdstempels; de teller springt per
+  # 10 s bij Rob, per 60 s bij Sonia). Bij korte intervallen licht uitgemiddeld.
+  # Staat de teller > 150 s stil, dan is het vermogen 0.
+  # Stroom = vermogen / (230 V x aantal fasen); fase(n) in input_select.ev_lb_rob_fase.
   # -------------------------------------------------------------------
   - triggers:
       - trigger: state
@@ -245,27 +246,19 @@ template:
         device_class: power
         state_class: measurement
         state: >
-          {% set e = states('sensor.ev_rob_energy_active_import_register') | float(none) %}
-          {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
-          {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
-          {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
-          {% if e is not number %}unavailable
-          {% elif ref_e is number and dt is number and e >= ref_e and dt >= 30 and dt <= 600 %}{{ (((e - ref_e) * 3600000 / dt) | round(0)) }}
-          {% else %}{{ this.state if this is defined and this.state not in ['unknown', 'unavailable'] else 0 }}
+          {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable'] else 0 %}
+          {% if trigger.platform == 'state' %}
+            {% set a = trigger.from_state.state | float(none) if trigger.from_state else none %}
+            {% set b = trigger.to_state.state | float(none) if trigger.to_state else none %}
+            {% set dt = (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() if (trigger.from_state and trigger.to_state) else none %}
+            {% if a is number and b is number and dt is number and dt >= 5 and b > a %}
+              {% set inst = (b - a) * 3600000 / dt %}
+              {{ ((0.5 * oud + 0.5 * inst) if dt < 30 and oud > 0 else inst) | round(0) }}
+            {% else %}{{ oud }}{% endif %}
+          {% else %}
+            {% set leeftijd = (now() - states.sensor.ev_rob_energy_active_import_register.last_changed).total_seconds() if states.sensor.ev_rob_energy_active_import_register else 9999 %}
+            {{ 0 if leeftijd > 150 else oud }}
           {% endif %}
-        attributes:
-          ref_energie: >
-            {% set e = states('sensor.ev_rob_energy_active_import_register') | float(none) %}
-            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
-            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
-            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
-            {{ ref_e if (ref_e is number and dt is number and e >= ref_e and dt < 30) else e }}
-          ref_tijd: >
-            {% set e = states('sensor.ev_rob_energy_active_import_register') | float(none) %}
-            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
-            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
-            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
-            {{ ref_t if (ref_e is number and dt is number and e >= ref_e and dt < 30) else now().timestamp() }}
 
   - sensor:
       - name: "EV Rob stroom"
@@ -281,10 +274,11 @@ template:
   # -------------------------------------------------------------------
   # Afgeleid laadvermogen en -stroom Sonia: de lader meldt alleen de
   # energieteller (Energy.Active.Import.Register), geen stroom of vermogen.
-  # Vermogen = verschil in kWh tussen twee referentiemomenten (>= 30 s uit
-  # elkaar) per tijd. Stroom = vermogen / (230 V x aantal fasen); het aantal
-  # fasen en de fase staan in input_select.ev_lb_sonia_fase.
-  # NB: 'this' werkt alleen in state/attributes, niet in 'variables'.
+  # Vermogen = verschil tussen twee OPEENVOLGENDE meterstanden gedeeld door de
+  # tijd tussen die twee standen (hun eigen tijdstempels; de teller springt per
+  # 10 s bij Rob, per 60 s bij Sonia). Bij korte intervallen licht uitgemiddeld.
+  # Staat de teller > 150 s stil, dan is het vermogen 0.
+  # Stroom = vermogen / (230 V x aantal fasen); fase(n) in input_select.ev_lb_sonia_fase.
   # -------------------------------------------------------------------
   - triggers:
       - trigger: state
@@ -298,27 +292,19 @@ template:
         device_class: power
         state_class: measurement
         state: >
-          {% set e = states('sensor.ev_sonia_energy_active_import_register') | float(none) %}
-          {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
-          {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
-          {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
-          {% if e is not number %}unavailable
-          {% elif ref_e is number and dt is number and e >= ref_e and dt >= 30 and dt <= 600 %}{{ (((e - ref_e) * 3600000 / dt) | round(0)) }}
-          {% else %}{{ this.state if this is defined and this.state not in ['unknown', 'unavailable'] else 0 }}
+          {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable'] else 0 %}
+          {% if trigger.platform == 'state' %}
+            {% set a = trigger.from_state.state | float(none) if trigger.from_state else none %}
+            {% set b = trigger.to_state.state | float(none) if trigger.to_state else none %}
+            {% set dt = (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() if (trigger.from_state and trigger.to_state) else none %}
+            {% if a is number and b is number and dt is number and dt >= 5 and b > a %}
+              {% set inst = (b - a) * 3600000 / dt %}
+              {{ ((0.5 * oud + 0.5 * inst) if dt < 30 and oud > 0 else inst) | round(0) }}
+            {% else %}{{ oud }}{% endif %}
+          {% else %}
+            {% set leeftijd = (now() - states.sensor.ev_sonia_energy_active_import_register.last_changed).total_seconds() if states.sensor.ev_sonia_energy_active_import_register else 9999 %}
+            {{ 0 if leeftijd > 150 else oud }}
           {% endif %}
-        attributes:
-          ref_energie: >
-            {% set e = states('sensor.ev_sonia_energy_active_import_register') | float(none) %}
-            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
-            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
-            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
-            {{ ref_e if (ref_e is number and dt is number and e >= ref_e and dt < 30) else e }}
-          ref_tijd: >
-            {% set e = states('sensor.ev_sonia_energy_active_import_register') | float(none) %}
-            {% set ref_e = this.attributes.get('ref_energie') if this is defined else none %}
-            {% set ref_t = this.attributes.get('ref_tijd') if this is defined else none %}
-            {% set dt = (now().timestamp() - ref_t) if ref_t is number else none %}
-            {{ ref_t if (ref_e is number and dt is number and e >= ref_e and dt < 30) else now().timestamp() }}
 
   - sensor:
       - name: "EV Sonia stroom"
@@ -768,6 +754,18 @@ automation:
             {% endif %}
           {% endfor %}
           {{ ns.ok and has_value('sensor.ev_lb_ruimte') }}
+      # Beschermt tegen een tijdelijk 'unavailable' van de eigen template-sensoren
+      # (template.reload, herstart): anders ziet de regeling de laders ten onrechte
+      # als 'niet bezig' en zet hij ze op 0/6 A (gebeurde op 20-10-2026 om 19:26).
+      - condition: template
+        value_template: >
+          {{ has_value('binary_sensor.ev_lb_sonia_onder_controle')
+             and has_value('binary_sensor.ev_lb_rob_onder_controle')
+             and has_value('binary_sensor.ev_lb_sonia_laden_toegestaan')
+             and has_value('binary_sensor.ev_lb_rob_laden_toegestaan')
+             and has_value('binary_sensor.ev_lb_sonia_pv_laden')
+             and has_value('binary_sensor.ev_lb_rob_pv_laden')
+             and has_value('sensor.ev_lb_pv_overschot') }}
     variables:
       # VOLGORDE = VOORRANG. De eerste krijgt als eerste ruimte bij opregelen;
       # bij terugregelen gaat de laatste (Rob) als eerste omlaag.
