@@ -287,3 +287,66 @@ views:
                 name: Stroom L3
               - entity: binary_sensor.ev_lb_rob_onder_controle
                 name: Onder controle van HA
+
+  # -------------------------------------------------------------------
+  # Bediening: per lader een knop om direct te laden (boost) en een knop
+  # om het direct laden uit te zetten. Toegevoegd 21-10-2026.
+  # -------------------------------------------------------------------
+  - title: Bediening
+    path: bediening
+    icon: mdi:ev-plug-type2
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: EV Sonia
+            icon: mdi:car-electric
+          - type: tile
+            entity: sensor.ev_sonia_status_connector
+            name: Status
+          - type: button
+            name: Accu Opladen
+            icon: mdi:battery-charging
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.ev_sonia_direct_laden
+          - type: button
+            name: Opladen uitzetten
+            icon: mdi:battery-off
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.ev_sonia_direct_laden
+      - type: grid
+        cards:
+          - type: heading
+            heading: EV Rob
+            icon: mdi:car-electric
+          - type: tile
+            entity: sensor.ev_rob_status_connector
+            name: Status
+          - type: button
+            name: Accu Opladen
+            icon: mdi:battery-charging
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: input_boolean.turn_on
+              target:
+                entity_id: input_boolean.ev_rob_direct_laden
+          - type: button
+            name: Opladen uitzetten
+            icon: mdi:battery-off
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.ev_rob_direct_laden
