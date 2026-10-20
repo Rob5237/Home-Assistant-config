@@ -29,7 +29,7 @@
 #   - korte inschakelpieken (< 3 s) worden genegeerd; die kan de
 #     hoofdzekering (gG, traag) ruimschoots aan
 #   4. P1 verouderd (>30 s) → niet meer verversen → terugval op basis
-#   5. Op de lader: verlopend profiel → basisprofiel (dodemansknop)
+#   5. Op de lader: de laatste periode van het profiel = terugval (dodemansknop)
 #   6. Op de lader: maximum_current eenmalig op de max van die lader
 #      (Sonia 16 A, Rob 9 A) als harde bovengrens — ingesteld in de Ratio-app
 #   7. Voorrang: EV-Lader Sonia krijgt ruimte als eerste en laadt zo
@@ -644,70 +644,28 @@ script:
                   limit: "{{ states('input_number.ev_lb_terugval') | int(6) }}"
         continue_on_error: true
 
-  # Basisprofiel zonder einde: hier valt de lader op terug
-  ev_lb_basisprofiel:
-    alias: "EV LB – basisprofiel (terugval) instellen"
-    mode: queued
-    sequence:
-      - repeat:
-          for_each:
-            - "ev_rob"
-            - "ev_sonia"
-          sequence:
-            - action: ocpp.set_charge_rate
-              data:
-                devid: "{{ repeat.item }}"
-                conn_id: 0
-                custom_profile:
-                  chargingProfileId: 1
-                  stackLevel: 0
-                  chargingProfilePurpose: TxDefaultProfile
-                  chargingProfileKind: Absolute
-                  chargingSchedule:
-                    chargingRateUnit: A
-                    startSchedule: "2020-01-01T00:00:00Z"
-                    chargingSchedulePeriod:
-                      - startPeriod: 0
-                        limit: "{{ states('input_number.ev_lb_terugval') | int(6) }}"
-              continue_on_error: true
-
 automation:
   # ---------------------------------------------------------------
-  # Basisprofiel bij opstarten, bij herverbinden van een lader en elk uur
+  # Na een herstart van HA: setpunten op 6 A, daarna rustig opbouwen.
+  # (Hier worden bewust GEEN profielen naar de laders geschreven: een apart
+  # basisprofiel begrenst de dynamische stroom, de lader neemt het laagste.
+  # Het oude script ev_lb_basisprofiel werd ook bij 'weer verbonden' aangeroepen
+  # en zette zo na elke template-/automation-reload een 6 A-limiet. Verwijderd.)
   # ---------------------------------------------------------------
-  - id: ev_lb_basis
-    alias: "EV – basisprofiel laders bijhouden"
-    # UIT (20-10-2026): de lader neemt het LAAGSTE van alle profielen, een apart
-    # basisprofiel (6 A) begrenst dus de dynamische stroom. De terugval zit nu
-    # in de tweede periode van ev_lb_profiel zelf.
-    initial_state: false
+  - id: ev_lb_herstart_setpunten
+    alias: "EV – setpunten na herstart op 6 A"
     mode: single
     triggers:
       - trigger: homeassistant
         event: start
-      - trigger: state
-        entity_id:
-          - sensor.ev_rob_status_connector
-          - sensor.ev_sonia_status_connector
-        from: "unavailable"
-      - trigger: state
-        entity_id: input_number.ev_lb_terugval
-      - trigger: time_pattern
-        minutes: "7"
     actions:
-      # Na een herstart (bijv. update) weten we niet wat er intussen is
-      # veranderd: setpunten op 6 A, daarna weer rustig opbouwen.
-      - if: "{{ trigger.platform == 'homeassistant' }}"
-        then:
-          - action: input_number.set_value
-            target:
-              entity_id:
-                - input_number.ev_lb_setpunt_rob
-                - input_number.ev_lb_setpunt_sonia
-            data:
-              value: 6
-      - delay: "00:00:20"
-      - action: script.ev_lb_basisprofiel
+      - action: input_number.set_value
+        target:
+          entity_id:
+            - input_number.ev_lb_setpunt_rob
+            - input_number.ev_lb_setpunt_sonia
+        data:
+          value: 6
 
   # ---------------------------------------------------------------
   # Dynamische regeling: snel omlaag, langzaam omhoog, elke 20 s verversen
@@ -1236,5 +1194,3 @@ automation:
               - action: persistent_notification.dismiss
                 data:
                   notification_id: "ev_lb_verbinding_{{ trigger.entity_id }}"
-              # Weer verbonden: direct basisprofiel opnieuw zetten
-              - action: script.ev_lb_basisprofiel
