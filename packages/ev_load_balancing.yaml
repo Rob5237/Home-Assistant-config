@@ -6,7 +6,8 @@
 #  Kernidee: "dodemansknop" op de lader zelf.
 #   - Elke lader krijgt een BASISPROFIEL (stackLevel 0, zonder einde)
 #     met een veilige stroom (standaard 6 A).
-#   - De dynamische stroom wordt gestuurd als profiel met stackLevel 2
+#   - De dynamische stroom wordt gestuurd als profiel op connector 1 (stackLevel 0;
+#     Rob's lader weigert stackLevel >= 1)
 #     dat na 60 s VERLOOPT. HA ververst het elke 20 s.
 #   - Valt HA, de Pi, wifi, OCPP of de P1-meter weg, dan stopt het
 #     verversen en valt de lader binnen 60 s vanzelf terug op het
@@ -359,10 +360,10 @@ script:
       - action: ocpp.set_charge_rate
         data:
           devid: "{{ devid }}"
-          conn_id: 0
+          conn_id: 1
           custom_profile:
             chargingProfileId: 10
-            stackLevel: 2
+            stackLevel: 0
             chargingProfilePurpose: TxDefaultProfile
             chargingProfileKind: Absolute
             chargingSchedule:
