@@ -1,8 +1,10 @@
 # =====================================================================
 # config/dashboards/ev_laden.yaml  – YAML-dashboard "Laden"
-# Hoort bij packages/ev_laden.yaml. Alleen standaardkaarten, geen HACS.
+# Hoort bij packages/ev_load_balancing.yaml (prijs- en zonsturing + load
+# balancing). Bijgewerkt 20-10-2026: oude sturing (slimme sturing, laadplan,
+# optimale fase) eruit; nieuwe entiteiten erin. Alleen standaardkaarten + card_mod.
 #
-# Eenmalig in configuration.yaml (NIET in een package):
+# In configuration.yaml (NIET in een package):
 #   lovelace:
 #     dashboards:
 #       dashboard-laden:
@@ -11,7 +13,7 @@
 #         icon: mdi:ev-station
 #         show_in_sidebar: true
 #         filename: dashboards/ev_laden.yaml
-# Daarna 1x herstarten; latere wijzigingen: browser verversen.
+# Wijzigingen: browser verversen.
 # EV-Sonia = Sonia (EV-Sonia), EV-Rob = Rob (EV-Rob).
 # =====================================================================
 views:
@@ -30,21 +32,19 @@ views:
             heading_style: title
             icon: mdi:home-lightning-bolt
           - type: tile
-            entity: input_boolean.ev_slimme_sturing
-            name: Slimme sturing
+            entity: input_boolean.ev_lb_actief
+            name: Load balancing
+            icon: mdi:scale-balance
             color: green
             tap_action:
               action: toggle
           - type: tile
-            entity: sensor.zonneplan_current_electricity_tariff
+            entity: sensor.zonneplan_current_quarter_hourly_electricity_tariff
             name: Stroomprijs nu
           - type: tile
-            entity: sensor.ev_pv_overschot
-            name: PV-overschot
+            entity: sensor.ev_lb_pv_overschot
+            name: PV-overschot voor laders
             color: amber
-          - type: tile
-            entity: input_select.ev_prioriteit
-            name: Prioriteit
           - type: tile
             entity: input_boolean.ev_sonia_direct_laden
             name: Boost EV-Sonia
@@ -60,64 +60,44 @@ views:
             tap_action:
               action: toggle
           - type: entities
-            title: Load balancing
+            title: Aansluiting 3x25 A
             show_header_toggle: false
             entities:
-              - entity: sensor.ev_ruimte_l1
-                name: Ruimte L1
-              - entity: sensor.ev_ruimte_l2
-                name: Ruimte L2
-              - entity: sensor.ev_ruimte_l3
-                name: Ruimte L3
+              - entity: sensor.ev_lb_ruimte
+                name: Ruimte (zwaarste fase)
+              - entity: sensor.ev_lb_stroom_l1
+                name: Stroom L1
+              - entity: sensor.ev_lb_stroom_l2
+                name: Stroom L2
+              - entity: sensor.ev_lb_stroom_l3
+                name: Stroom L3
               - type: divider
-              - entity: sensor.ev_hoofdzekering_weergave
+              - entity: input_number.ev_lb_zekering
                 name: Hoofdzekering
-              - entity: input_number.ev_marge
+              - entity: input_number.ev_lb_marge
                 name: Marge
-                type: simple-entity
-                tap_action:
-                  action: none
               - entity: input_number.ev_prijsdrempel
-                name: Altijd laden onder
-              - entity: input_boolean.ev_1fase_ondersteund
-                name: 1/3-fase wissel
-          - type: markdown
-            title: 1-fase advies per lader
-            content: |
-              {% macro row(label, sensor) -%}
-              {%- set advies = states(sensor) -%}
-              {%- set ingesteld = state_attr(sensor, 'ingesteld') -%}
-              {%- set r1 = state_attr(sensor, 'ruimte_l1')|int(0) -%}
-              {%- set r2 = state_attr(sensor, 'ruimte_l2')|int(0) -%}
-              {%- set r3 = state_attr(sensor, 'ruimte_l3')|int(0) -%}
-              {%- set max_r = [r1, r2, r3] | max -%}
-              {%- set bar = namespace(l1='', l2='', l3='') -%}
-              {%- set bar.l1 = '█' * (r1 if r1>0 else 0) + '░' * (max_r - (r1 if r1>0 else 0)) -%}
-              {%- set bar.l2 = '█' * (r2 if r2>0 else 0) + '░' * (max_r - (r2 if r2>0 else 0)) -%}
-              {%- set bar.l3 = '█' * (r3 if r3>0 else 0) + '░' * (max_r - (r3 if r3>0 else 0)) -%}
-              {%- set w = state_attr(sensor, 'advies_vermogen_w')|int(0) -%}
-              **{{ label }}** — ingesteld **{{ ingesteld }}** · advies **{{ advies }}** {% if advies == ingesteld %}✓{% else %}⚠️ wissel overwegen{% endif %}
-
-              Max op advies-fase: **{{ (w/1000) | round(2) }} kW**
-
-              ```
-              L1 {{ '%2d A' | format(r1) }}  {{ bar.l1 }}
-              L2 {{ '%2d A' | format(r2) }}  {{ bar.l2 }}
-              L3 {{ '%2d A' | format(r3) }}  {{ bar.l3 }}
-              ```
-              {% endmacro -%}
-              {{ row('EV-Sonia', 'sensor.ev_sonia_optimale_fase') }}
-              ---
-              {{ row('EV-Rob', 'sensor.ev_rob_optimale_fase') }}
+                name: Altijd laden onder (prijs)
+              - entity: input_number.ev_lb_min_rob
+                name: Min. stroom Rob bij voorrang Sonia
+              - entity: input_number.ev_lb_terugval
+                name: Terugvalstroom zonder HA
+              - type: divider
+              - entity: input_number.ev_lb_afschakel_niveau
+                name: Afgeschakelde huislasten
+              - entity: binary_sensor.ev_lb_tekort
+                name: Tekort
+              - entity: binary_sensor.ev_lb_overbelasting
+                name: Overbelasting
           - type: history-graph
             title: Laatste 24 uur
             hours_to_show: 24
             entities:
-              - entity: sensor.ev_sonia_power_active_import
+              - entity: sensor.ev_sonia_vermogen
                 name: EV-Sonia
-              - entity: sensor.ev_rob_power_active_import
+              - entity: sensor.ev_rob_vermogen
                 name: EV-Rob
-              - entity: sensor.ev_pv_overschot
+              - entity: sensor.ev_lb_pv_overschot
                 name: PV-overschot
 
       # ---------------------------------------------------------------
@@ -137,15 +117,23 @@ views:
             card_mod:
               style: |
                 ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
-            entity: input_select.ev_sonia_auto
-            name: Auto
-            icon: mdi:car-electric
+            entity: binary_sensor.ev_lb_sonia_laden_toegestaan
+            name: Laden toegestaan
+            icon: mdi:ev-station
+            color: green
           - type: tile
             card_mod:
               style: |
                 ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
-            entity: sensor.ev_sonia_power_active_import
+            entity: sensor.ev_sonia_vermogen
             name: Vermogen
+            color: blue
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+            entity: sensor.ev_sonia_stroom
+            name: Stroom per fase
             color: blue
           - type: tile
             card_mod:
@@ -169,21 +157,20 @@ views:
             card_mod:
               style: |
                 ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
-            title: Planning
+            title: Prijs- en zonsturing
             show_header_toggle: false
+            state_color: true
             entities:
-              - entity: input_number.ev_sonia_benodigde_kwh
-                name: Benodigd
               - entity: input_datetime.ev_sonia_vertrek
                 name: Vertrek
-              - entity: sensor.ev_sonia_laadplan
-                name: Nog te laden
-              - type: attribute
-                entity: sensor.ev_sonia_laadplan
-                attribute: plan_leesbaar
-                name: Geplande slots
-              - entity: binary_sensor.ev_sonia_goedkoop_slot
-                name: Nu goedkoop slot
+              - entity: input_number.ev_lb_sonia_goedkoop_uren
+                name: Goedkoopste uren laden
+              - entity: binary_sensor.ev_lb_sonia_goedkoop_uur
+                name: Nu goedkoop uur
+              - entity: binary_sensor.ev_lb_sonia_pv_laden
+                name: Genoeg zon
+              - entity: input_select.ev_lb_sonia_fase
+                name: Fase(n) van de auto
           - type: entities
             card_mod:
               style: |
@@ -192,14 +179,20 @@ views:
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: input_number.ev_sonia_laatst_gezet
-                name: Toegewezen stroom (A)
-              - entity: input_number.ev_sonia_fasen
-                name: Actieve fasen
-              - entity: input_number.ev_sonia_max_stroom
-                name: Max laadstroom
-              - entity: input_select.ev_sonia_eenfase_op
-                name: 1-fase laden op
+              - entity: switch.ev_sonia_charge_control
+                name: Laadsessie (charge control)
+              - entity: input_number.ev_lb_setpunt_sonia
+                name: Gevraagde stroom (A)
+              - entity: input_number.ev_lb_max_sonia
+                name: Max stroom (= Ratio-app)
+              - entity: sensor.ev_sonia_stroom_l1
+                name: Stroom L1
+              - entity: sensor.ev_sonia_stroom_l2
+                name: Stroom L2
+              - entity: sensor.ev_sonia_stroom_l3
+                name: Stroom L3
+              - entity: binary_sensor.ev_lb_sonia_onder_controle
+                name: Onder controle van HA
 
       # ---------------------------------------------------------------
       - type: grid
@@ -218,15 +211,23 @@ views:
             card_mod:
               style: |
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-            entity: input_select.ev_rob_auto
-            name: Auto
-            icon: mdi:car-electric
+            entity: binary_sensor.ev_lb_rob_laden_toegestaan
+            name: Laden toegestaan
+            icon: mdi:ev-station
+            color: green
           - type: tile
             card_mod:
               style: |
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-            entity: sensor.ev_rob_power_active_import
+            entity: sensor.ev_rob_vermogen
             name: Vermogen
+            color: blue
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+            entity: sensor.ev_rob_stroom
+            name: Stroom per fase
             color: blue
           - type: tile
             card_mod:
@@ -250,21 +251,20 @@ views:
             card_mod:
               style: |
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-            title: Planning
+            title: Prijs- en zonsturing
             show_header_toggle: false
+            state_color: true
             entities:
-              - entity: input_number.ev_rob_benodigde_kwh
-                name: Benodigd
               - entity: input_datetime.ev_rob_vertrek
                 name: Vertrek
-              - entity: sensor.ev_rob_laadplan
-                name: Nog te laden
-              - type: attribute
-                entity: sensor.ev_rob_laadplan
-                attribute: plan_leesbaar
-                name: Geplande slots
-              - entity: binary_sensor.ev_rob_goedkoop_slot
-                name: Nu goedkoop slot
+              - entity: input_number.ev_lb_rob_goedkoop_uren
+                name: Goedkoopste uren laden
+              - entity: binary_sensor.ev_lb_rob_goedkoop_uur
+                name: Nu goedkoop uur
+              - entity: binary_sensor.ev_lb_rob_pv_laden
+                name: Genoeg zon
+              - entity: input_select.ev_lb_rob_fase
+                name: Fase(n) van de auto
           - type: entities
             card_mod:
               style: |
@@ -273,11 +273,17 @@ views:
             show_header_toggle: false
             state_color: true
             entities:
-              - entity: input_number.ev_rob_laatst_gezet
-                name: Toegewezen stroom (A)
-              - entity: input_number.ev_rob_fasen
-                name: Actieve fasen
-              - entity: input_number.ev_rob_max_stroom
-                name: Max laadstroom
-              - entity: input_select.ev_rob_eenfase_op
-                name: 1-fase laden op
+              - entity: switch.ev_rob_charge_control
+                name: Laadsessie (charge control)
+              - entity: input_number.ev_lb_setpunt_rob
+                name: Gevraagde stroom (A)
+              - entity: input_number.ev_lb_max_rob
+                name: Max stroom (= Ratio-app)
+              - entity: sensor.ev_rob_stroom_l1
+                name: Stroom L1
+              - entity: sensor.ev_rob_stroom_l2
+                name: Stroom L2
+              - entity: sensor.ev_rob_stroom_l3
+                name: Stroom L3
+              - entity: binary_sensor.ev_lb_rob_onder_controle
+                name: Onder controle van HA
