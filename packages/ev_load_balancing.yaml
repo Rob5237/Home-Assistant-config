@@ -401,7 +401,7 @@ template:
         icon: mdi:ev-plug-type2
         state: >-
           {{ {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
-              'Charging': 'Laden', 'SuspendedEVSE': 'Gepauzeerd door lader',
+              'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
               'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
               'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
               'Faulted': 'Storing'}.get(states('sensor.ev_sonia_status_connector'),
@@ -411,7 +411,7 @@ template:
         icon: mdi:ev-plug-type2
         state: >-
           {{ {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
-              'Charging': 'Laden', 'SuspendedEVSE': 'Gepauzeerd door lader',
+              'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
               'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
               'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
               'Faulted': 'Storing'}.get(states('sensor.ev_rob_status_connector'),
@@ -461,13 +461,13 @@ template:
             {% if fc | count == 0 %}
               {% set s = dl.replace(hour=11, minute=0) if dl.hour < 11 else dl + timedelta(days=1) %}
               {% set tekst = (s.date() - now().date()).days %}
-              Vannacht de accu NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'vandaag' if tekst == 0 else 'morgen' if tekst == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }} (noodschema, geen prijzen)
+              De accu vannacht NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'vandaag' if tekst == 0 else 'morgen' if tekst == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }} (noodschema, geen prijzen)
             {% elif goed | count == 0 %}
-              Vannacht de accu NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: nog niet bekend
+              De accu vannacht NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: nog niet bekend
             {% else %}
               {% set s = goed[0].t | as_local %}
               {% set dagen = (s.date() - now().date()).days %}
-              Vannacht de accu NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if dagen == 0 else 'morgen' if dagen == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }}
+              De accu vannacht NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if dagen == 0 else 'morgen' if dagen == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }}
             {% endif %}
           {% else %}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
@@ -520,13 +520,13 @@ template:
             {% if fc | count == 0 %}
               {% set s = dl.replace(hour=11, minute=0) if dl.hour < 11 else dl + timedelta(days=1) %}
               {% set tekst = (s.date() - now().date()).days %}
-              Vannacht de accu NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'vandaag' if tekst == 0 else 'morgen' if tekst == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }} (noodschema, geen prijzen)
+              De accu vannacht NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'vandaag' if tekst == 0 else 'morgen' if tekst == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }} (noodschema, geen prijzen)
             {% elif goed | count == 0 %}
-              Vannacht de accu NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: nog niet bekend
+              De accu vannacht NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: nog niet bekend
             {% else %}
               {% set s = goed[0].t | as_local %}
               {% set dagen = (s.date() - now().date()).days %}
-              Vannacht de accu NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if dagen == 0 else 'morgen' if dagen == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }}
+              De accu vannacht NIET opladen{{ '\n' }}Verwachte Laadstarttijd na de nacht: {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if dagen == 0 else 'morgen' if dagen == 1 else 'overmorgen' }} {{ s.strftime('%H:%M') }}
             {% endif %}
           {% else %}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}

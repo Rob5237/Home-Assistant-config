@@ -285,8 +285,15 @@ views:
             icon: mdi:car-electric
           - type: tile
             card_mod:
-              style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+              style:
+                .: |
+                  ha-card { border: none !important; box-shadow: none !important; }
+                  ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                ha-tile-info$: |
+                  .primary, .secondary { font-size: 16px !important; }
+                  {% if 'gepauzeerd door EV-lader' in states('sensor.ev_sonia_status_nl') %}
+                  .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
+                  {% endif %}
             entity: sensor.ev_sonia_status_nl
             name: Status
             grid_options:
@@ -295,10 +302,12 @@ views:
             card_mod:
               style:
                 .: |
+                  ha-card { border: none !important; box-shadow: none !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   state-display { white-space: pre-line !important; }
                 ha-tile-info$: |
-                  {% if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') or 'noodschema' in states('sensor.ev_sonia_verwachte_start') %}
+                  .primary, .secondary { font-size: 16px !important; }
+                  {% if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') or 'noodschema' in states('sensor.ev_sonia_verwachte_start') or 'Pas na EV-Sonia' in states('sensor.ev_sonia_verwachte_start') or 'Vannacht om' in states('sensor.ev_sonia_verwachte_start') %}
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
                   {% endif %}
             entity: sensor.ev_sonia_verwachte_start
@@ -319,6 +328,8 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   {% if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') %}
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: #F44336;
@@ -345,6 +356,8 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   {% if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') %}
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: #F44336;
@@ -368,6 +381,8 @@ views:
               entity: input_boolean.ev_sonia_direct_laden
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   {% if is_state('sensor.ev_sonia_status_connector', 'Charging') and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off') %}
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
@@ -396,6 +411,8 @@ views:
               entity: input_boolean.ev_sonia_direct_laden
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   {% if is_state('sensor.ev_sonia_status_connector', 'Charging') and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off') %}
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
@@ -430,6 +447,8 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
@@ -452,11 +471,13 @@ views:
                     state: Charging
             card:
               type: button
-              name: Opladen uitzetten
+              name: Accu opladen uitzetten
               icon: mdi:battery-off
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
               tap_action:
@@ -467,8 +488,12 @@ views:
               rows: 2
           - type: tile
             card_mod:
-              style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+              style:
+                .: |
+                  ha-card { border: none !important; box-shadow: none !important; }
+                  ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                ha-tile-info$: |
+                  .primary, .secondary { font-size: 16px !important; }
             entity: sensor.ev_sonia_vermogen_kw
             name: Huidig Laadvermogen
             icon: mdi:flash
@@ -489,8 +514,15 @@ views:
             icon: mdi:car-electric
           - type: tile
             card_mod:
-              style: |
-                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+              style:
+                .: |
+                  ha-card { border: none !important; box-shadow: none !important; }
+                  ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                ha-tile-info$: |
+                  .primary, .secondary { font-size: 16px !important; }
+                  {% if 'gepauzeerd door EV-lader' in states('sensor.ev_rob_status_nl') %}
+                  .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
+                  {% endif %}
             entity: sensor.ev_rob_status_nl
             name: Status
             grid_options:
@@ -499,10 +531,12 @@ views:
             card_mod:
               style:
                 .: |
+                  ha-card { border: none !important; box-shadow: none !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   state-display { white-space: pre-line !important; }
                 ha-tile-info$: |
-                  {% if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') or 'noodschema' in states('sensor.ev_rob_verwachte_start') %}
+                  .primary, .secondary { font-size: 16px !important; }
+                  {% if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') or 'noodschema' in states('sensor.ev_rob_verwachte_start') or 'Pas na EV-Sonia' in states('sensor.ev_rob_verwachte_start') or 'Vannacht om' in states('sensor.ev_rob_verwachte_start') %}
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
                   {% endif %}
             entity: sensor.ev_rob_verwachte_start
@@ -523,6 +557,8 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   {% if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') %}
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: #F44336;
@@ -549,6 +585,8 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   {% if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') %}
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: #F44336;
@@ -572,6 +610,8 @@ views:
               entity: input_boolean.ev_rob_direct_laden
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   {% if is_state('sensor.ev_rob_status_connector', 'Charging') and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off') %}
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.45), rgba(33, 150, 243, 0.45)), var(--card-background-color); }
@@ -600,6 +640,8 @@ views:
               entity: input_boolean.ev_rob_direct_laden
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   {% if is_state('sensor.ev_rob_status_connector', 'Charging') and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off') %}
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.45), rgba(33, 150, 243, 0.45)), var(--card-background-color); }
@@ -634,6 +676,8 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
@@ -656,11 +700,13 @@ views:
                     state: Charging
             card:
               type: button
-              name: Opladen uitzetten
+              name: Accu opladen uitzetten
               icon: mdi:battery-off
               show_state: false
               card_mod:
                 style: |
+                  ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
+                  ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
               tap_action:
@@ -671,8 +717,12 @@ views:
               rows: 2
           - type: tile
             card_mod:
-              style: |
-                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+              style:
+                .: |
+                  ha-card { border: none !important; box-shadow: none !important; }
+                  ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                ha-tile-info$: |
+                  .primary, .secondary { font-size: 16px !important; }
             entity: sensor.ev_rob_vermogen_kw
             name: Huidig Laadvermogen
             icon: mdi:flash
