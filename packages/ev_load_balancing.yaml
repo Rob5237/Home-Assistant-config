@@ -1110,43 +1110,55 @@ automation:
         entity_id: binary_sensor.ev_lb_overbelasting
         to: "on"
     actions:
-      - action: persistent_notification.create
-        data:
-          notification_id: ev_lb_overbelasting
-          title: "⚡ Overbelasting huisaansluiting"
-          message: >
-            Fase boven {{ states('input_number.ev_lb_zekering') }} A
-            (L1 {{ states('sensor.ev_lb_stroom_l1') }} A,
-             L2 {{ states('sensor.ev_lb_stroom_l2') }} A,
-             L3 {{ states('sensor.ev_lb_stroom_l3') }} A).
-            Laders gepauzeerd; huislasten worden afgeschakeld.
-      - action: notify.mobile_app_sm_g781b
-        data:
-          title: "⚡ Overbelasting huisaansluiting"
-          message: >
-            Laders gepauzeerd en huislasten worden afgeschakeld.
-            Zet zware apparaten (oven, inductie, Quooker) even uit.
-        continue_on_error: true
-      # Blijft het na 20 s nog steeds overbelast: dringende tweede melding.
-      # Dan is alles wat HA kan uitzetten al uit; de rest moet met de hand.
-      - wait_for_trigger:
-          - trigger: state
-            entity_id: binary_sensor.ev_lb_overbelasting
-            to: "off"
-        timeout: "00:00:20"
-      - if: "{{ is_state('binary_sensor.ev_lb_overbelasting', 'on') }}"
+      # Lichte piek (25-29 A, bv. Quooker): de laders regelen zelf af, alleen loggen.
+      # Zware overschrijding (> 29 A): noodstop-meldingen zoals voorheen.
+      - if: "{{ states('sensor.ev_lb_ruimte') | float(0) >= -6 }}"
         then:
+          - action: logbook.log
+            data:
+              name: "EV load balancing"
+              message: >
+                Korte piek boven {{ states('input_number.ev_lb_zekering') }} A
+                (L1 {{ states('sensor.ev_lb_stroom_l1') }}, L2 {{ states('sensor.ev_lb_stroom_l2') }},
+                L3 {{ states('sensor.ev_lb_stroom_l3') }} A): laders regelen af.
+        else:
+          - action: persistent_notification.create
+            data:
+              notification_id: ev_lb_overbelasting
+              title: "⚡ Overbelasting huisaansluiting"
+              message: >
+                Fase boven {{ states('input_number.ev_lb_zekering') }} A
+                (L1 {{ states('sensor.ev_lb_stroom_l1') }} A,
+                 L2 {{ states('sensor.ev_lb_stroom_l2') }} A,
+                 L3 {{ states('sensor.ev_lb_stroom_l3') }} A).
+                Laders gepauzeerd; huislasten worden afgeschakeld.
           - action: notify.mobile_app_sm_g781b
             data:
-              title: "⚡⚡ Nog steeds overbelast"
+              title: "⚡ Overbelasting huisaansluiting"
               message: >
-                Alle stuurbare lasten zijn uit, maar een fase blijft boven
-                {{ states('input_number.ev_lb_zekering') }} A. Zet nu handmatig
-                oven/inductie/Quooker uit, anders kan de hoofdzekering eruit.
-              data:
-                push:
-                  interruption-level: critical
+                Laders gepauzeerd en huislasten worden afgeschakeld.
+                Zet zware apparaten (oven, inductie, Quooker) even uit.
             continue_on_error: true
+          # Blijft het na 20 s nog steeds overbelast: dringende tweede melding.
+          # Dan is alles wat HA kan uitzetten al uit; de rest moet met de hand.
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: binary_sensor.ev_lb_overbelasting
+                to: "off"
+            timeout: "00:00:20"
+          - if: "{{ is_state('binary_sensor.ev_lb_overbelasting', 'on') }}"
+            then:
+              - action: notify.mobile_app_sm_g781b
+                data:
+                  title: "⚡⚡ Nog steeds overbelast"
+                  message: >
+                    Alle stuurbare lasten zijn uit, maar een fase blijft boven
+                    {{ states('input_number.ev_lb_zekering') }} A. Zet nu handmatig
+                    oven/inductie/Quooker uit, anders kan de hoofdzekering eruit.
+                  data:
+                    push:
+                      interruption-level: critical
+                continue_on_error: true
 
   # ---------------------------------------------------------------
   # Huislasten afschakelen — pas NADAT de laders al op 0 A staan
