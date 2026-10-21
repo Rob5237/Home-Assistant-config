@@ -43,6 +43,14 @@ input_boolean:
   ev_lb_actief:
     name: "EV load balancing actief"
     icon: mdi:scale-balance
+  # Weergave-vlag voor het dashboard: de knop 'Opladen uitzetten' is ingedrukt.
+  # Gaat uit zodra het laden start of de boost aangaat.
+  ev_sonia_opladen_uitgezet:
+    name: "EV-Sonia – opladen uitgezet (knop)"
+    icon: mdi:battery-off
+  ev_rob_opladen_uitgezet:
+    name: "EV-Rob – opladen uitgezet (knop)"
+    icon: mdi:battery-off
 
 input_select:
   # Op welke fase(n) laadt de auto aan deze lader? Voor 1-fase auto's: de fase
@@ -631,6 +639,24 @@ template:
                states('sensor.ev_lb_stroom_l3') | float(0) ] | max > z }}
 
 script:
+  ev_sonia_opladen_uitzetten:
+    alias: "EV-Sonia – opladen uitzetten (knop)"
+    sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ev_sonia_direct_laden
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ev_sonia_opladen_uitgezet
+  ev_rob_opladen_uitzetten:
+    alias: "EV-Rob – opladen uitzetten (knop)"
+    sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.ev_rob_direct_laden
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ev_rob_opladen_uitgezet
   # Schakelt huislasten uit (in lijstvolgorde, alleen wat aan staat)
   # tot er minstens 'nodig' ampère is afgeschakeld.
   # nodig = 0 → precies één last.
@@ -768,6 +794,30 @@ script:
         continue_on_error: true
 
 automation:
+  - id: ev_opladen_uitgezet_vlag_wissen
+    alias: "EV – knopvlag 'opladen uitgezet' wissen bij start laden of boost"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_sonia_status_connector
+        to: "Charging"
+        id: sonia
+      - trigger: state
+        entity_id: input_boolean.ev_sonia_direct_laden
+        to: "on"
+        id: sonia
+      - trigger: state
+        entity_id: sensor.ev_rob_status_connector
+        to: "Charging"
+        id: rob
+      - trigger: state
+        entity_id: input_boolean.ev_rob_direct_laden
+        to: "on"
+        id: rob
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
   # ---------------------------------------------------------------
   # Na een herstart van HA: setpunten op 6 A, daarna rustig opbouwen.
   # (Hier worden bewust GEEN profielen naar de laders geschreven: een apart

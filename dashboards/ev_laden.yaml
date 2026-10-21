@@ -110,13 +110,13 @@ views:
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_status_nl
             name: Status
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: binary_sensor.ev_lb_sonia_laden_toegestaan
             name: Laden toegestaan
             icon: mdi:ev-station
@@ -124,28 +124,28 @@ views:
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_vermogen
             name: Vermogen
             color: blue
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_stroom
             name: Stroom per fase
             color: blue
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_energy_session
             name: Deze sessie
             color: blue
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: input_boolean.ev_sonia_direct_laden
             name: Boost – nu laden
             color: red
@@ -156,7 +156,7 @@ views:
           - type: entities
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             title: Prijs- en zonsturing
             show_header_toggle: false
             state_color: true
@@ -174,7 +174,7 @@ views:
           - type: entities
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             title: Techniek
             show_header_toggle: false
             state_color: true
@@ -307,7 +307,7 @@ views:
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_status_nl
             name: Status
             grid_options:
@@ -315,7 +315,7 @@ views:
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_verwachte_start
             name: Verwachte laadstart
             grid_options:
@@ -325,37 +325,73 @@ views:
             card_mod:
               style: |
                 {% if is_state('sensor.ev_sonia_status_connector', 'Charging') %}
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.45), rgba(76, 175, 80, 0.45)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                 ha-state-icon, ha-icon, state-badge { color: #FFF176 !important; --icon-primary-color: #FFF176; --state-icon-color: #FFF176; }
+                {% else %}
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                 {% endif %}
-            name: Accu Opladen
+            name: Accu NU opladen
             icon: mdi:battery-charging
             show_state: false
             grid_options:
               columns: 6
+              rows: 2
             tap_action:
               action: perform-action
               perform_action: input_boolean.turn_on
               target:
                 entity_id: input_boolean.ev_sonia_direct_laden
-          - type: button
-            card_mod:
-              style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
-            name: Opladen uitzetten
-            icon: mdi:battery-off
-            show_state: false
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.ev_sonia_opladen_uitgezet
+                state: "on"
+              - condition: state
+                entity: sensor.ev_sonia_status_connector
+                state_not: Charging
+            card:
+              type: button
+              name: Handmatig uitgezet
+              icon: mdi:battery-off
+              show_state: false
+              card_mod:
+                style: |
+                  ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                  ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
+              tap_action:
+                action: perform-action
+                perform_action: script.ev_sonia_opladen_uitzetten
             grid_options:
               columns: 6
-            tap_action:
-              action: perform-action
-              perform_action: input_boolean.turn_off
-              target:
-                entity_id: input_boolean.ev_sonia_direct_laden
+              rows: 2
+          - type: conditional
+            conditions:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: input_boolean.ev_sonia_opladen_uitgezet
+                    state: "off"
+                  - condition: state
+                    entity: sensor.ev_sonia_status_connector
+                    state: Charging
+            card:
+              type: button
+              name: Opladen uitzetten
+              icon: mdi:battery-off
+              show_state: false
+              card_mod:
+                style: |
+                  ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+              tap_action:
+                action: perform-action
+                perform_action: script.ev_sonia_opladen_uitzetten
+            grid_options:
+              columns: 6
+              rows: 2
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: sensor.ev_sonia_vermogen_kw
             name: Huidig Laadvermogen
             icon: mdi:flash
@@ -364,7 +400,7 @@ views:
           - type: tile
             card_mod:
               style: |
-                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
             entity: input_select.ev_lb_sonia_fase
             name: Fase van de aangesloten auto
             features:
@@ -407,31 +443,67 @@ views:
                 {% if is_state('sensor.ev_rob_status_connector', 'Charging') %}
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.45), rgba(33, 150, 243, 0.45)), var(--card-background-color); }
                 ha-state-icon, ha-icon, state-badge { color: #FFF176 !important; --icon-primary-color: #FFF176; --state-icon-color: #FFF176; }
+                {% else %}
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                 {% endif %}
-            name: Accu Opladen
+            name: Accu NU opladen
             icon: mdi:battery-charging
             show_state: false
             grid_options:
               columns: 6
+              rows: 2
             tap_action:
               action: perform-action
               perform_action: input_boolean.turn_on
               target:
                 entity_id: input_boolean.ev_rob_direct_laden
-          - type: button
-            card_mod:
-              style: |
-                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-            name: Opladen uitzetten
-            icon: mdi:battery-off
-            show_state: false
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.ev_rob_opladen_uitgezet
+                state: "on"
+              - condition: state
+                entity: sensor.ev_rob_status_connector
+                state_not: Charging
+            card:
+              type: button
+              name: Handmatig uitgezet
+              icon: mdi:battery-off
+              show_state: false
+              card_mod:
+                style: |
+                  ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                  ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
+              tap_action:
+                action: perform-action
+                perform_action: script.ev_rob_opladen_uitzetten
             grid_options:
               columns: 6
-            tap_action:
-              action: perform-action
-              perform_action: input_boolean.turn_off
-              target:
-                entity_id: input_boolean.ev_rob_direct_laden
+              rows: 2
+          - type: conditional
+            conditions:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: input_boolean.ev_rob_opladen_uitgezet
+                    state: "off"
+                  - condition: state
+                    entity: sensor.ev_rob_status_connector
+                    state: Charging
+            card:
+              type: button
+              name: Opladen uitzetten
+              icon: mdi:battery-off
+              show_state: false
+              card_mod:
+                style: |
+                  ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+              tap_action:
+                action: perform-action
+                perform_action: script.ev_rob_opladen_uitzetten
+            grid_options:
+              columns: 6
+              rows: 2
           - type: tile
             card_mod:
               style: |
