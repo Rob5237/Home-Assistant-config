@@ -292,12 +292,11 @@ views:
   # Bediening: per lader een knop om direct te laden (boost) en een knop
   # om het direct laden uit te zetten. Toegevoegd 21-10-2026.
   # -------------------------------------------------------------------
-  - title: Bediening
-    path: bediening
-    icon: mdi:ev-plug-type2
+  - title: EV-Sonia
+    path: sonia
     theme: laden_koppen
     type: sections
-    max_columns: 2
+    max_columns: 1
     sections:
       - type: grid
         cards:
@@ -325,8 +324,9 @@ views:
             entity: input_boolean.ev_sonia_direct_laden
             card_mod:
               style: |
-                {% if is_state('input_boolean.ev_sonia_direct_laden', 'on') %}
+                {% if is_state('sensor.ev_sonia_status_connector', 'Charging') %}
                 ha-card { background: linear-gradient(rgba(76, 175, 80, 0.45), rgba(76, 175, 80, 0.45)), var(--card-background-color); }
+                ha-state-icon, ha-icon, state-badge { color: #FFF176 !important; --icon-primary-color: #FFF176; --state-icon-color: #FFF176; }
                 {% endif %}
             name: Accu Opladen
             icon: mdi:battery-charging
@@ -357,10 +357,17 @@ views:
               style: |
                 ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
             entity: sensor.ev_sonia_vermogen_kw
-            name: Vermogen
+            name: Huidig Laadvermogen
             icon: mdi:flash
             grid_options:
               columns: 12
+
+  - title: EV-Rob
+    path: rob
+    theme: laden_koppen
+    type: sections
+    max_columns: 1
+    sections:
       - type: grid
         cards:
           - type: heading
@@ -387,8 +394,9 @@ views:
             entity: input_boolean.ev_rob_direct_laden
             card_mod:
               style: |
-                {% if is_state('input_boolean.ev_rob_direct_laden', 'on') %}
+                {% if is_state('sensor.ev_rob_status_connector', 'Charging') %}
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.45), rgba(33, 150, 243, 0.45)), var(--card-background-color); }
+                ha-state-icon, ha-icon, state-badge { color: #FFF176 !important; --icon-primary-color: #FFF176; --state-icon-color: #FFF176; }
                 {% endif %}
             name: Accu Opladen
             icon: mdi:battery-charging
@@ -419,7 +427,7 @@ views:
               style: |
                 ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
             entity: sensor.ev_rob_vermogen_kw
-            name: Vermogen
+            name: Huidig Laadvermogen
             icon: mdi:flash
             grid_options:
               columns: 12
