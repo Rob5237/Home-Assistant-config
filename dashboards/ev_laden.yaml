@@ -323,7 +323,7 @@ views:
             card:
               type: button
               entity: input_boolean.ev_sonia_nacht_overslaan
-              name: Accu 's nachts NIET opladen
+              name: Morgen thuis blijven; Accu 's-nachts NIET opladen
               icon: mdi:weather-night
               show_state: false
               card_mod:
@@ -552,7 +552,7 @@ views:
             card:
               type: button
               entity: input_boolean.ev_rob_nacht_overslaan
-              name: Accu 's nachts NIET opladen
+              name: Morgen thuis blijven; Accu 's-nachts NIET opladen
               icon: mdi:weather-night
               show_state: false
               card_mod:
