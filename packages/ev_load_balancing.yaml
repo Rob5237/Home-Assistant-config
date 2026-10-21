@@ -424,13 +424,13 @@ template:
         unit_of_measurement: kW
         device_class: power
         state_class: measurement
-        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) | round(2) }}"
+        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) }}"
       - name: "EV Rob vermogen kW"
         unique_id: ev_rob_vermogen_kw
         unit_of_measurement: kW
         device_class: power
         state_class: measurement
-        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) | round(2) }}"
+        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) }}"
 
   - sensor:
       # Verwachte laadstart (weergave): eerstvolgende kwartier van de goedkoopste
