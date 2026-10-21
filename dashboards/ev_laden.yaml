@@ -291,9 +291,7 @@ views:
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
-                  {% if 'gepauzeerd door EV-lader' in states('sensor.ev_sonia_status_nl') %}
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
-                  {% endif %}
             entity: sensor.ev_sonia_status_nl
             name: Status
             grid_options:
@@ -307,9 +305,7 @@ views:
                   state-display { white-space: pre-line !important; }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
-                  {% if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') or 'noodschema' in states('sensor.ev_sonia_verwachte_start') or 'Pas na EV-Sonia' in states('sensor.ev_sonia_verwachte_start') or 'Vannacht om' in states('sensor.ev_sonia_verwachte_start') %}
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
-                  {% endif %}
             entity: sensor.ev_sonia_verwachte_start
             name: Verwachte Laadstarttijd
             grid_options:
@@ -520,9 +516,7 @@ views:
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
-                  {% if 'gepauzeerd door EV-lader' in states('sensor.ev_rob_status_nl') %}
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
-                  {% endif %}
             entity: sensor.ev_rob_status_nl
             name: Status
             grid_options:
@@ -536,9 +530,7 @@ views:
                   state-display { white-space: pre-line !important; }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
-                  {% if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') or 'noodschema' in states('sensor.ev_rob_verwachte_start') or 'Pas na EV-Sonia' in states('sensor.ev_rob_verwachte_start') or 'Vannacht om' in states('sensor.ev_rob_verwachte_start') %}
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
-                  {% endif %}
             entity: sensor.ev_rob_verwachte_start
             name: Verwachte Laadstarttijd
             grid_options:

@@ -501,7 +501,7 @@ template:
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
-            {{ 'Pas na EV-Sonia' if na else 'Nu' }}
+            {{ 'Pas na EV-Sonia' if na and not is_state('sensor.ev_rob_status_connector', 'Charging') else 'Nu' }}
           {% elif is_state('input_boolean.ev_rob_nacht_overslaan', 'on') %}
             {# Na de nacht: eerste van de goedkoopste kwartieren in het venster vanaf de vertrektijd #}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
