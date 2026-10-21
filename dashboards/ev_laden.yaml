@@ -361,6 +361,16 @@ views:
             icon: mdi:flash
             grid_options:
               columns: 12
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(76, 175, 80, 0.18), rgba(76, 175, 80, 0.18)), var(--card-background-color); }
+            entity: input_select.ev_lb_sonia_fase
+            name: Fase van de aangesloten auto
+            features:
+              - type: select-options
+            grid_options:
+              columns: 12
 
   - title: EV-Rob
     path: rob
@@ -429,5 +439,15 @@ views:
             entity: sensor.ev_rob_vermogen_kw
             name: Huidig Laadvermogen
             icon: mdi:flash
+            grid_options:
+              columns: 12
+          - type: tile
+            card_mod:
+              style: |
+                ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+            entity: input_select.ev_lb_rob_fase
+            name: Fase van de aangesloten auto
+            features:
+              - type: select-options
             grid_options:
               columns: 12

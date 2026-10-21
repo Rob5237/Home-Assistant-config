@@ -872,6 +872,11 @@ automation:
       - variables:
           plan: >
             {% set ns = namespace(rest=ruimte, out={}) %}
+            {# Zwaarst belaste fase: alleen laders die op die fase laden helpen daar #}
+            {% set fi = {'L1': states('sensor.ev_lb_stroom_l1') | float(0),
+                         'L2': states('sensor.ev_lb_stroom_l2') | float(0),
+                         'L3': states('sensor.ev_lb_stroom_l3') | float(0)} %}
+            {% set slechtste = fi | dictsort(false, 'value') | last | first %}
             {% for l in laders %}
               {# Niet verbonden = niet stuurbaar: telt niet mee als 'bezig'.
                  Zijn stroom zit wel in de P1-meting, dus de rest regelt eromheen. #}
@@ -880,18 +885,34 @@ automation:
               {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on')}}) %}
             {% endfor %}
 
-            {% if overbelast %}
-              {# Noodstop: alles wat laadt naar 0 A #}
+            {% if overbelast and ruimte < -6 %}
+              {# Noodstop: zware overschrijding (> 29 A): alles wat laadt naar 0 A #}
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
                 {% if o.bezig %}{% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=0)}) %}{% endif %}
+              {% endfor %}
+
+            {% elif overbelast %}
+              {# Lichte overschrijding (25-29 A, bv. een korte piek van de Quooker):
+                 niet stoppen maar zo ver omlaag als nodig, met 3 A extra marge.
+                 Eerst Rob, dan Sonia; pas bij < 6 A gaat een lader naar 0 A.
+                 Daarna loopt de ramp-regeling hem vanzelf weer omhoog. #}
+              {% set ns.rest = ruimte - 3 %}
+              {% for l in laders | reverse %}
+                {% set o = ns.out[l.naam] %}
+                {% if o.bezig and ns.rest < 0 and o.huidig > 0 and (is_state(l.fase, '3-fase') or states(l.fase) == slechtste) %}
+                  {% set x = (o.huidig + ns.rest) | round(0, 'floor') | int %}
+                  {% set x = x if x >= 6 else 0 %}
+                  {% set ns.rest = ns.rest + (o.huidig - x) %}
+                  {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=x)}) %}
+                {% endif %}
               {% endfor %}
 
             {% elif ruimte < 0 %}
               {# OMLAAG, direct: eerst Rob, dan pas Sonia #}
               {% for l in laders | reverse %}
                 {% set o = ns.out[l.naam] %}
-                {% if o.bezig and ns.rest < 0 and o.huidig > 0 %}
+                {% if o.bezig and ns.rest < 0 and o.huidig > 0 and (is_state(l.fase, '3-fase') or states(l.fase) == slechtste) %}
                   {% set x = (o.huidig + ns.rest) | round(0, 'floor') | int %}
                   {% set x = x if x >= 6 else 0 %}
                   {% set ns.rest = ns.rest + (o.huidig - x) %}
@@ -1161,7 +1182,10 @@ automation:
           {% set sonia_laadt = is_state('binary_sensor.ev_lb_sonia_onder_controle', 'on')
                and is_state('sensor.ev_sonia_status_connector', 'Charging')
                and states('input_number.ev_lb_setpunt_sonia') | int(0) > 0 %}
-          {{ is_state('binary_sensor.ev_lb_overbelasting', 'on')
+          {# Alleen bij zware overschrijding (> 29 A) niet wachten; bij een lichte
+             piek regelen de laders zelf af (zie ev_lb_dynamisch) #}
+          {{ (is_state('binary_sensor.ev_lb_overbelasting', 'on')
+              and states('sensor.ev_lb_ruimte') | float(0) < -6)
              or not (rob_laadt or sonia_laadt) }}
       # Max één last per 5 s, zodat de meting kan bijkomen
       - condition: template
