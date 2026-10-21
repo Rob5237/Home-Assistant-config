@@ -32,33 +32,12 @@ views:
             heading_style: title
             icon: mdi:home-lightning-bolt
           - type: tile
-            entity: input_boolean.ev_lb_actief
-            name: Load balancing
-            icon: mdi:scale-balance
-            color: green
-            tap_action:
-              action: toggle
-          - type: tile
             entity: sensor.zonneplan_current_quarter_hourly_electricity_tariff
             name: Stroomprijs nu
           - type: tile
             entity: sensor.ev_lb_pv_overschot
             name: PV-overschot voor laders
             color: amber
-          - type: tile
-            entity: input_boolean.ev_sonia_direct_laden
-            name: Boost EV-Sonia
-            icon: mdi:lightning-bolt
-            color: red
-            tap_action:
-              action: toggle
-          - type: tile
-            entity: input_boolean.ev_rob_direct_laden
-            name: Boost EV-Rob
-            icon: mdi:lightning-bolt
-            color: red
-            tap_action:
-              action: toggle
           - type: entities
             title: Aansluiting 3x25 A
             show_header_toggle: false
