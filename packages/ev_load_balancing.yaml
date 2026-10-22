@@ -62,6 +62,15 @@ input_boolean:
     name: "EV-Rob – aankomende nacht overslaan"
     icon: mdi:weather-night-off
 
+input_text:
+  # Laatst gemelde id_tag per lader (blijft staan als de sessie eindigt)
+  ev_sonia_laatste_id_tag:
+    name: "EV-Sonia laatste id_tag"
+    max: 64
+  ev_rob_laatste_id_tag:
+    name: "EV-Rob laatste id_tag"
+    max: 64
+
 input_select:
   # Op welke fase(n) laadt de auto aan deze lader? Voor 1-fase auto's: de fase
   # waarop de auto op de P1-meter verschijnt (de Passat verscheen op L2, aan
@@ -913,6 +922,32 @@ automation:
       - action: input_boolean.turn_off
         target:
           entity_id: "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
+  - id: ev_id_tag_vastleggen
+    alias: "EV – id_tag per laadsessie vastleggen"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id:
+          - sensor.ev_sonia_id_tag
+          - sensor.ev_rob_id_tag
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.to_state.state not in ['', 'unknown', 'unavailable'] }}"
+    actions:
+      - variables:
+          lader: "{{ 'sonia' if 'sonia' in trigger.entity_id else 'rob' }}"
+          vorige: "{{ states('input_text.ev_' ~ lader ~ '_laatste_id_tag') | replace('unknown', '') | replace('unavailable', '') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: "input_text.ev_{{ lader }}_laatste_id_tag"
+        data:
+          value: "{{ trigger.to_state.state }}"
+      - action: logbook.log
+        data:
+          name: "EV id_tag"
+          message: >
+            Lader {{ lader }}: sessie met id_tag {{ trigger.to_state.state }}
+            ({{ 'zelfde als vorige sessie' if vorige == trigger.to_state.state else 'ANDERS dan vorige sessie (' ~ (vorige or 'geen') ~ ')' }}).
   - id: ev_nacht_overslaan_wissen
     alias: "EV – knop 'nacht overslaan' wissen op vertrektijd of bij boost"
     mode: parallel
