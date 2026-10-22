@@ -71,6 +71,17 @@ input_text:
     name: "EV-Rob laatste id_tag"
     max: 64
 
+input_datetime:
+  # Vastgelegd (aaneengesloten) laadblok per lader; zie automation ev_blok_vastleggen
+  ev_sonia_blok_start:
+    name: "EV-Sonia – start laadblok"
+    has_date: true
+    has_time: true
+  ev_rob_blok_start:
+    name: "EV-Rob – start laadblok"
+    has_date: true
+    has_time: true
+
 input_select:
   # Op welke fase(n) laadt de auto aan deze lader? Voor 1-fase auto's: de fase
   # waarop de auto op de P1-meter verschijnt (de Passat verscheen op L2, aan
@@ -462,15 +473,8 @@ template:
             {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
             {% set eind = dl + timedelta(days=1) %}
-            {% set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
-            {% set ns = namespace(l=[]) %}
-            {% for f in fc %}
-              {% set st = as_datetime(f.start_date) %}
-              {% if st is not none and st >= dl and st < eind %}
-                {% set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] %}
-              {% endif %}
-            {% endfor %}
-            {% set goed = (ns.l | sort(attribute='p'))[:k] | sort(attribute='t') %}
+            {% set kand = state_attr('sensor.ev_sonia_blokplanning', 'start_na_nacht') or '' %}
+            {% set goed = [{'t': kand | as_datetime}] if kand else [] %}
             {% if fc | count == 0 %}
               {% set s = dl.replace(hour=11, minute=0) if dl.hour < 11 else dl + timedelta(days=1) %}
               {% set tekst = (s.date() - now().date()).days %}
@@ -487,15 +491,10 @@ template:
             {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
             {% set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
-            {% set ns = namespace(l=[]) %}
-            {% for f in fc %}
-              {% set st = as_datetime(f.start_date) %}
-              {% set en = as_datetime(f.end_date) %}
-              {% if st is not none and en is not none and en > now() and st < dl %}
-                {% set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] %}
-              {% endif %}
-            {% endfor %}
-            {% set goed = (ns.l | sort(attribute='p'))[:k] | sort(attribute='t') %}
+            {# Vastgelegd aaneengesloten blok (input_datetime); alleen tonen als het bij deze cyclus hoort en nog niet voorbij is #}
+            {% set s_ts = state_attr('input_datetime.ev_sonia_blok_start', 'timestamp') | float(0) %}
+            {% set actief = s_ts > dl.timestamp() - 86400 and s_ts + k * 900 > now().timestamp() %}
+            {% set goed = [{'t': now().replace(microsecond=0) + timedelta(seconds=(s_ts - now().replace(microsecond=0).timestamp()) | round(0))}] if actief else [] %}
             {% if fc | count == 0 %}
               {{ 'vandaag 11:00' if now().hour < 11 else 'Vannacht om 00:00' }} (noodschema, geen prijzen)
             {% elif goed | count == 0 %}
@@ -528,15 +527,8 @@ template:
             {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
             {% set eind = dl + timedelta(days=1) %}
-            {% set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
-            {% set ns = namespace(l=[]) %}
-            {% for f in fc %}
-              {% set st = as_datetime(f.start_date) %}
-              {% if st is not none and st >= dl and st < eind %}
-                {% set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] %}
-              {% endif %}
-            {% endfor %}
-            {% set goed = (ns.l | sort(attribute='p'))[:k] | sort(attribute='t') %}
+            {% set kand = state_attr('sensor.ev_rob_blokplanning', 'start_na_nacht') or '' %}
+            {% set goed = [{'t': kand | as_datetime}] if kand else [] %}
             {% if fc | count == 0 %}
               {% set s = dl.replace(hour=11, minute=0) if dl.hour < 11 else dl + timedelta(days=1) %}
               {% set tekst = (s.date() - now().date()).days %}
@@ -553,15 +545,10 @@ template:
             {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
             {% set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
-            {% set ns = namespace(l=[]) %}
-            {% for f in fc %}
-              {% set st = as_datetime(f.start_date) %}
-              {% set en = as_datetime(f.end_date) %}
-              {% if st is not none and en is not none and en > now() and st < dl %}
-                {% set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] %}
-              {% endif %}
-            {% endfor %}
-            {% set goed = (ns.l | sort(attribute='p'))[:k] | sort(attribute='t') %}
+            {# Vastgelegd aaneengesloten blok (input_datetime); alleen tonen als het bij deze cyclus hoort en nog niet voorbij is #}
+            {% set s_ts = state_attr('input_datetime.ev_rob_blok_start', 'timestamp') | float(0) %}
+            {% set actief = s_ts > dl.timestamp() - 86400 and s_ts + k * 900 > now().timestamp() %}
+            {% set goed = [{'t': now().replace(microsecond=0) + timedelta(seconds=(s_ts - now().replace(microsecond=0).timestamp()) | round(0))}] if actief else [] %}
             {% if fc | count == 0 %}
               {{ 'vandaag 11:00' if now().hour < 11 else 'Vannacht om 00:00' }} (noodschema, geen prijzen){{ ' – Pas na EV-Sonia' if na else '' }}
             {% elif goed | count == 0 %}
@@ -571,6 +558,166 @@ template:
               {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ ' – Pas na EV-Sonia' if na else '' }}
             {% endif %}
           {% endif %}
+
+  - sensor:
+      # Aaneengesloten goedkoopste laadblok (k kwartieren). Alleen kandidaten;
+      # het vastleggen gebeurt in automation ev_blok_vastleggen.
+      - name: "EV Sonia blokplanning"
+        unique_id: ev_sonia_blokplanning
+        state: "ok"
+        attributes:
+          kandidaat_start: >-
+            {%- macro blok(fc, k, lo, hi, strikt) -%}
+            {%- set ns = namespace(l=[], best='', bp=-1) -%}
+            {%- for f in fc -%}
+            {%- set st = as_datetime(f.start_date) -%}
+            {%- set en = as_datetime(f.end_date) -%}
+            {%- if st is not none and en is not none and en <= hi and ((st >= lo) if strikt else (en > lo)) -%}
+            {%- set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- set l = ns.l | sort(attribute='t') -%}
+            {%- if k > 0 -%}
+            {%- for i in range(0, l | count - k + 1) -%}
+            {%- if (l[i + k - 1].t - l[i].t).total_seconds() == (k - 1) * 900 -%}
+            {%- set som = l[i:i + k] | sum(attribute='p') -%}
+            {%- if ns.bp < 0 or som < ns.bp -%}{%- set ns.bp = som -%}{%- set ns.best = l[i].t.isoformat() -%}{%- endif -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- endif -%}
+            {{- ns.best -}}
+            {%- endmacro -%}
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ blok(fc, k, now(), dl, false) }}
+          start_na_nacht: >-
+            {%- macro blok(fc, k, lo, hi, strikt) -%}
+            {%- set ns = namespace(l=[], best='', bp=-1) -%}
+            {%- for f in fc -%}
+            {%- set st = as_datetime(f.start_date) -%}
+            {%- set en = as_datetime(f.end_date) -%}
+            {%- if st is not none and en is not none and en <= hi and ((st >= lo) if strikt else (en > lo)) -%}
+            {%- set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- set l = ns.l | sort(attribute='t') -%}
+            {%- if k > 0 -%}
+            {%- for i in range(0, l | count - k + 1) -%}
+            {%- if (l[i + k - 1].t - l[i].t).total_seconds() == (k - 1) * 900 -%}
+            {%- set som = l[i:i + k] | sum(attribute='p') -%}
+            {%- if ns.bp < 0 or som < ns.bp -%}{%- set ns.bp = som -%}{%- set ns.best = l[i].t.isoformat() -%}{%- endif -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- endif -%}
+            {{- ns.best -}}
+            {%- endmacro -%}
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ blok(fc, k, dl, dl + timedelta(days=1), true) }}
+          eerste_start: >-
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {%- set ns = namespace(f='') -%}
+            {%- for f in fc | sort(attribute='start_date') -%}
+            {%- if not ns.f and as_datetime(f.end_date) > now() and as_datetime(f.end_date) <= dl -%}{%- set ns.f = as_datetime(f.start_date).isoformat() -%}{%- endif -%}
+            {%- endfor -%}
+            {{ ns.f }}
+          dl: >-
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ dl.isoformat() }}
+          k: >-
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ k }}
+      - name: "EV Rob blokplanning"
+        unique_id: ev_rob_blokplanning
+        state: "ok"
+        attributes:
+          kandidaat_start: >-
+            {%- macro blok(fc, k, lo, hi, strikt) -%}
+            {%- set ns = namespace(l=[], best='', bp=-1) -%}
+            {%- for f in fc -%}
+            {%- set st = as_datetime(f.start_date) -%}
+            {%- set en = as_datetime(f.end_date) -%}
+            {%- if st is not none and en is not none and en <= hi and ((st >= lo) if strikt else (en > lo)) -%}
+            {%- set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- set l = ns.l | sort(attribute='t') -%}
+            {%- if k > 0 -%}
+            {%- for i in range(0, l | count - k + 1) -%}
+            {%- if (l[i + k - 1].t - l[i].t).total_seconds() == (k - 1) * 900 -%}
+            {%- set som = l[i:i + k] | sum(attribute='p') -%}
+            {%- if ns.bp < 0 or som < ns.bp -%}{%- set ns.bp = som -%}{%- set ns.best = l[i].t.isoformat() -%}{%- endif -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- endif -%}
+            {{- ns.best -}}
+            {%- endmacro -%}
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ blok(fc, k, now(), dl, false) }}
+          start_na_nacht: >-
+            {%- macro blok(fc, k, lo, hi, strikt) -%}
+            {%- set ns = namespace(l=[], best='', bp=-1) -%}
+            {%- for f in fc -%}
+            {%- set st = as_datetime(f.start_date) -%}
+            {%- set en = as_datetime(f.end_date) -%}
+            {%- if st is not none and en is not none and en <= hi and ((st >= lo) if strikt else (en > lo)) -%}
+            {%- set ns.l = ns.l + [{'t': st, 'p': f.price_tax_included.amount | float(0)}] -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- set l = ns.l | sort(attribute='t') -%}
+            {%- if k > 0 -%}
+            {%- for i in range(0, l | count - k + 1) -%}
+            {%- if (l[i + k - 1].t - l[i].t).total_seconds() == (k - 1) * 900 -%}
+            {%- set som = l[i:i + k] | sum(attribute='p') -%}
+            {%- if ns.bp < 0 or som < ns.bp -%}{%- set ns.bp = som -%}{%- set ns.best = l[i].t.isoformat() -%}{%- endif -%}
+            {%- endif -%}
+            {%- endfor -%}
+            {%- endif -%}
+            {{- ns.best -}}
+            {%- endmacro -%}
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ blok(fc, k, dl, dl + timedelta(days=1), true) }}
+          eerste_start: >-
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {%- set ns = namespace(f='') -%}
+            {%- for f in fc | sort(attribute='start_date') -%}
+            {%- if not ns.f and as_datetime(f.end_date) > now() and as_datetime(f.end_date) <= dl -%}{%- set ns.f = as_datetime(f.start_date).isoformat() -%}{%- endif -%}
+            {%- endfor -%}
+            {{ ns.f }}
+          dl: >-
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ dl.isoformat() }}
+          k: >-
+            {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
+            {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
+            {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
+            {%- set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+            {{ k }}
 
   - sensor:
       # PV-overschot voor de laders: wat er na het huisverbruik overblijft.
@@ -624,18 +771,11 @@ template:
           {% else %}
             {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
-            {% set n = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
-            {% set ns = namespace(l=[]) %}
-            {% for f in fc %}
-              {% set st = as_datetime(f.start_date) %}
-              {% set en = as_datetime(f.end_date) %}
-              {% if st is not none and en is not none and en > now() and st < dl %}
-                {% set ns.l = ns.l + [{'t': st.timestamp(), 'e': en.timestamp(), 'p': f.price_tax_included.amount | float(0)}] %}
-              {% endif %}
-            {% endfor %}
-            {% set goed = (ns.l | sort(attribute='p'))[:n] %}
+            {# Aaneengesloten goedkoopste blok; vastgelegd in input_datetime (zie ev_blok_vastleggen) #}
+            {% set k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+            {% set s_ts = state_attr('input_datetime.ev_sonia_blok_start', 'timestamp') | float(0) %}
             {% set nu = now().timestamp() %}
-            {{ goed | selectattr('t', 'le', nu) | selectattr('e', 'gt', nu) | list | count > 0 }}
+            {{ s_ts > dl.timestamp() - 86400 and s_ts <= nu < s_ts + k * 900 }}
           {% endif %}
         attributes:
           doel_tijd: "{{ today_at(states('input_datetime.ev_sonia_vertrek')) if today_at(states('input_datetime.ev_sonia_vertrek')) > now() else today_at(states('input_datetime.ev_sonia_vertrek')) + timedelta(days=1) }}"
@@ -649,18 +789,11 @@ template:
           {% else %}
             {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
             {% if dl <= now() %}{% set dl = dl + timedelta(days=1) %}{% endif %}
-            {% set n = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
-            {% set ns = namespace(l=[]) %}
-            {% for f in fc %}
-              {% set st = as_datetime(f.start_date) %}
-              {% set en = as_datetime(f.end_date) %}
-              {% if st is not none and en is not none and en > now() and st < dl %}
-                {% set ns.l = ns.l + [{'t': st.timestamp(), 'e': en.timestamp(), 'p': f.price_tax_included.amount | float(0)}] %}
-              {% endif %}
-            {% endfor %}
-            {% set goed = (ns.l | sort(attribute='p'))[:n] %}
+            {# Aaneengesloten goedkoopste blok; vastgelegd in input_datetime (zie ev_blok_vastleggen) #}
+            {% set k = (states('input_number.ev_lb_rob_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+            {% set s_ts = state_attr('input_datetime.ev_rob_blok_start', 'timestamp') | float(0) %}
             {% set nu = now().timestamp() %}
-            {{ goed | selectattr('t', 'le', nu) | selectattr('e', 'gt', nu) | list | count > 0 }}
+            {{ s_ts > dl.timestamp() - 86400 and s_ts <= nu < s_ts + k * 900 }}
           {% endif %}
         attributes:
           doel_tijd: "{{ today_at(states('input_datetime.ev_rob_vertrek')) if today_at(states('input_datetime.ev_rob_vertrek')) > now() else today_at(states('input_datetime.ev_rob_vertrek')) + timedelta(days=1) }}"
@@ -948,6 +1081,44 @@ automation:
           message: >
             Lader {{ lader }}: sessie met id_tag {{ trigger.to_state.state }}
             ({{ 'zelfde als vorige sessie' if vorige == trigger.to_state.state else 'ANDERS dan vorige sessie (' ~ (vorige or 'geen') ~ ')' }}).
+  - id: ev_blok_vastleggen
+    alias: "EV – goedkoopste laadblok vastleggen"
+    mode: queued
+    triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id:
+          - sensor.ev_sonia_blokplanning
+          - sensor.ev_rob_blokplanning
+    actions:
+      - repeat:
+          for_each: ["sonia", "rob"]
+          sequence:
+            - variables:
+                p: "sensor.ev_{{ repeat.item }}_blokplanning"
+                h: "input_datetime.ev_{{ repeat.item }}_blok_start"
+                s_ts: "{{ state_attr(h, 'timestamp') | float(0) }}"
+                nu: "{{ now().timestamp() }}"
+                dl_iso: "{{ state_attr(p, 'dl') or '' }}"
+                kand: "{{ state_attr(p, 'kandidaat_start') or '' }}"
+                eerst: "{{ state_attr(p, 'eerste_start') or '' }}"
+                # Blok hoort bij de lopende cyclus (na de vorige vertrektijd)
+                cyclus: "{{ dl_iso != '' and s_ts > (dl_iso | as_datetime).timestamp() - 86400 }}"
+                # Gestart (loopt of is klaar): niet meer verschuiven
+                vast: "{{ cyclus and nu >= s_ts }}"
+                nieuw: "{{ kand or eerst }}"
+            - if: >
+                {{ not vast and nieuw != ''
+                   and ((nieuw | as_datetime).timestamp() | round(0)) != (s_ts | round(0)) }}
+              then:
+                - action: input_datetime.set_datetime
+                  target:
+                    entity_id: "{{ h }}"
+                  data:
+                    timestamp: "{{ (nieuw | as_datetime).timestamp() }}"
   - id: ev_nacht_overslaan_wissen
     alias: "EV – knop 'nacht overslaan' wissen op vertrektijd of bij boost"
     mode: parallel
