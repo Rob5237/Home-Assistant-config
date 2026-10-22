@@ -142,8 +142,10 @@ views:
             entities:
               - entity: input_datetime.ev_sonia_vertrek
                 name: Vertrek
-              - entity: input_number.ev_lb_sonia_goedkoop_uren
-                name: Goedkoopste uren laden
+              - entity: input_number.ev_lb_sonia_plan_kwh
+                name: Te laden kWh (planning)
+              - entity: sensor.ev_sonia_plan_uren
+                name: Geplande laadduur
               - entity: binary_sensor.ev_lb_sonia_goedkoop_uur
                 name: Nu goedkoop uur
               - entity: binary_sensor.ev_lb_sonia_pv_laden
@@ -236,8 +238,10 @@ views:
             entities:
               - entity: input_datetime.ev_rob_vertrek
                 name: Vertrek
-              - entity: input_number.ev_lb_rob_goedkoop_uren
-                name: Goedkoopste uren laden
+              - entity: input_number.ev_lb_rob_plan_kwh
+                name: Te laden kWh (planning)
+              - entity: sensor.ev_rob_plan_uren
+                name: Geplande laadduur
               - entity: binary_sensor.ev_lb_rob_goedkoop_uur
                 name: Nu goedkoop uur
               - entity: binary_sensor.ev_lb_rob_pv_laden
