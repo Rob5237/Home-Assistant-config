@@ -551,10 +551,14 @@ template:
           {% set s_k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
           {% set sonia_gepland = is_state('input_boolean.ev_sonia_nacht_overslaan', 'off')
                                  and s_ts <= r_ts < s_ts + s_k * 900 %}
-          {% set na = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
+          {% set sonia_actief = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
                       and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
                            or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on')
                            or sonia_gepland) %}
+          {# 's Nachts (22:00-07:00) laden beide samen (deelmodus): Rob wacht dan niet op Sonia #}
+          {% set r_uur = (r_ts | timestamp_custom('%H') | int(12)) %}
+          {% set samen = sonia_actief and (is_state('binary_sensor.ev_lb_deelmodus', 'on') or r_uur >= 22 or r_uur < 7) %}
+          {% set na = sonia_actief and not samen %}
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
@@ -592,12 +596,12 @@ template:
             {% set actief = s_ts > dl.timestamp() - 86400 and s_ts + k * 900 > now().timestamp() %}
             {% set goed = [{'t': now().replace(microsecond=0) + timedelta(seconds=(s_ts - now().replace(microsecond=0).timestamp()) | round(0))}] if actief else [] %}
             {% if fc | count == 0 %}
-              {{ 'vandaag 11:00' if now().hour < 11 else 'Vannacht om 00:00' }} (noodschema, geen prijzen){{ ' – Pas na EV-Sonia' if na else '' }}
+              {{ 'vandaag 11:00' if now().hour < 11 else 'Vannacht om 00:00' }} (noodschema, geen prijzen){{ ' – Pas na EV-Sonia' if na else ' – Samen met EV-Sonia' if samen else '' }}
             {% elif goed | count == 0 %}
               Geen goedkoop uur gepland
             {% else %}
               {% set s = goed[0].t | as_local %}
-              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ ' – Pas na EV-Sonia' if na else '' }}
+              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ ' – Pas na EV-Sonia' if na else ' – Samen met EV-Sonia' if samen else '' }}
             {% endif %}
           {% endif %}
 
