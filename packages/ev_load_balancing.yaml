@@ -1059,10 +1059,12 @@ automation:
             {% endfor %}
 
             {% if overbelast and ruimte < -6 %}
-              {# Noodstop: zware overschrijding (> 29 A): alles wat laadt naar 0 A #}
+              {# Noodstop: zware overschrijding (> 29 A): alles wat laadt eerst naar
+                 6 A (de auto blijft dan doorladen); staat hij al op <= 6 A en blijft
+                 het overbelast, dan naar 0 A #}
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
-                {% if o.bezig %}{% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=0)}) %}{% endif %}
+                {% if o.bezig %}{% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if o.huidig > 6 else 0))}) %}{% endif %}
               {% endfor %}
 
             {% elif overbelast %}
@@ -1271,6 +1273,65 @@ automation:
                   data:
                     name: "EV load balancing"
                     message: "Lader {{ repeat.item.naam }} gestart (laden toegestaan)."
+
+  # Na een korte noodstop (0 A) pauzeert de auto soms zelf (SuspendedEV) en pakt
+  # het laden niet vanzelf weer op. Dan het profiel opnieuw sturen (zonder de
+  # sessie te stoppen). Alleen binnen 10 min na een overbelasting, zodat een
+  # volle accu niet eindeloos wordt 'gewekt'.
+  - id: ev_lb_herstel_na_noodstop
+    alias: "EV – laden hervatten na noodstop (auto gepauzeerd)"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id:
+          - sensor.ev_rob_status_connector
+          - sensor.ev_sonia_status_connector
+        to: "SuspendedEV"
+        for: "00:00:20"
+        id: pauze
+      - trigger: time_pattern
+        seconds: "/30"
+        id: herhaal
+    conditions:
+      - condition: state
+        entity_id: input_boolean.ev_lb_actief
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ is_state('binary_sensor.ev_lb_overbelasting', 'on')
+             or (now() - states.binary_sensor.ev_lb_overbelasting.last_changed).total_seconds() < 600 }}
+    actions:
+      - repeat:
+          for_each:
+            - {naam: sonia, devid: ev_sonia}
+            - {naam: rob, devid: ev_rob}
+          sequence:
+            - if:
+                - condition: template
+                  value_template: >
+                    {% set n = repeat.item.naam %}
+                    {{ is_state('sensor.ev_' ~ n ~ '_status_connector', 'SuspendedEV')
+                       and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() >= 20
+                       and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() < 600
+                       and (is_state('binary_sensor.ev_lb_' ~ n ~ '_laden_toegestaan', 'on')
+                            or is_state('binary_sensor.ev_lb_' ~ n ~ '_pv_laden', 'on'))
+                       and is_state('switch.ev_' ~ n ~ '_charge_control', 'on')
+                       and states('input_number.ev_lb_setpunt_' ~ n) | int(0) >= 6
+                       and states('sensor.ev_lb_ruimte') | float(0) >= 7 }}
+              then:
+                - action: ocpp.clear_profile
+                  data:
+                    devid: "{{ repeat.item.devid }}"
+                  continue_on_error: true
+                - action: script.ev_lb_profiel
+                  data:
+                    devid: "{{ repeat.item.devid }}"
+                    ampere: 6
+                    duur: 60
+                - action: logbook.log
+                  data:
+                    name: "EV load balancing"
+                    message: "Lader {{ repeat.item.naam }}: laden hervat na noodstop (auto was gepauzeerd)."
 
   # ---------------------------------------------------------------
   # Noodstop-acties naast de regeling (bijverwarming uit + melding)
