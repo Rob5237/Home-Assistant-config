@@ -72,6 +72,15 @@ input_text:
     max: 64
 
 input_datetime:
+  # Laatste keer dat het setpunt van 0 A omhoog ging (voor 'laden hervatten')
+  ev_sonia_nul_verlaten:
+    name: "EV-Sonia – laatst van 0 A omhoog"
+    has_date: true
+    has_time: true
+  ev_rob_nul_verlaten:
+    name: "EV-Rob – laatst van 0 A omhoog"
+    has_date: true
+    has_time: true
   # Vastgelegd (aaneengesloten) laadblok per lader; zie automation ev_blok_vastleggen
   ev_sonia_blok_start:
     name: "EV-Sonia – start laadblok"
@@ -109,6 +118,20 @@ input_number:
     min: 0
     max: 20
     step: 1
+    mode: box
+  ev_lb_deel_max_sonia:
+    name: "EV LB – max stroom Sonia bij samen laden (nacht)"
+    min: 6
+    max: 16
+    step: 1
+    unit_of_measurement: A
+    mode: box
+  ev_lb_deel_max_rob:
+    name: "EV LB – max stroom Rob bij samen laden (nacht)"
+    min: 6
+    max: 16
+    step: 1
+    unit_of_measurement: A
     mode: box
   ev_lb_rob_goedkoop_uren:
     name: "EV LB – goedkoopste uren laden Rob"
@@ -863,6 +886,27 @@ template:
         delay_on: "00:00:03"
         availability: "{{ has_value('sensor.ev_lb_ruimte') }}"
         state: "{{ states('sensor.ev_lb_ruimte') | float(0) < 0 }}"
+      # Tekort (boven regelgrens) 12 s aanhoudend: korte pulsen (Quooker, 5-10 s)
+      # leiden niet tot terugregelen van de laders.
+      - name: "EV LB tekort aanhoudend"
+        unique_id: ev_lb_tekort_aanhoudend
+        delay_on: "00:00:12"
+        availability: "{{ has_value('sensor.ev_lb_ruimte') }}"
+        state: "{{ states('sensor.ev_lb_ruimte') | float(0) < 0 }}"
+      # 's Nachts (22:00-07:00) laden beide auto's tegelijk met een eigen
+      # maximum (Sonia 12 A, Rob 10 A: samen past dat op L2 binnen de regelgrens)
+      # in plaats van Rob te laten wachten tot Sonia klaar is. Overdag: strikte voorrang.
+      - name: "EV LB deelmodus"
+        unique_id: ev_lb_deelmodus
+        state: >
+          {% set nacht = now().hour >= 22 or now().hour < 7 %}
+          {% set sonia = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
+                         and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
+                              or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on')) %}
+          {% set rob = states('sensor.ev_rob_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
+                       and (is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on')
+                            or is_state('binary_sensor.ev_lb_rob_pv_laden', 'on')) %}
+          {{ nacht and sonia and rob }}
       # Echte overschrijding van 25 A, 15 s aanhoudend (de Quooker geeft elke ~36 min
       # een puls van 5-10 s van ~9 A op L2; dat is voor de zekering geen gevaar).
       # Zware overschrijding (> zekering + 4 A) telt na 3 s, zoals voorheen.
@@ -1185,6 +1229,24 @@ automation:
                         entity_id: "{{ tel_ent }}"
                       data:
                         value: 0
+  - id: ev_nul_verlaten_vastleggen
+    alias: "EV – vastleggen wanneer een setpunt van 0 A omhoog gaat"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_number.ev_lb_setpunt_sonia
+          - input_number.ev_lb_setpunt_rob
+        from: "0.0"
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | float(0) > 0 }}"
+    actions:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: "input_datetime.ev_{{ 'sonia' if 'sonia' in trigger.entity_id else 'rob' }}_nul_verlaten"
+        data:
+          timestamp: "{{ now().timestamp() }}"
   - id: ev_blok_vastleggen
     alias: "EV – goedkoopste laadblok vastleggen"
     mode: queued
@@ -1279,7 +1341,9 @@ automation:
         entity_id: sensor.ev_lb_ruimte
         id: meting
       - trigger: state
-        entity_id: binary_sensor.ev_lb_overbelasting
+        entity_id:
+          - binary_sensor.ev_lb_overbelasting
+          - binary_sensor.ev_lb_tekort_aanhoudend
         to: "on"
         id: meting
       - trigger: time_pattern
@@ -1360,6 +1424,8 @@ automation:
           overbelast: "{{ is_state('binary_sensor.ev_lb_overbelasting', 'on') }}"
           niveau: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) }}"
           verversen: "{{ trigger.id == 'ramp' and now().second % 20 < 10 }}"
+          deel: "{{ is_state('binary_sensor.ev_lb_deelmodus', 'on') }}"
+          tekort_lang: "{{ is_state('binary_sensor.ev_lb_tekort_aanhoudend', 'on') }}"
       - condition: template
         value_template: "{{ trigger.id != 'meting' or ruimte < 0 or overbelast }}"
       - variables:
@@ -1403,8 +1469,8 @@ automation:
                 {% endif %}
               {% endfor %}
 
-            {% elif ruimte < 0 %}
-              {# OMLAAG, direct: eerst Rob, dan pas Sonia #}
+            {% elif ruimte < 0 and (ruimte < -6 or tekort_lang) %}
+              {# OMLAAG na 12 s tekort (of direct bij > 6 A tekort): eerst Rob, dan pas Sonia #}
               {% for l in laders | reverse %}
                 {% set o = ns.out[l.naam] %}
                 {% if o.bezig and ns.rest < 0 and o.huidig > 0 and (is_state(l.fase, '3-fase') or states(l.fase) == slechtste) %}
@@ -1419,7 +1485,7 @@ automation:
               {# Nieuwe sessie op de lader die de trigger gaf: laag beginnen #}
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
-                {% set sw = l.naam != 'sonia' and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
+                {% set sw = l.naam != 'sonia' and not deel and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
                             and ns.out['sonia'].huidig < states('input_number.ev_lb_max_sonia') | int(16) %}
                 {% if o.bezig and trigger.entity_id == l.status %}
                   {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if (ruimte >= 0 and not sw) else 0))}) %}
@@ -1432,8 +1498,10 @@ automation:
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
                 {% set mx = states(l.max) | int(10) %}
-                {# STRIKTE VOORRANG: Rob mag pas omhoog als Sonia op haar max zit (of niet laadt/mag laden) #}
-                {% set wacht = l.naam != 'sonia' and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
+                {% if deel %}{% set mx = [mx, states('input_number.ev_lb_deel_max_' ~ l.naam) | int(mx)] | min %}{% endif %}
+                {# STRIKTE VOORRANG (overdag): Rob mag pas omhoog als Sonia op haar max zit (of niet laadt/mag laden).
+                   's Nachts (deelmodus) laden beide tegelijk met eigen maximum. #}
+                {% set wacht = l.naam != 'sonia' and not deel and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
                                and ns.out['sonia'].nieuw < states('input_number.ev_lb_max_sonia') | int(16) %}
                 {% if o.bezig and (o.tg or o.pv) and not wacht %}
                   {% if o.huidig > mx %}
@@ -1455,6 +1523,7 @@ automation:
               {% set s = ns.out['sonia'] %}
               {% set r = ns.out['rob'] %}
               {% set smax = states('input_number.ev_lb_max_sonia') | int(16) %}
+              {% if deel %}{% set smax = [smax, states('input_number.ev_lb_deel_max_sonia') | int(smax)] | min %}{% endif %}
               {% set rmin = states('input_number.ev_lb_min_rob') | int(6) %}
               {% set s_neemt_af = states(sonia_stroom) | float(99) >= s.huidig - 2 %}
               {% if s.bezig and r.bezig and s.huidig > 0 and s.nieuw == s.huidig
@@ -1555,6 +1624,7 @@ automation:
                        EN er minstens 7 A ruimte is (6 A minimum + 1 A buffer); zonder ruimte
                        gaf de start een piek van > 23 A op de zwaarst belaste fase. #}
                     {% set sonia_wacht = repeat.item.naam == 'rob'
+                         and not is_state('binary_sensor.ev_lb_deelmodus', 'on')
                          and states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
                          and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
                               or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on'))
@@ -1616,10 +1686,6 @@ automation:
       - condition: state
         entity_id: input_boolean.ev_lb_actief
         state: "on"
-      - condition: template
-        value_template: >
-          {{ is_state('binary_sensor.ev_lb_overbelasting', 'on')
-             or (now() - states.binary_sensor.ev_lb_overbelasting.last_changed).total_seconds() < 600 }}
     actions:
       - repeat:
           for_each:
@@ -1630,7 +1696,12 @@ automation:
                 - condition: template
                   value_template: >
                     {% set n = repeat.item.naam %}
-                    {{ is_state('sensor.ev_' ~ n ~ '_status_connector', 'SuspendedEV')
+                    {# Binnen 10 min na een overbelasting OF nadat dit setpunt van 0 A omhoog ging #}
+                    {% set nul_ts = state_attr('input_datetime.ev_' ~ n ~ '_nul_verlaten', 'timestamp') | float(0) %}
+                    {% set recent = is_state('binary_sensor.ev_lb_overbelasting', 'on')
+                         or (now() - states.binary_sensor.ev_lb_overbelasting.last_changed).total_seconds() < 600
+                         or now().timestamp() - nul_ts < 600 %}
+                    {{ recent and is_state('sensor.ev_' ~ n ~ '_status_connector', 'SuspendedEV')
                        and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() >= 20
                        and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() < 600
                        and (is_state('binary_sensor.ev_lb_' ~ n ~ '_laden_toegestaan', 'on')
