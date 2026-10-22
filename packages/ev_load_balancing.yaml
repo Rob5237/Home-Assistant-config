@@ -162,7 +162,7 @@ input_number:
     min: 0
     max: 5
     step: 0.5
-    initial: 2
+    initial: 1
     unit_of_measurement: A
     mode: box
   # Sonia heeft voorrang: krijgt ruimte als eerste en mag tot haar max.
@@ -1456,6 +1456,9 @@ automation:
           niveau: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) }}"
           verversen: "{{ trigger.id == 'ramp' and now().second % 20 < 10 }}"
           deel: "{{ is_state('binary_sensor.ev_lb_deelmodus', 'on') }}"
+          # 'Zwaar' = meer dan zekering + 4 A (29 A), onafhankelijk van de marge:
+          # ruimte < -(4 + marge)
+          zwaar: "{{ -(4 + states('input_number.ev_lb_marge') | float(2)) }}"
           tekort_lang: "{{ is_state('binary_sensor.ev_lb_tekort_aanhoudend', 'on') }}"
       - condition: template
         value_template: "{{ trigger.id != 'meting' or ruimte < 0 or overbelast }}"
@@ -1475,7 +1478,7 @@ automation:
               {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on')}}) %}
             {% endfor %}
 
-            {% if overbelast and ruimte < -6 %}
+            {% if overbelast and ruimte < zwaar %}
               {# Noodstop: zware overschrijding (> 29 A): alles wat laadt eerst naar
                  6 A (de auto blijft dan doorladen); staat hij al op <= 6 A en blijft
                  het overbelast, dan naar 0 A #}
@@ -1500,7 +1503,7 @@ automation:
                 {% endif %}
               {% endfor %}
 
-            {% elif ruimte < 0 and (ruimte < -6 or tekort_lang) %}
+            {% elif ruimte < 0 and (ruimte < zwaar or tekort_lang) %}
               {# OMLAAG na 12 s tekort (of direct bij > 6 A tekort): eerst Rob, dan pas Sonia #}
               {% for l in laders | reverse %}
                 {% set o = ns.out[l.naam] %}
@@ -1768,7 +1771,8 @@ automation:
     actions:
       # Lichte piek (25-29 A, bv. Quooker): de laders regelen zelf af, alleen loggen.
       # Zware overschrijding (> 29 A): noodstop-meldingen zoals voorheen.
-      - if: "{{ states('sensor.ev_lb_ruimte') | float(0) >= -6 }}"
+      # 'Zwaar' = meer dan zekering + 4 A, dus ruimte < -(4 + marge)
+      - if: "{{ states('sensor.ev_lb_ruimte') | float(0) >= -(4 + states('input_number.ev_lb_marge') | float(2)) }}"
         then:
           - action: logbook.log
             data:
@@ -1853,7 +1857,7 @@ automation:
           {# Alleen bij zware overschrijding (> 29 A) niet wachten; bij een lichte
              piek regelen de laders zelf af (zie ev_lb_dynamisch) #}
           {{ (is_state('binary_sensor.ev_lb_overbelasting', 'on')
-              and states('sensor.ev_lb_ruimte') | float(0) < -6)
+              and states('sensor.ev_lb_ruimte') | float(0) < -(4 + states('input_number.ev_lb_marge') | float(2)))
              or not (rob_laadt or sonia_laadt) }}
       # Max één last per 5 s, zodat de meting kan bijkomen
       - condition: template
