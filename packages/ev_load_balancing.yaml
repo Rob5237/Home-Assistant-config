@@ -98,6 +98,18 @@ input_select:
 input_number:
   # Hoeveel van de goedkoopste uren (tot de vertrektijd) mag deze lader laden?
   # Geen initial: wordt bewaard. 6 u x 3,5 kW = 21 kWh.
+  ev_sonia_fase_bewijs:
+    name: "EV-Sonia – bewijsteller 1-fase (intern)"
+    min: 0
+    max: 20
+    step: 1
+    mode: box
+  ev_rob_fase_bewijs:
+    name: "EV-Rob – bewijsteller 1-fase (intern)"
+    min: 0
+    max: 20
+    step: 1
+    mode: box
   ev_lb_rob_goedkoop_uren:
     name: "EV LB – goedkoopste uren laden Rob"
     min: 0
@@ -510,9 +522,16 @@ template:
         state: >-
           {# Sonia heeft voorrang: zolang zij aangesloten is en nog laadt/wacht, start Rob pas daarna #}
           {# Alleen als Sonia ook echt mag laden (niet bij 'nacht overslaan' / buiten haar uren) #}
+          {# Ook vooruitkijkend: Sonia's geplande blok loopt op Rob's startmoment (en ze slaat de nacht niet over) #}
+          {% set r_ts = state_attr('input_datetime.ev_rob_blok_start', 'timestamp') | float(0) %}
+          {% set s_ts = state_attr('input_datetime.ev_sonia_blok_start', 'timestamp') | float(0) %}
+          {% set s_k = (states('input_number.ev_lb_sonia_goedkoop_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+          {% set sonia_gepland = is_state('input_boolean.ev_sonia_nacht_overslaan', 'off')
+                                 and s_ts <= r_ts < s_ts + s_k * 900 %}
           {% set na = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
                       and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
-                           or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on')) %}
+                           or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on')
+                           or sonia_gepland) %}
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
@@ -1081,6 +1100,91 @@ automation:
           message: >
             Lader {{ lader }}: sessie met id_tag {{ trigger.to_state.state }}
             ({{ 'zelfde als vorige sessie' if vorige == trigger.to_state.state else 'ANDERS dan vorige sessie (' ~ (vorige or 'geen') ~ ')' }}).
+  # ---------------------------------------------------------------
+  # Aantal fasen van de aangesloten auto herkennen aan het laadvermogen.
+  # De lader meldt geen fasen; wel het (afgeleide) vermogen. Bij een stabiel
+  # setpunt geldt: vermogen / (230 V x setpunt) = aantal fasen dat de auto
+  # gebruikt (1 of 3). > 2,0 kan alleen 3-fase zijn -> direct. <= 1,25 (de auto
+  # neemt dan 1 fase af) pas na 3 opeenvolgende metingen, om een 3-fase auto
+  # aan het eind van de lading (neemt minder af dan het setpunt) niet als 1-fase
+  # te zien. 1-fase staat op L2 (de Passat verscheen daar aan beide laders).
+  # ---------------------------------------------------------------
+  - id: ev_fasen_detecteren
+    alias: "EV – aantal fasen van de auto herkennen"
+    mode: queued
+    triggers:
+      - trigger: time_pattern
+        seconds: "/15"
+    actions:
+      - repeat:
+          for_each:
+            - {naam: sonia, stabiel: 90}
+            - {naam: rob, stabiel: 45}
+          sequence:
+            - variables:
+                n: "{{ repeat.item.naam }}"
+                fase_ent: "input_select.ev_lb_{{ n }}_fase"
+                tel_ent: "input_number.ev_{{ n }}_fase_bewijs"
+                i_set: "{{ states('input_number.ev_lb_setpunt_' ~ n) | float(0) }}"
+                p: "{{ states('sensor.ev_' ~ n ~ '_vermogen') | float(0) }}"
+                stabiel_s: "{{ (now() - states['input_number.ev_lb_setpunt_' ~ n].last_changed).total_seconds() }}"
+                geldig: >
+                  {{ is_state('sensor.ev_' ~ n ~ '_status_connector', 'Charging')
+                     and i_set >= 6 and p > 500 and stabiel_s >= repeat.item.stabiel }}
+                r: "{{ (p / (230 * i_set)) if i_set > 0 else 0 }}"
+                huidig: "{{ states(fase_ent) }}"
+                teller: "{{ states(tel_ent) | int(0) }}"
+            - choose:
+                # Sterk bewijs voor 3 fasen (een 1-fase auto kan niet > 1,1 x halen)
+                - conditions: "{{ geldig and r >= 2.0 and huidig != '3-fase' }}"
+                  sequence:
+                    - action: input_select.select_option
+                      target:
+                        entity_id: "{{ fase_ent }}"
+                      data:
+                        option: "3-fase"
+                    - action: input_number.set_value
+                      target:
+                        entity_id: "{{ tel_ent }}"
+                      data:
+                        value: 0
+                    - action: logbook.log
+                      data:
+                        name: "EV fasen"
+                        message: "Lader {{ n }}: auto laadt op 3 fasen ({{ p | round(0) }} W bij {{ i_set | round(0) }} A)."
+                # Auto neemt maar 1 fase af: pas na 3 metingen achter elkaar
+                - conditions: "{{ geldig and 0.7 <= r <= 1.25 and huidig == '3-fase' }}"
+                  sequence:
+                    - if: "{{ teller >= 2 }}"
+                      then:
+                        - action: input_select.select_option
+                          target:
+                            entity_id: "{{ fase_ent }}"
+                          data:
+                            option: "L2"
+                        - action: input_number.set_value
+                          target:
+                            entity_id: "{{ tel_ent }}"
+                          data:
+                            value: 0
+                        - action: logbook.log
+                          data:
+                            name: "EV fasen"
+                            message: "Lader {{ n }}: auto laadt op 1 fase, L2 ({{ p | round(0) }} W bij {{ i_set | round(0) }} A)."
+                      else:
+                        - action: input_number.set_value
+                          target:
+                            entity_id: "{{ tel_ent }}"
+                          data:
+                            value: "{{ teller + 1 }}"
+              default:
+                - if: "{{ teller > 0 and geldig }}"
+                  then:
+                    - action: input_number.set_value
+                      target:
+                        entity_id: "{{ tel_ent }}"
+                      data:
+                        value: 0
   - id: ev_blok_vastleggen
     alias: "EV – goedkoopste laadblok vastleggen"
     mode: queued
