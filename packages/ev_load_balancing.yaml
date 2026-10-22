@@ -699,11 +699,18 @@ template:
         delay_on: "00:00:03"
         availability: "{{ has_value('sensor.ev_lb_ruimte') }}"
         state: "{{ states('sensor.ev_lb_ruimte') | float(0) < 0 }}"
-      # Echte overschrijding van 25 A, 3 s aanhoudend
+      # Echte overschrijding van 25 A, 15 s aanhoudend (de Quooker geeft elke ~36 min
+      # een puls van 5-10 s van ~9 A op L2; dat is voor de zekering geen gevaar).
+      # Zware overschrijding (> zekering + 4 A) telt na 3 s, zoals voorheen.
       - name: "EV LB overbelasting"
         unique_id: ev_lb_overbelasting
         device_class: problem
-        delay_on: "00:00:03"
+        delay_on: >
+          {% set z = states('input_number.ev_lb_zekering') | float(25) %}
+          {% set m = [ states('sensor.ev_lb_stroom_l1') | float(0),
+                       states('sensor.ev_lb_stroom_l2') | float(0),
+                       states('sensor.ev_lb_stroom_l3') | float(0) ] | max %}
+          {{ '00:00:03' if m > z + 4 else '00:00:15' }}
         state: >
           {% set z = states('input_number.ev_lb_zekering') | float(25) %}
           {{ [ states('sensor.ev_lb_stroom_l1') | float(0),
