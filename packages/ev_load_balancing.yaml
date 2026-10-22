@@ -501,7 +501,10 @@ template:
         icon: mdi:clock-start
         state: >-
           {# Sonia heeft voorrang: zolang zij aangesloten is en nog laadt/wacht, start Rob pas daarna #}
-          {% set na = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE'] %}
+          {# Alleen als Sonia ook echt mag laden (niet bij 'nacht overslaan' / buiten haar uren) #}
+          {% set na = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
+                      and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
+                           or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on')) %}
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
