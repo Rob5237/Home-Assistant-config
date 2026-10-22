@@ -442,7 +442,11 @@ template:
           {% if states('sensor.ev_sonia_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
-            Nu
+            {# Laden mag nu; wat de tekst zegt hangt af van wat de lader/auto echt doet #}
+            {% set st = states('sensor.ev_sonia_status_connector') %}
+            {{ 'De accu wordt nu opgeladen' if st == 'Charging'
+               else 'Laden toegestaan, maar de auto neemt geen stroom af' if st == 'SuspendedEV'
+               else 'Laden toegestaan, wacht op start' }}
           {% elif is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') %}
             {# Na de nacht: eerste van de goedkoopste kwartieren in het venster vanaf de vertrektijd #}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
@@ -501,7 +505,11 @@ template:
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
-            {{ 'Pas na EV-Sonia' if na and not is_state('sensor.ev_rob_status_connector', 'Charging') else 'Nu' }}
+            {% set st = states('sensor.ev_rob_status_connector') %}
+            {{ 'De accu wordt nu opgeladen' if st == 'Charging'
+               else 'Pas na EV-Sonia' if na
+               else 'Laden toegestaan, maar de auto neemt geen stroom af' if st == 'SuspendedEV'
+               else 'Laden toegestaan, wacht op start' }}
           {% elif is_state('input_boolean.ev_rob_nacht_overslaan', 'on') %}
             {# Na de nacht: eerste van de goedkoopste kwartieren in het venster vanaf de vertrektijd #}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}

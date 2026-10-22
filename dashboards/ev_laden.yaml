@@ -319,11 +319,12 @@ views:
             card:
               type: button
               entity: input_boolean.ev_sonia_nacht_overslaan
-              name: Morgen thuis blijven; Accu 's-nachts NIET opladen
+              name: "Morgen thuis blijven\nAccu 's-nachts NIET opladen"
               icon: mdi:weather-night
               show_state: false
               card_mod:
                 style: |
+                  span { white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
                   ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
@@ -544,11 +545,12 @@ views:
             card:
               type: button
               entity: input_boolean.ev_rob_nacht_overslaan
-              name: Morgen thuis blijven; Accu 's-nachts NIET opladen
+              name: "Morgen thuis blijven\nAccu 's-nachts NIET opladen"
               icon: mdi:weather-night
               show_state: false
               card_mod:
                 style: |
+                  span { white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
                   ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
