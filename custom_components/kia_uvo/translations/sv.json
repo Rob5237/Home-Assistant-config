@@ -1,0 +1,942 @@
+{
+  "title": "Hyundai / Kia Connect",
+  "config": {
+    "step": {
+      "credentials_password": {
+        "title": "Hyundai / Kia Connect - Inloggningsuppgifter",
+        "description": "Ange dina kontouppgifter.",
+        "data": {
+          "username": "Användarnamn",
+          "password": "Lösenord",
+          "pin": "PIN"
+        }
+      },
+      "credentials_token": {
+        "title": "Hyundai / Kia Connect - Inloggningsuppgifter",
+        "description": "Ange dina kontouppgifter. Europa kräver särskild hantering av token — se README.",
+        "data": {
+          "username": "Användarnamn",
+          "password": "Token",
+          "pin": "PIN"
+        }
+      },
+      "user": {
+        "title": "Hyundai / Kia Connect - Autentisering",
+        "description": "Konfigurera din Hyundai (Bluelink) / Kia (Uvo) Connect för integration med Home Assistant.",
+        "data": {
+          "region": "Region",
+          "brand": "Märke"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Hyundai / Kia Connect - Reautentisering",
+        "description": "Kontot kan inte autentiseres. Klicka på Send för att sätta upp på nytt."
+      },
+      "select_otp_method": {
+        "title": "Välj OTP-metod",
+        "description": "Ditt konto kräver verifiering. Välj hur du vill ta emot ditt engångslösenord.",
+        "data": {
+          "method": "Leveransmetod för OTP"
+        }
+      },
+      "enter_otp": {
+        "title": "Ange engångslösenord",
+        "description": "Ange verifieringskoden som skickades via den valda metoden.",
+        "data": {
+          "otp": "Engångslösenord"
+        }
+      },
+      "reconfigure": {
+        "title": "Hyundai / Kia Connect - Konfigurera om",
+        "data": {
+          "reconfigure_choice": "Vad vill du göra?"
+        }
+      },
+      "reconfigure_pin": {
+        "title": "Hyundai / Kia Connect - Ange PIN",
+        "description": "Ange PIN-koden som krävs för att auktorisera fjärrkommandon (lås, lås upp, klimat) i Kia/Hyundai Connect-appen.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Enheten är redan konfigurerad",
+      "reauth_successful": "Återautentiseringen lyckades",
+      "reconfigure_successful": "Omkonfigurering lyckades"
+    },
+    "error": {
+      "invalid_auth": "Innloggningen misslyckades till Hyundai (Bluelink) / Kia (Uvo) Connect-servern. Använd denofficiella appen för att logga ut och logga in igen, och prova igen!",
+      "invalid_credentials": "Ogiltigt användarnamn eller lösenord",
+      "unknown": "Oväntat fel"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hyundai / Kia Connect - Konfiguration",
+        "data": {
+          "scan_interval": "Scanningsintervall (min)",
+          "force_refresh": "Tvångsuppdateringsintervall (min), var försiktig med att sätte detta för lågt då det använder 12V-batteriet",
+          "no_force_refresh_hour_start": "Ingen tvångsuppdatering starttid",
+          "no_force_refresh_hour_finish": "Ingen tvångsuppdatering sluttid",
+          "enable_geolocation_entity": "Aktivar Geolokation object vid användning av OpenStreetMap",
+          "use_email_with_geocode_api": "Använd din Kia e-postadress för Geocode API - Mer information: https://nominatim.org/release-docs/develop/api/Reverse/#other"
+        }
+      }
+    }
+  },
+  "services": {
+    "force_update": {
+      "name": "Tvinga uppdatering",
+      "description": "Tvinga fordonet att uppdatera sin data. Alla fordon på samma konto som det valda fordonet kommer att uppdateras.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "update": {
+      "name": "Uppdatera",
+      "description": "Uppdatera fordonsdata från tjänstecache",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "start_climate": {
+      "name": "Starta Klimatanläggning",
+      "description": "Använd med försiktighet - Startar klimatanläggning och motor. Alla alternativ är inte tillgängliga på alla bilar eller i alla regioner. Använd bilens mobilapp som vägledning och matcha alternativ som är tillgängliga i ditt fordon.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        },
+        "duration": {
+          "name": "Varaktighet",
+          "description": "Varaktighet för aktivering"
+        },
+        "climate": {
+          "name": "Klimatanläggning",
+          "description": "Aktivera klimatanläggnig"
+        },
+        "temperature": {
+          "name": "Temperatur",
+          "description": "Sätt temperatur för klimatanläggning. Målenheten är specifik per region."
+        },
+        "defrost": {
+          "name": "Avfrosning",
+          "description": "Fönsteravfrostning"
+        },
+        "heating": {
+          "name": "Uppvärmning",
+          "description": "Uppvärmande funktioner som ratt och bakruta"
+        },
+        "steering_wheel": {
+          "name": "Rattvärme",
+          "description": "Värmenivå för ratten. Endast Europa, andra regioner använder inställningen för uppvärmning."
+        },
+        "flseat": {
+          "name": "Vänster framsäte",
+          "description": "Vänster framsäte värme/kylinställning"
+        },
+        "frseat": {
+          "name": "Höger framsäte",
+          "description": "Höger framsäte värme/kylinställning"
+        },
+        "rlseat": {
+          "name": "Vänster baksäte",
+          "description": "Vänster baksäte värme/kylinställning"
+        },
+        "rrseat": {
+          "name": "Höger baksäte",
+          "description": "Höger baksäte värme/kylinställning"
+        }
+      }
+    },
+    "stop_climate": {
+      "name": "Stoppa Klimatanläggning",
+      "description": "Använd med försiktighet - stoppar bilen och klimatanläggningen",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "stop_charge": {
+      "name": "Stoppa Laddning",
+      "description": "Stoppar laddningen",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "start_charge": {
+      "name": "Starta Laddning",
+      "description": "Startar laddningen",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "lock": {
+      "name": "Lås",
+      "description": "Lås fordon",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "unlock": {
+      "name": "Lås upp",
+      "description": "Lås upp fordon",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "close_charge_port": {
+      "name": "Lås laddlucka",
+      "description": "Lås laddlucka",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "open_charge_port": {
+      "name": "Öppna laddlucka",
+      "description": "Öppna laddlucka",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "set_charge_limits": {
+      "name": "Sätt laddningsmål",
+      "description": "Sätter AC och DC laddningsgränser",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        },
+        "dc_limit": {
+          "name": "DC laddnivåmål",
+          "description": "Max laddning med DC-laddare"
+        },
+        "ac_limit": {
+          "name": "AC laddnivåmål",
+          "description": "Max laddning med AC-laddare"
+        }
+      }
+    },
+    "set_charging_current": {
+      "name": "Sätt AC laddström",
+      "description": "Sätter AC laddströmskapacitet",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        },
+        "level": {
+          "name": "Ladeffekt",
+          "description": "Ladeffektskapacitet procent"
+        }
+      }
+    },
+    "schedule_charging_and_climate": {
+      "name": "Schemalägg laddning och klimatanläggning",
+      "description": "Använd med försiktighet - Schedulera laddning och klimat. Alla alternativ är inte tillgängliga på alla bilar eller i alla regioner. Använd bilens mobilapp som vägledning och matcha alternativ som är tillgängliga i ditt fordon.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        },
+        "charging_enabled": {
+          "name": "Schemalägg laddning",
+          "description": "Aktiverar schemalagd laddning"
+        },
+        "first_departure_enabled": {
+          "name": "1. avresa",
+          "description": "Aktiverar första avresa"
+        },
+        "first_departure_days": {
+          "name": "1. avresedagar",
+          "description": "Dagar som första avresan gäller för. Kan inte vara tomt."
+        },
+        "first_departure_time": {
+          "name": "1. avresetid",
+          "description": "Tidpunkt för första avresan. Använd 00,10,20,30,40 eller 50 för minuter, och 00 för sekunder"
+        },
+        "second_departure_enabled": {
+          "name": "2. avresa",
+          "description": "Aktivera andra avresa"
+        },
+        "second_departure_days": {
+          "name": "2. avresedagar",
+          "description": "Dagar som andra avresan gäller för. Kan inte vara tomt."
+        },
+        "second_departure_time": {
+          "name": "2. avresetid",
+          "description": "Tidpunkt för andra avresan. Använd 00,10,20,30,40 eller 50 för minuter, och 00 för sekunder"
+        },
+        "off_peak_start_time": {
+          "name": "Starttid för lågtraffik",
+          "description": "Starttid för lågtraffik. Använd 00,10,20,30,40 eller 50 för minuter, och 00 för sekunder"
+        },
+        "off_peak_end_time": {
+          "name": "Slutttid för lågtraffik",
+          "description": "Slutttid för lågtraffik. Använd 00,10,20,30,40 eller 50 för minuter, och 00 för sekunder"
+        },
+        "off_peak_charge_only_enabled": {
+          "name": "Endast lågpristariffer",
+          "description": "Om satt till sant, laddar enbart under definierat lågpristid, annars kan laddningen starta före lågpristiden"
+        },
+        "climate_enabled": {
+          "name": "Klimat",
+          "description": "Aktivera klimatanläggningen inför avresa"
+        },
+        "temperature": {
+          "name": "Temperatur",
+          "description": "Sätt temperatur för klimatanläggning. Målenheten är specifik per region."
+        },
+        "temperature_unit": {
+          "name": "Temperaturenhet",
+          "description": "Sätt temperatur för klimatanläggning. Målenheten är specifik per region."
+        },
+        "defrost": {
+          "name": "Avfrostning",
+          "description": "Framruteavfrostning inför avresa"
+        }
+      }
+    },
+    "start_hazard_lights": {
+      "name": "Slå på varningsblinkers",
+      "description": "Slå på varningsblinkers i 30 sekunder.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "start_hazard_lights_and_horn": {
+      "name": "Slå på varningsblinkers och tuta",
+      "description": "Slå på varningsblinkers och tuta i 30 sekunder.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "start_valet_mode": {
+      "name": "Start valet-läge",
+      "description": "Aktivera Valet-läge. Om valet-läge aktivers under körning, stängs bildkärmen av.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "stop_valet_mode": {
+      "name": "Stopp valet-läge",
+      "description": "Avaktiverar valet-läge.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    },
+    "set_windows": {
+      "name": "Styr fönster",
+      "description": "Styr fordonets fönster. Öppna eller stäng fönster efter behov.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        },
+        "flwindow": {
+          "name": "Vänster framruta",
+          "description": "Åtgärd för vänster främre fönster"
+        },
+        "frwindow": {
+          "name": "Höger framruta",
+          "description": "Åtgärd för höger främre fönster"
+        },
+        "rlwindow": {
+          "name": "Vänster bakruta",
+          "description": "Åtgärd för vänster bakre fönster"
+        },
+        "rrwindow": {
+          "name": "Höger bakruta",
+          "description": "Åtgärd för höger bakre fönster"
+        }
+      }
+    },
+    "capture_svm_image": {
+      "name": "Ta SVM-bild",
+      "description": "Utlös en ny bild från Surround View Monitor. Fordonet väcks och tar en 360°-bild.",
+      "fields": {
+        "device_id": {
+          "name": "Fordon",
+          "description": "Valt fordon"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_driving_range": {
+        "name": "Total räckvidd"
+      },
+      "odometer": {
+        "name": "Vägmätare"
+      },
+      "outside_temperature": {
+        "name": "Utomhustemperatur"
+      },
+      "last_service_distance": {
+        "name": "Senaste service"
+      },
+      "next_service_distance": {
+        "name": "Nästa service"
+      },
+      "car_battery_percentage": {
+        "name": "Bilbatterinivå"
+      },
+      "last_updated_at": {
+        "name": "Senast uppdaterad"
+      },
+      "last_scanned_at": {
+        "name": "Senaste skanning"
+      },
+      "ev_battery_percentage": {
+        "name": "EV-batterinivå"
+      },
+      "ev_battery_soh_percentage": {
+        "name": "EV-batteriets hälsa (SoH)"
+      },
+      "ev_battery_temperature_max": {
+        "name": "EV-batteritemperatur max"
+      },
+      "ev_battery_temperature_min": {
+        "name": "EV-batteritemperatur min"
+      },
+      "ev_battery_water_temperature": {
+        "name": "EV-batteriets kylvätsketemperatur"
+      },
+      "ev_battery_remain": {
+        "name": "EV-batteriets återstående energi"
+      },
+      "ev_battery_capacity": {
+        "name": "EV-batterikapacitet"
+      },
+      "ev_battery_pack_voltage": {
+        "name": "EV-batteripaketets spänning"
+      },
+      "ev_driving_range": {
+        "name": "EV-räckvidd"
+      },
+      "fuel_driving_range": {
+        "name": "Räckvidd på bränsle"
+      },
+      "fuel_level": {
+        "name": "Bränslenivå"
+      },
+      "air_temperature": {
+        "name": "Inställd temperatur"
+      },
+      "ev_estimated_current_charge_duration": {
+        "name": "Beräknad laddningstid"
+      },
+      "ev_estimated_fast_charge_duration": {
+        "name": "Beräknad snabbladdningstid"
+      },
+      "ev_estimated_portable_charge_duration": {
+        "name": "Beräknad laddningstid med portabel laddare"
+      },
+      "ev_estimated_station_charge_duration": {
+        "name": "Beräknad laddningstid vid laddstation"
+      },
+      "ev_target_range_charge_ac": {
+        "name": "Målräckvidd för AC-laddning"
+      },
+      "ev_target_range_charge_dc": {
+        "name": "Målräckvidd för DC-laddning"
+      },
+      "total_power_consumed": {
+        "name": "Energiförbrukning 90 dagar"
+      },
+      "total_power_regenerated": {
+        "name": "Total energiåtervinning"
+      },
+      "power_consumption_30d": {
+        "name": "Genomsnittlig energiförbrukning"
+      },
+      "front_left_seat_status": {
+        "name": "Vänster framsäte"
+      },
+      "front_right_seat_status": {
+        "name": "Höger framsäte"
+      },
+      "rear_left_seat_status": {
+        "name": "Vänster baksäte"
+      },
+      "rear_right_seat_status": {
+        "name": "Höger baksäte"
+      },
+      "geocode_name": {
+        "name": "Geokodad plats"
+      },
+      "dtc_count": {
+        "name": "Antal DTC"
+      },
+      "ev_first_departure_time": {
+        "name": "Första avgångstid"
+      },
+      "ev_second_departure_time": {
+        "name": "Andra avgångstid"
+      },
+      "ev_off_peak_start_time": {
+        "name": "EV lågpris starttid"
+      },
+      "ev_off_peak_end_time": {
+        "name": "EV lågpris sluttid"
+      },
+      "ev_charging_current": {
+        "name": "EV-laddströmsgräns"
+      },
+      "ev_charging_power": {
+        "name": "EV-laddeffekt"
+      },
+      "vehicle_identification_number": {
+        "name": "Chassinummer (VIN)"
+      },
+      "ev_first_departure_climate_temperature": {
+        "name": "Klimattemperatur vid första avgång"
+      },
+      "ev_first_departure_days": {
+        "name": "Dagar för första avgång"
+      },
+      "ev_second_departure_climate_temperature": {
+        "name": "Klimattemperatur vid andra avgång"
+      },
+      "ev_second_departure_days": {
+        "name": "Dagar för andra avgång"
+      },
+      "ev_power_consumption_air_conditioning": {
+        "name": "EV-energiförbrukning luftkonditionering"
+      },
+      "ev_power_consumption_battery_cooling": {
+        "name": "EV-energiförbrukning batterikylning"
+      },
+      "ev_power_consumption_battery_heater": {
+        "name": "EV-energiförbrukning batterivärmare"
+      },
+      "location_last_updated_at": {
+        "name": "Plats senast uppdaterad"
+      },
+      "ev_v2l_max_power": {
+        "name": "V2L maxeffekt"
+      },
+      "ev_v2l_target_soc": {
+        "name": "V2L mål-SoC"
+      },
+      "data": {
+        "name": "Data"
+      },
+      "daily_driving_stats": {
+        "name": "Daglig körstatistik"
+      },
+      "todays_daily_driving_stats": {
+        "name": "Dagens körstatistik"
+      },
+      "tire_pressure_front_left": {
+        "name": "Däcktryck - Vänster fram"
+      },
+      "tire_pressure_front_right": {
+        "name": "Däcktryck - Höger fram"
+      },
+      "tire_pressure_rear_left": {
+        "name": "Däcktryck - Vänster bak"
+      },
+      "tire_pressure_rear_right": {
+        "name": "Däcktryck - Höger bak"
+      },
+      "drive_mode": {
+        "name": "Körläge"
+      },
+      "svm_status": {
+        "name": "SVM-status"
+      }
+    },
+    "binary_sensor": {
+      "engine_is_running": {
+        "name": "Motor"
+      },
+      "ev_battery_heating_state": {
+        "name": "EV-batteriuppvärmning"
+      },
+      "defrost_is_on": {
+        "name": "Avfrostning"
+      },
+      "steering_wheel_heater_is_on": {
+        "name": "Rattvärme"
+      },
+      "back_window_heater_is_on": {
+        "name": "Bakrutevärme"
+      },
+      "side_mirror_heater_is_on": {
+        "name": "Sidospegelvärme"
+      },
+      "front_left_door_is_open": {
+        "name": "Vänster framdörr"
+      },
+      "front_right_door_is_open": {
+        "name": "Höger framdörr"
+      },
+      "back_left_door_is_open": {
+        "name": "Vänster bakdörr"
+      },
+      "back_right_door_is_open": {
+        "name": "Höger bakdörr"
+      },
+      "trunk_is_open": {
+        "name": "Bagagelucka"
+      },
+      "hood_is_open": {
+        "name": "Motorhuv"
+      },
+      "front_left_window_is_open": {
+        "name": "Vänster framruta"
+      },
+      "front_right_door_is_locked": {
+        "name": "Lås höger framdörr"
+      },
+      "front_right_window_is_open": {
+        "name": "Höger framruta"
+      },
+      "back_left_window_is_open": {
+        "name": "Vänster bakruta"
+      },
+      "back_right_door_is_locked": {
+        "name": "Lås höger bakdörr"
+      },
+      "back_right_window_is_open": {
+        "name": "Höger bakruta"
+      },
+      "ev_battery_is_charging": {
+        "name": "EV-batteriladdning"
+      },
+      "ev_battery_is_plugged_in": {
+        "name": "EV-batteri inkopplat"
+      },
+      "ev_battery_precondition_enabled": {
+        "name": "EV-batteriförkonditionering"
+      },
+      "ev_battery_winter_mode": {
+        "name": "EV-batteri vinterläge"
+      },
+      "fuel_level_is_low": {
+        "name": "Låg bränslenivå"
+      },
+      "smart_key_battery_warning_is_on": {
+        "name": "Varning för smartnyckelns batteri"
+      },
+      "washer_fluid_warning_is_on": {
+        "name": "Varning för spolarvätska"
+      },
+      "ev_first_departure_climate_defrost": {
+        "name": "Avfrostning vid första avgång"
+      },
+      "ev_first_departure_climate_enabled": {
+        "name": "Klimat vid första avgång"
+      },
+      "ev_second_departure_climate_defrost": {
+        "name": "Avfrostning vid andra avgång"
+      },
+      "ev_second_departure_climate_enabled": {
+        "name": "Klimat vid andra avgång"
+      },
+      "ev_off_peak_charge_only_enabled": {
+        "name": "Endast lågprisladdning"
+      },
+      "ev_schedule_charge_enabled": {
+        "name": "Schemalagd laddning"
+      },
+      "ev_v2l_status": {
+        "name": "V2L-status"
+      },
+      "ev_v2x_status": {
+        "name": "V2X-status"
+      },
+      "tire_pressure_all_warning_is_on": {
+        "name": "Däcktryck - Alla"
+      },
+      "tire_pressure_rear_left_warning_is_on": {
+        "name": "Däcktryck - Vänster bak"
+      },
+      "tire_pressure_front_left_warning_is_on": {
+        "name": "Däcktryck - Vänster fram"
+      },
+      "tire_pressure_front_right_warning_is_on": {
+        "name": "Däcktryck - Höger fram"
+      },
+      "tire_pressure_rear_right_warning_is_on": {
+        "name": "Däcktryck - Höger bak"
+      },
+      "air_control_is_on": {
+        "name": "Luftkonditionering"
+      },
+      "back_left_door_is_locked": {
+        "name": "Lås vänster bakdörr"
+      },
+      "ev_charge_port_door_is_open": {
+        "name": "EV-laddport"
+      },
+      "ev_first_departure_enabled": {
+        "name": "EV schemalagd avgång 1"
+      },
+      "ev_second_departure_enabled": {
+        "name": "EV schemalagd avgång 2"
+      },
+      "front_left_door_is_locked": {
+        "name": "Lås vänster framdörr"
+      },
+      "brake_fluid_warning_is_on": {
+        "name": "Varning för bromsvätska"
+      },
+      "sunroof_is_open": {
+        "name": "Taklucka"
+      },
+      "accessory_on": {
+        "name": "Tillbehör"
+      },
+      "ign3": {
+        "name": "IGN3"
+      },
+      "remote_ignition": {
+        "name": "Fjärrstart"
+      },
+      "transmission_condition": {
+        "name": "Växellådans tillstånd"
+      },
+      "sleep_mode_check": {
+        "name": "Kontroll av viloläge"
+      },
+      "headlamp_status": {
+        "name": "Strålkastarstatus"
+      },
+      "headlamp_left_low": {
+        "name": "Fel på vänster strålkastare"
+      },
+      "headlamp_right_low": {
+        "name": "Fel på höger strålkastare"
+      },
+      "headlamp_left_high": {
+        "name": "Fel på vänster helljus"
+      },
+      "headlamp_right_high": {
+        "name": "Fel på höger helljus"
+      },
+      "headlamp_left_bifunc": {
+        "name": "Fel på vänster bifunktionell strålkastare"
+      },
+      "headlamp_right_bifunc": {
+        "name": "Fel på höger bifunktionell strålkastare"
+      },
+      "stop_lamp_left": {
+        "name": "Fel på vänster baklykta"
+      },
+      "stop_lamp_right": {
+        "name": "Fel på höger baklykta"
+      },
+      "turn_signal_left_front": {
+        "name": "Blinker vänster fram"
+      },
+      "turn_signal_right_front": {
+        "name": "Blinker höger fram"
+      },
+      "turn_signal_left_rear": {
+        "name": "Blinker vänster bak"
+      },
+      "turn_signal_right_rear": {
+        "name": "Blinker höger bak"
+      },
+      "is_locked": {
+        "name": "Låst"
+      },
+      "front_left_seat_heater_on": {
+        "name": "Sätesvärme vänster fram"
+      },
+      "front_right_seat_heater_on": {
+        "name": "Sätesvärme höger fram"
+      },
+      "rear_left_seat_heater_on": {
+        "name": "Sätesvärme vänster bak"
+      },
+      "rear_right_seat_heater_on": {
+        "name": "Sätesvärme höger bak"
+      },
+      "oil_level_warning_is_on": {
+        "name": "Varning för oljenivå"
+      },
+      "battery_auxiliary_fail_warning_is_on": {
+        "name": "Fel på 12V-batteri"
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Dörrlås"
+      }
+    },
+    "button": {
+      "force_refresh": {
+        "name": "Tvinga uppdatering"
+      },
+      "start_hazard_lights": {
+        "name": "Slå på varningsblinkers"
+      },
+      "start_hazard_lights_and_horn": {
+        "name": "Slå på varningsblinkers och signalhorn"
+      },
+      "start_valet_mode": {
+        "name": "Starta valet-läge"
+      },
+      "stop_valet_mode": {
+        "name": "Stoppa valet-läge"
+      },
+      "open_all_windows": {
+        "name": "Öppna alla fönster"
+      },
+      "close_all_windows": {
+        "name": "Stäng alla fönster"
+      },
+      "vent_all_windows": {
+        "name": "Vädra alla fönster"
+      },
+      "capture_svm_image": {
+        "name": "Ta SVM-bild"
+      }
+    },
+    "image": {
+      "svm_front": {
+        "name": "SVM-kamera fram"
+      },
+      "svm_rear": {
+        "name": "SVM-kamera bak"
+      },
+      "svm_left": {
+        "name": "SVM-kamera vänster"
+      },
+      "svm_right": {
+        "name": "SVM-kamera höger"
+      },
+      "svm_top": {
+        "name": "SVM-fågelperspektiv"
+      }
+    },
+    "cover": {
+      "front_left_window": {
+        "name": "Vänster framruta"
+      },
+      "front_right_window": {
+        "name": "Höger framruta"
+      },
+      "back_left_window": {
+        "name": "Vänster bakruta"
+      },
+      "back_right_window": {
+        "name": "Höger bakruta"
+      }
+    },
+    "switch": {
+      "ev_charging": {
+        "name": "EV-laddning"
+      },
+      "climate": {
+        "name": "Klimat"
+      },
+      "ev_first_departure_climate_defrost": {
+        "name": "Avfrostning vid första avgång"
+      },
+      "ev_first_departure_climate_enabled": {
+        "name": "Klimat vid första avgång"
+      },
+      "ev_first_departure_enabled": {
+        "name": "EV schemalagd avgång 1"
+      },
+      "ev_second_departure_climate_defrost": {
+        "name": "Avfrostning vid andra avgång"
+      },
+      "ev_second_departure_climate_enabled": {
+        "name": "Klimat vid andra avgång"
+      },
+      "ev_second_departure_enabled": {
+        "name": "EV schemalagd avgång 2"
+      },
+      "ev_off_peak_charge_only_enabled": {
+        "name": "Endast lågprisladdning"
+      },
+      "ev_schedule_charge_enabled": {
+        "name": "Schemalagd laddning"
+      },
+      "ev_charge_port_door": {
+        "name": "Laddport"
+      },
+      "valet_mode_control": {
+        "name": "Valet-läge"
+      },
+      "svm_dewarp": {
+        "name": "SVM-distorsionskorrigering"
+      }
+    },
+    "climate": {
+      "climate_control": {
+        "name": "Klimatkontroll"
+      }
+    },
+    "number": {
+      "ev_charge_limits_ac": {
+        "name": "AC-laddgräns"
+      },
+      "ev_charge_limits_dc": {
+        "name": "DC-laddgräns"
+      },
+      "ev_v2l_discharge_limit": {
+        "name": "V2L-gräns"
+      }
+    },
+    "device_tracker": {
+      "location": {
+        "name": "Plats"
+      }
+    },
+    "time": {
+      "ev_off_peak_start_time": {
+        "name": "Starttid för lågprisladdning"
+      },
+      "ev_off_peak_end_time": {
+        "name": "Sluttid för lågprisladdning"
+      }
+    }
+  }
+}

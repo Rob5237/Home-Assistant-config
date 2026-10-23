@@ -940,16 +940,6 @@ var mapStringToEnum = (enumType, value) => {
   return hash.toString();
 };
 
-// src/utils/docs-links.ts
-var DOCS_LINKS;
-var init_docs_links = __esm(() => {
-  DOCS_LINKS = {
-    jsTemplate: "https://joseluis9595.github.io/lovelace-navbar-card/docs/types/js-template",
-    styles: "https://joseluis9595.github.io/lovelace-navbar-card/docs/configuration/styles",
-    template: "https://joseluis9595.github.io/lovelace-navbar-card/docs/configuration/template"
-  };
-});
-
 // src/utils/dom.ts
 function fireDOMEvent(node, type, data, EventConstructor) {
   const { options, detailOverride } = data ?? {};
@@ -961,7 +951,7 @@ function fireDOMEvent(node, type, data, EventConstructor) {
   node.dispatchEvent(event);
   return event;
 }
-var DASHBOARD_PADDING_STYLE_ID = "navbar-card-forced-padding-styles", DEFAULT_STYLES_ID = "navbar-card-default-styles", USER_STYLES_ID = "navbar-card-user-styles", getNavbarTemplates = () => {
+var DEFAULT_STYLES_ID = "navbar-card-default-styles", USER_STYLES_ID = "navbar-card-user-styles", getNavbarTemplates = () => {
   const lovelacePanel = document?.querySelector("home-assistant")?.shadowRoot?.querySelector("home-assistant-main")?.shadowRoot?.querySelector("ha-drawer partial-panel-resolver ha-panel-lovelace");
   if (lovelacePanel) {
     return lovelacePanel.lovelace.config["navbar-templates"];
@@ -982,129 +972,6 @@ var DASHBOARD_PADDING_STYLE_ID = "navbar-card-forced-padding-styles", DEFAULT_ST
   if (!huiRoot?.shadowRoot)
     return;
   huiRoot.lovelace.setEditMode(true);
-}, removeDashboardPadding = () => {
-  const huiRoot = findHuiRoot();
-  if (!huiRoot?.shadowRoot)
-    return;
-  const styleEl = huiRoot.shadowRoot.querySelector(`#${DASHBOARD_PADDING_STYLE_ID}`);
-  if (styleEl) {
-    styleEl.remove();
-  }
-}, forceDashboardPadding = (options) => {
-  const autoPaddingEnabled = options?.autoPadding?.enabled ?? DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.enabled;
-  const huiRoot = findHuiRoot();
-  if (!huiRoot?.shadowRoot) {
-    console.warn("[navbar-card] Could not find hui-root. Custom padding styles will not be applied.");
-    return;
-  }
-  const totalPaddings = {
-    desktop: {
-      ["top" /* top */]: 0,
-      ["bottom" /* bottom */]: 0,
-      ["left" /* left */]: 0,
-      ["right" /* right */]: 0
-    },
-    mobile: {
-      bottom: 0
-    }
-  };
-  let styleEl = huiRoot.shadowRoot.querySelector(`#${DASHBOARD_PADDING_STYLE_ID}`);
-  if (!autoPaddingEnabled) {
-    if (styleEl) {
-      styleEl.remove();
-    }
-    return;
-  }
-  const desktopMinWidth = options?.desktop?.min_width ?? 768;
-  const desktopPosition = options?.desktop?.position ?? DEFAULT_NAVBAR_CONFIG.desktop.position;
-  const mobileMaxWidth = desktopMinWidth - 1;
-  let cssText = "";
-  const desktopPaddingPx = options?.autoPadding?.desktop_px ?? DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.desktop_px ?? 0;
-  totalPaddings.desktop[desktopPosition] += desktopPaddingPx;
-  const mobilePaddingPx = options?.autoPadding?.mobile_px ?? DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.mobile_px ?? 0;
-  totalPaddings.mobile.bottom += mobilePaddingPx;
-  const mediaPlayerPaddingPx = options?.autoPadding?.media_player_px ?? DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.media_player_px ?? 0;
-  const mediaPlayerPosition = options?.widgetPositions?.media_player ?? null;
-  if (mediaPlayerPosition) {
-    switch (mediaPlayerPosition) {
-      case "top-left" /* topLeft */:
-      case "top-center" /* topCenter */:
-      case "top-right" /* topRight */:
-        totalPaddings.desktop["top" /* top */] += mediaPlayerPaddingPx;
-        break;
-      case "bottom-center" /* bottomCenter */:
-      case "bottom-right" /* bottomRight */:
-      case "bottom-left" /* bottomLeft */:
-        totalPaddings.desktop["bottom" /* bottom */] += mediaPlayerPaddingPx;
-        break;
-    }
-    totalPaddings.mobile.bottom += mediaPlayerPaddingPx;
-  }
-  if (totalPaddings.desktop["top" /* top */] > 0) {
-    cssText += `
-      @media (min-width: ${desktopMinWidth}px) {
-        :not(.edit-mode) > hui-view:before {
-          content: "";
-          display: block;
-          height: ${totalPaddings.desktop["top" /* top */]}px;
-          width: 100%;
-          background-color: transparent;
-        }
-      }
-    `;
-  }
-  if (totalPaddings.desktop["bottom" /* bottom */] > 0) {
-    cssText += `
-      @media (min-width: ${desktopMinWidth}px) {
-        :not(.edit-mode) > hui-view:after {
-          content: "";
-          display: block;
-          height: ${totalPaddings.desktop["bottom" /* bottom */]}px;
-          width: 100%;
-          background-color: transparent;
-        }
-      }
-    `;
-  }
-  if (totalPaddings.desktop["left" /* left */] > 0) {
-    cssText += `
-      @media (min-width: ${desktopMinWidth}px) {
-       :not(.edit-mode) > #view {
-            padding-left: ${totalPaddings.desktop["left" /* left */]}px !important;
-          }
-      }
-    `;
-  }
-  if (totalPaddings.desktop["right" /* right */] > 0) {
-    cssText += `
-      @media (min-width: ${desktopMinWidth}px) {
-       :not(.edit-mode) > #view {
-            padding-right: ${totalPaddings.desktop["right" /* right */]}px !important;
-          }
-      }
-    `;
-  }
-  if (totalPaddings.mobile.bottom > 0) {
-    cssText += `
-        @media (max-width: ${mobileMaxWidth}px) {
-          :not(.edit-mode) > hui-view:after {
-            content: "";
-            display: block;
-            height: ${totalPaddings.mobile.bottom}px;
-            width: 100%;
-            background-color: transparent;
-            }
-          }
-        `;
-  }
-  if (!styleEl) {
-    styleEl = document.createElement("style");
-    styleEl.id = DASHBOARD_PADDING_STYLE_ID;
-    styleEl.textContent = cssText;
-    huiRoot.shadowRoot.appendChild(styleEl);
-  } else {
-    styleEl.textContent = cssText;
-  }
 }, createStyleElement = (root, id, styles) => {
   const rootEl = root.shadowRoot;
   let styleEl = rootEl?.querySelector(`#${id}`);
@@ -1149,7 +1016,119 @@ var DASHBOARD_PADDING_STYLE_ID = "navbar-card-forced-padding-styles", DEFAULT_ST
 };
 var init_dom = __esm(() => {
   init_lit();
+});
+
+// src/utils/dashboard-padding.ts
+var DASHBOARD_PADDING_STYLE_ID = "navbar-card-forced-padding-styles", sharedCardPaddings, setDashboardPadding = (card, config, mediaPlayerPosition) => {
+  const padding = getCardPadding(config, mediaPlayerPosition);
+  if (JSON.stringify(padding) === JSON.stringify(sharedCardPaddings.get(card))) {
+    return;
+  }
+  if (padding) {
+    sharedCardPaddings.set(card, padding);
+  } else {
+    sharedCardPaddings.delete(card);
+  }
+  if (!updateStyles()) {
+    console.warn("[navbar-card] Could not find <hui-root>. Custom padding styles will not be applied.");
+  }
+}, removeDashboardPadding = (card) => {
+  if (sharedCardPaddings.delete(card))
+    updateStyles();
+}, getCardPadding = (config, mediaPlayerPosition) => {
+  const autoPadding = {
+    ...DEFAULT_NAVBAR_CONFIG.layout?.auto_padding,
+    ...config?.layout?.auto_padding
+  };
+  if (!autoPadding.enabled)
+    return;
+  const { desktop_px = 0, mobile_px = 0, media_player_px = 0 } = autoPadding;
+  const padding = {
+    bottom: 0,
+    left: 0,
+    minWidth: config?.desktop?.min_width ?? 768,
+    mobile: mobile_px,
+    right: 0,
+    top: 0
+  };
+  padding[config?.desktop?.position ?? DEFAULT_NAVBAR_CONFIG.desktop.position] += desktop_px;
+  if (mediaPlayerPosition) {
+    padding[mediaPlayerPosition.startsWith("top") ? "top" : "bottom"] += media_player_px;
+    padding.mobile += media_player_px;
+  }
+  return padding;
+}, updateStyles = () => {
+  const root = findHuiRoot()?.shadowRoot;
+  if (!root)
+    return false;
+  const paddings = [...sharedCardPaddings.values()];
+  const largest = (side) => Math.max(0, ...paddings.map((padding) => padding[side]));
+  const minWidth = paddings[0]?.minWidth ?? 768;
+  const desktop = `(min-width: ${minWidth}px)`;
+  const mobile = `(max-width: ${minWidth - 1}px)`;
+  writeStyle(root, [
+    spacerCss(desktop, "before", largest("top")),
+    spacerCss(desktop, "after", largest("bottom")),
+    sidePaddingCss(desktop, "left", largest("left")),
+    sidePaddingCss(desktop, "right", largest("right")),
+    spacerCss(mobile, "after", largest("mobile"))
+  ].join(""));
+  const sectionsView = root.querySelector("hui-sections-view")?.shadowRoot;
+  if (sectionsView) {
+    writeStyle(sectionsView, [
+      stickyFooterCss(desktop, largest("bottom"), true),
+      stickyFooterCss(mobile, largest("mobile"))
+    ].join(""));
+  }
+  return true;
+}, writeStyle = (root, cssText) => {
+  let styleEl = root.querySelector(`#${DASHBOARD_PADDING_STYLE_ID}`);
+  if (!cssText) {
+    styleEl?.remove();
+    return;
+  }
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = DASHBOARD_PADDING_STYLE_ID;
+    root.appendChild(styleEl);
+  }
+  if (styleEl.textContent !== cssText) {
+    styleEl.textContent = cssText;
+  }
+}, spacerCss = (media, pseudo, px) => px > 0 ? `@media ${media} {
+  :not(.edit-mode) > hui-view:${pseudo} {
+    content: "";
+    display: block;
+    height: ${px}px;
+    width: 100%;
+  }
+}
+` : "", stickyFooterCss = (media, px, keepGap = false) => px > 0 ? `@media ${media} {
+  hui-view-footer[sticky] {
+    bottom: ${keepGap ? `calc(var(--row-gap) + ${px}px)` : `${px}px`};
+  }
+}
+` : "", sidePaddingCss = (media, side, px) => px > 0 ? `@media ${media} {
+  :not(.edit-mode) > #view {
+    padding-${side}: ${px}px !important;
+    --navbar-view-padding-${side}: ${px}px;
+  }
+}
+` : "";
+var init_dashboard_padding = __esm(() => {
   init_config();
+  init_dom();
+  sharedCardPaddings = new Map;
+});
+
+// src/utils/docs-links.ts
+var BASE_URL = "https://joseluis9595.github.io/lovelace-navbar-card/docs", DOCS_LINKS;
+var init_docs_links = __esm(() => {
+  DOCS_LINKS = {
+    jsTemplate: `${BASE_URL}/advanced/js-templates`,
+    styles: `${BASE_URL}/configuration/styles`,
+    template: `${BASE_URL}/advanced/navbar-templates`
+  };
 });
 
 // src/utils/haptic.ts
@@ -1247,6 +1226,7 @@ var init_template = __esm(() => {
 
 // src/utils/index.ts
 var init_utils = __esm(() => {
+  init_dashboard_padding();
   init_docs_links();
   init_dom();
   init_haptic();
@@ -1801,7 +1781,7 @@ var init_styles = __esm(() => {
   HOST_STYLES = i`
   :host {
     /* Sizes */
-    --navbar-border-radius: var(--ha-card-border-radius, 12px);
+    --navbar-border-radius: var(--ha-card-border-radius, var(--ha-border-radius-lg, 12px));
     --navbar-badge-icon-size: 12px;
     --navbar-badge-size: 16px;
     --navbar-route-icon-size: 24px;
@@ -1813,12 +1793,22 @@ var init_styles = __esm(() => {
 
     /* Box shadow configuration */
     --navbar-box-shadow: 0px -1px 4px 0px rgba(0, 0, 0, 0.14);
-    --navbar-box-shadow-desktop: var(--material-shadow-elevation-2dp);
-    --navbar-box-shadow-mobile-floating: var(--material-shadow-elevation-2dp);
+    --navbar-box-shadow-desktop: var(--ha-box-shadow-s, var(--material-shadow-elevation-2dp));
+    --navbar-box-shadow-mobile-floating: var(--ha-box-shadow-s, var(--material-shadow-elevation-2dp));
     
     /* Controls the left margin of the navbar when in desktop mode (the width of HA sidebar) */
     --navbar-left-margin: var(--ha-sidebar-width, var(--mdc-drawer-width, 0px));
-    
+
+    /* Horizontal center of the dashboard view, after the sidebar and auto padding */
+    --navbar-view-center: calc(
+      50% +
+        (
+          var(--navbar-left-margin, 0px) +
+            var(--navbar-view-padding-left, 0px) -
+            var(--navbar-view-padding-right, 0px)
+        ) / 2
+    );
+
     /* Controls the edge inset of the navbar when in desktop mode (the width of HA sidebar) */
     --navbar-edge-inset: 16px;
 
@@ -1916,7 +1906,7 @@ var init_styles = __esm(() => {
     top: unset;
     right: unset;
     bottom: var(--navbar-edge-inset);
-    left: calc(50% + var(--navbar-left-margin, 0px) / 2);
+    left: var(--navbar-view-center);
     transform: translate(-50%, 0);
   }
 
@@ -1929,7 +1919,7 @@ var init_styles = __esm(() => {
     bottom: unset;
     right: unset;
     top: var(--navbar-edge-inset);
-    left: calc(50% + var(--navbar-left-margin, 0px) / 2);
+    left: var(--navbar-view-center);
     transform: translate(-50%, 0);
   }
 
@@ -2070,7 +2060,7 @@ var init_styles = __esm(() => {
     top: calc(var(--header-height) + var(--navbar-edge-inset));
   }
   :is(.media-player, .media-player-carousel).desktop.position-absolute.top-center {
-    left: 50%;
+    left: var(--navbar-view-center);
     top: calc(var(--header-height) + var(--navbar-edge-inset));
     transform: translateX(-50%);
   }
@@ -2083,7 +2073,7 @@ var init_styles = __esm(() => {
     bottom: var(--navbar-edge-inset);
   }
   :is(.media-player, .media-player-carousel).desktop.position-absolute.bottom-center {
-    left: 50%;
+    left: var(--navbar-view-center);
     bottom: var(--navbar-edge-inset);
     transform: translateX(-50%);
   }
@@ -2271,7 +2261,7 @@ var init_styles = __esm(() => {
     flex: 1;
     width: 100%;
     text-align: center;
-    font-size: var(--paper-font-caption_-_font-size, 12px);
+    font-size: var(--ha-font-size-s, var(--paper-font-caption_-_font-size, 12px));
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -5358,7 +5348,7 @@ init_types();
 init_utils();
 init_docs_links();
 // package.json
-var version = "1.7.1";
+var version = "1.7.2";
 
 // src/navbar-card.ts
 window.customCards = window.customCards || [];
@@ -5375,7 +5365,8 @@ class NavbarCard extends i4 {
     this._mediaPlayer = new MediaPlayer(this);
     this._routes = [];
     this.focusedPopup = null;
-    this.widgetVisibility = {};
+    this._mediaPlayerPosition = null;
+    this._isHidden = false;
     this._onDesktopChange = (event) => {
       this.isDesktop = event.matches;
     };
@@ -5383,21 +5374,7 @@ class NavbarCard extends i4 {
   set hass(hass) {
     this._hass = hass;
     const { visible } = this._mediaPlayer.isVisible();
-    const prevMediaPlayerPosition = this.widgetVisibility.media_player ?? null;
-    const nextMediaPlayerPosition = visible ? this._mediaPlayer.desktop_position : null;
-    if (visible) {
-      this.widgetVisibility.media_player = nextMediaPlayerPosition;
-    } else {
-      this.widgetVisibility.media_player = null;
-    }
-    if (prevMediaPlayerPosition !== nextMediaPlayerPosition) {
-      forceDashboardPadding({
-        autoPadding: this.config?.layout?.auto_padding,
-        desktop: this.config?.desktop ?? DEFAULT_NAVBAR_CONFIG.desktop,
-        mobile: this.config?.mobile ?? DEFAULT_NAVBAR_CONFIG.mobile,
-        widgetPositions: this.widgetVisibility
-      });
-    }
+    this._mediaPlayerPosition = visible ? this._mediaPlayer.desktop_position : null;
   }
   get isInEditMode() {
     return !!this._inEditDashboardMode || !!this._inEditCardMode || !!this._inPreviewMode;
@@ -5418,17 +5395,12 @@ class NavbarCard extends i4 {
     this._detectModes();
     this._watchDesktop();
     injectStyles(this, getDefaultStyles(), this.config?.styles ? r(this.config.styles) : i``);
-    forceDashboardPadding({
-      autoPadding: this.config?.layout?.auto_padding,
-      desktop: this.config?.desktop ?? DEFAULT_NAVBAR_CONFIG.desktop,
-      mobile: this.config?.mobile ?? DEFAULT_NAVBAR_CONFIG.mobile,
-      widgetPositions: this.widgetVisibility
-    });
+    this._applyDashboardPadding();
   }
   disconnectedCallback() {
     super.disconnectedCallback();
     this._unwatchDesktop();
-    removeDashboardPadding();
+    removeDashboardPadding(this);
     this.focusedPopup = null;
   }
   setConfig(config) {
@@ -5457,11 +5429,16 @@ ${DOCS_LINKS.template}
     if (this.isConnected)
       this._watchDesktop();
   }
-  updated(_changedProperties) {
-    super.updated(_changedProperties);
+  willUpdate(changedProperties) {
+    super.willUpdate(changedProperties);
+    this._isHidden = this._shouldHide();
+  }
+  updated(changedProperties) {
+    super.updated(changedProperties);
+    this._applyDashboardPadding();
   }
   render() {
-    if (!this.config || this._shouldHide())
+    if (!this.config || this._isHidden)
       return x``;
     const deviceClass = this.isDesktop ? "desktop" : "mobile";
     const editClass = this.isInEditMode ? "edit-mode" : "";
@@ -5512,6 +5489,15 @@ ${DOCS_LINKS.template}
     this._desktopQuery?.removeEventListener("change", this._onDesktopChange);
     this._desktopQuery = undefined;
   }
+  _applyDashboardPadding() {
+    if (!this.isConnected)
+      return;
+    if (this._isHidden || this.isInEditMode) {
+      removeDashboardPadding(this);
+    } else {
+      setDashboardPadding(this, this.config, this._mediaPlayerPosition);
+    }
+  }
   _shouldHide() {
     if (this.isInEditMode)
       return false;
@@ -5550,9 +5536,6 @@ __legacyDecorateClassTS([
 __legacyDecorateClassTS([
   r5()
 ], NavbarCard.prototype, "isDesktop", undefined);
-__legacyDecorateClassTS([
-  r5()
-], NavbarCard.prototype, "widgetVisibility", undefined);
 NavbarCard = __legacyDecorateClassTS([
   t3("navbar-card")
 ], NavbarCard);
