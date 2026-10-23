@@ -185,7 +185,7 @@ views:
                 state_not: Charging
             card:
               type: button
-              name: Accu opladen handmatig uitgezet
+              name: Accu opladen uitgezet — tik om weer volgens planning te laden
               icon: mdi:battery-off
               show_state: false
               card_mod:
@@ -198,7 +198,7 @@ views:
                   span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: center; }
               tap_action:
                 action: perform-action
-                perform_action: script.ev_sonia_opladen_uitzetten
+                perform_action: script.ev_sonia_laden_volgens_planning
             grid_options:
               columns: 6
               rows: 2
@@ -411,7 +411,7 @@ views:
                 state_not: Charging
             card:
               type: button
-              name: Accu opladen handmatig uitgezet
+              name: Accu opladen uitgezet — tik om weer volgens planning te laden
               icon: mdi:battery-off
               show_state: false
               card_mod:
@@ -424,7 +424,7 @@ views:
                   span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: center; }
               tap_action:
                 action: perform-action
-                perform_action: script.ev_rob_opladen_uitzetten
+                perform_action: script.ev_rob_laden_volgens_planning
             grid_options:
               columns: 6
               rows: 2

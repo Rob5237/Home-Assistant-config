@@ -981,6 +981,46 @@ script:
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.ev_rob_direct_laden
+  ev_sonia_laden_volgens_planning:
+    alias: "EV-Sonia – weer volgens planning laden (knop)"
+    sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.ev_sonia_opladen_uitgezet
+            - input_boolean.ev_sonia_direct_laden
+      # Oude blokstart wissen (datum ver in het verleden = geen lopende cyclus);
+      # ev_blok_vastleggen legt direct daarna de nieuwe start vast.
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.ev_sonia_blok_start
+        data:
+          timestamp: 946684800
+      - action: automation.trigger
+        target:
+          entity_id: automation.ev_goedkoopste_laadblok_vastleggen
+        data:
+          skip_condition: true
+  ev_rob_laden_volgens_planning:
+    alias: "EV-Rob – weer volgens planning laden (knop)"
+    sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.ev_rob_opladen_uitgezet
+            - input_boolean.ev_rob_direct_laden
+      # Oude blokstart wissen (datum ver in het verleden = geen lopende cyclus);
+      # ev_blok_vastleggen legt direct daarna de nieuwe start vast.
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.ev_rob_blok_start
+        data:
+          timestamp: 946684800
+      - action: automation.trigger
+        target:
+          entity_id: automation.ev_goedkoopste_laadblok_vastleggen
+        data:
+          skip_condition: true
   # Schakelt huislasten uit (in lijstvolgorde, alleen wat aan staat)
   # tot er minstens 'nodig' ampère is afgeschakeld.
   # nodig = 0 → precies één last.
