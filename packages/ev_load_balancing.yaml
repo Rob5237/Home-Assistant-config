@@ -17,8 +17,9 @@
 #   1. Snel omlaag bij elke P1-meting (officiële HomeWizard-integratie
 #      ~5 s; met de websocket-integratie op DSMR5 ~1 s)
 #   2. Langzaam omhoog: max +2 A per 10 s, 1 A buffer
-#   3. Huislasten afschakelen (afschakellijst) als de laders al op 0 A
-#      staan en er nog steeds tekort is; herstel in omgekeerde volgorde
+#   3. Huislasten afschakelen (afschakellijst) EERST bij tekort/overbelasting;
+#      pas als de hele lijst uit staat gaan de laders terug (zie ev_lb_dynamisch);
+#      herstel in omgekeerde volgorde
 #   3b. Noodstop: fase > 25 A gedurende 3 s → laders 0 A en in één keer
 #      genoeg huislasten uit; melding (+ kritieke melding na 20 s)
 #
@@ -1469,6 +1470,9 @@ automation:
           # ruimte < -(4 + marge)
           zwaar: "{{ -(4 + states('input_number.ev_lb_marge') | float(2)) }}"
           tekort_lang: "{{ is_state('binary_sensor.ev_lb_tekort_aanhoudend', 'on') }}"
+          # Eerst de huislasten (fietsaccu) uit; pas als de hele afschakellijst
+          # uit staat gaan de laders terug (zie ev_lb_afschakelen)
+          lasten_uit: "{{ niveau >= (state_attr('sensor.ev_lb_afschakellijst', 'lasten') or []) | count }}"
       - condition: template
         value_template: "{{ trigger.id != 'meting' or ruimte < 0 or overbelast }}"
       - variables:
@@ -1487,7 +1491,7 @@ automation:
               {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on')}}) %}
             {% endfor %}
 
-            {% if overbelast and ruimte < zwaar %}
+            {% if overbelast and ruimte < zwaar and lasten_uit %}
               {# Noodstop: zware overschrijding (> 29 A): alles wat laadt eerst naar
                  6 A (de auto blijft dan doorladen); staat hij al op <= 6 A en blijft
                  het overbelast, dan naar 0 A #}
@@ -1496,7 +1500,7 @@ automation:
                 {% if o.bezig %}{% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if o.huidig > 6 else 0))}) %}{% endif %}
               {% endfor %}
 
-            {% elif overbelast %}
+            {% elif overbelast and lasten_uit %}
               {# Lichte overschrijding (25-29 A, bv. een korte piek van de Quooker):
                  niet stoppen maar zo ver omlaag als nodig, met 3 A extra marge.
                  Eerst Rob, dan Sonia; pas bij < 6 A gaat een lader naar 0 A.
@@ -1512,7 +1516,7 @@ automation:
                 {% endif %}
               {% endfor %}
 
-            {% elif ruimte < 0 and (ruimte < zwaar or tekort_lang) %}
+            {% elif ruimte < 0 and (ruimte < zwaar or tekort_lang) and lasten_uit %}
               {# OMLAAG na 12 s tekort (of direct bij > 6 A tekort): eerst Rob, dan pas Sonia #}
               {% for l in laders | reverse %}
                 {% set o = ns.out[l.naam] %}
@@ -1830,7 +1834,7 @@ automation:
                 continue_on_error: true
 
   # ---------------------------------------------------------------
-  # Huislasten afschakelen — pas NADAT de laders al op 0 A staan
+  # Huislasten afschakelen — EERST (fietsaccu), daarna pas de laders terug
   # ---------------------------------------------------------------
   - id: ev_lb_afschakelen
     alias: "EV – huislasten afschakelen bij tekort"
@@ -1839,7 +1843,7 @@ automation:
     triggers:
       - trigger: state
         entity_id:
-          - binary_sensor.ev_lb_tekort
+          - binary_sensor.ev_lb_tekort_aanhoudend
           - binary_sensor.ev_lb_overbelasting
         to: "on"
       - trigger: time_pattern
@@ -1850,24 +1854,8 @@ automation:
         state: "on"
       - condition: template
         value_template: >
-          {{ is_state('binary_sensor.ev_lb_tekort', 'on')
+          {{ is_state('binary_sensor.ev_lb_tekort_aanhoudend', 'on')
              or is_state('binary_sensor.ev_lb_overbelasting', 'on') }}
-      # Auto's eerst: zolang een lader nog stroom krijgt, regelt die eerst af.
-      # Bij echte overbelasting (>25 A) niet wachten.
-      - condition: template
-        value_template: >
-          {# Een niet-verbonden lader kan HA niet terugregelen: dan meteen huislasten #}
-          {% set rob_laadt = is_state('binary_sensor.ev_lb_rob_onder_controle', 'on')
-               and is_state('sensor.ev_rob_status_connector', 'Charging')
-               and states('input_number.ev_lb_setpunt_rob') | int(0) > 0 %}
-          {% set sonia_laadt = is_state('binary_sensor.ev_lb_sonia_onder_controle', 'on')
-               and is_state('sensor.ev_sonia_status_connector', 'Charging')
-               and states('input_number.ev_lb_setpunt_sonia') | int(0) > 0 %}
-          {# Alleen bij zware overschrijding (> 29 A) niet wachten; bij een lichte
-             piek regelen de laders zelf af (zie ev_lb_dynamisch) #}
-          {{ (is_state('binary_sensor.ev_lb_overbelasting', 'on')
-              and states('sensor.ev_lb_ruimte') | float(0) < -(4 + states('input_number.ev_lb_marge') | float(2)))
-             or not (rob_laadt or sonia_laadt) }}
       # Max één last per 5 s, zodat de meting kan bijkomen
       - condition: template
         value_template: >
