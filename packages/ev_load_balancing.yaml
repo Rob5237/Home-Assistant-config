@@ -498,6 +498,8 @@ template:
         state: >-
           {% if states('sensor.ev_sonia_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
+          {% elif is_state('input_boolean.ev_sonia_opladen_uitgezet', 'on') %}
+            Opladen handmatig uitgezet
           {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
             {# Laden mag nu; wat de tekst zegt hangt af van wat de lader/auto echt doet #}
             {% set st = states('sensor.ev_sonia_status_connector') %}
@@ -563,6 +565,8 @@ template:
           {% set na = sonia_actief and not samen %}
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
+          {% elif is_state('input_boolean.ev_rob_opladen_uitgezet', 'on') %}
+            Opladen handmatig uitgezet
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
             {% set st = states('sensor.ev_rob_status_connector') %}
             {{ 'De accu wordt nu opgeladen' if st == 'Charging'
@@ -872,6 +876,7 @@ template:
         state: >
           {{ is_state('input_boolean.ev_sonia_direct_laden', 'on')
              or (is_state('input_boolean.ev_sonia_nacht_overslaan', 'off')
+                 and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off')
                  and (states('sensor.zonneplan_current_electricity_tariff') | float(99)
                       <= states('input_number.ev_prijsdrempel') | float(-99)
                       or is_state('binary_sensor.ev_lb_sonia_goedkoop_uur', 'on'))) }}
@@ -880,6 +885,7 @@ template:
         state: >
           {{ is_state('input_boolean.ev_rob_direct_laden', 'on')
              or (is_state('input_boolean.ev_rob_nacht_overslaan', 'off')
+                 and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off')
                  and (states('sensor.zonneplan_current_electricity_tariff') | float(99)
                       <= states('input_number.ev_prijsdrempel') | float(-99)
                       or is_state('binary_sensor.ev_lb_rob_goedkoop_uur', 'on'))) }}
@@ -1338,6 +1344,9 @@ automation:
       - action: input_boolean.turn_off
         target:
           entity_id: "input_boolean.ev_{{ trigger.id }}_nacht_overslaan"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
   # ---------------------------------------------------------------
   # Na een herstart van HA: setpunten op 6 A, daarna rustig opbouwen.
   # (Hier worden bewust GEEN profielen naar de laders geschreven: een apart
