@@ -161,7 +161,8 @@
     Verhoogt op het goedkoopste kwartier binnen het pre-17:00-venster
     (sensor.warmtepomp_optimaal_startuur_middag — venster schuift van
     12:00-16:00 bij mild weer tot 09:00-16:00 bij kou) de aanvoertemperatuur
-    via heating_target_correction naar +3°C, zodat de compressor start en de
+    via heating_target_correction (+1 tot +5°C, schaalt met de verwachte avondtemp 17-22 uur:
+    1,5 + 0,25 × (14 − t_avond)), zodat de compressor start en de
     vloer vóór de dure uren vanaf 17:00 thermisch wordt opgeladen. Het
     kamer-setpoint blijft ONGEWIJZIGD (sinds 24-10-2026: een setpoint van 21°C
     liet de compressor bijna nooit starten; kamertemp blijft nu ~constant).
@@ -263,6 +264,52 @@
               Overgeslagen: verwachte buitentemp tot 17:00 max {{ temp_max }}°C
               ≥ stooklijn-drempel {{ drempel }}°C (warmtepomp verwarmt dan niet).
         - stop: "Buitentemp ≥ stooklijn-drempel"
+    # Prijs-guard (24-10-2026): de buffer verschuift stoken van de avond naar
+    # nu. Zinvol alleen als de gemiddelde prijs van nu tot 17:00 minstens 15%
+    # onder die van 17:00-22:00 ligt. Ontbreken prijsdata → niet blokkeren.
+    - variables:
+        prijzen: "{{ state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] }}"
+        p_nu: >
+          {% set ns = namespace(v=[]) %}
+          {% for f in prijzen %}
+            {% set t = as_datetime(f.start_date) | as_local %}
+            {% if t.date() == now().date() and now() <= t + timedelta(minutes=15) and t.hour < 17 %}
+              {% set ns.v = ns.v + [f.price_tax_included.amount | float(0)] %}
+            {% endif %}
+          {% endfor %}
+          {{ (ns.v | sum / ns.v | count) if ns.v | count > 0 else none }}
+        p_avond: >
+          {% set ns = namespace(v=[]) %}
+          {% for f in prijzen %}
+            {% set t = as_datetime(f.start_date) | as_local %}
+            {% if t.date() == now().date() and 17 <= t.hour < 22 %}
+              {% set ns.v = ns.v + [f.price_tax_included.amount | float(0)] %}
+            {% endif %}
+          {% endfor %}
+          {{ (ns.v | sum / ns.v | count) if ns.v | count > 0 else none }}
+        # Verwachte buitentemp 17:00-22:00 (waar de buffer het tegen moet opnemen)
+        t_avond: >
+          {% set ns = namespace(v=[]) %}
+          {% for f in weerforecast['weather.thuis'].forecast %}
+            {% set t = as_datetime(f.datetime) | as_local %}
+            {% if t.date() == now().date() and 17 <= t.hour < 22 and f.temperature is number %}
+              {% set ns.v = ns.v + [f.temperature] %}
+            {% endif %}
+          {% endfor %}
+          {{ (ns.v | sum / ns.v | count) | round(1) if ns.v | count > 0 else buiten_nu }}
+    - if:
+        - condition: template
+          value_template: >
+            {{ p_nu is not none and p_avond is not none and p_avond > 0
+               and p_nu > p_avond * 0.85 }}
+      then:
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: >-
+              Overgeslagen: gemiddelde prijs nu-17:00 ({{ (p_nu / 10000000) | round(3) }} €/kWh)
+              ligt niet minstens 15% onder 17:00-22:00 ({{ (p_avond / 10000000) | round(3) }} €/kWh).
+        - stop: "Te weinig prijsverschil"
     - if:
         - condition: template
           value_template: >
@@ -274,7 +321,14 @@
             name: "Pre-17:00 vloerbuffer"
             message: "Overgeslagen: kamer zit al op of boven setpoint + 0,2°C."
         - stop: "Kamer al warm genoeg"
-    # Marker 'buffer actief' (setpoint ter info), mutex aan, aanvoer +3°C
+    # Hoogte van de correctie schaalt met de VERWACHTE avondtemp 17-22 uur (eerste
+    # schatting, nog niet gekalibreerd): 1,5 + 0,25 × (14 − t_avond), op 0,5
+    # afgerond, begrensd op 1-5°C.
+    # 12°C → +2, 10°C → +2,5, 5°C → +3,5, 0°C → +5.
+    - variables:
+        correctie: >
+          {{ [[((1.5 + 0.25 * (14 - t_avond | float(buiten_nu))) * 2) | round(0, 'common') / 2, 1.0] | max, 5.0] | min }}
+    # Marker 'buffer actief' (setpoint ter info), mutex aan, aanvoer +correctie
     - action: input_number.set_value
       target:
         entity_id: input_number.warmtepomp_kamertemp_backup
@@ -287,12 +341,13 @@
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
       data:
-        value: 3
+        value: "{{ correctie }}"
     - action: logbook.log
       data:
         name: "Pre-17:00 vloerbuffer"
         message: >-
-          Gestart om {{ now().strftime('%H:%M') }}: aanvoercorrectie +3°C, setpoint blijft
+          Gestart om {{ now().strftime('%H:%M') }}: aanvoercorrectie +{{ correctie }}°C
+          (verwachte avondtemp {{ t_avond }}°C, buiten nu {{ buiten_nu }}°C), setpoint blijft
           {{ states('input_number.warmtepomp_kamertemp_backup') }}°C
           (buiten max {{ temp_max }}°C, drempel {{ drempel }}°C).
   mode: single
