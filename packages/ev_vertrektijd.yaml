@@ -1,0 +1,78 @@
+# Vertrektijd per werkdag en per weekend/feestdag voor EV-Sonia en EV-Rob.
+# input_datetime.ev_*_vertrek is de GELDENDE vertrektijd (die de planning in
+# ev_load_balancing.yaml gebruikt) en wordt hier door de automatisering gezet
+# vanuit de twee instelbare tijden (werkdag / weekend en feestdag).
+# Feestdagen komen uit de HA-integratie Werkdag (binary_sensor.workday_sensor_nl,
+# land NL, werkdagen ma-vr). Let op: Goede Vrijdag telt daar als gewone werkdag.
+#
+# Wisselmoment: elke dag om 12:00. Daarna geldt de tijd van de VOLGENDE ochtend
+# (zo plant de nachtelijke planning al vanaf de middag/avond op de juiste
+# vertrektijd). Vóór 12:00 geldt de tijd van vandaag. De weekendtijd moet dus
+# vóór 12:00 liggen, anders rekent de planning tot de wisseling een dag te ver.
+input_datetime:
+  ev_sonia_vertrek_werkdag:
+    name: "EV-Sonia – vertrektijd werkdag"
+    has_date: false
+    has_time: true
+  ev_sonia_vertrek_weekend:
+    name: "EV-Sonia – vertrektijd weekend en feestdag"
+    has_date: false
+    has_time: true
+  ev_rob_vertrek_werkdag:
+    name: "EV-Rob – vertrektijd werkdag"
+    has_date: false
+    has_time: true
+  ev_rob_vertrek_weekend:
+    name: "EV-Rob – vertrektijd weekend en feestdag"
+    has_date: false
+    has_time: true
+
+automation:
+  - id: ev_vertrektijd_werkdag_weekend
+    alias: "EV – vertrektijd volgens werkdag of weekend/feestdag"
+    description: >
+      Zet input_datetime.ev_sonia_vertrek en ev_rob_vertrek op de werkdag- of
+      weekend/feestdag-tijd. Vóór 12:00 telt de dag van vandaag, vanaf 12:00 de
+      dag van morgen (de eerstvolgende ochtend waarop de auto vertrekt).
+    mode: queued
+    triggers:
+      - trigger: time
+        at: "12:00:00"
+      - trigger: time
+        at: "00:05:00"
+      - trigger: homeassistant
+        event: start
+      - trigger: state
+        entity_id:
+          - input_datetime.ev_sonia_vertrek_werkdag
+          - input_datetime.ev_sonia_vertrek_weekend
+          - input_datetime.ev_rob_vertrek_werkdag
+          - input_datetime.ev_rob_vertrek_weekend
+    actions:
+      - delay: "00:00:05"
+      - action: workday.check_date
+        target:
+          entity_id: binary_sensor.workday_sensor_nl
+        data:
+          check_date: >
+            {{ (now() if now().hour < 12 else now() + timedelta(days=1)).date().isoformat() }}
+        response_variable: dag
+      - variables:
+          werkdag: "{{ dag['binary_sensor.workday_sensor_nl'].workday }}"
+          suffix: "{{ 'werkdag' if werkdag else 'weekend' }}"
+      - repeat:
+          for_each: ["sonia", "rob"]
+          sequence:
+            - variables:
+                nieuw: "{{ states('input_datetime.ev_' ~ repeat.item ~ '_vertrek_' ~ suffix) }}"
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ nieuw not in ('unknown', 'unavailable', '')
+                       and nieuw != states('input_datetime.ev_' ~ repeat.item ~ '_vertrek') }}
+              then:
+                - action: input_datetime.set_datetime
+                  target:
+                    entity_id: "input_datetime.ev_{{ repeat.item }}_vertrek"
+                  data:
+                    time: "{{ nieuw }}"
