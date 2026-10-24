@@ -2,8 +2,13 @@
 # input_datetime.ev_*_vertrek is de GELDENDE vertrektijd (die de planning in
 # ev_load_balancing.yaml gebruikt) en wordt hier door de automatisering gezet
 # vanuit de twee instelbare tijden (werkdag / weekend en feestdag).
-# Feestdagen komen uit de HA-integratie Werkdag (binary_sensor.workday_sensor_nl,
-# land NL, werkdagen ma-vr). Let op: Goede Vrijdag telt daar als gewone werkdag.
+# Per auto zijn de weekdagen af te vinken die als werkdag gelden
+# (input_boolean.ev_<auto>_werkdag_<ma..zo>, standaard ma-vr). Een afgevinkte dag
+# krijgt de werkdagtijd, tenzij het een feestdag is.
+# Feestdagen komen uit de HA-integratie Werkdag, entry 2 (binary_sensor.workday_sensor_nl_2:
+# land NL, alle 7 dagen werkdag, alleen feestdagen uitgesloten). Let op: Goede Vrijdag
+# telt daar als gewone dag. binary_sensor.workday_sensor_nl (ma-vr, zonder weekend en
+# feestdagen) blijft bestaan maar wordt hier niet gebruikt.
 #
 # Wisselmoment: elke dag om 12:00. Daarna geldt de tijd van de VOLGENDE ochtend
 # (zo plant de nachtelijke planning al vanaf de middag/avond op de juiste
@@ -27,12 +32,43 @@ input_datetime:
     has_date: false
     has_time: true
 
+input_boolean:
+  ev_sonia_werkdag_ma:
+    name: "EV-Sonia – werkdag maandag"
+  ev_sonia_werkdag_di:
+    name: "EV-Sonia – werkdag dinsdag"
+  ev_sonia_werkdag_wo:
+    name: "EV-Sonia – werkdag woensdag"
+  ev_sonia_werkdag_do:
+    name: "EV-Sonia – werkdag donderdag"
+  ev_sonia_werkdag_vr:
+    name: "EV-Sonia – werkdag vrijdag"
+  ev_sonia_werkdag_za:
+    name: "EV-Sonia – werkdag zaterdag"
+  ev_sonia_werkdag_zo:
+    name: "EV-Sonia – werkdag zondag"
+  ev_rob_werkdag_ma:
+    name: "EV-Rob – werkdag maandag"
+  ev_rob_werkdag_di:
+    name: "EV-Rob – werkdag dinsdag"
+  ev_rob_werkdag_wo:
+    name: "EV-Rob – werkdag woensdag"
+  ev_rob_werkdag_do:
+    name: "EV-Rob – werkdag donderdag"
+  ev_rob_werkdag_vr:
+    name: "EV-Rob – werkdag vrijdag"
+  ev_rob_werkdag_za:
+    name: "EV-Rob – werkdag zaterdag"
+  ev_rob_werkdag_zo:
+    name: "EV-Rob – werkdag zondag"
+
 automation:
   - id: ev_vertrektijd_werkdag_weekend
     alias: "EV – vertrektijd volgens werkdag of weekend/feestdag"
     description: >
       Zet input_datetime.ev_sonia_vertrek en ev_rob_vertrek op de werkdag- of
-      weekend/feestdag-tijd. Vóór 12:00 telt de dag van vandaag, vanaf 12:00 de
+      weekend/feestdag-tijd: een dag is werkdag als die per auto is afgevinkt
+      en geen feestdag is. Vóór 12:00 telt de dag van vandaag, vanaf 12:00 de
       dag van morgen (de eerstvolgende ochtend waarop de auto vertrekt).
     mode: queued
     triggers:
@@ -48,23 +84,41 @@ automation:
           - input_datetime.ev_sonia_vertrek_weekend
           - input_datetime.ev_rob_vertrek_werkdag
           - input_datetime.ev_rob_vertrek_weekend
+          - input_boolean.ev_sonia_werkdag_ma
+          - input_boolean.ev_sonia_werkdag_di
+          - input_boolean.ev_sonia_werkdag_wo
+          - input_boolean.ev_sonia_werkdag_do
+          - input_boolean.ev_sonia_werkdag_vr
+          - input_boolean.ev_sonia_werkdag_za
+          - input_boolean.ev_sonia_werkdag_zo
+          - input_boolean.ev_rob_werkdag_ma
+          - input_boolean.ev_rob_werkdag_di
+          - input_boolean.ev_rob_werkdag_wo
+          - input_boolean.ev_rob_werkdag_do
+          - input_boolean.ev_rob_werkdag_vr
+          - input_boolean.ev_rob_werkdag_za
+          - input_boolean.ev_rob_werkdag_zo
     actions:
       - delay: "00:00:05"
       - action: workday.check_date
         target:
-          entity_id: binary_sensor.workday_sensor_nl
+          entity_id: binary_sensor.workday_sensor_nl_2
         data:
           check_date: >
             {{ (now() if now().hour < 12 else now() + timedelta(days=1)).date().isoformat() }}
         response_variable: dag
       - variables:
-          werkdag: "{{ dag['binary_sensor.workday_sensor_nl'].workday }}"
-          suffix: "{{ 'werkdag' if werkdag else 'weekend' }}"
+          geen_feestdag: "{{ dag['binary_sensor.workday_sensor_nl_2'].workday }}"
+          dagkort: >
+            {{ ['ma','di','wo','do','vr','za','zo'][(now() if now().hour < 12 else now() + timedelta(days=1)).weekday()] }}
       - repeat:
           for_each: ["sonia", "rob"]
           sequence:
             - variables:
-                nieuw: "{{ states('input_datetime.ev_' ~ repeat.item ~ '_vertrek_' ~ suffix) }}"
+                is_werkdag: >
+                  {{ geen_feestdag and is_state('input_boolean.ev_' ~ repeat.item ~ '_werkdag_' ~ dagkort, 'on') }}
+                nieuw: >
+                  {{ states('input_datetime.ev_' ~ repeat.item ~ '_vertrek_' ~ ('werkdag' if is_werkdag else 'weekend')) }}
             - if:
                 - condition: template
                   value_template: >

@@ -242,24 +242,100 @@ views:
             icon: mdi:flash
             grid_options:
               columns: 12
-          - type: entities
-            title: Vertrektijd
-            card_mod:
-              style:
-                .: |
-                  ha-card { border: none !important; box-shadow: none !important; }
-                  ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
-            entities:
-              - entity: input_datetime.ev_sonia_vertrek_werkdag
-                name: Werkdag
-              - entity: input_datetime.ev_sonia_vertrek_weekend
-                name: Weekend en feestdag (vóór 12:00)
-              - type: simple-entity
-                entity: input_datetime.ev_sonia_vertrek
-                name: Nu geldend (volgende ochtend)
-                icon: mdi:clock-outline
+          - type: vertical-stack
             grid_options:
               columns: 12
+            cards:
+              - type: entities
+                title: Vertrektijd
+                card_mod:
+                  style:
+                    .: |
+                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                entities:
+                  - entity: input_datetime.ev_sonia_vertrek_werkdag
+                    name: Werkdag
+                  - type: section
+                    label: Afgevinkt = werkdag (standaard ma t/m vr, feestdagen tellen als weekend)
+              - type: horizontal-stack
+                cards:
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_ma
+                  name: Ma
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_di
+                  name: Di
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_wo
+                  name: Wo
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_do
+                  name: Do
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_vr
+                  name: Vr
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_za
+                  name: Za
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_sonia_werkdag_zo
+                  name: Zo
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+              - type: entities
+                card_mod:
+                  style:
+                    .: |
+                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                entities:
+                  - entity: input_datetime.ev_sonia_vertrek_weekend
+                    name: Weekend en feestdag (vóór 12:00)
+                  - type: simple-entity
+                    entity: input_datetime.ev_sonia_vertrek
+                    name: Nu geldend (volgende ochtend)
+                    icon: mdi:clock-outline
 
   - title: EV-Rob
     path: rob
@@ -486,21 +562,97 @@ views:
             icon: mdi:flash
             grid_options:
               columns: 12
-          - type: entities
-            title: Vertrektijd
-            card_mod:
-              style:
-                .: |
-                  ha-card { border: none !important; box-shadow: none !important; }
-                  ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-            entities:
-              - entity: input_datetime.ev_rob_vertrek_werkdag
-                name: Werkdag
-              - entity: input_datetime.ev_rob_vertrek_weekend
-                name: Weekend en feestdag (vóór 12:00)
-              - type: simple-entity
-                entity: input_datetime.ev_rob_vertrek
-                name: Nu geldend (volgende ochtend)
-                icon: mdi:clock-outline
+          - type: vertical-stack
             grid_options:
               columns: 12
+            cards:
+              - type: entities
+                title: Vertrektijd
+                card_mod:
+                  style:
+                    .: |
+                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                entities:
+                  - entity: input_datetime.ev_rob_vertrek_werkdag
+                    name: Werkdag
+                  - type: section
+                    label: Afgevinkt = werkdag (standaard ma t/m vr, feestdagen tellen als weekend)
+              - type: horizontal-stack
+                cards:
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_ma
+                  name: Ma
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_di
+                  name: Di
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_wo
+                  name: Wo
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_do
+                  name: Do
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_vr
+                  name: Vr
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_za
+                  name: Za
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+                - type: tile
+                  entity: input_boolean.ev_rob_werkdag_zo
+                  name: Zo
+                  icon: mdi:checkbox-marked-circle-outline
+                  hide_state: true
+                  vertical: true
+                  tap_action:
+                    action: toggle
+                  color: green
+              - type: entities
+                card_mod:
+                  style:
+                    .: |
+                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                entities:
+                  - entity: input_datetime.ev_rob_vertrek_weekend
+                    name: Weekend en feestdag (vóór 12:00)
+                  - type: simple-entity
+                    entity: input_datetime.ev_rob_vertrek
+                    name: Nu geldend (volgende ochtend)
+                    icon: mdi:clock-outline
