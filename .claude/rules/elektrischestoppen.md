@@ -37,7 +37,7 @@ Draadkleuren fasen in meterkast: L1 = links, L2 = midden, L3 = rechts.
 | Zonnepanelen | L1 L2 L3 |
 | Enphase Q-relay | L1 L2 L3 |
 | Inductiekookplaat | 2 fasen: L1 + L3 (gemeten 24-10-2026 via P1-fase 1 en 3 bij een testrun) |
-| Warmtepomp (buiten + zolder) | L1 L2 L3 |
+| Warmtepomp (buiten + zolder) | L1 L2 L3 aangesloten; **compressor belast alleen L2** (gemeten 24-10-2026: bij 32 opstarts steeg alleen P1-fase 2 met ~0,6-1,4 kW, L1 en L3 bleven vlak). Elektrisch element (extra warmteopwekker 2, 2 fasen) draait sinds april/juni niet; fasen nog niet gemeten |
 | Laadpaal garage (EV-Lader Rob) | L1 L2 L3 |
 | Laadpaal voordeur (EV-Lader Sonia) | L1 L2 L3 |
 
@@ -48,3 +48,4 @@ P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgord
 - **L1 door uitsluiting:** niet apart getest; volgt uit L2 en L3.
 - Passat laadt bij beide laders (EV-Rob en EV-Sonia) op de middelste fase (L2).
 - Inductiekookplaat (2 fasen) reageerde op de eerste en derde fase (L1 + L3), niet op de middelste.
+- Warmtepomp-compressor: belast alleen de middelste fase (L2); L1 en L3 vlak bij opstarten (32 opstarts, 26 dagen).

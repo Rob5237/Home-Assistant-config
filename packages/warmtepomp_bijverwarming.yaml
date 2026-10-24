@@ -1,0 +1,46 @@
+# Meting van de elektrische bijverwarming (extra warmteopwekker 2) van de warmtepomp
+automation:
+  - id: warmtepomp_bijverwarming_gestart
+    alias: "Warmtepomp: melding als elektrisch element gaat bijverwarmen"
+    description: >
+      Sinds 7 april staan de bedrijfsuren van extra warmteopwekker 2 vast op 33,78 u;
+      de teller 'second heat generator amount counter' stond sinds 7 juni stil. Zodra
+      de bedrijfsuren oplopen, draait het element (2 fasen). Doel: vastleggen welke
+      P1-fasen dan stijgen, zodat het element in de groepenkast-indeling past
+      (zie .claude/rules/elektrischestoppen.md). Stuurt na 60 s een melding met het
+      vermogen per P1-fase (de bedrijfsuren-teller loopt achter op het inschakelen).
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: sensor.luxtronik_280807_0450_additional_heat_generator2_operation_hours
+    conditions:
+      - condition: template
+        value_template: >
+          {{ trigger.from_state is not none
+             and trigger.from_state.state | float(none) is not none
+             and trigger.to_state.state | float(none) is not none
+             and trigger.to_state.state | float > trigger.from_state.state | float }}
+    actions:
+      - delay: "00:01:00"
+      - variables:
+          bericht: >
+            Bedrijfsuren element: {{ trigger.from_state.state }} → {{ trigger.to_state.state }} h.
+            P1 nu: L1 {{ states('sensor.p1_meter_power_phase_1') }} W,
+            L2 {{ states('sensor.p1_meter_power_phase_2') }} W,
+            L3 {{ states('sensor.p1_meter_power_phase_3') }} W.
+            Compressor {{ states('binary_sensor.luxtronik_280807_0450_compressor') }},
+            buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }} °C,
+            boiler {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }} °C,
+            EV-Rob {{ states('sensor.ev_rob_vermogen') }} W, EV-Sonia {{ states('sensor.ev_sonia_vermogen') }} W.
+            Meet de fasen bij het stijgen: kijk in de history van de P1-fasen rond {{ now().strftime('%H:%M') }}.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🔥 Elektrisch element warmtepomp actief"
+          message: "{{ bericht }}"
+        continue_on_error: true
+      - action: persistent_notification.create
+        data:
+          notification_id: warmtepomp_bijverwarming
+          title: "Elektrisch element warmtepomp actief"
+          message: "{{ bericht }}"
