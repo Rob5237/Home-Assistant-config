@@ -1,0 +1,28 @@
+# Bewaking van de Raspberry Pi zelf
+automation:
+  - id: pi_processor_te_warm
+    alias: "Pi: melding bij te hoge processortemperatuur"
+    description: >
+      Normaal 43-47 °C. Boven 70 °C gedurende 5 minuten = koeling of belasting
+      onderzoeken (de Pi begrenst zichzelf pas rond 80 °C).
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.system_monitor_processortemperatuur
+        above: 70
+        for: "00:05:00"
+    actions:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "🌡️ Pi te warm"
+          message: >
+            De processor van de Pi is {{ states('sensor.system_monitor_processortemperatuur') }} °C
+            (normaal ca. 45 °C). Controleer de koeling.
+        continue_on_error: true
+      - action: persistent_notification.create
+        data:
+          notification_id: pi_te_warm
+          title: "Pi te warm"
+          message: >
+            Processor {{ states('sensor.system_monitor_processortemperatuur') }} °C
+            om {{ now().strftime('%H:%M') }}.
