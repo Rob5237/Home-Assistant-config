@@ -176,7 +176,8 @@
     input_number.warmtepomp_kamertemp_backup is nu alleen nog de marker
     'buffer actief' (setpoint ter info; 0 = niet actief).
     Mutex met warmtepomp_goedkoop_uur_opwarmen via
-    input_boolean.warmtepomp_goedkoop_uur_boost_actief.
+    input_boolean.warmtepomp_goedkoop_uur_boost_actief; de buffer heeft
+    voorrang en breekt een lopende boost af (24-10-2026).
     Kwartierprecisie (14-10-2026, was uur-gebaseerd): Zonneplan varieert per
     15 min. Trigger nu elke minuut i.p.v. alleen xx:01, conditie matcht het
     volledige HH:MM i.p.v. alleen het uur.
@@ -198,24 +199,20 @@
   actions:
     # Logging (19-10-2026): de overige voorwaarden staan hier i.p.v. onder
     # conditions, zodat een afgebroken run altijd een logboek-regel achterlaat.
+    # Voorrang (24-10-2026): een lopende goedkoop-uur-boost (+0,5°C) wordt
+    # pas verderop overgenomen; alleen een al actieve buffer blokkeert hier.
     - if:
-        - condition: or
-          conditions:
-            - condition: numeric_state
-              entity_id: input_number.warmtepomp_kamertemp_backup
-              above: 0.01
-            - condition: state
-              entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
-              state: "on"
+        - condition: numeric_state
+          entity_id: input_number.warmtepomp_kamertemp_backup
+          above: 0.01
       then:
         - action: logbook.log
           data:
             name: "Pre-17:00 vloerbuffer"
             message: >-
-              Overgeslagen: er is al een buffer of boost actief
-              (marker {{ states('input_number.warmtepomp_kamertemp_backup') }}, boost
-              {{ states('input_boolean.warmtepomp_goedkoop_uur_boost_actief') }}).
-        - stop: "Buffer of boost al actief"
+              Overgeslagen: er is al een buffer actief
+              (marker {{ states('input_number.warmtepomp_kamertemp_backup') }}).
+        - stop: "Buffer al actief"
     - if:
         - condition: state
           entity_id: select.luxtronik_280807_0450_heating_mode
@@ -333,6 +330,26 @@
     - variables:
         correctie: >
           {{ [[((1.5 + 0.25 * (14 - t_avond | float(buiten_nu))) * 2) | round(0, 'common') / 2, 1.0] | max, 5.0] | min }}
+    # Voorrang boven de goedkoop-uur-boost: stop een lopende boost-run (anders
+    # zet zijn delay-einde de correctie straks weer op 0) en schakel de
+    # automatisering direct weer in voor de volgende dag.
+    - if:
+        - condition: state
+          entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
+          state: "on"
+      then:
+        - action: automation.turn_off
+          target:
+            entity_id: automation.warmtepomp_goedkoop_uur_opwarmen
+          data:
+            stop_actions: true
+        - action: automation.turn_on
+          target:
+            entity_id: automation.warmtepomp_goedkoop_uur_opwarmen
+        - action: logbook.log
+          data:
+            name: "Pre-17:00 vloerbuffer"
+            message: "Voorrang: lopende goedkoop-uur-boost afgebroken, buffer neemt over."
     # Marker 'buffer actief' (setpoint ter info), mutex aan, aanvoer +correctie
     - action: input_number.set_value
       target:
