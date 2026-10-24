@@ -36,7 +36,14 @@ Draadkleuren fasen in meterkast: L1 = links, L2 = midden, L3 = rechts.
 |-----|-------|
 | Zonnepanelen | L1 L2 L3 |
 | Enphase Q-relay | L1 L2 L3 |
-| Inductiekookplaat | 2 fasen: L1 + L3 (gemeten 24-10-2026 via P1-fase 1 en 3 bij een testrun; P1-fasenummers zijn niet apart tegen de meterkast gecontroleerd) |
+| Inductiekookplaat | 2 fasen: L1 + L3 (gemeten 24-10-2026 via P1-fase 1 en 3 bij een testrun) |
 | Warmtepomp (buiten + zolder) | L1 L2 L3 |
 | Laadpaal garage (EV-Lader Rob) | L1 L2 L3 |
 | Laadpaal voordeur (EV-Lader Sonia) | L1 L2 L3 |
+
+## Controle P1-fasenummering (24-10-2026)
+P1-fase 1/2/3 (HomeWizard, `sensor.p1_meter_power_phase_N`) is vergeleken met de groepenkast:
+- **L3 bevestigd:** droger (stop 11, L3) liet alleen P1-fase 3 reageren (+~440 W, daarna wisselend ~265 W).
+- **L2 waarschijnlijk:** de pulsen van ~2,1 kW (~51 per dag, ~10 s) die vermoedelijk de Quooker (stop 3, L2) zijn, staan op P1-fase 2. Niet bevestigd, want de Quooker is niet apart getest.
+- **L1 door uitsluiting:** niet apart getest; volgt uit L2 en L3.
+- Inductiekookplaat (2 fasen) reageerde op P1-fase 1 en 3, niet op fase 2.
