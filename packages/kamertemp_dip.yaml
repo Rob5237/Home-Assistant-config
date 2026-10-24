@@ -1,0 +1,48 @@
+# Tijdelijke dip in de kamertemperatuur (bijv. tuindeuren open bij etenslucht)
+# Herkent een snelle daling (>= 0,3 °C binnen 20 min) en houdt het signaal vast
+# tot de temperatuur herstelt (max 45 min). De zachte kamertemp-correctie
+# verhoogt de aanvoer niet zolang dit aan staat (alleen verlagen mag).
+# 'this' is in state/attributes de vorige toestand van deze entiteit; daarom
+# wordt de berekening per veld herhaald (in 'variables' is 'this' niet beschikbaar).
+template:
+  - triggers:
+      - trigger: state
+        entity_id: sensor.luxtronik_280807_0450_room_thermostat_temperature
+      - trigger: time_pattern
+        minutes: "/1"
+    variables:
+      cur: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(none) }}"
+      nu: "{{ now().timestamp() | round(0) }}"
+    binary_sensor:
+      - name: "Kamertemp tijdelijke dip"
+        unique_id: kamertemp_tijdelijke_dip
+        icon: mdi:door-open
+        state: >
+          {% set ns = namespace(l=[]) %}
+          {% for p in (this.attributes.pts | default([], true)) %}
+            {% if nu - p[0] <= 1200 %}{% set ns.l = ns.l + [p] %}{% endif %}
+          {% endfor %}
+          {% if cur is not none %}{% set ns.l = ns.l + [[nu, cur]] %}{% endif %}
+          {% set mx = (ns.l | map(attribute=1) | list | max) if ns.l | count > 0 else cur %}
+          {% set was_on = this.state == 'on' %}
+          {% if cur is none %}{{ was_on }}
+          {% elif was_on %}{{ cur < (this.attributes.ref | float(mx)) - 0.1 and nu - (this.attributes.since | float(nu)) < 2700 }}
+          {% else %}{{ mx - cur >= 0.3 }}{% endif %}
+        attributes:
+          pts: >
+            {% set ns = namespace(l=[]) %}
+            {% for p in (this.attributes.pts | default([], true)) %}
+              {% if nu - p[0] <= 1200 %}{% set ns.l = ns.l + [p] %}{% endif %}
+            {% endfor %}
+            {% if cur is not none %}{% set ns.l = ns.l + [[nu, cur]] %}{% endif %}
+            {{ ns.l }}
+          ref: >
+            {% set ns = namespace(l=[]) %}
+            {% for p in (this.attributes.pts | default([], true)) %}
+              {% if nu - p[0] <= 1200 %}{% set ns.l = ns.l + [p] %}{% endif %}
+            {% endfor %}
+            {% if cur is not none %}{% set ns.l = ns.l + [[nu, cur]] %}{% endif %}
+            {% set mx = (ns.l | map(attribute=1) | list | max) if ns.l | count > 0 else cur %}
+            {{ this.attributes.ref | float(mx) if this.state == 'on' else mx }}
+          since: >
+            {{ this.attributes.since | float(nu) if this.state == 'on' else nu }}

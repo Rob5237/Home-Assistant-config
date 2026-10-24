@@ -84,6 +84,8 @@
     input_boolean.warmtepomp_goedkoop_uur_boost_actief — beide automaties
     sturen dezelfde heating_target_correction aan, dus deze slaat over
     zolang de goedkoop-uur-boost loopt (anders overschrijven ze elkaar).
+    Tijdelijke dip (24-10-2026): bij binary_sensor.kamertemp_tijdelijke_dip
+    (snelle daling, bv. tuindeuren open) wordt de correctie niet verhoogd.
   triggers:
     - trigger: time_pattern
       minutes: "/15"
@@ -112,8 +114,11 @@
           {% set fout = setpoint - kamer %}
           {% set stappen = (fout / 0.5) | round(0, 'common') %}
           {{ [[-2.0, stappen * 0.5] | max, 2.0] | min }}
+    # Tijdelijke dip (deur open): correctie niet verhogen, alleen verlagen mag
     - condition: template
-      value_template: "{{ nieuw != huidig }}"
+      value_template: >
+        {{ nieuw != huidig
+           and (is_state('binary_sensor.kamertemp_tijdelijke_dip', 'off') or nieuw < huidig) }}
     - action: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
