@@ -87,7 +87,7 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -118,7 +118,7 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -145,7 +145,7 @@ views:
                   {% else %}
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   {% endif %}
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu NU opladen
@@ -179,7 +179,7 @@ views:
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   {% endif %}
                   .name, span, ha-card > span { color: #F44336 !important; font-weight: bold !important; }
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu wordt NU opgeladen
@@ -215,7 +215,7 @@ views:
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
                   span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: center; }
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -245,7 +245,7 @@ views:
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -274,42 +274,28 @@ views:
               columns: 12
             card_mod:
               style: |
-                #root { gap: 0 !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; }
+                #root { gap: 0 !important; border-radius: var(--ha-card-border-radius, 12px) !important; overflow: hidden !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; }
             cards:
-              - type: entities
-                card_mod:
-                  style:
-                    .: |
-                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      .card-content { padding: 4px 8px 0 4px !important; }
-                    hui-input-datetime-entity-row$: |
-                      :host { --entity-row-padding: 0; }
-                      ha-time-input { zoom: 0.8; }
-                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
-                      .info, .info * { font-size: 16px !important; font-weight: 700 !important; }
-                      .info { margin-left: -6px !important; }
-                entities:
-                  - entity: input_datetime.ev_sonia_vertrek_werkdag
-                    name: Vertrektijd werkdag
-                    icon: mdi:clock-outline
               - type: grid
                 columns: 8
                 square: false
                 card_mod:
                   style: |
                     ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 8px !important; }
-                    #root { grid-template-columns: 2fr repeat(7, 1fr) !important; gap: 3px !important; align-items: center !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; padding: 4px 8px !important; }
+                    #root { grid-template-columns: 104px repeat(7, 1fr) !important; gap: 3px !important; align-items: center !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; padding: 8px 13px 4px 8px !important; }
                 cards:
                   - type: button
                     name: Werkdag
-                    show_icon: false
+                    icon: mdi:briefcase-outline
+                    show_icon: true
                     show_state: false
                     tap_action:
                       action: none
                     card_mod:
                       style: |
-                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 !important; display: flex; align-items: center; justify-content: flex-start; }
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center; justify-content: flex-start; gap: 13px !important; }
                         span { font-size: 13px !important; font-weight: 600 !important; white-space: nowrap !important; }
+                        ha-state-icon, ha-icon, state-badge { color: transparent !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; background-color: var(--state-icon-color, #44739e); -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(24 0) scale(-1 1)'><rect x='1.2' y='11.2' width='12.4' height='1.8'/><rect x='2.3' y='13' width='1.7' height='8'/><rect x='10.8' y='13' width='1.7' height='8'/><path fill-rule='evenodd' d='M3.6 4.6h7.8v5.6H3.6z M4.9 5.9v3h5.2v-3z'/><rect x='2.8' y='10.2' width='9.6' height='1' rx='0.4'/><rect x='19.4' y='3.4' width='2' height='10.2' rx='1'/><rect x='15' y='13' width='6.4' height='2' rx='0.9'/><rect x='17.4' y='15' width='1.8' height='3.2'/><rect x='14.4' y='18.2' width='7.8' height='1.5' rx='0.75'/><circle cx='15.3' cy='21.4' r='1.2'/><circle cx='18.3' cy='21.4' r='1.2'/><circle cx='21.3' cy='21.4' r='1.2'/></g></svg>") center / 24px 24px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(24 0) scale(-1 1)'><rect x='1.2' y='11.2' width='12.4' height='1.8'/><rect x='2.3' y='13' width='1.7' height='8'/><rect x='10.8' y='13' width='1.7' height='8'/><path fill-rule='evenodd' d='M3.6 4.6h7.8v5.6H3.6z M4.9 5.9v3h5.2v-3z'/><rect x='2.8' y='10.2' width='9.6' height='1' rx='0.4'/><rect x='19.4' y='3.4' width='2' height='10.2' rx='1'/><rect x='15' y='13' width='6.4' height='2' rx='0.9'/><rect x='17.4' y='15' width='1.8' height='3.2'/><rect x='14.4' y='18.2' width='7.8' height='1.5' rx='0.75'/><circle cx='15.3' cy='21.4' r='1.2'/><circle cx='18.3' cy='21.4' r='1.2'/><circle cx='21.3' cy='21.4' r='1.2'/></g></svg>") center / 24px 24px no-repeat; }
                   - type: button
                     entity: input_boolean.ev_sonia_werkdag_ma
                     name: Ma
@@ -426,25 +412,44 @@ views:
                 card_mod:
                   style:
                     .: |
+                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      .card-content { padding: 4px 8px 0 4px !important; }
+                    hui-input-datetime-entity-row$: |
+                      :host { --entity-row-padding: 0; }
+                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
+                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
+                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
+                      .info { margin-left: -6px !important; }
+                entities:
+                  - entity: input_datetime.ev_sonia_vertrek_werkdag
+                    name: Accu opgeladen vóór
+                    icon: mdi:clock-outline
+              - type: entities
+                card_mod:
+                  style:
+                    .: |
                       ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
                       ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                       .card-content { padding: 4px 8px 0 4px !important; }
                     hui-input-datetime-entity-row$ hui-generic-entity-row$: |
                       .info { margin-left: -6px !important; }
+                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
+                      .info::after { content: " (vóór 12:00)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-weight: 400 !important; font-size: 13px !important; letter-spacing: -0.2px; white-space: nowrap; }
                     hui-input-datetime-entity-row$: |
-                      ha-time-input { zoom: 0.8; }
+                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
                 entities:
                   - entity: input_datetime.ev_sonia_vertrek_weekend
-                    name: Weekend en feestdag (vóór 12:00)
+                    name: Weekend en feestdag
+                    icon: mdi:clock-outline
               - type: grid
                 columns: 2
                 square: false
                 card_mod:
                   style: |
-                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 5px 8px 13px !important; }
+                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 4px 8px 15px !important; }
                 cards:
                   - type: button
-                    name: Nu geldend (volgende ochtend)
+                    name: Nu geldend
                     icon: mdi:clock-outline
                     show_state: false
                     tap_action:
@@ -452,15 +457,16 @@ views:
                     card_mod:
                       style: |
                         ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important; text-align: left !important; }
-                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important;  visibility: hidden !important; }
                         span { font-size: 14px !important; font-weight: 400 !important; text-align: left !important; white-space: normal !important; }
+                        span::after { content: " (volgende ochtend)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-size: 14px !important; font-weight: 400 !important; letter-spacing: -0.2px; white-space: nowrap; }
                   - type: markdown
                     content: "{{ states('input_datetime.ev_sonia_vertrek')[:2] }} : {{ states('input_datetime.ev_sonia_vertrek')[3:5] }}"
                     card_mod:
                       style: |
                         ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
                         ha-markdown { padding: 0 !important; text-align: center !important; }
-                        ha-markdown *, p { margin: 0 !important; font-size: 16px !important; text-align: center !important; white-space: pre !important; }
+                        ha-markdown *, p { margin: 0 !important; font-size: 14px !important; font-weight: 400 !important; text-align: center !important; white-space: pre !important; }
 
   - title: EV-Rob
     path: rob
@@ -532,7 +538,7 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -563,7 +569,7 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -590,7 +596,7 @@ views:
                   {% else %}
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   {% endif %}
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu NU opladen
@@ -624,7 +630,7 @@ views:
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   {% endif %}
                   .name, span, ha-card > span { color: #F44336 !important; font-weight: bold !important; }
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu wordt NU opgeladen
@@ -660,7 +666,7 @@ views:
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
                   span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: center; }
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -690,7 +696,7 @@ views:
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-card { height: 95px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
                   span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
@@ -719,42 +725,28 @@ views:
               columns: 12
             card_mod:
               style: |
-                #root { gap: 0 !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; }
+                #root { gap: 0 !important; border-radius: var(--ha-card-border-radius, 12px) !important; overflow: hidden !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; }
             cards:
-              - type: entities
-                card_mod:
-                  style:
-                    .: |
-                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      .card-content { padding: 4px 8px 0 4px !important; }
-                    hui-input-datetime-entity-row$: |
-                      :host { --entity-row-padding: 0; }
-                      ha-time-input { zoom: 0.8; }
-                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
-                      .info, .info * { font-size: 16px !important; font-weight: 700 !important; }
-                      .info { margin-left: -6px !important; }
-                entities:
-                  - entity: input_datetime.ev_rob_vertrek_werkdag
-                    name: Vertrektijd werkdag
-                    icon: mdi:clock-outline
               - type: grid
                 columns: 8
                 square: false
                 card_mod:
                   style: |
                     ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 8px !important; }
-                    #root { grid-template-columns: 2fr repeat(7, 1fr) !important; gap: 3px !important; align-items: center !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; padding: 4px 8px !important; }
+                    #root { grid-template-columns: 104px repeat(7, 1fr) !important; gap: 3px !important; align-items: center !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; padding: 8px 13px 4px 8px !important; }
                 cards:
                   - type: button
                     name: Werkdag
-                    show_icon: false
+                    icon: mdi:briefcase-outline
+                    show_icon: true
                     show_state: false
                     tap_action:
                       action: none
                     card_mod:
                       style: |
-                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 !important; display: flex; align-items: center; justify-content: flex-start; }
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center; justify-content: flex-start; gap: 13px !important; }
                         span { font-size: 13px !important; font-weight: 600 !important; white-space: nowrap !important; }
+                        ha-state-icon, ha-icon, state-badge { color: transparent !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; background-color: var(--state-icon-color, #44739e); -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(24 0) scale(-1 1)'><rect x='1.2' y='11.2' width='12.4' height='1.8'/><rect x='2.3' y='13' width='1.7' height='8'/><rect x='10.8' y='13' width='1.7' height='8'/><path fill-rule='evenodd' d='M3.6 4.6h7.8v5.6H3.6z M4.9 5.9v3h5.2v-3z'/><rect x='2.8' y='10.2' width='9.6' height='1' rx='0.4'/><rect x='19.4' y='3.4' width='2' height='10.2' rx='1'/><rect x='15' y='13' width='6.4' height='2' rx='0.9'/><rect x='17.4' y='15' width='1.8' height='3.2'/><rect x='14.4' y='18.2' width='7.8' height='1.5' rx='0.75'/><circle cx='15.3' cy='21.4' r='1.2'/><circle cx='18.3' cy='21.4' r='1.2'/><circle cx='21.3' cy='21.4' r='1.2'/></g></svg>") center / 24px 24px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(24 0) scale(-1 1)'><rect x='1.2' y='11.2' width='12.4' height='1.8'/><rect x='2.3' y='13' width='1.7' height='8'/><rect x='10.8' y='13' width='1.7' height='8'/><path fill-rule='evenodd' d='M3.6 4.6h7.8v5.6H3.6z M4.9 5.9v3h5.2v-3z'/><rect x='2.8' y='10.2' width='9.6' height='1' rx='0.4'/><rect x='19.4' y='3.4' width='2' height='10.2' rx='1'/><rect x='15' y='13' width='6.4' height='2' rx='0.9'/><rect x='17.4' y='15' width='1.8' height='3.2'/><rect x='14.4' y='18.2' width='7.8' height='1.5' rx='0.75'/><circle cx='15.3' cy='21.4' r='1.2'/><circle cx='18.3' cy='21.4' r='1.2'/><circle cx='21.3' cy='21.4' r='1.2'/></g></svg>") center / 24px 24px no-repeat; }
                   - type: button
                     entity: input_boolean.ev_rob_werkdag_ma
                     name: Ma
@@ -871,25 +863,44 @@ views:
                 card_mod:
                   style:
                     .: |
+                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      .card-content { padding: 4px 8px 0 4px !important; }
+                    hui-input-datetime-entity-row$: |
+                      :host { --entity-row-padding: 0; }
+                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
+                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
+                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
+                      .info { margin-left: -6px !important; }
+                entities:
+                  - entity: input_datetime.ev_rob_vertrek_werkdag
+                    name: Accu opgeladen vóór
+                    icon: mdi:clock-outline
+              - type: entities
+                card_mod:
+                  style:
+                    .: |
                       ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
                       ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                       .card-content { padding: 4px 8px 0 4px !important; }
                     hui-input-datetime-entity-row$ hui-generic-entity-row$: |
                       .info { margin-left: -6px !important; }
+                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
+                      .info::after { content: " (vóór 12:00)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-weight: 400 !important; font-size: 13px !important; letter-spacing: -0.2px; white-space: nowrap; }
                     hui-input-datetime-entity-row$: |
-                      ha-time-input { zoom: 0.8; }
+                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
                 entities:
                   - entity: input_datetime.ev_rob_vertrek_weekend
-                    name: Weekend en feestdag (vóór 12:00)
+                    name: Weekend en feestdag
+                    icon: mdi:clock-outline
               - type: grid
                 columns: 2
                 square: false
                 card_mod:
                   style: |
-                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 5px 8px 13px !important; }
+                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 4px 8px 15px !important; }
                 cards:
                   - type: button
-                    name: Nu geldend (volgende ochtend)
+                    name: Nu geldend
                     icon: mdi:clock-outline
                     show_state: false
                     tap_action:
@@ -897,12 +908,13 @@ views:
                     card_mod:
                       style: |
                         ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important; text-align: left !important; }
-                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important;  visibility: hidden !important; }
                         span { font-size: 14px !important; font-weight: 400 !important; text-align: left !important; white-space: normal !important; }
+                        span::after { content: " (volgende ochtend)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-size: 14px !important; font-weight: 400 !important; letter-spacing: -0.2px; white-space: nowrap; }
                   - type: markdown
                     content: "{{ states('input_datetime.ev_rob_vertrek')[:2] }} : {{ states('input_datetime.ev_rob_vertrek')[3:5] }}"
                     card_mod:
                       style: |
                         ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
                         ha-markdown { padding: 0 !important; text-align: center !important; }
-                        ha-markdown *, p { margin: 0 !important; font-size: 16px !important; text-align: center !important; white-space: pre !important; }
+                        ha-markdown *, p { margin: 0 !important; font-size: 14px !important; font-weight: 400 !important; text-align: center !important; white-space: pre !important; }
