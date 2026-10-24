@@ -42,8 +42,9 @@ Draadkleuren fasen in meterkast: L1 = links, L2 = midden, L3 = rechts.
 | Laadpaal voordeur (EV-Lader Sonia) | L1 L2 L3 |
 
 ## Controle P1-fasenummering (24-10-2026)
-P1-fase 1/2/3 (HomeWizard, `sensor.p1_meter_power_phase_N`) is vergeleken met de groepenkast:
-- **L3 bevestigd:** droger (stop 11, L3) liet alleen P1-fase 3 reageren (+~440 W, daarna wisselend ~265 W).
-- **L2 waarschijnlijk:** de pulsen van ~2,1 kW (~51 per dag, ~10 s) die vermoedelijk de Quooker (stop 3, L2) zijn, staan op P1-fase 2. Niet bevestigd, want de Quooker is niet apart getest.
+P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgorde) is vergeleken met de groepenkast:
+- **L3 bevestigd:** droger (stop 11, L3) liet alleen de derde fase reageren (+~440 W, daarna wisselend ~265 W).
+- **L2 bevestigd:** Quooker (stop 3, L2) handmatig aangezet; reageerde op de middelste fase. De korte pulsen van ~2,1 kW (~51 per dag, ~10 s) op die fase zijn dus vrijwel zeker de Quooker-standby.
 - **L1 door uitsluiting:** niet apart getest; volgt uit L2 en L3.
-- Inductiekookplaat (2 fasen) reageerde op P1-fase 1 en 3, niet op fase 2.
+- Passat laadt bij beide laders (EV-Rob en EV-Sonia) op de middelste fase (L2).
+- Inductiekookplaat (2 fasen) reageerde op de eerste en derde fase (L1 + L3), niet op de middelste.
