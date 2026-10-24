@@ -37,7 +37,7 @@ Draadkleuren fasen in meterkast: L1 = links, L2 = midden, L3 = rechts.
 | Zonnepanelen | L1 L2 L3 |
 | Enphase Q-relay | L1 L2 L3 |
 | Inductiekookplaat | 2 fasen: L1 + L3 (gemeten 24-10-2026 via P1-fase 1 en 3 bij een testrun) |
-| Warmtepomp (buiten + zolder) | L1 L2 L3 aangesloten; **compressor belast alleen L2** (gemeten 24-10-2026: bij 32 opstarts steeg alleen P1-fase 2 met ~0,6-1,4 kW, L1 en L3 bleven vlak). Elektrisch element (extra warmteopwekker 2, 2 fasen) draait sinds april/juni niet; fasen nog niet gemeten |
+| Warmtepomp (buiten + zolder) | L1 L2 L3 aangesloten; **compressor belast alleen L2** (gemeten 24-10-2026: bij 32 opstarts steeg alleen P1-fase 2 met ~0,6-1,4 kW, L1 en L3 bleven vlak). **Elektrisch element (extra warmteopwekker 2) belast L1 + L3**, ~2,0 kW per fase (samen ~4 kW), L2 reageert niet (gemeten 24-10-2026, zie 'Controle P1-fasenummering') |
 | Laadpaal garage (EV-Lader Rob) | L1 L2 L3 |
 | Laadpaal voordeur (EV-Lader Sonia) | L1 L2 L3 |
 
@@ -49,3 +49,5 @@ P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgord
 - Passat laadt bij beide laders (EV-Rob en EV-Sonia) op de middelste fase (L2).
 - Inductiekookplaat (2 fasen) reageerde op de eerste en derde fase (L1 + L3), niet op de middelste.
 - Warmtepomp-compressor: belast alleen de middelste fase (L2); L1 en L3 vlak bij opstarten (32 opstarts, 26 dagen).
+- Warmtepomp elektrisch element (extra warmteopwekker 2, 2 fasen): gemeten op 24-10-2026 21:20-21:28 via dhw_mode "Second heatsource" + setpoint 65 °C: +2,0 kW op L1 en +2,0 kW op L3 tegelijk (samen ~4 kW), L2 geen reactie, compressor uit. Draaide ononderbroken 21:22:25-21:28:14 na een aanloop van drie pulsen van 10 s aan / 30 s uit; daarna afgebroken door `tapwater_bijverwarmen`. Start alleen als de boiler onder setpoint minus `dhw_hysteresis` (10 K) staat, bij setpoint 65 dus onder 55 °C.
+- Element zonder compressor aansturen (gemeten 24-10-2026): `select.luxtronik_280807_0450_dhw_mode` = "Second heatsource" + `number.luxtronik_280807_0450_dhw_target_temperature` = 65. Voorwaarde: boiler (`dhw_temperature`) onder setpoint minus `dhw_hysteresis` (10 K), dus onder 55 °C bij setpoint 65 (bij setpoint 62 en boiler 58,2 °C gebeurde niets). Compressor blijft dan uit. `automation.tapwater_bijverwarmen` (boiler < 46 °C voor 5 min en tarief < 0,25) overschrijft dit met Automatic + setpoint 57, dus houd de boiler tussen 46 en 55 °C of zet die automatisering tijdelijk uit. Niet getest: langer dan 5 min 49 s, ruimteverwarming (`heating_mode` "Second heatsource"). Rendement: element ~1 kWh warmte per kWh stroom, compressor ~3; alleen zinvol bij negatieve/zeer lage prijzen of PV-overschot.

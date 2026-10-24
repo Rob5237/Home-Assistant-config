@@ -802,46 +802,92 @@
 - id: tapwater_negatieve_prijs_opwarmen
   alias: "Tapwater: opwarmen bij negatieve stroomprijs"
   description: >
-    Elk kwartier wordt gecheckt of het huidige Zonneplan-kwartiertarief onder
-    -2 ct/kWh ligt (je krijgt dan betaald om stroom te verbruiken). Zo ja en
-    DHW < 60°C → setpoint 65°C + hysterese 10K→3K + Party, zelfde combinatie
-    als TDI. Setpoint bewust 65°C (niet een eigen waarde): hergebruikt
-    daardoor automatisch de bestaande tdi_einde_reset (die op setpoint > 63
-    reageert, ongeacht welke automatie 'm zette) — geen aparte reset-automatie
-    nodig. Blijft actief tijdens vakantie, net als de andere opportunistische-
-    energie-automaties (zonne-overschot, extra opslag) — negatieve prijs is
-    net zo goed "gratis energie" als PV-overschot.
-    Startguard DHW < 60 (i.p.v. 58 zoals extra-opslag): voorkomt onnodig
-    herstarten vlak voordat tdi_einde_reset toch al zou resetten.
+    Zodra het Zonneplan-kwartiertarief negatief is (je krijgt betaald om stroom
+    te verbruiken) wordt het tapwater met de ELEKTRISCHE ELEMENTEN verwarmd en
+    blijft de compressor uit: dhw_mode "Second heatsource" (alleen element, ~4 kW
+    op L1+L3) in plaats van de compressor (~1,7 kW op L2). Gemeten 24-10-2026.
+    Voorwaarden voor werking van het element (zie memory project-wp-element-fasen):
+    1. dhw_mode "Second heatsource".
+    2. Setpoint 65 (maximum) en dhw_hysteresis tijdelijk 3 K, zodat het element
+       start zodra de boiler onder 62 °C komt (bij 10 K pas onder 55 °C).
+       Alleen deze automatie (automatie-context) mag de hysterese schrijven;
+       de watchdog en blokkeer-automatie laten dat toe.
+    3. Compressor blijft uit zolang de stand "Second heatsource" is.
+    4. Andere automaties overschrijven dit niet: tapwater_bijverwarmen en
+       tdi_einde_reset slaan over zolang dhw_mode "Second heatsource" is.
+    Einde: tapwater_element_stop (prijs >= 0 of boiler > 64 °C) draait de
+    bestaande reset (tdi_einde_reset) met skip_condition. Startguard: boiler < 64.
+    Blijft actief tijdens vakantie (negatieve prijs = gratis energie).
   triggers:
     - trigger: time_pattern
       minutes: "/15"
+    - trigger: numeric_state
+      entity_id: sensor.zonneplan_current_quarter_hourly_electricity_tariff
+      below: 0
   conditions:
     - condition: numeric_state
       entity_id: sensor.zonneplan_current_quarter_hourly_electricity_tariff
-      below: -0.02
+      below: 0
     - condition: numeric_state
       entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-      below: 60
+      below: 64
+    - condition: not
+      conditions:
+        - condition: state
+          entity_id: select.luxtronik_280807_0450_dhw_mode
+          state: "Second heatsource"
   actions:
-    - target:
+    - action: number.set_value
+      target:
         entity_id: number.luxtronik_280807_0450_dhw_hysteresis
       data:
         value: 3
-      action: number.set_value
-    - target:
+    - action: number.set_value
+      target:
         entity_id: number.luxtronik_280807_0450_dhw_target_temperature
       data:
         value: 65
-      action: number.set_value
-    - target:
+    - action: select.select_option
+      target:
         entity_id: select.luxtronik_280807_0450_dhw_mode
       data:
-        option: Party
-      action: select.select_option
+        option: "Second heatsource"
     - action: input_boolean.turn_on
       target:
         entity_id: input_boolean.tapwater_overschot_lock
+  mode: single
+
+- id: tapwater_element_stop
+  alias: "Tapwater: element stoppen na negatieve prijs of vol vat"
+  description: >
+    Beëindigt het elementbedrijf van tapwater_negatieve_prijs_opwarmen zodra de
+    prijs niet meer negatief is (>= 0) of de boiler boven 64 °C komt. Draait
+    de bestaande reset (tdi_einde_reset) met skip_condition: setpoint 50,
+    hysterese 10 K, dhw_mode terug (Automatic/Holidays) en lock uit.
+    Draait ook elk kwartier als vangnet (bv. na een HA-herstart).
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.zonneplan_current_quarter_hourly_electricity_tariff
+      above: -0.0000001
+    - trigger: numeric_state
+      entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+      above: 64
+    - trigger: time_pattern
+      minutes: "/15"
+  conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      state: "Second heatsource"
+    - condition: template
+      value_template: >
+        {{ states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') | float(1) >= 0
+           or states('sensor.luxtronik_280807_0450_dhw_temperature') | float(0) > 64 }}
+  actions:
+    - action: automation.trigger
+      target:
+        entity_id: automation.tdi_einde_reset
+      data:
+        skip_condition: true
   mode: single
 
 - id: tdi_einde_reset
@@ -874,6 +920,11 @@
   - condition: numeric_state
     entity_id: number.luxtronik_280807_0450_dhw_target_temperature
     above: 63
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      state: "Second heatsource"
   actions:
   - target:
       entity_id: number.luxtronik_280807_0450_dhw_target_temperature
@@ -1009,6 +1060,11 @@
       minutes: 5
     trigger: numeric_state
   conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      state: "Second heatsource"
   - condition: or
     conditions:
     - condition: numeric_state
