@@ -130,3 +130,26 @@ automation:
                     entity_id: "input_datetime.ev_{{ repeat.item }}_vertrek"
                   data:
                     time: "{{ nieuw }}"
+
+# Tekstversie (HH:MM met voorloopnul) van de tijden, zodat de dubbele punten in het
+# dashboard onder elkaar staan (anders toont HA '7:00' en '10:00' verschillend breed).
+template:
+  - sensor:
+      - name: "EV-Sonia – vertrektijd werkdag (tekst)"
+        unique_id: ev_sonia_vertrek_werkdag_tijd
+        state: "{{ (states('input_datetime.ev_sonia_vertrek_werkdag') | string)[:5] if has_value('input_datetime.ev_sonia_vertrek_werkdag') else 'onbekend' }}"
+      - name: "EV-Sonia – vertrektijd weekend en feestdag (tekst)"
+        unique_id: ev_sonia_vertrek_weekend_tijd
+        state: "{{ (states('input_datetime.ev_sonia_vertrek_weekend') | string)[:5] if has_value('input_datetime.ev_sonia_vertrek_weekend') else 'onbekend' }}"
+      - name: "EV-Sonia – vertrektijd geldend (tekst)"
+        unique_id: ev_sonia_vertrek_geldend_tijd
+        state: "{{ (states('input_datetime.ev_sonia_vertrek') | string)[:5] if has_value('input_datetime.ev_sonia_vertrek') else 'onbekend' }}"
+      - name: "EV-Rob – vertrektijd werkdag (tekst)"
+        unique_id: ev_rob_vertrek_werkdag_tijd
+        state: "{{ (states('input_datetime.ev_rob_vertrek_werkdag') | string)[:5] if has_value('input_datetime.ev_rob_vertrek_werkdag') else 'onbekend' }}"
+      - name: "EV-Rob – vertrektijd weekend en feestdag (tekst)"
+        unique_id: ev_rob_vertrek_weekend_tijd
+        state: "{{ (states('input_datetime.ev_rob_vertrek_weekend') | string)[:5] if has_value('input_datetime.ev_rob_vertrek_weekend') else 'onbekend' }}"
+      - name: "EV-Rob – vertrektijd geldend (tekst)"
+        unique_id: ev_rob_vertrek_geldend_tijd
+        state: "{{ (states('input_datetime.ev_rob_vertrek') | string)[:5] if has_value('input_datetime.ev_rob_vertrek') else 'onbekend' }}"

@@ -308,7 +308,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_ma', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -324,7 +324,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_di', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -340,7 +340,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_wo', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -356,7 +356,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_do', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -372,7 +372,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_vr', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -388,7 +388,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_za', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -404,49 +404,79 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_sonia_werkdag_zo', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color) !important; color: var(--primary-text-color) !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
-              - type: entities
-                card_mod:
-                  style:
-                    .: |
-                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      .card-content { padding: 4px 8px 0 4px !important; }
-                    hui-input-datetime-entity-row$: |
-                      :host { --entity-row-padding: 0; }
-                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
-                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
-                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
-                      .info { margin-left: -6px !important; }
-                entities:
-                  - entity: input_datetime.ev_sonia_vertrek_werkdag
-                    name: Accu opgeladen vóór
-                    icon: mdi:clock-outline
-              - type: entities
-                card_mod:
-                  style:
-                    .: |
-                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
-                      .card-content { padding: 4px 8px 0 4px !important; }
-                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
-                      .info { margin-left: -6px !important; }
-                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
-                      .info::after { content: " (vóór 12:00)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-weight: 400 !important; font-size: 13px !important; letter-spacing: -0.2px; white-space: nowrap; }
-                    hui-input-datetime-entity-row$: |
-                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
-                entities:
-                  - entity: input_datetime.ev_sonia_vertrek_weekend
-                    name: Weekend en feestdag
-                    icon: mdi:clock-outline
               - type: grid
                 columns: 2
                 square: false
                 card_mod:
                   style: |
-                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 4px 8px 15px !important; }
+                    #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
+                cards:
+                  - type: button
+                    name: Accu opgeladen vóór
+                    icon: mdi:clock-outline
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 13px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        span { font-size: 13px !important; font-weight: 700 !important; white-space: normal !important; text-align: left !important; }
+                  - type: button
+                    entity: sensor.ev_sonia_vertrektijd_werkdag_tekst
+                    show_name: false
+                    show_icon: false
+                    show_state: true
+                    tap_action:
+                      action: more-info
+                      entity: input_datetime.ev_sonia_vertrek_werkdag
+                    card_mod:
+                      style: |
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
+                        ha-card { color: #000 !important; --primary-text-color: #000; }
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
+                cards:
+                  - type: button
+                    name: Weekend en feestdag
+                    icon: mdi:clock-outline
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 13px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        span { font-size: 13px !important; font-weight: 700 !important; white-space: normal !important; text-align: left !important; }
+                        span::after { content: " (vóór 12:00)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-size: 13px !important; font-weight: 400 !important; letter-spacing: -0.2px; white-space: nowrap; }
+                  - type: button
+                    entity: sensor.ev_sonia_vertrektijd_weekend_en_feestdag_tekst
+                    show_name: false
+                    show_icon: false
+                    show_state: true
+                    tap_action:
+                      action: more-info
+                      entity: input_datetime.ev_sonia_vertrek_weekend
+                    card_mod:
+                      style: |
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
+                        ha-card { color: #000 !important; --primary-text-color: #000; }
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
                 cards:
                   - type: button
                     name: Nu geldend
@@ -456,18 +486,22 @@ views:
                       action: none
                     card_mod:
                       style: |
-                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important; text-align: left !important; }
-                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important;  visibility: hidden !important; }
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 13px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; visibility: hidden !important; }
                         span { font-size: 14px !important; font-weight: 400 !important; text-align: left !important; white-space: normal !important; }
                         span::after { content: " (volgende ochtend)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-size: 14px !important; font-weight: 400 !important; letter-spacing: -0.2px; white-space: nowrap; }
-                  - type: markdown
-                    content: "{{ states('input_datetime.ev_sonia_vertrek')[:2] }} : {{ states('input_datetime.ev_sonia_vertrek')[3:5] }}"
+                  - type: button
+                    entity: sensor.ev_sonia_vertrektijd_geldend_tekst
+                    show_name: false
+                    show_icon: false
+                    show_state: true
+                    tap_action:
+                      action: none
                     card_mod:
                       style: |
-                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-                        ha-markdown { padding: 0 !important; text-align: center !important; }
-                        ha-markdown *, p { margin: 0 !important; font-size: 14px !important; font-weight: 400 !important; text-align: center !important; white-space: pre !important; }
-
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
+                        ha-card { color: #000 !important; --primary-text-color: #000; }
   - title: EV-Rob
     path: rob
     theme: laden_koppen
@@ -859,45 +893,75 @@ views:
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
-              - type: entities
-                card_mod:
-                  style:
-                    .: |
-                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      .card-content { padding: 4px 8px 0 4px !important; }
-                    hui-input-datetime-entity-row$: |
-                      :host { --entity-row-padding: 0; }
-                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
-                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
-                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
-                      .info { margin-left: -6px !important; }
-                entities:
-                  - entity: input_datetime.ev_rob_vertrek_werkdag
-                    name: Accu opgeladen vóór
-                    icon: mdi:clock-outline
-              - type: entities
-                card_mod:
-                  style:
-                    .: |
-                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
-                      .card-content { padding: 4px 8px 0 4px !important; }
-                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
-                      .info { margin-left: -6px !important; }
-                      .info, .info * { font-size: 13px !important; font-weight: 700 !important; }
-                      .info::after { content: " (vóór 12:00)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-weight: 400 !important; font-size: 13px !important; letter-spacing: -0.2px; white-space: nowrap; }
-                    hui-input-datetime-entity-row$: |
-                      ha-time-input { zoom: 0.8; --mdc-typography-subtitle1-font-size: 17.5px; --mdc-typography-subtitle1-font-weight: 400; --mdc-typography-subtitle1-line-height: 1.2; font-size: 17.5px; font-weight: 400; }
-                entities:
-                  - entity: input_datetime.ev_rob_vertrek_weekend
-                    name: Weekend en feestdag
-                    icon: mdi:clock-outline
               - type: grid
                 columns: 2
                 square: false
                 card_mod:
                   style: |
-                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 4px 8px 15px !important; }
+                    #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
+                cards:
+                  - type: button
+                    name: Accu opgeladen vóór
+                    icon: mdi:clock-outline
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 13px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        span { font-size: 13px !important; font-weight: 700 !important; white-space: normal !important; text-align: left !important; }
+                  - type: button
+                    entity: sensor.ev_rob_vertrektijd_werkdag_tekst
+                    show_name: false
+                    show_icon: false
+                    show_state: true
+                    tap_action:
+                      action: more-info
+                      entity: input_datetime.ev_rob_vertrek_werkdag
+                    card_mod:
+                      style: |
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
+                        ha-card { color: #000 !important; --primary-text-color: #000; }
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
+                cards:
+                  - type: button
+                    name: Weekend en feestdag
+                    icon: mdi:clock-outline
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 13px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        span { font-size: 13px !important; font-weight: 700 !important; white-space: normal !important; text-align: left !important; }
+                        span::after { content: " (vóór 12:00)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-size: 13px !important; font-weight: 400 !important; letter-spacing: -0.2px; white-space: nowrap; }
+                  - type: button
+                    entity: sensor.ev_rob_vertrektijd_weekend_en_feestdag_tekst
+                    show_name: false
+                    show_icon: false
+                    show_state: true
+                    tap_action:
+                      action: more-info
+                      entity: input_datetime.ev_rob_vertrek_weekend
+                    card_mod:
+                      style: |
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
+                        ha-card { color: #000 !important; --primary-text-color: #000; }
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
                 cards:
                   - type: button
                     name: Nu geldend
@@ -907,14 +971,19 @@ views:
                       action: none
                     card_mod:
                       style: |
-                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important; text-align: left !important; }
-                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important;  visibility: hidden !important; }
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 0 0 4px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 13px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; visibility: hidden !important; }
                         span { font-size: 14px !important; font-weight: 400 !important; text-align: left !important; white-space: normal !important; }
                         span::after { content: " (volgende ochtend)"; font-family: sans-serif-condensed, 'Roboto Condensed', 'Arial Narrow', sans-serif !important; font-stretch: 75% !important; font-size: 14px !important; font-weight: 400 !important; letter-spacing: -0.2px; white-space: nowrap; }
-                  - type: markdown
-                    content: "{{ states('input_datetime.ev_rob_vertrek')[:2] }} : {{ states('input_datetime.ev_rob_vertrek')[3:5] }}"
+                  - type: button
+                    entity: sensor.ev_rob_vertrektijd_geldend_tekst
+                    show_name: false
+                    show_icon: false
+                    show_state: true
+                    tap_action:
+                      action: none
                     card_mod:
                       style: |
-                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-                        ha-markdown { padding: 0 !important; text-align: center !important; }
-                        ha-markdown *, p { margin: 0 !important; font-size: 14px !important; font-weight: 400 !important; text-align: center !important; white-space: pre !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
+                        ha-card { color: #000 !important; --primary-text-color: #000; }
