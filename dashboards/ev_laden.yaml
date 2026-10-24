@@ -27,16 +27,20 @@ views:
         cards:
           - type: heading
             heading: EV Sonia
-            heading_style: title
+            heading_style: subtitle
             icon: mdi:car-electric
           - type: tile
             card_mod:
               style:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
+                  ha-tile-info { margin-left: -5px !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                 ha-tile-info$: |
+                  .info { flex-direction: row !important; align-items: baseline !important; flex-wrap: wrap !important; column-gap: 10px !important; }
+                  :host { flex-direction: row !important; align-items: baseline !important; flex-wrap: wrap !important; column-gap: 10px !important; }
                   .primary, .secondary { font-size: 16px !important; }
+                  .primary { font-weight: 700 !important; }
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
             entity: sensor.ev_sonia_status_nl
             name: Status
@@ -47,10 +51,12 @@ views:
               style:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
+                  ha-tile-info { margin-left: -5px !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   state-display { white-space: pre-line !important; }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
+                  .primary { font-weight: 700 !important; }
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
             entity: sensor.ev_sonia_verwachte_start
             name: Verwachte Laadstarttijd
@@ -65,7 +71,7 @@ views:
             card:
               type: button
               entity: input_boolean.ev_sonia_nacht_overslaan
-              name: "Morgen thuis blijven\nAccu 's-nachts NIET opladen"
+              name: "Morgen thuis blijven – accu 's-nachts NIET opladen"
               icon: mdi:weather-night
               show_state: false
               card_mod:
@@ -81,11 +87,14 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: toggle
             grid_options:
               columns: 12
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -109,11 +118,14 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: toggle
             grid_options:
               columns: 12
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -133,6 +145,9 @@ views:
                   {% else %}
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   {% endif %}
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu NU opladen
               icon: mdi:battery-charging
               show_state: false
@@ -143,7 +158,7 @@ views:
                   entity_id: input_boolean.ev_sonia_direct_laden
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -164,6 +179,9 @@ views:
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   {% endif %}
                   .name, span, ha-card > span { color: #F44336 !important; font-weight: bold !important; }
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu wordt NU opgeladen
               icon: mdi:battery-charging
               show_state: false
@@ -174,7 +192,7 @@ views:
                   entity_id: input_boolean.ev_sonia_direct_laden
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -190,18 +208,22 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.2 !important; }
                   ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
                   span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: center; }
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: perform-action
                 perform_action: script.ev_sonia_laden_volgens_planning
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: or
@@ -223,20 +245,25 @@ views:
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: perform-action
                 perform_action: script.ev_sonia_opladen_uitzetten
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: tile
             card_mod:
               style:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
+                  ha-tile-info { margin-left: -5px !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
+                  .primary { font-weight: 700 !important; }
             entity: sensor.ev_sonia_vermogen_kw
             name: Huidig Laadvermogen
             icon: mdi:flash
@@ -245,97 +272,195 @@ views:
           - type: vertical-stack
             grid_options:
               columns: 12
+            card_mod:
+              style: |
+                #root { gap: 0 !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; }
             cards:
               - type: entities
-                title: Vertrektijd
                 card_mod:
                   style:
                     .: |
-                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                      ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      .card-content { padding: 4px 8px 0 4px !important; }
+                    hui-input-datetime-entity-row$: |
+                      :host { --entity-row-padding: 0; }
+                      ha-time-input { zoom: 0.8; }
+                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
+                      .info, .info * { font-size: 16px !important; font-weight: 700 !important; }
+                      .info { margin-left: -6px !important; }
                 entities:
                   - entity: input_datetime.ev_sonia_vertrek_werkdag
-                    name: Werkdag
-                  - type: section
-                    label: Afgevinkt = werkdag (standaard ma t/m vr, feestdagen tellen als weekend)
-              - type: horizontal-stack
+                    name: Vertrektijd werkdag
+                    icon: mdi:clock-outline
+              - type: grid
+                columns: 8
+                square: false
+                card_mod:
+                  style: |
+                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 8px !important; }
+                    #root { grid-template-columns: 2fr repeat(7, 1fr) !important; gap: 3px !important; align-items: center !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; padding: 4px 8px !important; }
                 cards:
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_ma
-                  name: Ma
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_di
-                  name: Di
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_wo
-                  name: Wo
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_do
-                  name: Do
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_vr
-                  name: Vr
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_za
-                  name: Za
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_sonia_werkdag_zo
-                  name: Zo
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
+                  - type: button
+                    name: Werkdag
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 !important; display: flex; align-items: center; justify-content: flex-start; }
+                        span { font-size: 13px !important; font-weight: 600 !important; white-space: nowrap !important; }
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_ma
+                    name: Ma
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_ma', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_di
+                    name: Di
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_di', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_wo
+                    name: Wo
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_wo', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_do
+                    name: Do
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_do', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_vr
+                    name: Vr
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_vr', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_za
+                    name: Za
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_za', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_sonia_werkdag_zo
+                    name: Zo
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_sonia_werkdag_zo', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
               - type: entities
                 card_mod:
                   style:
                     .: |
                       ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
                       ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                      .card-content { padding: 4px 8px 0 4px !important; }
+                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
+                      .info { margin-left: -6px !important; }
+                    hui-input-datetime-entity-row$: |
+                      ha-time-input { zoom: 0.8; }
                 entities:
                   - entity: input_datetime.ev_sonia_vertrek_weekend
                     name: Weekend en feestdag (vóór 12:00)
-                  - type: simple-entity
-                    entity: input_datetime.ev_sonia_vertrek
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 5px 8px 13px !important; }
+                cards:
+                  - type: button
                     name: Nu geldend (volgende ochtend)
                     icon: mdi:clock-outline
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        span { font-size: 14px !important; font-weight: 400 !important; text-align: left !important; white-space: normal !important; }
+                  - type: markdown
+                    content: "{{ states('input_datetime.ev_sonia_vertrek')[:2] }} : {{ states('input_datetime.ev_sonia_vertrek')[3:5] }}"
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+                        ha-markdown { padding: 0 !important; text-align: center !important; }
+                        ha-markdown *, p { margin: 0 !important; font-size: 16px !important; text-align: center !important; white-space: pre !important; }
 
   - title: EV-Rob
     path: rob
@@ -347,16 +472,20 @@ views:
         cards:
           - type: heading
             heading: EV Rob
-            heading_style: title
+            heading_style: subtitle
             icon: mdi:car-electric
           - type: tile
             card_mod:
               style:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
+                  ha-tile-info { margin-left: -5px !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                 ha-tile-info$: |
+                  .info { flex-direction: row !important; align-items: baseline !important; flex-wrap: wrap !important; column-gap: 10px !important; }
+                  :host { flex-direction: row !important; align-items: baseline !important; flex-wrap: wrap !important; column-gap: 10px !important; }
                   .primary, .secondary { font-size: 16px !important; }
+                  .primary { font-weight: 700 !important; }
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
             entity: sensor.ev_rob_status_nl
             name: Status
@@ -367,10 +496,12 @@ views:
               style:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
+                  ha-tile-info { margin-left: -5px !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   state-display { white-space: pre-line !important; }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
+                  .primary { font-weight: 700 !important; }
                   .secondary, .secondary * { color: #F44336 !important; font-weight: bold !important; white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
             entity: sensor.ev_rob_verwachte_start
             name: Verwachte Laadstarttijd
@@ -385,7 +516,7 @@ views:
             card:
               type: button
               entity: input_boolean.ev_rob_nacht_overslaan
-              name: "Morgen thuis blijven\nAccu 's-nachts NIET opladen"
+              name: "Morgen thuis blijven – accu 's-nachts NIET opladen"
               icon: mdi:weather-night
               show_state: false
               card_mod:
@@ -401,11 +532,14 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: toggle
             grid_options:
               columns: 12
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -429,11 +563,14 @@ views:
                   ha-state-icon { color: transparent !important; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; --mdc-icon-size: 40px; display: block !important; margin: 0; padding: 0; flex: none; background-color: var(--primary-text-color);
                     -webkit-mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g transform='translate(1 1.8) scale(0.92)'><path transform='translate(-1 -1) scale(0.7)' d='M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z'/><path transform='translate(7 6.3) scale(0.85 0.7)' d='M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z'/></g></svg>") center / 40px 40px no-repeat; }
                   {% endif %}
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: toggle
             grid_options:
               columns: 12
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -453,6 +590,9 @@ views:
                   {% else %}
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   {% endif %}
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu NU opladen
               icon: mdi:battery-charging
               show_state: false
@@ -463,7 +603,7 @@ views:
                   entity_id: input_boolean.ev_rob_direct_laden
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -484,6 +624,9 @@ views:
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   {% endif %}
                   .name, span, ha-card > span { color: #F44336 !important; font-weight: bold !important; }
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               name: Accu wordt NU opgeladen
               icon: mdi:battery-charging
               show_state: false
@@ -494,7 +637,7 @@ views:
                   entity_id: input_boolean.ev_rob_direct_laden
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: state
@@ -510,18 +653,22 @@ views:
               show_state: false
               card_mod:
                 style: |
+                  span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; line-height: 1.2 !important; }
                   ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 8px; }
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
                   span { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; text-align: center; }
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: perform-action
                 perform_action: script.ev_rob_laden_volgens_planning
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: conditional
             conditions:
               - condition: or
@@ -543,20 +690,25 @@ views:
                   ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                  ha-card { height: 86px !important; min-height: 0 !important; padding: 4px 8px !important; justify-content: center !important; }
+                  ha-state-icon, ha-icon { --mdc-icon-size: 28px !important; width: 28px !important; height: 28px !important; min-width: 28px !important; min-height: 28px !important; -webkit-mask-size: 28px 28px !important; mask-size: 28px 28px !important; }
+                  span { font-size: 14px !important; line-height: 1.15 !important; }
               tap_action:
                 action: perform-action
                 perform_action: script.ev_rob_opladen_uitzetten
             grid_options:
               columns: 6
-              rows: 2
+              rows: auto
           - type: tile
             card_mod:
               style:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
+                  ha-tile-info { margin-left: -5px !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                 ha-tile-info$: |
                   .primary, .secondary { font-size: 16px !important; }
+                  .primary { font-weight: 700 !important; }
             entity: sensor.ev_rob_vermogen_kw
             name: Huidig Laadvermogen
             icon: mdi:flash
@@ -565,94 +717,192 @@ views:
           - type: vertical-stack
             grid_options:
               columns: 12
+            card_mod:
+              style: |
+                #root { gap: 0 !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; }
             cards:
               - type: entities
-                title: Vertrektijd
                 card_mod:
                   style:
                     .: |
-                      ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
-                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                      ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
+                      .card-content { padding: 4px 8px 0 4px !important; }
+                    hui-input-datetime-entity-row$: |
+                      :host { --entity-row-padding: 0; }
+                      ha-time-input { zoom: 0.8; }
+                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
+                      .info, .info * { font-size: 16px !important; font-weight: 700 !important; }
+                      .info { margin-left: -6px !important; }
                 entities:
                   - entity: input_datetime.ev_rob_vertrek_werkdag
-                    name: Werkdag
-                  - type: section
-                    label: Afgevinkt = werkdag (standaard ma t/m vr, feestdagen tellen als weekend)
-              - type: horizontal-stack
+                    name: Vertrektijd werkdag
+                    icon: mdi:clock-outline
+              - type: grid
+                columns: 8
+                square: false
+                card_mod:
+                  style: |
+                    ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 8px !important; }
+                    #root { grid-template-columns: 2fr repeat(7, 1fr) !important; gap: 3px !important; align-items: center !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; padding: 4px 8px !important; }
                 cards:
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_ma
-                  name: Ma
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_di
-                  name: Di
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_wo
-                  name: Wo
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_do
-                  name: Do
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_vr
-                  name: Vr
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_za
-                  name: Za
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
-                - type: tile
-                  entity: input_boolean.ev_rob_werkdag_zo
-                  name: Zo
-                  icon: mdi:checkbox-marked-circle-outline
-                  hide_state: true
-                  vertical: true
-                  tap_action:
-                    action: toggle
-                  color: green
+                  - type: button
+                    name: Werkdag
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 38px !important; min-height: 0 !important; padding: 0 !important; display: flex; align-items: center; justify-content: flex-start; }
+                        span { font-size: 13px !important; font-weight: 600 !important; white-space: nowrap !important; }
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_ma
+                    name: Ma
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_ma', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_di
+                    name: Di
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_di', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_wo
+                    name: Wo
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_wo', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_do
+                    name: Do
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_do', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_vr
+                    name: Vr
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_vr', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_za
+                    name: Za
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_za', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
+                  - type: button
+                    entity: input_boolean.ev_rob_werkdag_zo
+                    name: Zo
+                    show_icon: false
+                    show_state: false
+                    tap_action:
+                      action: toggle
+                    card_mod:
+                      style: |
+                        ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+                        span { font-size: 13px !important; }
+                        {% if is_state('input_boolean.ev_rob_werkdag_zo', 'on') %}
+                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        {% else %}
+                        ha-card { background: rgba(128, 128, 128, 0.25) !important; }
+                        {% endif %}
               - type: entities
                 card_mod:
                   style:
                     .: |
                       ha-card { border: none !important; box-shadow: none !important; border-radius: 0 !important; }
                       ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
+                      .card-content { padding: 4px 8px 0 4px !important; }
+                    hui-input-datetime-entity-row$ hui-generic-entity-row$: |
+                      .info { margin-left: -6px !important; }
+                    hui-input-datetime-entity-row$: |
+                      ha-time-input { zoom: 0.8; }
                 entities:
                   - entity: input_datetime.ev_rob_vertrek_weekend
                     name: Weekend en feestdag (vóór 12:00)
-                  - type: simple-entity
-                    entity: input_datetime.ev_rob_vertrek
+              - type: grid
+                columns: 2
+                square: false
+                card_mod:
+                  style: |
+                    #root { grid-template-columns: 1fr 112px !important; gap: 0 !important; align-items: center !important; padding: 0 5px 8px 13px !important; }
+                cards:
+                  - type: button
                     name: Nu geldend (volgende ochtend)
                     icon: mdi:clock-outline
+                    show_state: false
+                    tap_action:
+                      action: none
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; padding: 0 !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: flex-start !important; gap: 16px !important; text-align: left !important; }
+                        ha-state-icon, ha-icon, state-badge { color: var(--state-icon-color, #44739e) !important; --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; flex: none; display: block !important; margin: 0 !important; }
+                        span { font-size: 14px !important; font-weight: 400 !important; text-align: left !important; white-space: normal !important; }
+                  - type: markdown
+                    content: "{{ states('input_datetime.ev_rob_vertrek')[:2] }} : {{ states('input_datetime.ev_rob_vertrek')[3:5] }}"
+                    card_mod:
+                      style: |
+                        ha-card { background: none !important; border: none !important; box-shadow: none !important; height: 40px !important; min-height: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; }
+                        ha-markdown { padding: 0 !important; text-align: center !important; }
+                        ha-markdown *, p { margin: 0 !important; font-size: 16px !important; text-align: center !important; white-space: pre !important; }
