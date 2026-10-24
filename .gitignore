@@ -11,7 +11,8 @@ deps/
 .cloud/
 tts/
 .cache/
-.claude/
+.claude/*
+!.claude/rules/
 .ha_run.lock
 home-assistant_v2.db.backup_*
 ocpp_cert.pem
