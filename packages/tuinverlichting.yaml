@@ -1,0 +1,53 @@
+# Vangnet voor de tuinverlichting. De Shelly zet het licht zelf aan bij zonsondergang
+# (schema 1) en uit 7 uur voor zonsopkomst (schema 2). Op 25-10-2026 ging het
+# zonsondergangschema na een herstart van de Shelly niet af; deze automatisering
+# zet het licht alsnog aan als het 5 minuten na zonsondergang nog uit staat.
+automation:
+  - id: tuinverlichting_vangnet_zonsondergang
+    alias: "Tuinverlichting: vangnet aan bij zonsondergang"
+    description: >
+      5 minuten na zonsondergang: staat de tuinverlichting nog uit, dan aanzetten
+      en een melding op de telefoon (het Shelly-schema heeft dan niet gewerkt).
+    mode: single
+    triggers:
+      - trigger: sun
+        event: sunset
+        offset: "00:05:00"
+    conditions:
+      - condition: state
+        entity_id: switch.tuinverlichting
+        state: "off"
+    actions:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.tuinverlichting
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Tuinverlichting aangezet door vangnet"
+          message: "Het Shelly-schema had de tuinverlichting bij zonsondergang niet aangezet; Home Assistant heeft dat gedaan."
+        continue_on_error: true
+
+  - id: tuinverlichting_vangnet_uit_voor_zonsopkomst
+    alias: "Tuinverlichting: vangnet uit 7 uur voor zonsopkomst"
+    description: >
+      5 minuten na het tijdstip waarop de Shelly het licht uit moet zetten
+      (7 uur voor zonsopkomst): staat de tuinverlichting dan nog aan, dan uitzetten
+      en een melding op de telefoon.
+    mode: single
+    triggers:
+      - trigger: sun
+        event: sunrise
+        offset: "-06:55:00"
+    conditions:
+      - condition: state
+        entity_id: switch.tuinverlichting
+        state: "on"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.tuinverlichting
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Tuinverlichting uitgezet door vangnet"
+          message: "Het Shelly-schema had de tuinverlichting niet uitgezet; Home Assistant heeft dat gedaan."
+        continue_on_error: true
