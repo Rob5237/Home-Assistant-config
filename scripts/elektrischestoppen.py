@@ -295,6 +295,7 @@ y -= fh + 12
 c.setStrokeColor(RULE); c.setLineWidth(0.6); c.line(M, MB + 12, W - M, MB + 12)
 text(M, MB + 3, "Volgorde in de meterkast: " + ", ".join(f"{f} {pos[f]}" for f in volgorde)
      + ". Kleuren: L1 roze, L2 paars, L3 lichtblauw.", R, 7)
+c.setFont(R, 7); c.setFillColor(FG); c.drawRightString(W - M, MB + 3, "\\\\192.168.1.177\\config\\www\\elektrischestoppen.pdf")
 
 if y <= MB + 14:
     sys.exit(f"inhoud past niet op 1 A4 (y={y:.0f}); verklein SZ of kort het bronbestand in")
