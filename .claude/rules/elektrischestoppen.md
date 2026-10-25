@@ -1,7 +1,7 @@
 # Elektrische stoppen – groepenkast
 
 Aansluiting 3×25A. Elke aardlekschakelaar (ALS) hangt aan één fase; alle groepen zijn B16.
-Draadkleuren fasen in meterkast: L1 = links, L2 = midden, L3 = rechts.
+Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1 = rechts (aangepast 25-10-2026 op aanwijzing van de gebruiker; eerder stond hier L1 links, L2 midden, L3 rechts, en 'draadkleuren' terwijl het posities zijn).
 
 ## Hoofdcomponenten
 | Stop | Wat | Fasen |
