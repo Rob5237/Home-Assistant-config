@@ -1,0 +1,69 @@
+# Melding na een stroomuitval of langere onderbreking van Home Assistant.
+# HA kan zelf niet melden dat het uitvalt; wel dat het na een onderbreking weer
+# draait en hoe lang het weg was (belangrijk bij vorst, zie
+# warmtepomp_vorstwaarschuwing.yaml). Een werkelijke melding tijdens de uitval
+# vraagt een externe dienst of een UPS.
+input_datetime:
+  ha_laatst_levend:
+    name: "HA laatst levend"
+    has_date: true
+    has_time: true
+
+automation:
+  - id: ha_levensteken
+    alias: "HA: levensteken bijhouden"
+    description: "Zet elke minuut de huidige tijd in input_datetime.ha_laatst_levend."
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        minutes: "/1"
+    actions:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.ha_laatst_levend
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  - id: ha_onderbreking_melding
+    alias: "HA: melding na onderbreking van meer dan 10 minuten"
+    description: >
+      Bij het opstarten van HA: als het laatste levensteken meer dan 10 minuten
+      oud is (stroomuitval, crash of lang onderhoud), een melding met de duur
+      en de toestand van de warmtepomp. Een gewone herstart (1-3 minuten) meldt niets.
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    conditions:
+      - condition: template
+        value_template: >
+          {% set l = states('input_datetime.ha_laatst_levend') | as_datetime(none) %}
+          {{ l is not none and (now() - l.replace(tzinfo=now().tzinfo)).total_seconds() > 600 }}
+    actions:
+      - delay: "00:02:00"
+      - variables:
+          laatst: "{{ states('input_datetime.ha_laatst_levend') }}"
+          minuten: >
+            {% set l = laatst | as_datetime(none) %}
+            {{ ((now() - l.replace(tzinfo=now().tzinfo)).total_seconds() / 60) | round(0) | int }}
+          bericht: >-
+            Home Assistant was ongeveer {{ minuten }} minuten niet actief
+            (laatst levend {{ laatst }}). Buiten
+            {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }} °C,
+            kamer {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }} °C,
+            boiler {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }} °C,
+            verwarmingsmodus {{ states('select.luxtronik_280807_0450_heating_mode') }}.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "⚡ Home Assistant was offline"
+          message: "{{ bericht }}"
+          data:
+            tag: ha_onderbreking
+            ttl: 0
+            priority: high
+        continue_on_error: true
+      - action: persistent_notification.create
+        data:
+          notification_id: ha_onderbreking
+          title: "Home Assistant was offline"
+          message: "{{ bericht }}"

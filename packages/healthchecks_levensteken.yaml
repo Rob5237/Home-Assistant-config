@@ -1,0 +1,24 @@
+# Levensteken naar Healthchecks.io. Blijft de ping uit (stroomuitval, internet weg, HA
+# vastgelopen), dan stuurt Healthchecks zelf een melding. Periode en wachttijd stel je
+# in op healthchecks.io (aanbevolen: periode 5 min, grace 10 min).
+# De ping-URL staat in secrets.yaml (niet in Git).
+rest_command:
+  healthchecks_ping:
+    url: !secret healthchecks_ping_url
+    method: GET
+    timeout: 20
+
+automation:
+  - id: healthchecks_levensteken
+    alias: "Healthchecks: levensteken elke 5 minuten"
+    description: >
+      Stuurt elke 5 minuten een ping naar Healthchecks.io. Als de ping uitblijft
+      (stroomuitval, internet weg, HA vastgelopen), meldt Healthchecks dat zelf.
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+    actions:
+      - action: rest_command.healthchecks_ping
+        continue_on_error: true

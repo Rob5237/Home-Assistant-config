@@ -1,0 +1,78 @@
+# Waarschuwingen op de telefoon bij storing van de warmtepomp tijdens koud weer.
+# De vorstbeveiliging zelf draait in de Luxtronik; dit meldt alleen als die niet
+# meer kan werken (foutcode, uitval van de verbinding, te koude kamer).
+automation:
+  - id: warmtepomp_storing_vorstperiode
+    alias: "Warmtepomp: storing of uitval bij vorstgevaar (telefoon)"
+    description: >
+      Stuurt een melding naar de telefoon als het buiten kouder dan 5 °C is en
+      (a) de Luxtronik een nieuwe foutcode meldt, (b) de Luxtronik 10 minuten niet
+      bereikbaar is, of (c) de kamer 30 minuten onder 12 °C blijft. De kou wordt
+      afgelezen aan weather.thuis, omdat de buitensensor van de warmtepomp bij (b)
+      juist ontbreekt.
+    mode: queued
+    max: 5
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: sensor.luxtronik_280807_0450_error_reason
+        id: fout
+      - trigger: state
+        entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
+        to:
+          - unavailable
+          - unknown
+        for:
+          minutes: 10
+        id: offline
+      - trigger: numeric_state
+        entity_id: sensor.luxtronik_280807_0450_room_thermostat_temperature
+        below: 12
+        for:
+          minutes: 30
+        id: kamer_koud
+    conditions:
+      - condition: template
+        value_template: "{{ state_attr('weather.thuis', 'temperature') | float(99) < 5 }}"
+      - condition: template
+        value_template: >
+          {{ trigger.id != 'fout' or (
+               trigger.from_state is not none
+               and trigger.from_state.state not in ['unavailable', 'unknown']
+               and trigger.to_state.state not in ['unavailable', 'unknown']
+               and trigger.from_state.state != trigger.to_state.state) }}
+    actions:
+      - variables:
+          buiten: "{{ state_attr('weather.thuis', 'temperature') }}"
+          kamer: "{{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }}"
+          titel: >-
+            {% if trigger.id == 'fout' %}Warmtepomp meldt een fout
+            {% elif trigger.id == 'offline' %}Warmtepomp niet bereikbaar
+            {% else %}Kamer wordt te koud{% endif %}
+          bericht: >-
+            {% if trigger.id == 'fout' -%}
+              Nieuwe foutcode {{ trigger.to_state.state }}
+              ({{ trigger.to_state.attributes.timestamp | default('') }}).
+            {%- elif trigger.id == 'offline' -%}
+              De Luxtronik geeft al 10 minuten geen meetwaarden meer.
+            {%- else -%}
+              Kamer {{ kamer }} °C, al 30 minuten onder de 12 °C.
+            {%- endif %}
+            Buiten {{ buiten }} °C, boiler
+            {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }} °C,
+            verwarmingsmodus {{ states('select.luxtronik_280807_0450_heating_mode') }},
+            compressor {{ states('binary_sensor.luxtronik_280807_0450_compressor') }}.
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "❄ {{ titel }}"
+          message: "{{ bericht }}"
+          data:
+            tag: warmtepomp_storing_vorst
+            ttl: 0
+            priority: high
+        continue_on_error: true
+      - action: persistent_notification.create
+        data:
+          notification_id: warmtepomp_storing_vorst
+          title: "❄ {{ titel }}"
+          message: "{{ bericht }}"

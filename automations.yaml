@@ -1491,6 +1491,17 @@
       entity_id: select.luxtronik_280807_0450_heating_mode
       state: "Off"
   actions:
+    - action: notify.mobile_app_sm_g781b
+      data:
+        title: "⚠ Vorstbescherming inactief"
+        message: >-
+          Buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }}°C
+          en heating_mode staat op Off. Zet de verwarmingsmodus op Automatic.
+        data:
+          tag: vorstbescherming_warning
+          ttl: 0
+          priority: high
+      continue_on_error: true
     - action: persistent_notification.create
       data:
         title: "⚠ Vorstbescherming inactief"

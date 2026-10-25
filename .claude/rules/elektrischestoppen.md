@@ -16,10 +16,9 @@ Draadkleuren fasen in meterkast: L1 = links, L2 = midden, L3 = rechts.
 |------|-----|------|-----|
 | 1, 2 | 2 | L2 | (leeg / reserve) |
 | 3 | 2 | L2 | Quooker |
-| 4 | 2 | L2 | Woonkamer, tuinverlichting, laadpaalsensoren |
+| 4 | 2 | L2 | Woonkamer, tuinverlichting, laadpaalsensoren, meterkast stopcontact linksboven |
 | 5 | 2 | L2 | Combimagnetron |
 | 6 | 2 | L2 | Koffiemachine, keukennis WCD rechterzijde |
-| ? | 2 | L2 | Meterkast stopcontact linksboven |
 | 7, 8 | 3 | L3 | (leeg / reserve) |
 | 9 | 3 | L3 | ALARM + vaatwasser |
 | 10 | 3 | L3 | WCD achter badkamerdeur (evt. elektrische radiator) |
