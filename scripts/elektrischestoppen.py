@@ -21,7 +21,7 @@ TITLE = "GROEPENKAST DUITLAAN 20"
 SUBTITLE = "Meterkast woning"
 SPECS = [("3 x 25 A", "AANSLUITING"), ("B16", "ALLE GROEPEN"), ("3", "AARDLEKSCHAKELAARS")]
 TAGS = {"Quooker": "pulsen ~2,1 kW", "Droger": "controle L3"}  # kleine toelichting onder een onderdeel
-SZ = 9.0  # lettergrootte onderdelen (groter laat de pagina overlopen)
+SZ = 9.6  # lettergrootte onderdelen (groter laat de pagina overlopen)
 
 # ------------------------------------------------------------------ bron inlezen
 md = open(SRC, encoding="utf-8").read()
@@ -111,7 +111,9 @@ else:
 
 # ------------------------------------------------------------------ tekenen
 W, H = A4
-M = 12 * mm
+M = 12 * mm          # linker- en rechtermarge
+MT = 7 * mm          # bovenmarge
+MB = 6 * mm          # ondermarge
 CW = W - 2 * M
 FG = HexColor("#1b1f24"); RULE = HexColor("#cfd3d8"); SOFT = HexColor("#eef0f2"); RED = HexColor("#d41c1c")
 P = {1: (HexColor("#e0529c"), HexColor("#fbe3ef")),
@@ -121,7 +123,7 @@ R, B, MONO = "Helvetica", "Helvetica-Bold", "Courier-Bold"
 
 c = canvas.Canvas(OUT, pagesize=A4)
 c.setTitle("Groepenkast Duitlaan 20")
-y = H - M
+y = H - MT
 
 
 def text(x, yb, s, font=R, size=8, color=FG):
@@ -277,12 +279,12 @@ for i, (t, d) in enumerate(feiten[:3]):
 y -= fh + 12
 
 # voet
-c.setStrokeColor(RULE); c.setLineWidth(0.6); c.line(M, M + 12, W - M, M + 12)
-text(M, M + 3, "Volgorde in de meterkast: " + ", ".join(f"{f} {pos[f]}" for f in volgorde)
+c.setStrokeColor(RULE); c.setLineWidth(0.6); c.line(M, MB + 12, W - M, MB + 12)
+text(M, MB + 3, "Volgorde in de meterkast: " + ", ".join(f"{f} {pos[f]}" for f in volgorde)
      + ". Kleuren: L1 roze, L2 paars, L3 lichtblauw.", R, 7)
 
-if y <= M + 14:
+if y <= MB + 14:
     sys.exit(f"inhoud past niet op 1 A4 (y={y:.0f}); verklein SZ of kort het bronbestand in")
 c.showPage()
 c.save()
-print(f"klaar: {OUT}, marge over {(y - M - 14) / mm:.1f} mm")
+print(f"klaar: {OUT}, marge over {(y - MB - 14) / mm:.1f} mm")

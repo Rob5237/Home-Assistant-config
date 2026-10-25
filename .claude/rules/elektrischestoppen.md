@@ -47,7 +47,7 @@ Kolom Fasen: fasen buiten haakjes worden belast; fasen tussen haakjes zijn aange
 ## Kernmetingen
 Elke regel krijgt de datum van de meting tussen haakjes achter de titel, bijvoorbeeld `(24-10-2026)`. Het PDF leidt de kop 'Gemeten op ...' daaruit af en stopt als een datum ontbreekt.
 
-- **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tellen in dezelfde volgorde.
+- **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tonen in dezelfde volgorde en kleur.
 - **Quooker op L2** (24-10-2026): ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
 - **Element zonder compressor** (24-10-2026): Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
 
