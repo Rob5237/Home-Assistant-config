@@ -1,0 +1,22 @@
+# Wist de onschuldige OCPP-meldingen over ClockAlignedDataInterval ("charger reported
+# NotSupported while setting ..." en "... is read-only") zodra de integratie ze aanmaakt.
+# De Ratio-laders ondersteunen die instelling niet; het laden en de metingen worden er
+# niet door gestoord. Andere OCPP-meldingen blijven gewoon staan.
+automation:
+  - id: ocpp_notsupported_melding_wissen
+    alias: "OCPP: melding over ClockAlignedDataInterval wissen"
+    mode: parallel
+    max: 5
+    triggers:
+      - trigger: persistent_notification
+        update_type:
+          - added
+          - updated
+    conditions:
+      - condition: template
+        value_template: >
+          {{ 'ClockAlignedDataInterval' in (trigger.notification.message | default('')) }}
+    actions:
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: "{{ trigger.notification.notification_id }}"
