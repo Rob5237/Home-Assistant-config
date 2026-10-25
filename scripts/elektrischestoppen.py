@@ -165,6 +165,7 @@ y -= bh + 12
 
 # kolommen
 text(M, y - 9, "ENKELFASE-GROEPEN PER AARDLEKSCHAKELAAR", B, 9.5)
+text(W - M - c.stringWidth("HOMEWIZARD KLEUREN", B, 9.5), y - 9, "HOMEWIZARD KLEUREN", B, 9.5)
 y -= 15
 cols = [(int(f[1]), f, f"Stop {als[f][0]} - Aardlek {als[f][1]}", pos[f].capitalize() + " in de meterkast", groepen[f])
         for f in ("L1", "L2", "L3")]
