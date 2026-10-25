@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 """Maakt www/elektrischestoppen.pdf (1 x A4) uit .claude/rules/elektrischestoppen.md.
 
+Pagina 1 (A4 staand): overzicht. Pagina 2 (A4 liggend): labels op ware grootte voor onder de Hager-modules
+(print op 100 %, niet 'aanpassen aan pagina').
+
 Gebruik:  /usr/bin/python3 /config/scripts/elektrischestoppen.py
 Vereist het Alpine-pakket py3-reportlab (apk add py3-reportlab); dat verdwijnt bij
 een herinstallatie van de add-on. Alleen het bronbestand wijzigen, niet het PDF.
@@ -10,7 +13,7 @@ import re
 import sys
 
 from reportlab.lib.colors import HexColor, white
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
 from reportlab.lib.utils import simpleSplit
 from reportlab.pdfgen import canvas
@@ -286,6 +289,131 @@ text(M, MB + 3, "Volgorde in de meterkast: " + ", ".join(f"{f} {pos[f]}" for f i
 
 if y <= MB + 14:
     sys.exit(f"inhoud past niet op 1 A4 (y={y:.0f}); verklein SZ of kort het bronbestand in")
+c.showPage()
+
+# ------------------------------------------------------------------ pagina 2: labels op ware grootte
+# Een Hager-module is 17,5 mm breed, een aardlekschakelaar (CDA 540G) is 2 modules.
+# Label 1 = stoppen 1-12 (L2 + L3): 12 modules = 210 mm. Label 2 = stoppen 17-22 (L1): 6 modules = 105 mm.
+# Hoogte 34 mm (opgegeven door de gebruiker).
+MODULE = 17.5 * mm
+LABEL_H = 34 * mm
+EIGEN_TEKST = {"9": ["HUIS", "ALARM"]}  # korte tekst onder een stopnummer (zoals nu op het label)
+c.setPageSize(landscape(A4))
+LW, LH = landscape(A4)
+
+
+def label_secties(fases):
+    out = []
+    for f in fases:
+        rows = sorted(groepen[f], key=lambda r: int(r[0].split("\n")[0]))
+        out.append((f, [(n.split("\n"), kind == "res") for n, _, kind in rows]))
+    return out
+
+
+def teken_label(x0, ytop, titel, secs):
+    mods = sum(len(n) if als else 1 for _, rows in secs for n, als in rows)
+    breedte = mods * MODULE
+    text(x0, ytop + 3 * mm, f"{titel}  -  {mods} modules = {breedte / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
+    c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
+    c.rect(x0, ytop - LABEL_H, breedte, LABEL_H, stroke=1, fill=0)
+    x = x0
+    for fase, rows in secs:
+        for k, (n, als) in enumerate(rows):
+            w = (len(n) if als else 1) * MODULE
+            if als:
+                text(x + 2 * mm, ytop - 6 * mm, "AardLekSchakelaar", B, 8.5)
+                text(x + 2 * mm, ytop - LABEL_H + 6 * mm, "Fase", R, 8)
+                text(x + 2 * mm + c.stringWidth("Fase ", R, 8) + 1 * mm, ytop - LABEL_H + 5 * mm, fase, R, 34)
+            else:
+                c.setFillColor(FG); c.setFont(R, 13)
+                c.drawCentredString(x + w / 2, ytop - 7 * mm, n[0])
+                for j, regel in enumerate(EIGEN_TEKST.get(n[0], [])):
+                    c.setFont(B, 8.5)
+                    c.drawCentredString(x + w / 2, ytop - 14 * mm - j * 4 * mm, regel)
+            x += w
+            if x < x0 + breedte - 0.1:  # lijn op de modulegrens; volle hoogte tussen de twee fasen
+                laatste = k == len(rows) - 1
+                c.setStrokeColor(FG); c.setLineWidth(1.0 if laatste else 0.5)
+                c.line(x, ytop - (0 if laatste else 12 * mm), x, ytop - LABEL_H)
+
+
+lx = (LW - 12 * MODULE) / 2
+ly = LH - 28 * mm
+for titel, fases in (("Stoppen 1-12 (L2 en L3)", ["L2", "L3"]), ("Stoppen 17-22 (L1)", ["L1"])):
+    teken_label(lx, ly, titel, label_secties(fases))
+    ly -= LABEL_H + 22 * mm
+# los label: Enphase Envoy, 90 x 34 mm, tekst gecentreerd
+ENV_B = 90 * mm
+text(lx, ly + 3 * mm, f"Enphase Envoy  -  {ENV_B / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
+c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
+c.rect(lx, ly - LABEL_H, ENV_B, LABEL_H, stroke=1, fill=0)
+c.setFont(B, 10); c.setFillColor(FG)
+c.drawString(lx + (ENV_B - c.stringWidth("Enphase Envoy", B, 10)) / 2, ly - LABEL_H / 2 - 0.36 * 10 * 0.72 * 1.0, "Enphase Envoy")
+ly -= LABEL_H + 22 * mm
+yl = 22 * mm
+c.setStrokeColor(FG); c.setLineWidth(0.8)
+c.line(lx, yl, lx + 100 * mm, yl)
+c.line(lx, yl - 1.5 * mm, lx, yl + 1.5 * mm); c.line(lx + 100 * mm, yl - 1.5 * mm, lx + 100 * mm, yl + 1.5 * mm)
+text(lx, yl - 6 * mm, "Controle: deze lijn moet precies 100 mm zijn. Print op 100 % (niet 'aanpassen aan pagina'), A4 liggend.", R, 8)
+text(lx, LH - 14 * mm, "LABELS METERKAST - OP WARE GROOTTE", B, 11)
+c.showPage()
+
+# ------------------------------------------------------------------ pagina 3: overige labels (foto's meterkast)
+# Elke rij is 12 modules = 210 x 34 mm. Teksten staan hier (fysieke labels), niet in het bronbestand.
+I = "Helvetica-Oblique"
+RIJEN = [
+    ("Links boven: zonnepanelen en Enphase", [
+        (4, [[("Zonnepanelen", B, 10)], [("L1 + L2 + L3", B, 9)]]),
+        (6, [[("Enphase Q-relay", B, 10)], [("(Netbeveiligingsrelais)", R, 7)], [("L1 + L2 + L3", B, 9)]]),
+        (1, []), (1, [])]),
+    ("Rechts boven: inductiekookplaat en laadpalen", [
+        (4, [[("Inductiekookplaat", B, 10)], [("L1 + L3", B, 9)]]),
+        (4, [[("Laadpaal bij garage (Rob)", B, 9)],
+             [("Ratio Laadpaal P0000000000", R, 8.5), ("6589", B, 8.5)],
+             [("Laadpaal Code 491238", I, 7)],
+             [("L1 + L2 + L3", B, 9)]]),
+        (4, [[("Laadpaal bij voordeur (Sonia)", B, 9)],
+             [("Ratio Laadpaal P0000000000", R, 8.5), ("6507", B, 8.5)],
+             [("Laadpaal Code 792926", I, 7)],
+             [("L1 + L2 + L3", B, 9)]])]),
+    ("Links onder: warmtepomp", [(1, [])] * 8 + [(4, [[("Warmtepomp", B, 10)], [("• Compressor op ", R, 8.5), ("L2", B, 8.5)],
+                                             [("• Elektrisch element op ", R, 8.5), ("L1 + L3", B, 8.5)]])]),
+    ("Rechts onder: overspanningsbeveiliging", [(4, [[("Overspanningsbeveiliging", B, 10)], [("L1 + L2 + L3", B, 9)]])] + [(1, [])] * 8),
+]
+
+
+def teken_rij(x0, ytop, titel, cellen):
+    breedte = sum(m for m, _ in cellen) * MODULE
+    text(x0, ytop + 3 * mm, f"{titel}  -  {sum(m for m, _ in cellen)} modules = {breedte / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
+    c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
+    c.rect(x0, ytop - LABEL_H, breedte, LABEL_H, stroke=1, fill=0)
+    x = x0
+    for k, (m, regels) in enumerate(cellen):
+        w = m * MODULE
+        hoogte = len(regels) * 11
+        yb = ytop - LABEL_H / 2 + hoogte / 2 - 8
+        for r, segs_ in enumerate(regels):
+            totaal = sum(c.stringWidth(t, f, sz) for t, f, sz in segs_)
+            xx = x + w / 2 - totaal / 2
+            for t, f, sz in segs_:
+                text(xx, yb - r * 11, t, f, sz)
+                xx += c.stringWidth(t, f, sz)
+        x += w
+        if k < len(cellen) - 1:
+            c.setStrokeColor(FG); c.setLineWidth(0.5)
+            c.line(x, ytop, x, ytop - LABEL_H)
+
+
+text(lx, LH - 10 * mm, "LABELS METERKAST - OP WARE GROOTTE (VERVOLG)", B, 11)
+ly = LH - 22 * mm
+for titel, cellen in RIJEN:
+    teken_rij(lx, ly, titel, cellen)
+    ly -= LABEL_H + 9 * mm
+yl = 12 * mm
+c.setStrokeColor(FG); c.setLineWidth(0.8)
+c.line(lx, yl, lx + 100 * mm, yl)
+c.line(lx, yl - 1.5 * mm, lx, yl + 1.5 * mm); c.line(lx + 100 * mm, yl - 1.5 * mm, lx + 100 * mm, yl + 1.5 * mm)
+text(lx + 104 * mm, yl - 1 * mm, "Controle: 100 mm. Print op 100 %, A4 liggend.", R, 8)
 c.showPage()
 c.save()
 print(f"klaar: {OUT}, marge over {(y - MB - 14) / mm:.1f} mm")

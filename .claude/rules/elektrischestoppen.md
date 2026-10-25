@@ -1,6 +1,6 @@
 # Elektrische stoppen – groepenkast
 
-Het overzicht-PDF (`www/elektrischestoppen.pdf`) wordt uit dit bestand gemaakt met `scripts/elektrischestoppen.py`. Wijzig dus alleen hier en draai daarna dat script.
+Het overzicht-PDF (`www/elektrischestoppen.pdf`) wordt uit dit bestand gemaakt met `scripts/elektrischestoppen.py`. Pagina 1 is het overzicht, pagina 2 en 3 zijn de labels op ware grootte voor onder de Hager-modules (print op 100 %, A4 liggend). De teksten van de labels op pagina 3 (zonnepanelen, Enphase, kookplaat, laadpalen, warmtepomp, overspanningsbeveiliging) staan in het script, niet in dit bestand. Wijzig dus alleen hier en draai daarna dat script.
 
 Aansluiting 3×25A. Elke aardlekschakelaar (ALS) hangt aan één fase; alle groepen zijn B16.
 Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1 = rechts (aangepast 25-10-2026 op aanwijzing van de gebruiker; eerder stond hier L1 links, L2 midden, L3 rechts, en 'draadkleuren' terwijl het posities zijn).
