@@ -150,9 +150,9 @@ y -= 9
 bh = 18
 c.setFillColor(FG); c.rect(M, y - bh, CW, bh, stroke=0, fill=1)
 text(M + 8, y - 12, "Stop 13", MONO, 9, white)
-text(M + 55, y - 12, "Hoofdschakelaar", R, 9, white)
+text(M + 55, y - 12.4, "HOOFDSCHAKELAAR", B, 9.9, white)
 volgorde = [f for p in ("links", "midden", "rechts") for f in pos if pos[f] == p]
-segs = []
+segs = [("Faseschakelaars:", white), ("    ", white)]
 for k, f in enumerate(volgorde):
     if k:
         segs.append(("   -   ", white))
