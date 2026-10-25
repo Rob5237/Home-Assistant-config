@@ -92,7 +92,22 @@ for wat, fasen, toel in table_rows(section("Meerfase-verbruikers")):
     pat = "".join("1" if f in belast else "h" if f in aangesloten else "0" for f in ("L1", "L2", "L3"))
     matrix.append((wat, pat, toel))
 
-feiten = [(t.upper(), d) for t, d in re.findall(r"^- \*\*(.+?)\*\*: (.+)$", section("Kernmetingen"), re.M)]
+feiten, meetdata = [], []
+for t, dat, d in re.findall(r"^- \*\*(.+?)\*\*(?: \((\d{2}-\d{2}-\d{4})\))?: (.+)$", section("Kernmetingen"), re.M):
+    if not dat:
+        sys.exit(f"meting '{t}' in Kernmetingen heeft geen datum; zet (dd-mm-jjjj) achter de titel")
+    feiten.append((t.upper(), d))
+    meetdata.append(datetime.datetime.strptime(dat, "%d-%m-%Y").date())
+if not feiten:
+    sys.exit("geen metingen gevonden in sectie Kernmetingen")
+uniek = sorted(set(meetdata))
+fmt = lambda d: d.strftime("%d-%m-%Y")
+if len(uniek) == 1:
+    MEETKOP = f"GEMETEN OP {fmt(uniek[0])}"
+elif len(uniek) == 2:
+    MEETKOP = f"GEMETEN OP {fmt(uniek[0])} EN {fmt(uniek[1])}"
+else:
+    MEETKOP = f"GEMETEN TUSSEN {fmt(uniek[0])} EN {fmt(uniek[-1])}"
 
 # ------------------------------------------------------------------ tekenen
 W, H = A4
@@ -249,7 +264,7 @@ text(M + 157, y - 8.2, "aangesloten, geen belasting", R, 7)
 y -= 22
 
 # kernmetingen
-text(M, y - 9, "GEMETEN OP 24-10-2026", B, 8.5)
+text(M, y - 9, MEETKOP, B, 8.5)
 y -= 15
 fw = (CW - 2 * GAP) / 3
 fh = max(12 + len(wrap(d, fw - 10, R, 8.2)) * 9.5 for _, d in feiten)

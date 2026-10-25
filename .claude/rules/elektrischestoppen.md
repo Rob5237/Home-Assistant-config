@@ -44,10 +44,12 @@ Kolom Fasen: fasen buiten haakjes worden belast; fasen tussen haakjes zijn aange
 | Laadpaal garage (EV-Rob) | L1 L2 L3 | Passat laadt op L2 (1 fase) |
 | Laadpaal voordeur (EV-Sonia) | L1 L2 L3 | Ioniq 3 fasen; Passat ook hier op L2 |
 
-## Kernmetingen 24-10-2026
-- **P1-fasen = L1, L2, L3**: HomeWizard-app en P1-sensor tellen in dezelfde volgorde.
-- **Quooker op L2**: ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
-- **Element zonder compressor**: Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
+## Kernmetingen
+Elke regel krijgt de datum van de meting tussen haakjes achter de titel, bijvoorbeeld `(24-10-2026)`. Het PDF leidt de kop 'Gemeten op ...' daaruit af en stopt als een datum ontbreekt.
+
+- **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tellen in dezelfde volgorde.
+- **Quooker op L2** (24-10-2026): ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
+- **Element zonder compressor** (24-10-2026): Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
 
 ## Controle P1-fasenummering (24-10-2026)
 P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgorde) is vergeleken met de groepenkast:
