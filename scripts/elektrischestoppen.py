@@ -20,7 +20,7 @@ OUT = "/config/www/elektrischestoppen.pdf"
 TITLE = "GROEPENKAST DUITLAAN 20"
 SUBTITLE = "Meterkast woning"
 SPECS = [("3 x 25 A", "AANSLUITING"), ("B16", "ALLE GROEPEN"), ("3", "AARDLEKSCHAKELAARS")]
-TAGS = {"Quooker": "pulsen ~2,1 kW", "Droger": "controle L3"}  # kleine toelichting onder een onderdeel
+TAGS = {"Quooker": "pulsen ~2,1 kW"}  # kleine toelichting onder een onderdeel
 SZ = 9.6  # lettergrootte onderdelen (groter laat de pagina overlopen)
 
 # ------------------------------------------------------------------ bron inlezen
@@ -164,7 +164,7 @@ for t, col_ in segs:
 y -= bh + 12
 
 # kolommen
-text(M, y - 9, "ENKELFASE-GROEPEN PER AARDLEKSCHAKELAAR", B, 8.5)
+text(M, y - 9, "ENKELFASE-GROEPEN PER AARDLEKSCHAKELAAR", B, 9.5)
 y -= 15
 cols = [(int(f[1]), f, f"Stop {als[f][0]} - Aardlek {als[f][1]}", pos[f].capitalize() + " in de meterkast", groepen[f])
         for f in ("L1", "L2", "L3")]
@@ -209,7 +209,7 @@ for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
             c.setFillColor(soft); c.rect(x + 0.3, ry - h, colw - 0.6, h, stroke=0, fill=1)
         c.setStrokeColor(RULE); c.setLineWidth(0.4); c.line(x, ry - h, x + colw, ry - h)
         for k, part in enumerate(num.split("\n")):
-            text(x + 6, ry - 11 - k * LEAD, part, MONO, 8.5, col)
+            text(x + 6, ry - 11 - k * LEAD, part, B, 9, FG)
         tx, ly, res = x + NW + 4, ry - 11, kind == "res"
         for it, lines in zip(items, item_lines(items)):
             if not res:
@@ -226,7 +226,7 @@ for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
 y -= colh + 14
 
 # matrix
-text(M, y - 9, "MEERFASE-VERBRUIKERS MET EIGEN AANSLUITING", B, 8.5)
+text(M, y - 9, "MEERFASE-VERBRUIKERS MET EIGEN AANSLUITING", B, 9.5)
 y -= 15
 NAMEW = 150
 DOTX = [M + NAMEW + 14 + k * 30 for k in range(3)]
@@ -266,7 +266,7 @@ text(M + 157, y - 8.2, "aangesloten, geen belasting", R, 7)
 y -= 22
 
 # kernmetingen
-text(M, y - 9, MEETKOP, B, 8.5)
+text(M, y - 9, MEETKOP, B, 9.5)
 y -= 15
 fw = (CW - 2 * GAP) / 3
 fh = max(12 + len(wrap(d, fw - 10, R, 8.2)) * 9.5 for _, d in feiten)

@@ -23,13 +23,13 @@ Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1
 | 6 | 2 | L2 | Koffiemachine, keukennis WCD rechterzijde |
 | 7, 8 | 3 | L3 | AardLekSchakelaar |
 | 9 | 3 | L3 | ALARM + vaatwasser |
-| 10 | 3 | L3 | WCD achter badkamerdeur (evt. elektrische radiator) |
+| 10 | 3 | L3 | WCD achter badkamerdeur |
 | 11 | 3 | L3 | Droger |
 | 12 | 3 | L3 | Wasmachine |
 | 17, 18 | 1 | L1 | AardLekSchakelaar |
 | 19 | 1 | L1 | WCD in muur achter keukenwandkast (ongebruikt) |
 | 20 | 1 | L1 | Hal, toilet beneden, keukennis WCD linkerzijde, overloop, slaapkamers Ivan & Taeke, computer zolder, mechanische ventilatie, zolderplafondlicht |
-| 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, slaapkamers achterzijde (Rob & Sonia, Aukje), badkamer (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
+| 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, slaapkamers achterzijde (Rob & Sonia, Aukje), badkamerverlichting (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
 | 22 | 1 | L1 | Stopcontacten keukenmuur, keukenvriezer, keukenkoelkast, keukenlicht, WCD terras, rookmelder hal, ingebouwde deurbel meterkast (ongebruikt) |
 
 ## Meerfase-verbruikers (eigen aansluiting)
