@@ -436,7 +436,7 @@ views:
                       entity: input_datetime.ev_sonia_vertrek_werkdag
                     card_mod:
                       style: |
-                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
                         span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
                         ha-card { color: #000 !important; --primary-text-color: #000; }
               - type: grid
@@ -468,7 +468,7 @@ views:
                       entity: input_datetime.ev_sonia_vertrek_weekend
                     card_mod:
                       style: |
-                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
                         span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
                         ha-card { color: #000 !important; --primary-text-color: #000; }
               - type: grid
@@ -499,7 +499,7 @@ views:
                       action: none
                     card_mod:
                       style: |
-                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
                         span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
                         ha-card { color: #000 !important; --primary-text-color: #000; }
   - title: EV-Rob
@@ -921,7 +921,7 @@ views:
                       entity: input_datetime.ev_rob_vertrek_werkdag
                     card_mod:
                       style: |
-                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
                         span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
                         ha-card { color: #000 !important; --primary-text-color: #000; }
               - type: grid
@@ -953,7 +953,7 @@ views:
                       entity: input_datetime.ev_rob_vertrek_weekend
                     card_mod:
                       style: |
-                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.6) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
                         span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
                         ha-card { color: #000 !important; --primary-text-color: #000; }
               - type: grid
@@ -984,6 +984,6 @@ views:
                       action: none
                     card_mod:
                       style: |
-                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px 8px 0 0 !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
+                        ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
                         span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
                         ha-card { color: #000 !important; --primary-text-color: #000; }
