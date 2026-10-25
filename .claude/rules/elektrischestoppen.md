@@ -1,5 +1,7 @@
 # Elektrische stoppen – groepenkast
 
+Het overzicht-PDF (`www/elektrischestoppen.pdf`) wordt uit dit bestand gemaakt met `scripts/elektrischestoppen.py`. Wijzig dus alleen hier en draai daarna dat script.
+
 Aansluiting 3×25A. Elke aardlekschakelaar (ALS) hangt aan één fase; alle groepen zijn B16.
 Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1 = rechts (aangepast 25-10-2026 op aanwijzing van de gebruiker; eerder stond hier L1 links, L2 midden, L3 rechts, en 'draadkleuren' terwijl het posities zijn).
 
@@ -14,31 +16,38 @@ Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1
 ## Enkelfase-groepen
 | Stop | ALS | Fase | Wat |
 |------|-----|------|-----|
-| 1, 2 | 2 | L2 | (leeg / reserve) |
+| 1, 2 | 2 | L2 | AardLekSchakelaar |
 | 3 | 2 | L2 | Quooker |
 | 4 | 2 | L2 | Woonkamer, tuinverlichting, laadpaalsensoren, meterkast stopcontact linksboven |
 | 5 | 2 | L2 | Combimagnetron |
 | 6 | 2 | L2 | Koffiemachine, keukennis WCD rechterzijde |
-| 7, 8 | 3 | L3 | (leeg / reserve) |
+| 7, 8 | 3 | L3 | AardLekSchakelaar |
 | 9 | 3 | L3 | ALARM + vaatwasser |
 | 10 | 3 | L3 | WCD achter badkamerdeur (evt. elektrische radiator) |
 | 11 | 3 | L3 | Droger |
 | 12 | 3 | L3 | Wasmachine |
-| 17 | 1 | L1 | (leeg / reserve) |
+| 17, 18 | 1 | L1 | AardLekSchakelaar |
 | 19 | 1 | L1 | WCD in muur achter keukenwandkast (ongebruikt) |
 | 20 | 1 | L1 | Hal, toilet beneden, keukennis WCD linkerzijde, overloop, slaapkamers Ivan & Taeke, computer zolder, mechanische ventilatie, zolderplafondlicht |
-| 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, 2× slaapkamer achterzijde (Rob & Sonia, Aukje), badkamer (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
+| 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, slaapkamers achterzijde (Rob & Sonia, Aukje), badkamer (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
 | 22 | 1 | L1 | Stopcontacten keukenmuur, keukenvriezer, keukenkoelkast, keukenlicht, WCD terras, rookmelder hal, ingebouwde deurbel meterkast (ongebruikt) |
 
 ## Meerfase-verbruikers (eigen aansluiting)
-| Wat | Fasen |
-|-----|-------|
-| Zonnepanelen | L1 L2 L3 |
-| Enphase Q-relay | L1 L2 L3 |
-| Inductiekookplaat | 2 fasen: L1 + L3 (gemeten 24-10-2026 via P1-fase 1 en 3 bij een testrun) |
-| Warmtepomp (buiten + zolder) | L1 L2 L3 aangesloten; **compressor belast alleen L2** (gemeten 24-10-2026: bij 32 opstarts steeg alleen P1-fase 2 met ~0,6-1,4 kW, L1 en L3 bleven vlak). **Elektrisch element (extra warmteopwekker 2) belast L1 + L3**, ~2,0 kW per fase (samen ~4 kW), L2 reageert niet (gemeten 24-10-2026, zie 'Controle P1-fasenummering') |
-| Laadpaal garage (EV-Lader Rob) | L1 L2 L3 |
-| Laadpaal voordeur (EV-Lader Sonia) | L1 L2 L3 |
+Kolom Fasen: fasen buiten haakjes worden belast; fasen tussen haakjes zijn aangesloten maar niet belast.
+
+| Wat | Fasen | Toelichting |
+|-----|-------|-------------|
+| Zonnepanelen + Enphase Q-relay | L1 L2 L3 | Opwek verdeeld: ~37% L1, ~27% L2, ~36% L3 |
+| Inductiekookplaat | L1 L3 | 2 fasen, gemeten via P1 |
+| Warmtepomp: compressor | L2 (L1 L3) | Alleen L2: +0,6 tot 1,4 kW. L1 en L3 aangesloten, niet belast |
+| Warmtepomp: elektrisch element | L1 L3 | L1 + L3, ~2,0 kW per fase, samen ~4 kW |
+| Laadpaal garage (EV-Rob) | L1 L2 L3 | Passat laadt op L2 (1 fase) |
+| Laadpaal voordeur (EV-Sonia) | L1 L2 L3 | Ioniq 3 fasen; Passat ook hier op L2 |
+
+## Kernmetingen 24-10-2026
+- **P1-fasen = L1, L2, L3**: HomeWizard-app en P1-sensor tellen in dezelfde volgorde.
+- **Quooker op L2**: ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
+- **Element zonder compressor**: Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
 
 ## Controle P1-fasenummering (24-10-2026)
 P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgorde) is vergeleken met de groepenkast:
