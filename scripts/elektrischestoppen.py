@@ -23,7 +23,6 @@ OUT = "/config/www/elektrischestoppen.pdf"
 TITLE = "GROEPENKAST DUITLAAN 20"
 SUBTITLE = "Meterkast woning"
 SPECS = [("3 x 25 A", "AANSLUITING"), ("B16", "ALLE GROEPEN"), ("3", "AARDLEKSCHAKELAARS")]
-TAGS = {"Quooker": "pulsen ~2,1 kW"}  # kleine toelichting onder een onderdeel
 SZ = 9.6  # lettergrootte onderdelen (groter laat de pagina overlopen)
 
 # ------------------------------------------------------------------ bron inlezen
@@ -88,6 +87,13 @@ for nums, _, fase, desc in table_rows(section("Enkelfase-groepen")):
     items = split_items(desc)
     groepen[fase].append(("\n".join(n.strip() for n in nums.split(",")), items, kind))
 
+TAGS, LABELTEKST = {}, {}  # stop -> toelichting pagina 1 / tekst op het label
+for stop, ov, lb in table_rows(section("Toelichting per stop")):
+    if ov:
+        TAGS[stop] = ov
+    if lb:
+        LABELTEKST[stop] = [x.strip() for x in lb.split(" / ")]
+
 matrix = []
 for wat, fasen, toel in table_rows(section("Meerfase-verbruikers")):
     belast = set(re.findall(r"L\d", re.sub(r"\(.*?\)", "", fasen)))
@@ -126,6 +132,9 @@ R, B, MONO = "Helvetica", "Helvetica-Bold", "Courier-Bold"
 
 c = canvas.Canvas(OUT, pagesize=A4)
 c.setTitle("Groepenkast Duitlaan 20")
+# afdrukvoorkeuren in het PDF: enkelzijdig en op 100 % (labels op ware grootte); niet elke viewer volgt dit
+c.setViewerPreference("Duplex", "Simplex")
+c.setViewerPreference("PrintScaling", "None")
 y = H - MT
 
 
@@ -189,12 +198,12 @@ def row_h(items, num, tag):
     return max(n, 1 + num.count("\n")) * LEAD + 8
 
 
-def tag_of(items):
-    return TAGS.get(items[0]) if len(items) == 1 else None
+def tag_of(num, items):
+    return TAGS.get(num)
 
 
 HEAD, POS = 30, 13
-colh = max(HEAD + POS + sum(row_h(it, n, tag_of(it)) for n, it, k in rows) for *_, rows in cols)
+colh = max(HEAD + POS + sum(row_h(it, n, tag_of(n, it)) for n, it, k in rows) for *_, rows in cols)
 for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
     x = M + i * (colw + GAP)
     col, soft = P[pn]
@@ -207,7 +216,7 @@ for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
     text(x + 8, y - HEAD - 9.3, pos_t.upper(), R, 6.5)
     ry = y - HEAD - POS
     for num, items, kind in rows:
-        tag = tag_of(items)
+        tag = tag_of(num, items)
         h = row_h(items, num, tag)
         if tag:
             c.setFillColor(soft); c.rect(x + 0.3, ry - h, colw - 0.6, h, stroke=0, fill=1)
@@ -291,13 +300,128 @@ if y <= MB + 14:
     sys.exit(f"inhoud past niet op 1 A4 (y={y:.0f}); verklein SZ of kort het bronbestand in")
 c.showPage()
 
-# ------------------------------------------------------------------ pagina 2: labels op ware grootte
-# Een Hager-module is 17,5 mm breed, een aardlekschakelaar (CDA 540G) is 2 modules.
-# Label 1 = stoppen 1-12 (L2 + L3): 12 modules = 210 mm. Label 2 = stoppen 17-22 (L1): 6 modules = 105 mm.
-# Hoogte 34 mm (opgegeven door de gebruiker).
-MODULE = 17.5 * mm
-LABEL_H = 34 * mm
-EIGEN_TEKST = {"9": ["HUIS", "ALARM"]}  # korte tekst onder een stopnummer (zoals nu op het label)
+# ------------------------------------------------------------------ labels op ware grootte (pagina 2 en 3)
+lab = section("Labels meterkast")
+
+
+def sub(naam):
+    m = re.search(r"^### " + re.escape(naam) + r".*?$(.*?)(?=^### |\Z)", lab, re.S | re.M)
+    if not m:
+        sys.exit(f"onderdeel '{naam}' niet gevonden in sectie Labels meterkast")
+    return m.group(1)
+
+
+def getal(patroon):
+    m = re.search(patroon, lab)
+    if not m:
+        sys.exit(f"'{patroon}' niet gevonden in sectie Labels meterkast")
+    return float(m.group(1).replace(",", "."))
+
+
+MODULE = getal(r"Modulebreedte: ([\d,.]+) mm") * mm
+LABEL_H = getal(r"Labelhoogte: ([\d,.]+) mm") * mm
+LEGE_NA = int(getal(r"Lege modules achter de L1-rij: (\d+)"))
+HOOFD_NAAM = next((w for st, w, f in table_rows(section("Hoofdcomponenten")) if st == "13"), "Hoofdschakelaar")
+I = "Helvetica-Oblique"
+FASE_RE = re.compile(r"\b(L[123])\b")
+
+
+def kleur_van(tok):
+    return P[int(tok[1])][0]
+
+
+def vul_fase(x, ytop, w, h, fases):
+    """Vakachtergrond in de kleur van de fase(n) die in het vak genoemd worden (naast elkaar bij meerdere)."""
+    fases = sorted(set(fases))
+    for i, f in enumerate(fases):
+        c.setFillColor(kleur_van(f))
+        c.rect(x + i * w / len(fases), ytop - h, w / len(fases), h, stroke=0, fill=1)
+
+
+def rich(line, font, size):
+    """Regel -> segmenten (tekst, font, grootte, kleur); **vet** en fasenamen in fasekleur."""
+    segs = []
+    for deel in re.split(r"(\*\*.+?\*\*)", line):
+        if not deel:
+            continue
+        f = font
+        if deel.startswith("**") and deel.endswith("**"):
+            deel, f = deel[2:-2], B
+        for stuk in FASE_RE.split(deel):
+            if stuk:
+                segs.append((stuk, f, size, FG))
+    return segs
+
+
+def teken_segs(cx, yb, segs):
+    totaal = sum(c.stringWidth(clean(t), f, z) for t, f, z, _ in segs)
+    xx = cx - totaal / 2
+    for t, f, z, kl in segs:
+        text(xx, yb, t, f, z, kl)
+        xx += c.stringWidth(clean(t), f, z)
+
+
+def celtekst(x, w, ytop, ybodem, regels):
+    """Tekstregels gecentreerd (horizontaal en verticaal) in een vak."""
+    uit = []
+    for k, r in enumerate(regels):
+        if k == 0:
+            z = 10
+            while z > 7 and sum(c.stringWidth(clean(t), f, z) for t, f, _, _ in rich(r, B, z)) > w - 4 * mm:
+                z -= 0.5
+            uit.append((rich(r, B, z), z * 1.35))
+        elif r.startswith("("):
+            uit.append((rich(r, R, 7), 7 * 1.35))
+        elif r.startswith("_") and r.endswith("_"):
+            uit.append((rich(r.strip("_"), I, 7), 7 * 1.35))
+        elif r.startswith("- "):
+            uit.append((rich("\u2022 " + r[2:], R, 8.5), 8.5 * 1.35))
+        elif re.fullmatch(r"L[123](?: \+ L[123])*", r):
+            uit.append((rich(r, B, 9), 9 * 1.35))
+        else:
+            uit.append((rich(r, R, 8.5), 8.5 * 1.35))
+    hoogte = sum(l for _, l in uit)
+    yb = (ytop + ybodem) / 2 + hoogte / 2
+    for segs, lead in uit:
+        yb -= lead
+        teken_segs(x + w / 2, yb + lead * 0.28, segs)
+
+
+def pas_in_vak(x, ybodem, breedte, hoogte, tekst, font=R, maxsz=7.0, minsz=3.0):
+    """Zet tekst in een vak; kiest de grootste letter waarbij alles past, horizontaal of 90 graden gedraaid."""
+    tekst = clean(tekst)
+    beste = None
+    for gedraaid in (False, True):
+        bw, bh = (hoogte, breedte) if gedraaid else (breedte, hoogte)
+        sz = maxsz
+        while sz >= minsz:
+            regels = simpleSplit(tekst, font, sz, bw)
+            if all(c.stringWidth(r, font, sz) <= bw + 0.01 for r in regels) and len(regels) * sz * 1.12 <= bh:
+                if beste is None or sz > beste[0]:
+                    beste = (sz, gedraaid, regels)
+                break
+            sz -= 0.25
+    if beste is None:
+        sys.exit(f"tekst past niet in het vak: {tekst!r}")
+    sz, gedraaid, regels = beste
+    c.setFillColor(FG); c.setFont(font, sz)
+    lead = sz * 1.12
+    if gedraaid:
+        c.saveState(); c.translate(x, ybodem); c.rotate(90)
+        for k, r in enumerate(regels):
+            c.drawString(0, -(k + 1) * lead + (lead - sz) * 0.2, r)
+        c.restoreState()
+    else:
+        for k, r in enumerate(regels):
+            c.drawString(x, ybodem + hoogte - (k + 1) * lead + (lead - sz) * 0.2, r)
+    return sz
+
+
+STOP_ITEMS = {}
+for _f, _rows in groepen.items():
+    for _n, _items, _k in _rows:
+        if "\n" not in _n and _k != "res":
+            STOP_ITEMS[_n] = _items
 c.setPageSize(landscape(A4))
 LW, LH = landscape(A4)
 
@@ -306,50 +430,102 @@ def label_secties(fases):
     out = []
     for f in fases:
         rows = sorted(groepen[f], key=lambda r: int(r[0].split("\n")[0]))
-        out.append((f, [(n.split("\n"), kind == "res") for n, _, kind in rows]))
+        out.append((f, [(n.split("\n"), kind == "res", items[0]) for n, items, kind in rows]))
     return out
 
 
-def teken_label(x0, ytop, titel, secs):
-    mods = sum(len(n) if als else 1 for _, rows in secs for n, als in rows)
+def teken_label(x0, ytop, titel, secs, voor=0, na=0):
+    """voor/na = aantal modules vooraan (hoofdschakelaar) en leeg achteraan."""
+    mods = sum(len(n) if als else 1 for _, rows in secs for n, als, _ in rows) + voor + na
     breedte = mods * MODULE
     text(x0, ytop + 3 * mm, f"{titel}  -  {mods} modules = {breedte / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
     c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
     c.rect(x0, ytop - LABEL_H, breedte, LABEL_H, stroke=1, fill=0)
-    x = x0
-    for fase, rows in secs:
-        for k, (n, als) in enumerate(rows):
+    x = x0 + voor * MODULE
+    for si, (fase, rows) in enumerate(secs):
+        for k, (n, als, omschr) in enumerate(rows):
             w = (len(n) if als else 1) * MODULE
             if als:
-                text(x + 2 * mm, ytop - 6 * mm, "AardLekSchakelaar", B, 8.5)
+                vul_fase(x, ytop, w, LABEL_H, [fase])
+                text(x + 2 * mm, ytop - 6 * mm, omschr, B, 8.5)
                 text(x + 2 * mm, ytop - LABEL_H + 6 * mm, "Fase", R, 8)
-                text(x + 2 * mm + c.stringWidth("Fase ", R, 8) + 1 * mm, ytop - LABEL_H + 5 * mm, fase, R, 34)
+                text(x + 2 * mm + c.stringWidth("Fase ", R, 8) + 1 * mm, ytop - LABEL_H + 5 * mm, fase, R, 34, FG)
             else:
                 c.setFillColor(FG); c.setFont(R, 13)
                 c.drawCentredString(x + w / 2, ytop - 7 * mm, n[0])
-                for j, regel in enumerate(EIGEN_TEKST.get(n[0], [])):
+                eigen = LABELTEKST.get(n[0], [])
+                for j, regel in enumerate(eigen):
                     c.setFont(B, 8.5)
                     c.drawCentredString(x + w / 2, ytop - 14 * mm - j * 4 * mm, regel)
+                items = [i for i in STOP_ITEMS.get(n[0], []) if not (eigen and i == "ALARM")]
+                if items:
+                    top = ytop - (10 * mm + (11 * mm if eigen else 0))
+                    pas_in_vak(x + 1.5 * mm, ytop - LABEL_H + 1.5 * mm, w - 3 * mm, top - (ytop - LABEL_H + 1.5 * mm), ", ".join(items))
             x += w
-            if x < x0 + breedte - 0.1:  # lijn op de modulegrens; volle hoogte tussen de twee fasen
+            if x < x0 + breedte - 0.1:  # lijn op de modulegrens; dik tussen twee fasen
                 laatste = k == len(rows) - 1
-                c.setStrokeColor(FG); c.setLineWidth(1.0 if laatste else 0.5)
+                dik = laatste and si < len(secs) - 1
+                c.setStrokeColor(FG); c.setLineWidth(1.0 if dik else 0.5)
                 c.line(x, ytop - (0 if laatste else 12 * mm), x, ytop - LABEL_H)
+    for j in range(1, na):  # lege modules achteraan
+        c.setStrokeColor(FG); c.setLineWidth(0.5)
+        c.line(x + j * MODULE, ytop, x + j * MODULE, ytop - LABEL_H)
 
 
+def teken_hoofdschakelaar(x0, ytop):
+    """4 modules: band met de naam van de hoofdschakelaar en daaronder de aardlek-vakjes uit het bronbestand."""
+    vakken = table_rows(sub("Hoofdschakelaar-vakjes"))
+    band = 9 * mm
+    n = len(vakken)
+    c.setFillColor(HexColor("#c4c4c4")); c.rect(x0, ytop - band, n * MODULE, band, stroke=0, fill=1)
+    c.setFillColor(FG); c.setFont(B, 14)
+    c.drawCentredString(x0 + n * MODULE / 2, ytop - band / 2 - 5, HOOFD_NAAM)
+    c.setStrokeColor(FG); c.setLineWidth(0.5)
+    c.line(x0, ytop - band, x0 + n * MODULE, ytop - band)
+    for k, (vak, tekst_, achtergrond) in enumerate(vakken):
+        cx = x0 + k * MODULE + MODULE / 2
+        fasen_in_vak = FASE_RE.findall(tekst_)
+        if fasen_in_vak:
+            vul_fase(x0 + k * MODULE, ytop - band, MODULE, LABEL_H - band, fasen_in_vak)
+        if achtergrond.lower() == "grijs":
+            c.setFillColor(HexColor("#a8a8a8")); c.rect(x0 + k * MODULE, ytop - LABEL_H, MODULE, LABEL_H - band, stroke=0, fill=1)
+        regels = [r.strip() for r in tekst_.split(" / ")]
+        fase_regel = next((r for r in regels if re.fullmatch(r"L[123]", r)), None)
+        rest = [r for r in regels if r != fase_regel]
+        for j, r in enumerate(rest):
+            if j < 2:
+                teken_segs(cx, ytop - band - (3.8 + 3.4 * j) * mm, rich(r, B, 6.6))
+            else:
+                teken_segs(cx, ytop - band - (12.5 + 4.3 * (j - 2)) * mm, rich(r, B, 10))
+        if fase_regel:
+            teken_segs(cx, ytop - LABEL_H + 3.5 * mm, rich(fase_regel, R, 27))
+        c.setStrokeColor(FG); c.setLineWidth(0.5)
+        c.line(x0 + (k + 1) * MODULE, ytop - band, x0 + (k + 1) * MODULE, ytop - LABEL_H)
+    c.setLineWidth(1.0); c.line(x0 + n * MODULE, ytop, x0 + n * MODULE, ytop - LABEL_H)
+    return n
+
+
+def stopreeks(fases):
+    nums = [int(n.split("\n")[0]) for f in fases for n, _, k in groepen[f] if k != "res"]
+    return f"{min(nums)}-{max(nums)}"
+
+
+# ---- pagina 2: fase-labels en losse labels
 lx = (LW - 12 * MODULE) / 2
 ly = LH - 28 * mm
-for titel, fases in (("Stoppen 1-12 (L2 en L3)", ["L2", "L3"]), ("Stoppen 17-22 (L1)", ["L1"])):
-    teken_label(lx, ly, titel, label_secties(fases))
-    ly -= LABEL_H + 22 * mm
-# los label: Enphase Envoy, 90 x 34 mm, tekst gecentreerd
-ENV_B = 90 * mm
-text(lx, ly + 3 * mm, f"Enphase Envoy  -  {ENV_B / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
-c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
-c.rect(lx, ly - LABEL_H, ENV_B, LABEL_H, stroke=1, fill=0)
-c.setFont(B, 10); c.setFillColor(FG)
-c.drawString(lx + (ENV_B - c.stringWidth("Enphase Envoy", B, 10)) / 2, ly - LABEL_H / 2 - 0.36 * 10 * 0.72 * 1.0, "Enphase Envoy")
+teken_label(lx, ly, f"Stoppen 1-12 ({' en '.join(['L2', 'L3'])})", label_secties(["L2", "L3"]))
 ly -= LABEL_H + 22 * mm
+n_hoofd = len(table_rows(sub("Hoofdschakelaar-vakjes")))
+teken_label(lx, ly, f"{HOOFD_NAAM} en stoppen {stopreeks(['L1'])} (L1)", label_secties(["L1"]), voor=n_hoofd, na=LEGE_NA)
+teken_hoofdschakelaar(lx, ly)
+ly -= LABEL_H + 22 * mm
+for naam, breedte_mm, tekst_ in table_rows(sub("Losse labels")):
+    bw = float(breedte_mm.replace(",", ".")) * mm
+    text(lx, ly + 3 * mm, f"{naam}  -  {bw / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
+    c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
+    c.rect(lx, ly - LABEL_H, bw, LABEL_H, stroke=1, fill=0)
+    celtekst(lx, bw, ly, ly - LABEL_H, [r.strip() for r in tekst_.split(" / ")])
+    ly -= LABEL_H + 22 * mm
 yl = 22 * mm
 c.setStrokeColor(FG); c.setLineWidth(0.8)
 c.line(lx, yl, lx + 100 * mm, yl)
@@ -358,56 +534,32 @@ text(lx, yl - 6 * mm, "Controle: deze lijn moet precies 100 mm zijn. Print op 10
 text(lx, LH - 14 * mm, "LABELS METERKAST - OP WARE GROOTTE", B, 11)
 c.showPage()
 
-# ------------------------------------------------------------------ pagina 3: overige labels (foto's meterkast)
-# Elke rij is 12 modules = 210 x 34 mm. Teksten staan hier (fysieke labels), niet in het bronbestand.
-I = "Helvetica-Oblique"
-RIJEN = [
-    ("Links boven: zonnepanelen en Enphase", [
-        (4, [[("Zonnepanelen", B, 10)], [("L1 + L2 + L3", B, 9)]]),
-        (6, [[("Enphase Q-relay", B, 10)], [("(Netbeveiligingsrelais)", R, 7)], [("L1 + L2 + L3", B, 9)]]),
-        (1, []), (1, [])]),
-    ("Rechts boven: inductiekookplaat en laadpalen", [
-        (4, [[("Inductiekookplaat", B, 10)], [("L1 + L3", B, 9)]]),
-        (4, [[("Laadpaal bij garage (Rob)", B, 9)],
-             [("Ratio Laadpaal P0000000000", R, 8.5), ("6589", B, 8.5)],
-             [("Laadpaal Code 491238", I, 7)],
-             [("L1 + L2 + L3", B, 9)]]),
-        (4, [[("Laadpaal bij voordeur (Sonia)", B, 9)],
-             [("Ratio Laadpaal P0000000000", R, 8.5), ("6507", B, 8.5)],
-             [("Laadpaal Code 792926", I, 7)],
-             [("L1 + L2 + L3", B, 9)]])]),
-    ("Links onder: warmtepomp", [(1, [])] * 8 + [(4, [[("Warmtepomp", B, 10)], [("• Compressor op ", R, 8.5), ("L2", B, 8.5)],
-                                             [("• Elektrisch element op ", R, 8.5), ("L1 + L3", B, 8.5)]])]),
-    ("Rechts onder: overspanningsbeveiliging", [(4, [[("Overspanningsbeveiliging", B, 10)], [("L1 + L2 + L3", B, 9)]])] + [(1, [])] * 8),
-]
-
-
-def teken_rij(x0, ytop, titel, cellen):
-    breedte = sum(m for m, _ in cellen) * MODULE
-    text(x0, ytop + 3 * mm, f"{titel}  -  {sum(m for m, _ in cellen)} modules = {breedte / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
+# ---- pagina 3: overige labels (rijen van 12 modules)
+rijen, volgorde_rijen = {}, []
+for rij, modules, tekst_ in table_rows(sub("Overige labels")):
+    if rij not in rijen:
+        rijen[rij] = []
+        volgorde_rijen.append(rij)
+    rijen[rij].append((int(modules), [r.strip() for r in tekst_.split(" / ")] if tekst_ else []))
+text(lx, LH - 10 * mm, "LABELS METERKAST - OP WARE GROOTTE (VERVOLG)", B, 11)
+ly = LH - 22 * mm
+for rij in volgorde_rijen:
+    cellen = rijen[rij]
+    totaal = sum(m for m, _ in cellen)
+    if totaal != 12:
+        sys.exit(f"rij '{rij}' heeft {totaal} modules, verwacht 12")
+    text(lx, ly + 3 * mm, f"{rij}  -  12 modules = {12 * MODULE / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)
     c.setStrokeColor(HexColor("#999999")); c.setLineWidth(0.4)
-    c.rect(x0, ytop - LABEL_H, breedte, LABEL_H, stroke=1, fill=0)
-    x = x0
+    c.rect(lx, ly - LABEL_H, 12 * MODULE, LABEL_H, stroke=1, fill=0)
+    x = lx
     for k, (m, regels) in enumerate(cellen):
         w = m * MODULE
-        hoogte = len(regels) * 11
-        yb = ytop - LABEL_H / 2 + hoogte / 2 - 8
-        for r, segs_ in enumerate(regels):
-            totaal = sum(c.stringWidth(t, f, sz) for t, f, sz in segs_)
-            xx = x + w / 2 - totaal / 2
-            for t, f, sz in segs_:
-                text(xx, yb - r * 11, t, f, sz)
-                xx += c.stringWidth(t, f, sz)
+        if regels:
+            celtekst(x, w, ly, ly - LABEL_H, regels)
         x += w
         if k < len(cellen) - 1:
             c.setStrokeColor(FG); c.setLineWidth(0.5)
-            c.line(x, ytop, x, ytop - LABEL_H)
-
-
-text(lx, LH - 10 * mm, "LABELS METERKAST - OP WARE GROOTTE (VERVOLG)", B, 11)
-ly = LH - 22 * mm
-for titel, cellen in RIJEN:
-    teken_rij(lx, ly, titel, cellen)
+            c.line(x, ly, x, ly - LABEL_H)
     ly -= LABEL_H + 9 * mm
 yl = 12 * mm
 c.setStrokeColor(FG); c.setLineWidth(0.8)
