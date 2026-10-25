@@ -462,6 +462,14 @@ automation:
               entity_id: "input_datetime.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_ingeplugd"
             data:
               timestamp: "{{ now().timestamp() }}"
+          # Oude blokstart (van een eerdere sessie, bv. vanmorgen) wissen: anders telt
+          # die als 'al gestart' en laadt de auto meteen i.p.v. in het goedkoopste blok.
+          # ev_blok_vastleggen kiest daarna binnen een minuut een nieuw blok.
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: "input_datetime.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_blok_start"
+            data:
+              timestamp: 0
         else:
           - action: input_boolean.turn_off
             target:
