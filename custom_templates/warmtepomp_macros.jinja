@@ -295,33 +295,63 @@
            aaneengesloten blok van die lengte, binnen het venster en uiterlijk
            klaar om 17:00, met het laagste gemiddelde kosten_warmte. -#}
         {%- set looptijd_uren = [[3, 3 + (t_drempel - t_mid) / 8] | max, 4] | min -%}
-        {%- set looptijd_min = (looptijd_uren * 60) | round | int -%}
-        {%- set nkw = (looptijd_min / 15) | round | int -%}
-        {#- Legionella-cyclus (TDI, 26-10-2026): de warmtepomp verwarmt dan ~60 min
-           tapwater (voorrang) en de vloer krijgt in die tijd niets. Is de TDI
-           volgens de kandidaat-berekening op deze dag aan de beurt en valt hij in
-           het bufferblok, dan wordt het blok 60 min langer (de TDI-kwartieren tellen
-           niet mee in de prijs). Een start tijdens de TDI zelf is uitgesloten. -#}
+        {%- set nkw = ((looptijd_uren * 60) / 15) | round | int -%}
+        {%- set looptijd_min = nkw * 15 -%}
+        {#- Tapwatercycli (26-10-2026): de warmtepomp verwarmt dan tapwater met
+           voorrang en de vloer krijgt in die tijd niets. Twee verwachte gebeurtenissen:
+           (1) de legionella-cyclus (TDI, 60 min) op het kandidaat-kwartier van de dag
+           waarop hij aan de beurt is; (2) een gewone tapwatercyclus (45 min) zodra de
+           boiler volgens de gemiddelde daling (0,45 °C/uur, NIET gekalibreerd) onder
+           46 °C komt (alleen voor vandaag). Valt een gebeurtenis in het bufferblok,
+           dan wordt het blok zo lang langer; de kwartieren van de gebeurtenis tellen
+           niet mee in de prijs en een start tijdens de gebeurtenis is uitgesloten.
+           Valt de TDI eerder dan de gewone cyclus, dan verwarmt de TDI de boiler al
+           en vervalt de gewone cyclus. -#}
         {%- set tdi_s = states('input_datetime.tdi_laatste_start') -%}
         {%- set tdi_dagen = (now().date() - (as_datetime(tdi_s) | as_local).date()).days if tdi_s not in ('unknown', 'unavailable') else 999 -%}
         {%- set tdi_prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') -%}
         {%- set tdi_lijst = (bereken_tdi_kwartieren(tdi_prijzen, weer, tdi_dagen) | from_json) if tdi_prijzen else [] -%}
         {%- set tdi_best = (tdi_lijst | min(attribute='kosten_warmte')) if tdi_lijst else none -%}
         {%- set tdi_min = (tdi_best.uur * 60 + tdi_best.kwartier) if (tdi_best is not none and tdi_best.dag == dag) else -1 -%}
-        {%- set tdi_duur = 60 -%}
+        {%- set ev = namespace(l=[]) -%}
+        {%- if tdi_min >= 0 -%}
+          {%- set ev.l = ev.l + [{'s': tdi_min, 'd': 60}] -%}
+        {%- endif -%}
+        {%- if dag == now().strftime('%Y-%m-%d') -%}
+          {%- set dhw_nu = states('sensor.luxtronik_280807_0450_dhw_temperature') | float(none) -%}
+          {%- if dhw_nu is not none -%}
+            {%- set nu_min = now().hour * 60 + now().minute -%}
+            {%- set tw_s = nu_min + ((((dhw_nu - 46) / 0.45) * 60) | round | int if dhw_nu > 46 else 5) -%}
+            {%- if tw_s < 1020 and not (tdi_min >= 0 and tdi_min <= tw_s) -%}
+              {%- set ev.l = ev.l + [{'s': (tw_s // 15) * 15, 'd': 45}] -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endif -%}
         {%- set dag_uren = uren | selectattr('dag', 'equalto', dag) | list -%}
         {%- set nb = namespace(best=none, best_gem=none, ext=0) -%}
         {%- for kand in middag -%}
           {%- set k0 = kand.uur * 60 + kand.kwartier -%}
-          {%- set overlap = tdi_min >= 0 and k0 <= tdi_min and tdi_min < k0 + looptijd_min -%}
-          {%- set tijdens_tdi = tdi_min >= 0 and k0 > tdi_min and k0 < tdi_min + tdi_duur -%}
-          {%- set eff_min = looptijd_min + (tdi_duur if overlap else 0) -%}
-          {%- if k0 + eff_min <= 1020 and not tijdens_tdi -%}
+          {%- set cd = namespace(ext=0, tijdens=false) -%}
+          {%- for e in ev.l -%}
+            {%- if k0 <= e.s and e.s < k0 + looptijd_min -%}
+              {%- set cd.ext = cd.ext + e.d -%}
+            {%- endif -%}
+            {%- if k0 > e.s and k0 < e.s + e.d -%}
+              {%- set cd.tijdens = true -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set eff_min = looptijd_min + cd.ext -%}
+          {%- if k0 + eff_min <= 1020 and not cd.tijdens -%}
             {%- set ns3 = namespace(som=0, n=0) -%}
             {%- for q in dag_uren -%}
               {%- set qm = q.uur * 60 + q.kwartier -%}
-              {%- set in_tdi = overlap and qm >= tdi_min and qm < tdi_min + tdi_duur -%}
-              {%- if qm >= k0 and qm < k0 + eff_min and not in_tdi -%}
+              {%- set in_ev = namespace(v=false) -%}
+              {%- for e in ev.l -%}
+                {%- if k0 <= e.s and e.s < k0 + looptijd_min and qm >= e.s and qm < e.s + e.d -%}
+                  {%- set in_ev.v = true -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {%- if qm >= k0 and qm < k0 + eff_min and not in_ev.v -%}
                 {%- set ns3.som = ns3.som + q.kosten_warmte -%}
                 {%- set ns3.n = ns3.n + 1 -%}
               {%- endif -%}
@@ -331,7 +361,7 @@
               {%- if nb.best_gem is none or gem < nb.best_gem -%}
                 {%- set nb.best = kand -%}
                 {%- set nb.best_gem = gem -%}
-                {%- set nb.ext = tdi_duur if overlap else 0 -%}
+                {%- set nb.ext = cd.ext -%}
               {%- endif -%}
             {%- endif -%}
           {%- endif -%}
@@ -344,8 +374,8 @@
           'laatste_start_uur': laatste_start_uur,
           'uur': best.uur,
           'kwartier': best.kwartier,
-          'looptijd_uren': (looptijd_uren + nb.ext / 60) | round(2),
-          'tdi_verlenging_min': nb.ext,
+          'looptijd_uren': ((looptijd_min + nb.ext) / 60) | round(2),
+          'tapwater_verlenging_min': nb.ext,
           'kosten_warmte': (nb.best_gem | round(4)) if nb.best_gem is not none else best.kosten_warmte,
           'label': best.label
         } -%}
