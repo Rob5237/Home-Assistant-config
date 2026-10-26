@@ -614,24 +614,32 @@
     Escalatie naar 62°C verloopt via tapwater_extra_opslag_groot_overschot
     (P1<-4000W voor 10 min, conditie setpoint 55-60 — past nu).
   triggers:
-  - entity_id:
-    - sensor.p1_meter_power
-    below: -2000
+  # Winterdrempels (26-10-2026): okt-feb is er te weinig overschot voor de
+  # zomerdrempels (sinds 12-10 draaide geen enkele cyclus meer volledig op zon).
+  # Winter: teruglevering >= 1000 W, Enphase > 1000 W, forecast >= 1,0 kWh;
+  # zomer (mrt-sep): 2000 W / 1500 W / drempel van de forecast-sensor.
+  # De cyclus (~2,3 kW compressor) draait in de winter dus deels op netstroom.
+  - trigger: template
+    value_template: >
+      {{ states('sensor.p1_meter_power') | float(0)
+         < (-1000 if now().month in [10, 11, 12, 1, 2] else -2000) }}
     for:
       hours: 0
       minutes: 5
       seconds: 0
-    trigger: numeric_state
   conditions:
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 52
-  - condition: state
-    entity_id: binary_sensor.zon_forecast_volgend_uur_voldoende
-    state: "on"
-  - condition: numeric_state
-    entity_id: sensor.envoy_122331077486_current_power_production
-    above: 1500
+  - condition: template
+    value_template: >
+      {{ is_state('binary_sensor.zon_forecast_volgend_uur_voldoende', 'on')
+         or (now().month in [10, 11, 12, 1, 2]
+             and state_attr('binary_sensor.zon_forecast_volgend_uur_voldoende', 'forecast_kwh') | float(0) >= 1.0) }}
+  - condition: template
+    value_template: >
+      {{ states('sensor.envoy_122331077486_current_power_production') | float(0)
+         > (1000 if now().month in [10, 11, 12, 1, 2] else 1500) }}
   # Niet klein-overschot draaien als groot-overschot net Party heeft gezet:
   # anders zou setpoint 62→57 en mode Party→Automatic worden overschreven,
   # wat de zonne_overschot_extra_opslag_reset (DHW>58 + mode=Party) breekt.
@@ -1093,13 +1101,13 @@
   alias: "Tapwater: bijverwarmen bij lage temperatuur"
   description: >
     Verwarm tapwater naar 57°C als het onder 46°C zakt. Blokkeert bij hoog tarief
-    (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 41°C).
+    (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 40°C, verlaagd van 41 op 26-10-2026).
     Drempel 46°C (was 43): 3°C hogere drempel geeft grotere douche-buffer
     (~50L trekking = ~5-6°C drop; van 46 kom je op 40, van 43 op 37 = koud).
     Impact op solar-benutting minimaal — bijverwarmen activeert alleen als het
     tarief laag is (bij overschot ligt tarief typisch laag), en klein-overschot
     (nu drempel 52) vangt de meeste warmteverlies al eerder op. Emergency
-    <41°C ongewijzigd.
+    <40°C (was 41).
   triggers:
   - entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 46
@@ -1116,7 +1124,7 @@
     conditions:
     - condition: numeric_state
       entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-      below: 41
+      below: 40
     - condition: and
       conditions:
       - condition: state

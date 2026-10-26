@@ -94,9 +94,9 @@ verse herlading.
 ## Tapwater opwarm-events
 | Trigger | Conditie | Doel-setpoint | DHW-mode | Automatie |
 |---|---|---|---|---|
-| DHW < 46°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 41°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
+| DHW < 46°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 40°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
 | Elk kwartier 22:00-06:00 | goedkoopste kwartier **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
-| P1 < -2000W voor 5 min | DHW < 52°C **EN** zon-forecast ≥ 2 kWh **EN** Enphase nu > 1500W **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
+| P1 < -2000W voor 5 min (okt-feb: < -1000W) | DHW < 52°C **EN** zon-forecast ≥ 2 kWh (okt-feb: ≥ 1 kWh) **EN** Enphase nu > 1500W (okt-feb: > 1000W) **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C (+ hysterese 10K→3K) | Party | `tapwater_extra_opslag_groot_overschot` |
 | Elk kwartier 09:00-16:00 | goedkoopste kwartier **EN** TDI ≥7 dgn geleden **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tdi_legionella_solar_overschot` |
 | Elk kwartier (hele dag) | Zonneplan kwartiertarief < -0.02 €/kWh **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tapwater_negatieve_prijs_opwarmen` |
@@ -129,10 +129,10 @@ Safety-reset in `tapwater_extra_opslag_groot_overschot`: na 45 min interne delay
 ## Tapwater drempel-temperaturen
 | Temp | Betekenis |
 |---|---|
-| **41°C** | Noodgrens — bijverwarmen ongeacht tarief |
+| **40°C** | Noodgrens — bijverwarmen ongeacht tarief |
 | **46°C** | Bijverwarm-trigger (mits tarief OK) |
 | **52°C** | Bovengrens zonne-overschot start |
-| **50°C** | Rust-setpoint → autonome WP-start bij **40°C** (50-10K) |
+| **50°C** | Rust-setpoint → autonome WP-start bij **40°C** (50-10K), gelijk aan de noodgrens |
 | **54°C** | Bovengrens nachtuur start |
 | **57°C** | Target voor bijverwarmen/nacht/overschot + reset-trigger bijverwarmen (voor 1 min) |
 | **58°C** | Reset-trigger zonne-overschot extra opslag |
@@ -158,7 +158,7 @@ Gedrag tijdens vakantie:
 | Automatie | In vakantie |
 |---|---|
 | `warmtepomp_goedkoop_uur_opwarmen` | geblokkeerd |
-| `tapwater_bijverwarmen` (tarief-tak) | geblokkeerd; noodtak DHW<41°C blijft actief |
+| `tapwater_bijverwarmen` (tarief-tak) | geblokkeerd; noodtak DHW<40°C blijft actief |
 | `tapwater_goedkoopste_nachtuur` | geblokkeerd |
 | `tapwater_zonne_overschot_klein` | actief (overschot opslaan blijft) |
 | `tapwater_extra_opslag_groot_overschot` | actief |
