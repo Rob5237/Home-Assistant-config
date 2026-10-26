@@ -270,10 +270,11 @@
     # nu. Zinvol alleen als de gemiddelde prijs van nu tot 17:00 minstens 15%
     # onder die van 17:00-22:00 ligt. Ontbreken prijsdata → niet blokkeren.
     - variables:
-        prijzen: "{{ state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] }}"
+        # Let op: geen aparte 'prijzen'-variabele; die wordt tot tekst omgezet
+        # (fout 'str object has no attribute start_date', 25-26-10-2026).
         p_nu: >
           {% set ns = namespace(v=[]) %}
-          {% for f in prijzen %}
+          {% for f in state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
             {% set t = as_datetime(f.start_date) | as_local %}
             {% if t.date() == now().date() and now() <= t + timedelta(minutes=15) and t.hour < 17 %}
               {% set ns.v = ns.v + [f.price_tax_included.amount | float(0)] %}
@@ -282,7 +283,7 @@
           {{ (ns.v | sum / ns.v | count) if ns.v | count > 0 else none }}
         p_avond: >
           {% set ns = namespace(v=[]) %}
-          {% for f in prijzen %}
+          {% for f in state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
             {% set t = as_datetime(f.start_date) | as_local %}
             {% if t.date() == now().date() and 17 <= t.hour < 22 %}
               {% set ns.v = ns.v + [f.price_tax_included.amount | float(0)] %}
