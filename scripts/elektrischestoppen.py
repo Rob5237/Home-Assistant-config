@@ -179,7 +179,7 @@ y -= bh + 12
 text(M, y - 9, "ENKELFASE-GROEPEN PER AARDLEKSCHAKELAAR", B, 9.5)
 text(W - M - c.stringWidth("HOMEWIZARD KLEUREN", B, 9.5), y - 9, "HOMEWIZARD KLEUREN", B, 9.5)
 y -= 15
-cols = [(int(f[1]), f, f"Stop {als[f][0]} - Aardlek {als[f][1]}", pos[f].capitalize() + " in de meterkast", groepen[f])
+cols = [(int(f[1]), f, f"Stop {als[f][0]} - Aardlek {als[f][1]}", {"links": "Linker", "midden": "Middelste", "rechts": "Rechter"}[pos[f]] + " faseschakelaar", groepen[f])
         for f in ("L1", "L2", "L3")]
 GAP = 8
 colw = (CW - 2 * GAP) / 3
@@ -519,11 +519,44 @@ def stopreeks(fases):
 lx = (LW - 12 * MODULE) / 2
 ly = LH - 28 * mm
 teken_label(lx, ly, f"Stoppen 1-12 ({' en '.join(['L2', 'L3'])})", label_secties(["L2", "L3"]))
-ly -= LABEL_H + 22 * mm
+ly -= LABEL_H + 15 * mm
 n_hoofd = len(table_rows(sub("Hoofdschakelaar-vakjes")))
 teken_label(lx, ly, f"{HOOFD_NAAM} en stoppen {stopreeks(['L1'])} (L1)", label_secties(["L1"]), voor=n_hoofd, na=LEGE_NA)
 teken_hoofdschakelaar(lx, ly)
-ly -= LABEL_H + 22 * mm
+ly -= LABEL_H + 15 * mm
+FRONT = sub("Frontlabel hoofdschakelaar")
+FRONT_POLEN = [t.strip() for t in re.search(r"Frontlabel polen: (.+)", FRONT).group(1).split(",")]
+FRONT_H = float(re.search(r"Frontlabel hoogte: ([\d,.]+) mm", FRONT).group(1).replace(",", ".")) * mm
+AUT_H = float(re.search(r"Frontlabel automaat hoogte: ([\d,.]+) mm", FRONT).group(1).replace(",", ".")) * mm
+AUTOMATEN = [t.strip() for t in re.search(r"Frontlabel automaten: (.+)", FRONT).group(1).split(",")]
+N_BLAUW = HexColor("#1f5fc4")
+
+
+def teken_front(fx, fy, hoogte, naam=None):
+    if naam:
+        text(fx, fy + 2 * mm, f"{naam}  -  {len(FRONT_POLEN) * MODULE / mm:.1f} x {hoogte / mm:.0f} mm", R, 7)
+    for k, pool in enumerate(FRONT_POLEN):
+        px = fx + k * MODULE
+        c.setFillColor(N_BLAUW if pool == "N" else kleur_van(pool))
+        c.rect(px, fy - hoogte, MODULE, hoogte, stroke=0, fill=1)
+        c.setFillColor(white if pool == "N" else FG); c.setFont(R, hoogte / mm * 1.7)
+        c.drawCentredString(px + MODULE / 2, fy - hoogte / 2 - hoogte / mm * 0.6, pool)
+        if k:
+            c.setStrokeColor(FG); c.setLineWidth(0.5); c.line(px, fy, px, fy - hoogte)
+    c.setStrokeColor(FG); c.setLineWidth(0.5)
+    c.rect(fx, fy - hoogte, len(FRONT_POLEN) * MODULE, hoogte, stroke=1, fill=0)
+
+
+fx, fy = lx + 100 * mm, ly  # rechts naast het eerste losse label
+teken_front(fx, fy, FRONT_H, "Frontlabel hoofdschakelaar")
+# de automaten tegen elkaar aan, in een strook onder het eerste losse label
+ay = ly - LABEL_H - 9 * mm
+text(lx, ay + 2 * mm, f"Frontlabels automaten {', '.join(AUTOMATEN)}  -  {len(AUTOMATEN) * len(FRONT_POLEN) * MODULE / mm:.0f} x {AUT_H / mm:.0f} mm", R, 7)
+for k in range(len(AUTOMATEN)):
+    teken_front(lx + k * len(FRONT_POLEN) * MODULE, ay, AUT_H)
+    if k:
+        c.setStrokeColor(FG); c.setLineWidth(1.2)
+        c.line(lx + k * len(FRONT_POLEN) * MODULE, ay, lx + k * len(FRONT_POLEN) * MODULE, ay - AUT_H)
 for naam, breedte_mm, tekst_ in table_rows(sub("Losse labels")):
     bw = float(breedte_mm.replace(",", ".")) * mm
     text(lx, ly + 3 * mm, f"{naam}  -  {bw / mm:.0f} x {LABEL_H / mm:.0f} mm", R, 7)

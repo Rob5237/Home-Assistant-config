@@ -3,7 +3,7 @@
 Het overzicht-PDF (`www/elektrischestoppen.pdf`) wordt uit dit bestand gemaakt met `scripts/elektrischestoppen.py`. Pagina 1 is het overzicht, pagina 2 en 3 zijn de labels op ware grootte voor onder de Hager-modules (print op 100 %, A4 liggend). Alle teksten staan in dit bestand (secties Enkelfase-groepen, Toelichting per stop en Labels meterkast); het script bevat alleen de opmaak. Wijzig dus alleen hier en draai daarna dat script.
 
 Aansluiting 3×25A. Elke aardlekschakelaar (ALS) hangt aan één fase; alle groepen zijn B16.
-Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1 = rechts (aangepast 25-10-2026 op aanwijzing van de gebruiker; eerder stond hier L1 links, L2 midden, L3 rechts, en 'draadkleuren' terwijl het posities zijn).
+Fasevolgorde van de aardlekschakelaars in de meterkast, van links naar rechts: L1 = links, L2 = midden, L3 = rechts (aangepast 26-10-2026 op aanwijzing van de gebruiker: de linker faseschakelaar is L1, de middelste is L2; rechts is L3 door uitsluiting). Dit komt overeen met het HomeWizard-display. Onderaan de hoofdschakelaar zijn L1 en L2 onderling verwisseld (zie Kernmetingen).
 
 ## Hoofdcomponenten
 | Stop | Wat | Fasen |
@@ -90,8 +90,8 @@ Vak met als achtergrond `grijs` wordt donkergrijs. Een regel die alleen een fase
 ### Overige labels (rijen van 12 modules, pagina 3)
 | Rij | Modules | Tekst |
 |-----|---------|-------|
-| Links boven: zonnepanelen en Enphase | 4 | Zonnepanelen / L1 + L2 + L3 |
-| Links boven: zonnepanelen en Enphase | 6 | Enphase Q-relay / (Netbeveiligingsrelais) / L1 + L2 + L3 |
+| Links boven: zonnepanelen en Enphase | 4 | Zonnepanelen / L3 + L1 + L2 |
+| Links boven: zonnepanelen en Enphase | 6 | Enphase Q-relay / (Netbeveiligingsrelais) / L3 + L1 + L2 |
 | Links boven: zonnepanelen en Enphase | 1 | |
 | Links boven: zonnepanelen en Enphase | 1 | |
 | Rechts boven: inductiekookplaat en laadpalen | 4 | Inductiekookplaat / L1 + L3 |
@@ -120,3 +120,11 @@ Vak met als achtergrond `grijs` wordt donkergrijs. Een regel die alleen een fase
 | Label | Breedte | Tekst |
 |-------|---------|-------|
 | Enphase Envoy | 90 | Enphase Envoy |
+
+### Frontlabel hoofdschakelaar (pagina 2)
+Rechthoek die op de voorzijde van de hoofdschakelaar komt, onder de schakelaars, bij de faseaanduidingen. Vier polen van 1 module breed (70 mm). De drie automaten B16, B20 en B20 naast elkaar zijn ook 4-polig, 70 mm breed en 10 mm hoog, met dezelfde volgorde L2, L1, L3, N (26-10-2026). Polen van links naar rechts; N is de blauwe nul. De hoogte is een aanname, pas die aan zodra de ruimte op de schakelaar is opgemeten.
+
+- Frontlabel polen: L2, L1, L3, N
+- Frontlabel hoogte: 12 mm
+- Frontlabel automaten: B16, B20, B20
+- Frontlabel automaat hoogte: 10 mm
