@@ -115,7 +115,7 @@
       buitentemperatuur: >
         {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') | float(None) }}
 
-  - name: "Warmtepomp COP Geschat"
+  - name: "Warmtepomp COP Berekend"
     unique_id: "warmtepomp_cop_geschat"
     unit_of_measurement: ""
     state_class: measurement
@@ -427,6 +427,21 @@
             {{ venster.looptijd_uren if venster.gevonden else 3 }}
           {% else %}
             {{ 3 }}
+          {% endif %}
+        tapwater_verlenging_min: >
+          {# Minuten verlenging door verwachte tapwatercyclus (TDI of gewoon) #}
+          {% from 'warmtepomp_macros.jinja' import bereken_kwartieren, bepaal_middag_venster %}
+          {% set weer = weer_forecast['weather.thuis'].forecast %}
+          {% set prijzen = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') %}
+          {% if weer and prijzen %}
+            {% set t_min = states('number.luxtronik_280807_0450_heating_min_flow_out_temperature') | float(19) %}
+            {% set t_max = states('number.luxtronik_280807_0450_heating_curve_end_temperature') | float(35) %}
+            {% set t_drempel = states('number.luxtronik_280807_0450_heating_threshold_temperature') | float(14) %}
+            {% set uren = bereken_kwartieren(prijzen, weer, t_min, t_max, t_drempel) | from_json %}
+            {% set venster = bepaal_middag_venster(uren, weer, t_drempel) | from_json %}
+            {{ venster.tapwater_verlenging_min if venster.gevonden else 0 }}
+          {% else %}
+            {{ 0 }}
           {% endif %}
 
 # DHW delta-T bij compressor-start: 57 - DHW-temp op moment van compressor

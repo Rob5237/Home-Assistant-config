@@ -328,7 +328,7 @@
           {%- endif -%}
         {%- endif -%}
         {%- set dag_uren = uren | selectattr('dag', 'equalto', dag) | list -%}
-        {%- set nb = namespace(best=none, best_gem=none, ext=0) -%}
+        {%- set nb = namespace(best=none, best_gem=none, ext=0, cands=[]) -%}
         {%- for kand in middag -%}
           {%- set k0 = kand.uur * 60 + kand.kwartier -%}
           {%- set cd = namespace(ext=0, tijdens=false) -%}
@@ -357,15 +357,23 @@
               {%- endif -%}
             {%- endfor -%}
             {%- if ns3.n == nkw -%}
-              {%- set gem = ns3.som / ns3.n -%}
-              {%- if nb.best_gem is none or gem < nb.best_gem -%}
-                {%- set nb.best = kand -%}
-                {%- set nb.best_gem = gem -%}
-                {%- set nb.ext = cd.ext -%}
-              {%- endif -%}
+              {%- set nb.cands = nb.cands + [{'kand': kand, 'k0': k0, 'gem': ns3.som / ns3.n, 'ext': cd.ext}] -%}
             {%- endif -%}
           {%- endif -%}
         {%- endfor -%}
+        {#- Voorkeur voor een laat einde (26-10-2026): de vloer geeft de opgeslagen
+           warmte in de avond af, dus kies van de blokken waarvan het gemiddelde
+           niet meer dan marge (5%, NIET gekalibreerd) boven het goedkoopste ligt
+           de LAATSTE start. -#}
+        {%- if nb.cands -%}
+          {%- set gem_min = nb.cands | map(attribute='gem') | min -%}
+          {%- set grens = gem_min + (gem_min | abs) * 0.05 -%}
+          {%- set ok = nb.cands | selectattr('gem', 'le', grens) | sort(attribute='k0') | list -%}
+          {%- set keuze = ok | last -%}
+          {%- set nb.best = keuze.kand -%}
+          {%- set nb.best_gem = keuze.gem -%}
+          {%- set nb.ext = keuze.ext -%}
+        {%- endif -%}
         {%- set best = nb.best if nb.best is not none else (middag | min(attribute='kosten_warmte')) -%}
         {%- set ns.resultaat = {
           'gevonden': true,
