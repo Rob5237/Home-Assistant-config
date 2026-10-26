@@ -2890,6 +2890,7 @@
     - trigger: state
       entity_id: sensor.ev_sonia_status_connector
       to: "Charging"
+      for: "00:00:30"
   actions:
     - action: persistent_notification.create
       data:
@@ -2915,6 +2916,7 @@
     - trigger: state
       entity_id: sensor.ev_rob_status_connector
       to: "Charging"
+      for: "00:00:30"
   actions:
     - action: persistent_notification.create
       data:
@@ -2978,6 +2980,7 @@
     - trigger: state
       entity_id: sensor.ev_rob_status_connector
       from: "Charging"
+      for: "00:00:30"
   actions:
     - action: persistent_notification.create
       data:
@@ -3006,6 +3009,7 @@
     - trigger: state
       entity_id: sensor.ev_sonia_status_connector
       from: "Charging"
+      for: "00:00:30"
   actions:
     - action: persistent_notification.create
       data:

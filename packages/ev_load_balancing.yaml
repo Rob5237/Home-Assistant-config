@@ -1783,14 +1783,14 @@ automation:
                 - condition: template
                   value_template: >
                     {% set n = repeat.item.naam %}
-                    {# Binnen 10 min na een overbelasting OF nadat dit setpunt van 0 A omhoog ging #}
+                    {# Binnen 10 min na een overbelasting OF nadat dit setpunt van 0 A omhoog ging; hervatpogingen alleen in de eerste 2 min van een pauze (daarna neemt de auto gewoon geen stroom af) #}
                     {% set nul_ts = state_attr('input_datetime.ev_' ~ n ~ '_nul_verlaten', 'timestamp') | float(0) %}
                     {% set recent = is_state('binary_sensor.ev_lb_overbelasting', 'on')
                          or (now() - states.binary_sensor.ev_lb_overbelasting.last_changed).total_seconds() < 600
                          or now().timestamp() - nul_ts < 600 %}
                     {{ recent and is_state('sensor.ev_' ~ n ~ '_status_connector', 'SuspendedEV')
                        and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() >= 20
-                       and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() < 600
+                       and (now() - states['sensor.ev_' ~ n ~ '_status_connector'].last_changed).total_seconds() < 120
                        and (is_state('binary_sensor.ev_lb_' ~ n ~ '_laden_toegestaan', 'on')
                             or is_state('binary_sensor.ev_lb_' ~ n ~ '_pv_laden', 'on'))
                        and is_state('switch.ev_' ~ n ~ '_charge_control', 'on')
