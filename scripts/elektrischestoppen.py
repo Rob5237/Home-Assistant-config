@@ -23,7 +23,7 @@ OUT = "/config/www/elektrischestoppen.pdf"
 TITLE = "GROEPENKAST DUITLAAN 20"
 SUBTITLE = "Meterkast woning"
 SPECS = [("3 x 25 A", "AANSLUITING"), ("B16", "ALLE GROEPEN"), ("3", "AARDLEKSCHAKELAARS")]
-SZ = 9.6  # lettergrootte onderdelen (groter laat de pagina overlopen)
+SZ = 9.1  # lettergrootte onderdelen (groter laat de pagina overlopen)
 
 # ------------------------------------------------------------------ bron inlezen
 md = open(SRC, encoding="utf-8").read()
@@ -497,7 +497,11 @@ def teken_hoofdschakelaar(x0, ytop):
             if j < 2:
                 teken_segs(cx, ytop - band - (3.8 + 3.4 * j) * mm, rich(r, B, 6.6))
             else:
-                teken_segs(cx, ytop - band - (12.5 + 4.3 * (j - 2)) * mm, rich(r, B, 10))
+                yb = ytop - band - (12.5 + 4.3 * (j - 2)) * mm
+                if achtergrond.lower() == "grijs" and r in ("1", "2", "3"):  # cijfer in een balkje in de fasekleur
+                    c.setFillColor(P[int(r)][0])
+                    c.rect(x0 + k * MODULE, yb - 0.7 * mm, MODULE, 3.9 * mm, stroke=0, fill=1)
+                teken_segs(cx, yb, rich(r, B, 10))
         if fase_regel:
             teken_segs(cx, ytop - LABEL_H + 3.5 * mm, rich(fase_regel, R, 27))
         c.setStrokeColor(FG); c.setLineWidth(0.5)

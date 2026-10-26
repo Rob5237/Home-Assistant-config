@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elektrische stoppen</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #222; }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<iframe id="pdf" title="Elektrische stoppen"></iframe>
+<script>
+  // Toont het PDF en laadt het opnieuw zodra het bestand op de server wijzigt.
+  const PDF = "elektrischestoppen.pdf";
+  const frame = document.getElementById("pdf");
+  let laatste = null;
+
+  async function controleer() {
+    try {
+      const r = await fetch(PDF + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" });
+      const stempel = (r.headers.get("last-modified") || "") + (r.headers.get("etag") || "") + (r.headers.get("content-length") || "");
+      if (stempel !== laatste) {
+        laatste = stempel;
+        frame.src = PDF + "?v=" + encodeURIComponent(stempel);
+      }
+    } catch (e) { /* offline: volgende ronde opnieuw */ }
+  }
+  controleer();
+  setInterval(controleer, 30000);
+</script>
+</body>
+</html>

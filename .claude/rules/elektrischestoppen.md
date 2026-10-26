@@ -29,7 +29,7 @@ Fasevolgorde in de meterkast, van links naar rechts: L2 = links, L3 = midden, L1
 | 17, 18 | 1 | L1 | AardLekSchakelaar |
 | 19 | 1 | L1 | WCD in muur achter keukenwandkast (ongebruikt) |
 | 20 | 1 | L1 | Hal, toilet beneden, keukennis WCD linkerzijde, overloop, slaapkamers Ivan & Taeke, computer zolder, mechanische ventilatie, zolderplafondlicht |
-| 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, slaapkamers achterzijde (Rob & Sonia, Aukje), badkamerverlichting (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
+| 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, Home Assistant, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, slaapkamers achterzijde (Rob & Sonia, Aukje), badkamerverlichting (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
 | 22 | 1 | L1 | Stopcontacten keukenmuur, keukenvriezer, keukenkoelkast, keukenlicht, WCD terras, rookmelder hal, ingebouwde deurbel meterkast (ongebruikt) |
 
 ## Meerfase-verbruikers (eigen aansluiting)
@@ -48,6 +48,7 @@ Kolom Fasen: fasen buiten haakjes worden belast; fasen tussen haakjes zijn aange
 Elke regel krijgt de datum van de meting tussen haakjes achter de titel, bijvoorbeeld `(24-10-2026)`. Het PDF leidt de kop 'Gemeten op ...' daaruit af en stopt als een datum ontbreekt.
 
 - **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tonen in dezelfde volgorde en kleur.
+- **Voeding hoofdschakelaar** (26-10-2026): de hoofdschakelaar (stop 13) krijgt voeding van de onderzijde. De drie draden onderaan, van links naar rechts: links = L2 (paars in HomeWizard), midden = L1 (roze in HomeWizard), rechts = L3 (lichtblauw, door uitsluiting).
 - **Quooker op L2** (24-10-2026): ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
 - **Element zonder compressor** (24-10-2026): Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
 
@@ -82,8 +83,8 @@ Vak met als achtergrond `grijs` wordt donkergrijs. Een regel die alleen een fase
 | Vak | Tekst | Achtergrond |
 |-----|-------|-------------|
 | 1 | AardLek / Schakelaar / L2 | |
-| 2 | AardLek / Schakelaar / L3 | |
-| 3 | AardLek / Schakelaar / L1 | |
+| 2 | AardLek / Schakelaar / L1 | |
+| 3 | AardLek / Schakelaar / L3 | |
 | 4 | AardLek / Schakelaar / 1 / 2 / 3 | grijs |
 
 ### Overige labels (rijen van 12 modules, pagina 3)
