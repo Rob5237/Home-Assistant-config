@@ -1,0 +1,19 @@
+# Eenmalige herinnering op 16-11-2026: de analyse van het warmtepompverbruik
+# (sturing op goedkope uren) opnieuw laten doen met koud weer.
+automation:
+  - id: herinnering_wp_analyse_16_11
+    alias: "Herinnering: warmtepomp-analyse met koud weer herhalen"
+    description: "Stuurt op 16-11-2026 om 09:00 een melding naar de telefoon."
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        minutes: "0"
+    conditions:
+      - condition: template
+        value_template: "{{ now().strftime('%Y-%m-%d %H') == '2026-11-16 09' }}"
+    actions:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Warmtepomp-analyse herhalen"
+          message: "Vraag Claude de analyse van het warmtepompverbruik (sturing op goedkope uren) opnieuw te doen, nu met koud weer."
+        continue_on_error: true
