@@ -102,6 +102,10 @@ input_boolean:
     icon: mdi:trending-up
 
 input_datetime:
+  warmtepomp_buffer_einde_tijd:
+    name: "Einde pre-17:00 vloerbuffer (looptijd)"
+    has_date: true
+    has_time: true
   tdi_laatste_start:
     name: "TDI laatste start"
     has_date: true

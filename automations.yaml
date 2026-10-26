@@ -328,9 +328,14 @@
     # schatting, nog niet gekalibreerd): 1,5 + 0,25 × (14 − t_avond), op 0,5
     # afgerond, begrensd op 1-5°C.
     # 12°C → +2, 10°C → +2,5, 5°C → +3,5, 0°C → +5.
+    # Korter, harder blok (26-10-2026): de buffer loopt een vaste looptijd
+    # (attribuut looptijd_uren, 3-4 uur) i.p.v. tot 17:00; daarom +1,0°C extra
+    # bovenop de formule (de compressor moduleert vanaf 30% van zijn maximum,
+    # dus er is ruimte). Niet gekalibreerd; evalueren na enkele dagen.
     - variables:
+        looptijd: "{{ state_attr('sensor.warmtepomp_optimaal_startuur_middag', 'looptijd_uren') | float(3) }}"
         correctie: >
-          {{ [[((1.5 + 0.25 * (14 - t_avond | float(buiten_nu))) * 2) | round(0, 'common') / 2, 1.0] | max, 5.0] | min }}
+          {{ [[((1.5 + 0.25 * (14 - t_avond | float(buiten_nu))) * 2) | round(0, 'common') / 2 + 1.0, 1.0] | max, 5.0] | min }}
     # Voorrang boven de goedkoop-uur-boost: stop een lopende boost-run (anders
     # zet zijn delay-einde de correctie straks weer op 0) en schakel de
     # automatisering direct weer in voor de volgende dag.
@@ -357,6 +362,11 @@
         entity_id: input_number.warmtepomp_kamertemp_backup
       data:
         value: "{{ state_attr('climate.luxtronik_280807_0450_heating', 'temperature') }}"
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.warmtepomp_buffer_einde_tijd
+      data:
+        timestamp: "{{ (now().timestamp() + looptijd * 3600) | int }}"
     - action: input_boolean.turn_on
       target:
         entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
@@ -369,7 +379,7 @@
       data:
         name: "Pre-17:00 vloerbuffer"
         message: >-
-          Gestart om {{ now().strftime('%H:%M') }}: aanvoercorrectie +{{ correctie }}°C
+          Gestart om {{ now().strftime('%H:%M') }} voor {{ looptijd }} uur: aanvoercorrectie +{{ correctie }}°C
           (verwachte avondtemp {{ t_avond }}°C, buiten nu {{ buiten_nu }}°C), setpoint blijft
           {{ states('input_number.warmtepomp_kamertemp_backup') }}°C
           (buiten max {{ temp_max }}°C, drempel {{ drempel }}°C).
@@ -400,6 +410,42 @@
       data:
         name: "Pre-17:00 vloerbuffer"
         message: "Einde 17:00: aanvoercorrectie terug naar 0."
+    - action: number.set_value
+      target:
+        entity_id: number.luxtronik_280807_0450_heating_target_correction
+      data:
+        value: 0
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.warmtepomp_goedkoop_uur_boost_actief
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.warmtepomp_kamertemp_backup
+      data:
+        value: 0
+  mode: single
+
+- id: warmtepomp_pre17_buffer_einde_looptijd
+  alias: "Warmtepomp: pre-17:00 vloerbuffer einde na looptijd"
+  description: >
+    Elke minuut: loopt de buffer en is de vaste looptijd (input_datetime
+    warmtepomp_buffer_einde_tijd, gezet bij de start) voorbij, dan de
+    aanvoercorrectie terug naar 0, mutex uit en marker naar 0 (26-10-2026).
+  triggers:
+    - trigger: time_pattern
+      seconds: '45'
+  conditions:
+    - condition: numeric_state
+      entity_id: input_number.warmtepomp_kamertemp_backup
+      above: 0.01
+    - condition: template
+      value_template: >
+        {{ now().timestamp() >= (states('input_datetime.warmtepomp_buffer_einde_tijd') | as_datetime(none) | as_local).timestamp() }}
+  actions:
+    - action: logbook.log
+      data:
+        name: "Pre-17:00 vloerbuffer"
+        message: "Einde om {{ now().strftime('%H:%M') }}: looptijd voorbij, aanvoercorrectie terug naar 0."
     - action: number.set_value
       target:
         entity_id: number.luxtronik_280807_0450_heating_target_correction
