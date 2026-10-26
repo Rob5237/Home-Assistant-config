@@ -1,0 +1,65 @@
+# Herinnering: zodra er 10 koude dagen (daggemiddelde buiten < 6 °C) zijn gelogd,
+# de COP van de warmtepomp (model in custom_templates/warmtepomp_macros.jinja,
+# plafond 6,0) laten fitten aan de gemeten daggemiddelden (26-10-2026: tot nu toe
+# alleen data tussen 8 en 16 °C, gemeten COP 6,0-7,0).
+sensor:
+  - platform: statistics
+    name: "Buitentemperatuur gemiddelde 24 uur"
+    unique_id: buitentemperatuur_gemiddelde_24_uur
+    entity_id: sensor.luxtronik_280807_0450_outdoor_temperature
+    state_characteristic: average_linear
+    max_age:
+      hours: 24
+
+input_number:
+  koude_dagen_cop:
+    name: "Koude dagen gelogd (daggemiddelde < 6 °C)"
+    min: 0
+    max: 365
+    step: 1
+    initial: 0
+    mode: box
+    icon: mdi:snowflake-thermometer
+
+automation:
+  - id: koude_dag_tellen
+    alias: "Herinnering COP: koude dag tellen"
+    description: >
+      Elke dag om 23:55: is het 24-uurs gemiddelde van de buitentemperatuur
+      lager dan 6 °C (en dekt de meting minstens 90% van de 24 uur), dan
+      input_number.koude_dagen_cop met 1 ophogen.
+    mode: single
+    triggers:
+      - trigger: time
+        at: "23:55:00"
+    conditions:
+      - condition: template
+        value_template: >
+          {{ states('sensor.buitentemperatuur_gemiddelde_24_uur') | float(99) < 6
+             and state_attr('sensor.buitentemperatuur_gemiddelde_24_uur', 'age_coverage_ratio') | float(0) >= 0.9 }}
+    actions:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.koude_dagen_cop
+        data:
+          value: "{{ states('input_number.koude_dagen_cop') | float(0) + 1 }}"
+
+  - id: herinnering_cop_koude_data
+    alias: "Herinnering COP: genoeg koude dagen"
+    description: "Melding zodra 10 koude dagen zijn geteld."
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: input_number.koude_dagen_cop
+        above: 9.5
+    actions:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Warmtepomp-COP kalibreren"
+          message: "Er zijn 10 koude dagen (gemiddeld onder 6 °C) gelogd. Vraag Claude de COP-formule van de vloerbuffer te fitten aan de gemeten daggemiddelden."
+        continue_on_error: true
+      - action: persistent_notification.create
+        data:
+          notification_id: cop_koude_data
+          title: "Warmtepomp-COP kalibreren"
+          message: "10 koude dagen gelogd: de COP-formule (plafond 6,0) kan nu aan gemeten data worden gefit."
