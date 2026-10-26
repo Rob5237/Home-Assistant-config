@@ -289,7 +289,25 @@
       {%- set laatste_start_uur = (17 - uren_vooraf_min) | round | int -%}
       {%- set middag = uren | selectattr('dag', 'equalto', dag) | selectattr('uur', 'ge', msu) | selectattr('uur', 'lt', laatste_start_uur) | list -%}
       {%- if middag -%}
-        {%- set best = middag | min(attribute='kosten_warmte') -%}
+        {#- Looptijd-bewuste keuze (26-10-2026): de buffer draait vanaf de start
+           tot 17:00 (of tot de kamer op setpoint + 0,2 is). Kies daarom niet het
+           goedkoopste losse kwartier, maar de start waarvoor het gemiddelde van
+           kosten_warmte over de hele looptijd [start, 17:00) het laagst is. -#}
+        {%- set dag_uren = uren | selectattr('dag', 'equalto', dag) | selectattr('uur', 'lt', 17) | list -%}
+        {%- set nb = namespace(best=none, best_gem=none) -%}
+        {%- for kand in middag -%}
+          {%- set kand_min = kand.uur * 60 + kand.kwartier -%}
+          {%- set looptijd = dag_uren | selectattr('uur', 'ge', kand.uur) | rejectattr('uur', 'equalto', kand.uur) | list
+                             + (dag_uren | selectattr('uur', 'equalto', kand.uur) | selectattr('kwartier', 'ge', kand.kwartier) | list) -%}
+          {%- if looptijd | count > 0 -%}
+            {%- set gem = (looptijd | sum(attribute='kosten_warmte')) / (looptijd | count) -%}
+            {%- if nb.best_gem is none or gem < nb.best_gem -%}
+              {%- set nb.best = kand -%}
+              {%- set nb.best_gem = gem -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- set best = nb.best if nb.best is not none else (middag | min(attribute='kosten_warmte')) -%}
         {%- set ns.resultaat = {
           'gevonden': true,
           'dag': dag,
@@ -297,7 +315,7 @@
           'laatste_start_uur': laatste_start_uur,
           'uur': best.uur,
           'kwartier': best.kwartier,
-          'kosten_warmte': best.kosten_warmte,
+          'kosten_warmte': (nb.best_gem | round(4)) if nb.best_gem is not none else best.kosten_warmte,
           'label': best.label
         } -%}
       {%- endif -%}
