@@ -629,7 +629,10 @@ template:
         state: >
           {% set kwh = states('input_number.ev_lb_rob_plan_kwh') | float(0) %}
           {% set f = 3 if is_state('input_select.ev_lb_rob_fase', '3-fase') else 1 %}
-          {% set kw = f * 230 * states('input_number.ev_lb_deel_max_rob') | float(9) / 1000 %}
+          {# Alleen aan de lader: Rob laadt met zijn volle stroom (ev_lb_max_rob, 16 A). Is Sonia ook aangesloten, dan telt de deelmodus-stroom #}
+          {% set sonia_aan = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE', 'SuspendedEV'] %}
+          {% set a = states('input_number.ev_lb_deel_max_rob') | float(9) if sonia_aan else states('input_number.ev_lb_max_rob') | float(16) %}
+          {% set kw = f * 230 * a / 1000 %}
           {{ ((kwh / kw * 4) | round(0, 'ceil') / 4) if kw > 0 else 0 }}
 
   - sensor:

@@ -23,7 +23,7 @@ OUT = "/config/www/elektrischestoppen.pdf"
 TITLE = "GROEPENKAST DUITLAAN 20"
 SUBTITLE = "Meterkast woning"
 SPECS = [("3 x 25 A", "AANSLUITING"), ("B16", "ALLE GROEPEN"), ("3", "AARDLEKSCHAKELAARS")]
-SZ = 9.1  # lettergrootte onderdelen (groter laat de pagina overlopen)
+SZ = 9.4  # lettergrootte onderdelen (groter laat de pagina overlopen)
 
 # ------------------------------------------------------------------ bron inlezen
 md = open(SRC, encoding="utf-8").read()
@@ -105,7 +105,7 @@ feiten, meetdata = [], []
 for t, dat, d in re.findall(r"^- \*\*(.+?)\*\*(?: \((\d{2}-\d{2}-\d{4})\))?: (.+)$", section("Kernmetingen"), re.M):
     if not dat:
         sys.exit(f"meting '{t}' in Kernmetingen heeft geen datum; zet (dd-mm-jjjj) achter de titel")
-    feiten.append((t.upper(), d))
+    feiten.append((t.upper(), d.replace(" // ", "\n")))  # ' // ' in het bronbestand = nieuwe regel
     meetdata.append(datetime.datetime.strptime(dat, "%d-%m-%Y").date())
 if not feiten:
     sys.exit("geen metingen gevonden in sectie Kernmetingen")
@@ -120,8 +120,8 @@ else:
 
 # ------------------------------------------------------------------ tekenen
 W, H = A4
-M = 12 * mm          # linker- en rechtermarge
-MT = 7 * mm          # bovenmarge
+M = 8 * mm           # linker- en rechtermarge
+MT = 3 * mm          # bovenmarge
 MB = 6 * mm          # ondermarge
 CW = W - 2 * M
 FG = HexColor("#1b1f24"); RULE = HexColor("#cfd3d8"); SOFT = HexColor("#eef0f2"); RED = HexColor("#d41c1c")
@@ -181,7 +181,7 @@ text(W - M - c.stringWidth("HOMEWIZARD KLEUREN", B, 9.5), y - 9, "HOMEWIZARD KLE
 y -= 15
 cols = [(int(f[1]), f, f"Stop {als[f][0]} - Aardlek {als[f][1]}", {"links": "Linker", "midden": "Middelste", "rechts": "Rechter"}[pos[f]] + " faseschakelaar", groepen[f])
         for f in ("L1", "L2", "L3")]
-GAP = 8
+GAP = 4
 colw = (CW - 2 * GAP) / 3
 NW = 17
 LEAD = SZ * 1.19
@@ -287,8 +287,17 @@ for i, (t, d) in enumerate(feiten[:3]):
     x = M + i * (fw + GAP)
     c.setFillColor(FG); c.rect(x, y - fh, 2.2, fh, stroke=0, fill=1)
     text(x + 8, y - 9, t, B, 8)
-    for k, ln in enumerate(wrap(d, fw - 10, R, 8.2)):
-        text(x + 8, y - 12 - 8.2 - k * 9.5 + 0.5, ln, R, 8.2)
+    regels = wrap(d, fw - 10, R, 8.2)
+    # regels als 'links = ...' onder elkaar: de '=' tekens op één lijn
+    gel = [re.fullmatch(r"(\S+) = (.*)", ln) for ln in regels]
+    kolom = max([c.stringWidth(m.group(1) + " ", R, 8.2) for m in gel if m], default=0)
+    for k, ln in enumerate(regels):
+        yy = y - 12 - 8.2 - k * 9.5 + 0.5
+        if gel[k]:
+            text(x + 8, yy, gel[k].group(1), R, 8.2)
+            text(x + 8 + kolom, yy, "= " + gel[k].group(2), R, 8.2)
+        else:
+            text(x + 8, yy, ln, R, 8.2)
 y -= fh + 12
 
 # voet
@@ -564,6 +573,27 @@ for naam, breedte_mm, tekst_ in table_rows(sub("Losse labels")):
     c.rect(lx, ly - LABEL_H, bw, LABEL_H, stroke=1, fill=0)
     celtekst(lx, bw, ly, ly - LABEL_H, [r.strip() for r in tekst_.split(" / ")])
     ly -= LABEL_H + 22 * mm
+# fasenlabel L1 L2 L3, staand rechts van de rijen (vakjes op 0, 58 en 116 mm vanaf de bovenkant)
+FL = sub("Fasenlabel L1 L2 L3")
+FL_H = float(re.search(r"Fasenlabel hoogte: ([\d,.]+) mm", FL).group(1).replace(",", ".")) * mm
+FL_B = float(re.search(r"Fasenlabel vakbreedte: ([\d,.]+) mm", FL).group(1).replace(",", ".")) * mm
+FL_A = float(re.search(r"Fasenlabel afstand: ([\d,.]+) mm", FL).group(1).replace(",", ".")) * mm
+FL_W = 2 * FL_A + FL_B
+fl_x, fl_top = lx + 12 * MODULE + 6 * mm, LH - 28 * mm
+text(fl_x, fl_top + 7 * mm, "Fasenlabel L1 L2 L3", R, 7)
+text(fl_x, fl_top + 3 * mm, f"{FL_W / mm:.0f} x {FL_H / mm:.0f} mm", R, 7)
+c.saveState(); c.translate(fl_x, fl_top); c.rotate(-90)  # lokale x loopt naar beneden, lokale y naar rechts
+for k, fase in enumerate(("L1", "L2", "L3")):
+    vx = k * FL_A
+    c.setFillColor(kleur_van(fase)); c.rect(vx, 0, FL_B, FL_H, stroke=0, fill=1)
+    c.setFillColor(FG); c.setFont(R, 34)
+    c.drawCentredString(vx + FL_B / 2, FL_H / 2 - 4.6 * mm, fase)
+c.setStrokeColor(FG); c.setLineWidth(0.5)
+c.rect(0, 0, FL_W, FL_H, stroke=1, fill=0)
+for k in range(3):
+    for xx in (k * FL_A, k * FL_A + FL_B):
+        c.line(xx, 0, xx, FL_H)
+c.restoreState()
 yl = 22 * mm
 c.setStrokeColor(FG); c.setLineWidth(0.8)
 c.line(lx, yl, lx + 100 * mm, yl)
@@ -605,5 +635,6 @@ c.line(lx, yl, lx + 100 * mm, yl)
 c.line(lx, yl - 1.5 * mm, lx, yl + 1.5 * mm); c.line(lx + 100 * mm, yl - 1.5 * mm, lx + 100 * mm, yl + 1.5 * mm)
 text(lx + 104 * mm, yl - 1 * mm, "Controle: 100 mm. Print op 100 %, A4 liggend.", R, 8)
 c.showPage()
+
 c.save()
 print(f"klaar: {OUT}, marge over {(y - MB - 14) / mm:.1f} mm")

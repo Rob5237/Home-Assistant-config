@@ -45,10 +45,11 @@ Kolom Fasen: fasen buiten haakjes worden belast; fasen tussen haakjes zijn aange
 | Laadpaal voordeur (EV-Sonia) | L1 L2 L3 | Ioniq 3 fasen; Passat ook hier op L2 |
 
 ## Kernmetingen
+(Een ` // ` in een regel is een nieuwe regel in het PDF.)
 Elke regel krijgt de datum van de meting tussen haakjes achter de titel, bijvoorbeeld `(24-10-2026)`. Het PDF leidt de kop 'Gemeten op ...' daaruit af en stopt als een datum ontbreekt.
 
 - **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tonen in dezelfde volgorde en kleur.
-- **Voeding hoofdschakelaar** (26-10-2026): de hoofdschakelaar (stop 13) krijgt voeding van de onderzijde. De drie draden onderaan, van links naar rechts: links = L2 (paars in HomeWizard), midden = L1 (roze in HomeWizard), rechts = L3 (lichtblauw, door uitsluiting).
+- **Voeding hoofdschakelaar** (26-10-2026): de hoofdschakelaar (stop 13) krijgt voeding van de onderzijde. // links = L2 (paars in HomeWizard), // midden = L1 (roze in HomeWizard), // rechts = L3 (Lichtblauw in Homewizard).
 - **Quooker op L2** (24-10-2026): ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
 - **Element zonder compressor** (24-10-2026): Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
 
@@ -95,8 +96,8 @@ Vak met als achtergrond `grijs` wordt donkergrijs. Een regel die alleen een fase
 | Links boven: zonnepanelen en Enphase | 1 | |
 | Links boven: zonnepanelen en Enphase | 1 | |
 | Rechts boven: inductiekookplaat en laadpalen | 4 | Inductiekookplaat / L1 + L3 |
-| Rechts boven: inductiekookplaat en laadpalen | 4 | Laadpaal bij garage (Rob) / Ratio Laadpaal P0000000000**6589** / _Laadpaal Code 491238_ / L1 + L2 + L3 |
-| Rechts boven: inductiekookplaat en laadpalen | 4 | Laadpaal bij voordeur (Sonia) / Ratio Laadpaal P0000000000**6507** / _Laadpaal Code 792926_ / L1 + L2 + L3 |
+| Rechts boven: inductiekookplaat en laadpalen | 4 | Laadpaal bij garage (Rob) / Ratio Laadpaal P0000000000**6589** / _Laadpaal Code 491238_ / L2 + L1 + L3 |
+| Rechts boven: inductiekookplaat en laadpalen | 4 | Laadpaal bij voordeur (Sonia) / Ratio Laadpaal P0000000000**6507** / _Laadpaal Code 792926_ / L2 + L1 + L3 |
 | Links onder: warmtepomp | 1 | |
 | Links onder: warmtepomp | 1 | |
 | Links onder: warmtepomp | 1 | |
@@ -128,3 +129,10 @@ Rechthoek die op de voorzijde van de hoofdschakelaar komt, onder de schakelaars,
 - Frontlabel hoogte: 12 mm
 - Frontlabel automaten: B16, B20, B20
 - Frontlabel automaat hoogte: 10 mm
+
+### Fasenlabel L1 L2 L3 (pagina 2, staand)
+Eén rechthoek met drie smalle vakjes voor L1, L2 en L3. Alle maten in mm vanaf de bovenkant van het staande label (liggend gemeten vanaf links) (26-10-2026).
+
+- Fasenlabel hoogte: 20 mm
+- Fasenlabel vakbreedte: 18 mm
+- Fasenlabel afstand: 58 mm
