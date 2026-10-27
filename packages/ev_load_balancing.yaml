@@ -482,13 +482,15 @@ template:
         unit_of_measurement: kW
         device_class: power
         state_class: measurement
-        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) }}"
+        # Alleen weergave: direct 0 kW zodra de lader niet meer laadt (de afgeleide
+        # W-sensor blijft anders tot 150 s op de oude waarde staan).
+        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) if is_state('sensor.ev_sonia_status_connector', 'Charging') else 0 }}"
       - name: "EV Rob vermogen kW"
         unique_id: ev_rob_vermogen_kw
         unit_of_measurement: kW
         device_class: power
         state_class: measurement
-        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) }}"
+        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) if is_state('sensor.ev_rob_status_connector', 'Charging') else 0 }}"
 
   - sensor:
       # Verwachte laadstart (weergave): eerstvolgende kwartier van de goedkoopste
@@ -816,14 +818,19 @@ template:
           {{ [[0 - states('sensor.p1_meter_power') | float(0) + rob + sonia, pv] | min, 0] | max | round(0) }}
 
   - binary_sensor:
-      # Zonlading: genoeg PV-overschot (start 1500 W, blijft aan tot 1300 W)
+      # Zonlading: genoeg PV-overschot (start 1500 W, blijft aan tot 1300 W).
+      # delay_off 3 min (27-10-2026): na de start loopt het afgeleide laadvermogen
+      # 10-20 s achter, waardoor het berekende overschot even onder 1300 W zakte;
+      # de zonlading ging dan uit en weer aan (pendel elke ~30 s, 71x in 40 min).
       - name: "EV LB Rob PV laden"
         unique_id: ev_lb_rob_pv_laden
+        delay_off: "00:03:00"
         state: >
           {% set o = states('sensor.ev_lb_pv_overschot') | float(0) %}
           {{ o >= 1500 or (this.state == 'on' and o >= 1300) }}
       - name: "EV LB Sonia PV laden"
         unique_id: ev_lb_sonia_pv_laden
+        delay_off: "00:03:00"
         state: >
           {% set o = states('sensor.ev_lb_pv_overschot') | float(0) %}
           {{ o >= 1500 or (this.state == 'on' and o >= 1300) }}
