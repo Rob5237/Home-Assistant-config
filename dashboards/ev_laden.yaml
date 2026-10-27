@@ -35,6 +35,7 @@ views:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
                   ha-tile-info { margin-left: -5px !important; }
+                  state-display { white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                 ha-tile-info$: |
                   .info { flex-direction: row !important; align-items: baseline !important; flex-wrap: wrap !important; column-gap: 10px !important; }
@@ -332,14 +333,6 @@ views:
               - entity: input_number.ev_lb_zon_min_3fase
                 name: "Zonstand: 3-fase lader start vanaf restoverschot"
                 icon: mdi:solar-power
-              - entity: input_select.ev_lb_rob_fase
-                name: "EV-Rob: fase van de auto (keuze)"
-              - entity: sensor.ev_lb_rob_fase_actief
-                name: "EV-Rob: fase in gebruik (gemeten bij de start)"
-              - entity: input_select.ev_lb_sonia_fase
-                name: "EV-Sonia: fase van de auto (keuze)"
-              - entity: sensor.ev_lb_sonia_fase_actief
-                name: "EV-Sonia: fase in gebruik (gemeten bij de start)"
             grid_options:
               columns: 12
           - type: vertical-stack
@@ -593,6 +586,7 @@ views:
                 .: |
                   ha-card { border: none !important; box-shadow: none !important; }
                   ha-tile-info { margin-left: -5px !important; }
+                  state-display { white-space: pre-line !important; overflow: visible !important; text-overflow: clip !important; }
                   ha-card { background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); }
                 ha-tile-info$: |
                   .info { flex-direction: row !important; align-items: baseline !important; flex-wrap: wrap !important; column-gap: 10px !important; }
@@ -890,14 +884,6 @@ views:
               - entity: input_number.ev_lb_zon_min_3fase
                 name: "Zonstand: 3-fase lader start vanaf restoverschot"
                 icon: mdi:solar-power
-              - entity: input_select.ev_lb_rob_fase
-                name: "EV-Rob: fase van de auto (keuze)"
-              - entity: sensor.ev_lb_rob_fase_actief
-                name: "EV-Rob: fase in gebruik (gemeten bij de start)"
-              - entity: input_select.ev_lb_sonia_fase
-                name: "EV-Sonia: fase van de auto (keuze)"
-              - entity: sensor.ev_lb_sonia_fase_actief
-                name: "EV-Sonia: fase in gebruik (gemeten bij de start)"
             grid_options:
               columns: 12
           - type: vertical-stack

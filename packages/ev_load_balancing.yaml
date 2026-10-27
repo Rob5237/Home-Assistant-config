@@ -1667,6 +1667,30 @@ automation:
                   data:
                     name: "EV laders"
                     message: "Meetinterval van {{ repeat.item }} stond op {{ huidig.value }} s en is teruggezet op 10 s."
+  - id: ev_fase_keuze_terug_naar_automatisch
+    alias: "EV – fasekeuze van de lader terug naar Automatisch als de auto wordt losgekoppeld"
+    description: >
+      De fase van de auto wordt bij de start van het laden gemeten ('Automatisch'). Een vaste keuze in
+      input_select.ev_lb_<lader>_fase blijft daarom maar voor één sessie gelden: zodra de auto wordt
+      losgekoppeld (status Available) gaat de lader terug naar 'Automatisch' (27-10-2026).
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_rob_status_connector
+        to: "Available"
+        for: "00:00:20"
+        id: rob
+      - trigger: state
+        entity_id: sensor.ev_sonia_status_connector
+        to: "Available"
+        for: "00:00:20"
+        id: sonia
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: "input_select.ev_lb_{{ trigger.id }}_fase"
+        data:
+          option: "Automatisch"
   - id: ev_nacht_wel_opladen_knop
     alias: "EV – knop 's-nachts WEL opladen: gratis- en uitgezet-stand ook uit"
     description: >
