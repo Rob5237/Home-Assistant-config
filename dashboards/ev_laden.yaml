@@ -332,6 +332,14 @@ views:
               - entity: input_number.ev_lb_zon_min_3fase
                 name: "Zonstand: 3-fase lader start vanaf restoverschot"
                 icon: mdi:solar-power
+              - entity: input_select.ev_lb_rob_fase
+                name: "EV-Rob: fase van de auto (keuze)"
+              - entity: sensor.ev_lb_rob_fase_actief
+                name: "EV-Rob: fase in gebruik (gemeten bij de start)"
+              - entity: input_select.ev_lb_sonia_fase
+                name: "EV-Sonia: fase van de auto (keuze)"
+              - entity: sensor.ev_lb_sonia_fase_actief
+                name: "EV-Sonia: fase in gebruik (gemeten bij de start)"
             grid_options:
               columns: 12
           - type: vertical-stack
@@ -882,6 +890,14 @@ views:
               - entity: input_number.ev_lb_zon_min_3fase
                 name: "Zonstand: 3-fase lader start vanaf restoverschot"
                 icon: mdi:solar-power
+              - entity: input_select.ev_lb_rob_fase
+                name: "EV-Rob: fase van de auto (keuze)"
+              - entity: sensor.ev_lb_rob_fase_actief
+                name: "EV-Rob: fase in gebruik (gemeten bij de start)"
+              - entity: input_select.ev_lb_sonia_fase
+                name: "EV-Sonia: fase van de auto (keuze)"
+              - entity: sensor.ev_lb_sonia_fase_actief
+                name: "EV-Sonia: fase in gebruik (gemeten bij de start)"
             grid_options:
               columns: 12
           - type: vertical-stack
