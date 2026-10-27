@@ -41,7 +41,7 @@ Kolom Fasen: fasen buiten haakjes worden belast; fasen tussen haakjes zijn aange
 | Inductiekookplaat | L1 L3 | 2 fasen, gemeten via P1 |
 | Warmtepomp: compressor | L2 (L1 L3) | Alleen L2: +0,6 tot 1,4 kW. L1 en L3 aangesloten, niet belast |
 | Warmtepomp: elektrisch element | L1 L3 | L1 + L3, ~2,0 kW per fase, samen ~4 kW |
-| Laadpaal garage (EV-Rob) | L1 L2 L3 | Passat laadt op L2 (1 fase) |
+| Laadpaal garage (EV-Rob) | L1 L2 L3 | Passat laadt op L3 (1 fase), L2 en L3 verwisseld op 27-10-2026 |
 | Laadpaal voordeur (EV-Sonia) | L1 L2 L3 | Ioniq 3 fasen; Passat ook hier op L2 |
 
 ## Kernmetingen
@@ -58,7 +58,7 @@ P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgord
 - **L3 bevestigd:** droger (stop 11, L3) liet alleen de derde fase reageren (+~440 W, daarna wisselend ~265 W).
 - **L2 bevestigd:** Quooker (stop 3, L2) handmatig aangezet; reageerde op de middelste fase. De korte pulsen van ~2,1 kW (~51 per dag, ~10 s) op die fase zijn dus vrijwel zeker de Quooker-standby.
 - **L1 door uitsluiting:** niet apart getest; volgt uit L2 en L3.
-- Passat laadt bij beide laders (EV-Rob en EV-Sonia) op de middelste fase (L2).
+- Passat laadde bij beide laders (EV-Rob en EV-Sonia) op de middelste fase (L2). Sinds 27-10-2026 22:40 laadt hij bij EV-Rob op L3: de draden van L2 en L3 zijn bij die lader verwisseld, gemeten +3,45 kW op alleen P1-fase 3. `input_select.ev_lb_rob_fase` staat op L3. Bij EV-Sonia is niets veranderd (Passat daar nog op L2).
 - Inductiekookplaat (2 fasen) reageerde op de eerste en derde fase (L1 + L3), niet op de middelste.
 - Warmtepomp-compressor: belast alleen de middelste fase (L2); L1 en L3 vlak bij opstarten (32 opstarts, 26 dagen).
 - Warmtepomp elektrisch element (extra warmteopwekker 2, 2 fasen): gemeten op 24-10-2026 21:20-21:28 via dhw_mode "Second heatsource" + setpoint 65 °C: +2,0 kW op L1 en +2,0 kW op L3 tegelijk (samen ~4 kW), L2 geen reactie, compressor uit. Draaide ononderbroken 21:22:25-21:28:14 na een aanloop van drie pulsen van 10 s aan / 30 s uit; daarna afgebroken door `tapwater_bijverwarmen`. Start alleen als de boiler onder setpoint minus `dhw_hysteresis` (10 K) staat, bij setpoint 65 dus onder 55 °C.
