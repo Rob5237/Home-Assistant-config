@@ -326,6 +326,14 @@ views:
             icon: mdi:flash
             grid_options:
               columns: 12
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: input_number.ev_lb_zon_min_3fase
+                name: "Zonstand: 3-fase lader start vanaf restoverschot"
+                icon: mdi:solar-power
+            grid_options:
+              columns: 12
           - type: vertical-stack
             grid_options:
               columns: 12
@@ -866,6 +874,14 @@ views:
             entity: sensor.ev_rob_vermogen_kw
             name: "Nu"
             icon: mdi:flash
+            grid_options:
+              columns: 12
+          - type: entities
+            show_header_toggle: false
+            entities:
+              - entity: input_number.ev_lb_zon_min_3fase
+                name: "Zonstand: 3-fase lader start vanaf restoverschot"
+                icon: mdi:solar-power
             grid_options:
               columns: 12
           - type: vertical-stack

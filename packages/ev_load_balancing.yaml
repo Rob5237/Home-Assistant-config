@@ -167,6 +167,17 @@ input_number:
     initial: 25
     unit_of_measurement: A
     mode: box
+  # Zonstand: een 3-fase lader mag al starten (op 6 A = 4,1 kW) als er minstens dit restoverschot
+  # is; het tekort komt uit het net. Geen 'initial' (dat reset de waarde bij elke herstart).
+  # Waarde >= 4200 W = uit (dan start hij pas bij het volle 4,1 kW overschot).
+  ev_lb_zon_min_3fase:
+    name: "EV LB – zonstand: 3-fase lader start vanaf restoverschot"
+    min: 500
+    max: 6000
+    step: 100
+    unit_of_measurement: W
+    mode: box
+    icon: mdi:solar-power
   ev_lb_marge:
     name: "EV LB – veiligheidsmarge"
     min: 0
@@ -509,7 +520,7 @@ template:
               'plan': 'Afwachten wanneer goedkoop laadtarief in de nacht begint'}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
-          {%- elif ns.soort in ['zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
+          {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
       - name: "EV Rob status NL"
         unique_id: ev_rob_status_nl
@@ -557,7 +568,7 @@ template:
               'plan': 'Afwachten wanneer goedkoop laadtarief in de nacht begint'}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
-          {%- elif ns.soort in ['zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
+          {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
 
   - sensor:
@@ -1710,6 +1721,17 @@ automation:
               {% set h = states(l.setpunt) | int(0) %}
               {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on') and is_state(l.uitgezet, 'off')}}) %}
             {% endfor %}
+            {# PV-PRIORITEIT (27-10-2026): laden beide auto's alleen op zonne-overschot (geen van beide
+               mag om prijsredenen), dan gaat de auto op 1 fase voor: die kan al vanaf 1,4 kW laden,
+               een 3-fase auto pas vanaf 4,1 kW. Anders is Sonia (voorrang) de eerste. Alleen overdag;
+               's nachts (deelmodus) delen ze. #}
+            {% set so = ns.out['sonia'] %}
+            {% set ro = ns.out['rob'] %}
+            {% set rob_voor = not deel and so.bezig and ro.bezig and not so.tg and not ro.tg and so.pv and ro.pv
+                              and is_state('input_select.ev_lb_sonia_fase', '3-fase')
+                              and not is_state('input_select.ev_lb_rob_fase', '3-fase') %}
+            {% set voorrang = 'rob' if rob_voor else 'sonia' %}
+            {% set volgorde = (laders | reverse | list) if rob_voor else (laders | list) %}
 
             {% if overbelast and ruimte < zwaar and lasten_uit %}
               {# Noodstop: zware overschrijding (> 29 A): alles wat laadt eerst naar
@@ -1752,8 +1774,8 @@ automation:
               {# Nieuwe sessie op de lader die de trigger gaf: laag beginnen #}
               {% for l in laders %}
                 {% set o = ns.out[l.naam] %}
-                {% set sw = l.naam != 'sonia' and not deel and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
-                            and ns.out['sonia'].huidig < states('input_number.ev_lb_max_sonia') | int(16) %}
+                {% set sw = l.naam != voorrang and not deel and ns.out[voorrang].bezig and (ns.out[voorrang].tg or ns.out[voorrang].pv)
+                            and ns.out[voorrang].huidig < states('input_number.ev_lb_max_' ~ voorrang) | int(16) %}
                 {% if o.bezig and trigger.entity_id == l.status %}
                   {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=(6 if (ruimte >= 0 and not sw) else 0))}) %}
                 {% endif %}
@@ -1762,14 +1784,14 @@ automation:
             {% elif trigger.id == 'ramp' and niveau == 0 %}
               {# OMHOOG: Sonia eerst, Rob krijgt wat overblijft; 1 A buffer #}
               {% set ns.rest = ns.rest - 1 %}
-              {% for l in laders %}
+              {% for l in volgorde %}
                 {% set o = ns.out[l.naam] %}
                 {% set mx = states(l.max) | int(10) %}
                 {% if deel %}{% set mx = [mx, states('input_number.ev_lb_deel_max_' ~ l.naam) | int(mx)] | min %}{% endif %}
                 {# STRIKTE VOORRANG (overdag): Rob mag pas omhoog als Sonia op haar max zit (of niet laadt/mag laden).
                    's Nachts (deelmodus) laden beide tegelijk met eigen maximum. #}
-                {% set wacht = l.naam != 'sonia' and not deel and ns.out['sonia'].bezig and (ns.out['sonia'].tg or ns.out['sonia'].pv)
-                               and ns.out['sonia'].nieuw < states('input_number.ev_lb_max_sonia') | int(16) %}
+                {% set wacht = l.naam != voorrang and not deel and ns.out[voorrang].bezig and (ns.out[voorrang].tg or ns.out[voorrang].pv)
+                               and ns.out[voorrang].nieuw < states('input_number.ev_lb_max_' ~ voorrang) | int(16) %}
                 {% if o.bezig and (o.tg or o.pv) and not wacht %}
                   {% if o.huidig > mx %}
                     {% set x = mx %}
@@ -1793,7 +1815,7 @@ automation:
               {% if deel %}{% set smax = [smax, states('input_number.ev_lb_deel_max_sonia') | int(smax)] | min %}{% endif %}
               {% set rmin = states('input_number.ev_lb_min_rob') | int(6) %}
               {% set s_neemt_af = states(sonia_stroom) | float(99) >= s.huidig - 2 %}
-              {% if s.bezig and r.bezig and s.huidig > 0 and s.nieuw == s.huidig
+              {% if not rob_voor and s.bezig and r.bezig and s.huidig > 0 and s.nieuw == s.huidig
                     and s.nieuw < smax and s_neemt_af and r.nieuw > rmin and r.nieuw > 0 %}
                 {% set x = [r.nieuw - 2, rmin] | max %}
                 {% set x = x if x >= 6 else 0 %}
@@ -1808,13 +1830,21 @@ automation:
             {% for l in laders %}
               {% if ns.out[l.naam].tg %}{% set pvs.w = pvs.w - states(l.vermogen) | float(0) %}{% endif %}
             {% endfor %}
-            {% for l in laders %}
+            {% for l in volgorde %}
               {% set o = ns.out[l.naam] %}
               {% if o.bezig and not o.tg %}
                 {% set f = 3 if is_state(l.fase, '3-fase') else 1 %}
                 {% set cap = ([pvs.w, 0] | max / (230 * f)) | int if o.pv else 0 %}
+                {# 3-fase lader: al starten op 6 A als het restoverschot minstens de ingestelde drempel is
+                   (standaard 2 kW); het tekort tot 4,1 kW komt uit het net. Als hij al laadt geldt een
+                   lagere drempel (-300 W), tegen aan/uit-pendelen rond de grens (27-10-2026). #}
+                {% set drempel = states('input_number.ev_lb_zon_min_3fase') | float(9999) %}
+                {% set drempel = drempel if o.huidig < 6 else drempel - 300 %}
+                {% if f == 3 and cap < 6 and o.pv and drempel < 4140 and ([pvs.w, 0] | max) >= drempel %}{% set cap = 6 %}{% endif %}
                 {% set cap = cap if cap >= 6 else 0 %}
-                {% set pvs.w = pvs.w - cap * 230 * f %}
+                {# Reserveer hooguit wat deze lader maximaal kan gebruiken (zijn max), anders claimt de
+                   eerste lader al het overschot en blijft er voor de tweede niets over (27-10-2026). #}
+                {% set pvs.w = pvs.w - ([cap, states(l.max) | int(16)] | min) * 230 * f %}
                 {% set x = [o.nieuw, cap] | min %}
                 {% set x = x if x >= 6 else 0 %}
                 {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=x)}) %}
@@ -1887,16 +1917,32 @@ automation:
             - if:
                 - condition: template
                   value_template: >
-                    {# Rob start pas als Sonia op haar max zit (of niet laadt/mag laden)
-                       EN er minstens 7 A ruimte is (6 A minimum + 1 A buffer); zonder ruimte
-                       gaf de start een piek van > 23 A op de zwaarst belaste fase. #}
-                    {% set sonia_wacht = repeat.item.naam == 'rob'
-                         and not is_state('binary_sensor.ev_lb_deelmodus', 'on')
-                         and states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE']
-                         and (is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
-                              or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on'))
-                         and states('input_number.ev_lb_setpunt_sonia') | int(0)
-                             < states('input_number.ev_lb_max_sonia') | int(16) %}
+                    {# De lader zonder voorrang start pas als de lader MET voorrang op zijn max zit (of niet
+                       laadt/mag laden) EN er minstens 7 A ruimte is (6 A minimum + 1 A buffer); zonder
+                       ruimte gaf de start een piek van > 23 A op de zwaarst belaste fase.
+                       Voorrang = Sonia, behalve als beide auto's alleen op zonne-overschot laden en Rob
+                       op 1 fase en Sonia op 3 fasen laadt: dan Rob (27-10-2026). #}
+                    {% set deel = is_state('binary_sensor.ev_lb_deelmodus', 'on') %}
+                    {% set verbonden = ['Preparing', 'Charging', 'SuspendedEVSE'] %}
+                    {% set pv_alleen = states('sensor.ev_sonia_status_connector') in verbonden
+                         and states('sensor.ev_rob_status_connector') in verbonden
+                         and is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'off')
+                         and is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'off')
+                         and is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on')
+                         and is_state('binary_sensor.ev_lb_rob_pv_laden', 'on')
+                         and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off')
+                         and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off') %}
+                    {% set rob_voor = not deel and pv_alleen
+                         and is_state('input_select.ev_lb_sonia_fase', '3-fase')
+                         and not is_state('input_select.ev_lb_rob_fase', '3-fase') %}
+                    {% set voor = 'rob' if rob_voor else 'sonia' %}
+                    {% set sonia_wacht = repeat.item.naam != voor
+                         and not deel
+                         and states('sensor.ev_' ~ voor ~ '_status_connector') in verbonden
+                         and (is_state('binary_sensor.ev_lb_' ~ voor ~ '_laden_toegestaan', 'on')
+                              or is_state('binary_sensor.ev_lb_' ~ voor ~ '_pv_laden', 'on'))
+                         and states('input_number.ev_lb_setpunt_' ~ voor) | int(0)
+                             < states('input_number.ev_lb_max_' ~ voor) | int(16) %}
                     {{ is_state(status, 'Preparing')
                        and (is_state(toegestaan, 'on')
                             or (is_state(pv, 'on') and is_state('input_boolean.ev_' ~ repeat.item.naam ~ '_opladen_uitgezet', 'off')))
