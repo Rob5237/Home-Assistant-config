@@ -62,6 +62,7 @@ verse herlading.
 - `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
 - `energy_daily/monthly/yearly` — bron: P1 import
 - `enphase_daily/monthly/yearly` — bron: Enphase lifetime_energy_production (bruto zonneopwekking)
+- `sensor.huisverbruik_totaal_berekend` — totaal huisverbruik in kWh = P1 afname + Enphase productie − P1 teruglevering (templates/elektriciteit_verbruik.yaml, aangemaakt 27-10-2026). `state_class: total` met opzet (Envoy-teller loopt in stappen van 1 kWh; bij `total_increasing` geeft een kleine daling een reset en een piek). Absolute stand heeft geen betekenis, gebruik verschillen. Het oude `sensor.huisverbruik_totaal_kwh` volgde alleen de netafname en staat sinds 29-05-2026 stil.
 
 ## Warmtepomp-logica
 - **COP-sensoren**: Verwarming, Tapwater, Totaal, Berekend (formule op basis van aanvoer- en buitentemperatuur; entiteit blijft `sensor.warmtepomp_cop_geschat`)

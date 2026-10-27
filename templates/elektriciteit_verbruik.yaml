@@ -25,3 +25,24 @@
       {% set p1   = states('sensor.p1_meter_power') | float(0) %}
       {% set export = (-p1) if p1 < 0 else 0 %}
       {{ [prod - export, 0] | max | round(0) }}
+
+  # Totaal huisverbruik (kWh) = afname net + Envoy-productie - teruglevering.
+  # Aangemaakt 27-10-2026 omdat het oude 'Huisverbruik totaal kWh' alleen de
+  # netafname volgde (zonder zelf verbruikte zonnestroom) en sinds 29-05-2026 stil staat.
+  # state_class 'total' (niet 'total_increasing'): de Envoy-teller loopt in stappen
+  # van 1 kWh (MWh met 3 decimalen) en kan even achterlopen op de P1-teruglevering;
+  # bij total_increasing zou zo'n kleine daling als reset tellen en een enorme piek geven.
+  # De absolute stand heeft geen betekenis; gebruik het verschil (Statistieken/Energy).
+  - name: "Huisverbruik totaal berekend"
+    unique_id: "huisverbruik_totaal_berekend"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total
+    availability: >
+      {{ has_value('sensor.p1_meter_energy_import')
+         and has_value('sensor.p1_meter_energie_export')
+         and has_value('sensor.envoy_122331077486_lifetime_energy_production') }}
+    state: >
+      {{ (states('sensor.p1_meter_energy_import') | float
+          + states('sensor.envoy_122331077486_lifetime_energy_production') | float * 1000
+          - states('sensor.p1_meter_energie_export') | float) | round(3) }}
