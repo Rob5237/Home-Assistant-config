@@ -57,7 +57,7 @@ input_boolean:
   ev_rob_opladen_uitgezet:
     name: "EV-Rob – opladen uitgezet (knop)"
     icon: mdi:battery-off
-  # 'Alleen gratis laden op zonnepanelen' (knop): prijssturing uit, laden op
+  # 'Accu GRATIS opladen met de zon maar langzamer' (knop): prijssturing uit, laden op
   # PV-overschot blijft werken. Gewist op de vertrektijd, bij boost en bij
   # 'weer volgens planning laden'. Wordt NIET gewist door het starten van het laden.
   ev_sonia_alleen_zon:
@@ -467,22 +467,98 @@ template:
         unique_id: ev_sonia_status_nl
         icon: mdi:ev-plug-type2
         state: >-
-          {{ {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
-              'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
-              'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
-              'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
-              'Faulted': 'Storing'}.get(states('sensor.ev_sonia_status_connector'),
-              states('sensor.ev_sonia_status_connector')) }}
+          {#- Eerste regel: de knop die als laatste is ingedrukt (de actieve stand); tweede regel:
+              wat de lader zelf doet. Direct na een knop een tussentekst: de lader zelf
+              reageert pas na 5-15 s. -#}
+          {%- set st = states('sensor.ev_sonia_status_connector') -%}
+          {%- if st == 'Charging' and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'on') -%}
+            {%- set laad = 'Opladen wordt gestopt...' -%}
+          {%- elif st in ['Preparing', 'SuspendedEVSE', 'SuspendedEV'] and is_state('input_boolean.ev_sonia_direct_laden', 'on') -%}
+            {%- set laad = 'Snel laden wordt gestart...' -%}
+          {%- else -%}
+            {%- set laad = {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
+                'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
+                'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
+                'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
+                'Faulted': 'Storing'}.get(st, st) -%}
+          {%- endif -%}
+          {%- set ns = namespace(ts=0, soort='plan') -%}
+          {%- for soort, ent in [('direct', 'input_boolean.ev_sonia_direct_laden'), ('zon', 'input_boolean.ev_sonia_alleen_zon'), ('uit', 'input_boolean.ev_sonia_opladen_uitgezet'), ('nacht', 'input_boolean.ev_sonia_nacht_overslaan')] -%}
+            {%- set v = states.input_boolean | selectattr('entity_id', 'eq', ent) | first -%}
+            {%- if v is defined and v.state == 'on' and v.last_changed.timestamp() > ns.ts -%}
+              {%- set ns.ts = v.last_changed.timestamp() -%}{%- set ns.soort = soort -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {#- 'Accu 's-nachts WEL opladen': de knop zet 'morgen thuis blijven' uit. Alleen als dat op het
+              scherm is gedaan (er is een gebruiker bij; het wissen op de vertrektijd door een
+              automatisering telt niet) en het de laatste wijziging is. -#}
+          {%- set nv = states.input_boolean | selectattr('entity_id', 'eq', 'input_boolean.ev_sonia_nacht_overslaan') | first -%}
+          {%- set anders = namespace(ts=0) -%}
+          {%- for ent in ['input_boolean.ev_sonia_direct_laden', 'input_boolean.ev_sonia_alleen_zon', 'input_boolean.ev_sonia_opladen_uitgezet'] -%}
+            {%- set w = states.input_boolean | selectattr('entity_id', 'eq', ent) | first -%}
+            {%- if w is defined and w.last_changed.timestamp() > anders.ts -%}{%- set anders.ts = w.last_changed.timestamp() -%}{%- endif -%}
+          {%- endfor -%}
+          {%- if ns.soort == 'plan' and nv is defined and nv.state == 'off' and nv.context.user_id is not none and nv.last_changed.timestamp() > anders.ts -%}
+            {%- set ns.soort = 'nachtwel' -%}
+          {%- endif -%}
+          {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
+              'zon': 'Accu GRATIS opladen met de zon maar langzamer',
+              'uit': 'Accu opladen uitzetten',
+              'nacht': 'Morgen thuis blijven\naccu \'s-nachts NIET opladen',
+              'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
+              'plan': 'Afwachten wanneer goedkoop laadtarief in de nacht begint'}[ns.soort] -%}
+          {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
+          {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
+          {%- elif ns.soort in ['zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
+          {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
       - name: "EV Rob status NL"
         unique_id: ev_rob_status_nl
         icon: mdi:ev-plug-type2
         state: >-
-          {{ {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
-              'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
-              'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
-              'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
-              'Faulted': 'Storing'}.get(states('sensor.ev_rob_status_connector'),
-              states('sensor.ev_rob_status_connector')) }}
+          {#- Eerste regel: de knop die als laatste is ingedrukt (de actieve stand); tweede regel:
+              wat de lader zelf doet. Direct na een knop een tussentekst: de lader zelf
+              reageert pas na 5-15 s. -#}
+          {%- set st = states('sensor.ev_rob_status_connector') -%}
+          {%- if st == 'Charging' and is_state('input_boolean.ev_rob_opladen_uitgezet', 'on') -%}
+            {%- set laad = 'Opladen wordt gestopt...' -%}
+          {%- elif st in ['Preparing', 'SuspendedEVSE', 'SuspendedEV'] and is_state('input_boolean.ev_rob_direct_laden', 'on') -%}
+            {%- set laad = 'Snel laden wordt gestart...' -%}
+          {%- else -%}
+            {%- set laad = {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
+                'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
+                'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
+                'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
+                'Faulted': 'Storing'}.get(st, st) -%}
+          {%- endif -%}
+          {%- set ns = namespace(ts=0, soort='plan') -%}
+          {%- for soort, ent in [('direct', 'input_boolean.ev_rob_direct_laden'), ('zon', 'input_boolean.ev_rob_alleen_zon'), ('uit', 'input_boolean.ev_rob_opladen_uitgezet'), ('nacht', 'input_boolean.ev_rob_nacht_overslaan')] -%}
+            {%- set v = states.input_boolean | selectattr('entity_id', 'eq', ent) | first -%}
+            {%- if v is defined and v.state == 'on' and v.last_changed.timestamp() > ns.ts -%}
+              {%- set ns.ts = v.last_changed.timestamp() -%}{%- set ns.soort = soort -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {#- 'Accu 's-nachts WEL opladen': de knop zet 'morgen thuis blijven' uit. Alleen als dat op het
+              scherm is gedaan (er is een gebruiker bij; het wissen op de vertrektijd door een
+              automatisering telt niet) en het de laatste wijziging is. -#}
+          {%- set nv = states.input_boolean | selectattr('entity_id', 'eq', 'input_boolean.ev_rob_nacht_overslaan') | first -%}
+          {%- set anders = namespace(ts=0) -%}
+          {%- for ent in ['input_boolean.ev_rob_direct_laden', 'input_boolean.ev_rob_alleen_zon', 'input_boolean.ev_rob_opladen_uitgezet'] -%}
+            {%- set w = states.input_boolean | selectattr('entity_id', 'eq', ent) | first -%}
+            {%- if w is defined and w.last_changed.timestamp() > anders.ts -%}{%- set anders.ts = w.last_changed.timestamp() -%}{%- endif -%}
+          {%- endfor -%}
+          {%- if ns.soort == 'plan' and nv is defined and nv.state == 'off' and nv.context.user_id is not none and nv.last_changed.timestamp() > anders.ts -%}
+            {%- set ns.soort = 'nachtwel' -%}
+          {%- endif -%}
+          {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
+              'zon': 'Accu GRATIS opladen met de zon maar langzamer',
+              'uit': 'Accu opladen uitzetten',
+              'nacht': 'Morgen thuis blijven\naccu \'s-nachts NIET opladen',
+              'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
+              'plan': 'Afwachten wanneer goedkoop laadtarief in de nacht begint'}[ns.soort] -%}
+          {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
+          {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
+          {%- elif ns.soort in ['zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
+          {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
 
   - sensor:
       # Laadvermogen in kW (weergave op het dashboard), uit de afgeleide W-sensoren.
@@ -493,13 +569,13 @@ template:
         state_class: measurement
         # Alleen weergave: direct 0 kW zodra de lader niet meer laadt (de afgeleide
         # W-sensor blijft anders tot 150 s op de oude waarde staan).
-        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) if is_state('sensor.ev_sonia_status_connector', 'Charging') else 0 }}"
+        state: "{{ (states('sensor.ev_sonia_vermogen') | float(0) / 1000) if is_state('sensor.ev_sonia_status_connector', 'Charging') and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off') else 0 }}"
       - name: "EV Rob vermogen kW"
         unique_id: ev_rob_vermogen_kw
         unit_of_measurement: kW
         device_class: power
         state_class: measurement
-        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) if is_state('sensor.ev_rob_status_connector', 'Charging') else 0 }}"
+        state: "{{ (states('sensor.ev_rob_vermogen') | float(0) / 1000) if is_state('sensor.ev_rob_status_connector', 'Charging') and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off') else 0 }}"
 
   - sensor:
       # Verwachte laadstart (weergave): eerstvolgende kwartier van de goedkoopste
@@ -511,9 +587,14 @@ template:
           {% if states('sensor.ev_sonia_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('input_boolean.ev_sonia_opladen_uitgezet', 'on') %}
-            Opladen handmatig uitgezet
+            Opladen wordt niet verwacht
+          {# 'Morgen thuis blijven': alleen PV-laden; geldt als het de laatst ingedrukte stand is #}
+          {% elif is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') and not is_state('input_boolean.ev_sonia_direct_laden', 'on')
+                  and (is_state('input_boolean.ev_sonia_alleen_zon', 'off')
+                       or states.input_boolean.ev_sonia_nacht_overslaan.last_changed > states.input_boolean.ev_sonia_alleen_zon.last_changed) %}
+            Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('input_boolean.ev_sonia_alleen_zon', 'on') and not is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
-            Alleen gratis laden op zonnepanelen
+            Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
             {# Laden mag nu; wat de tekst zegt hangt af van wat de lader/auto echt doet #}
             {% set st = states('sensor.ev_sonia_status_connector') %}
@@ -580,9 +661,14 @@ template:
           {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('input_boolean.ev_rob_opladen_uitgezet', 'on') %}
-            Opladen handmatig uitgezet
+            Opladen wordt niet verwacht
+          {# 'Morgen thuis blijven': alleen PV-laden; geldt als het de laatst ingedrukte stand is #}
+          {% elif is_state('input_boolean.ev_rob_nacht_overslaan', 'on') and not is_state('input_boolean.ev_rob_direct_laden', 'on')
+                  and (is_state('input_boolean.ev_rob_alleen_zon', 'off')
+                       or states.input_boolean.ev_rob_nacht_overslaan.last_changed > states.input_boolean.ev_rob_alleen_zon.last_changed) %}
+            Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('input_boolean.ev_rob_alleen_zon', 'on') and not is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
-            Alleen gratis laden op zonnepanelen
+            Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
             {% set st = states('sensor.ev_rob_status_connector') %}
             {{ 'De accu wordt nu opgeladen' if st == 'Charging'
@@ -825,8 +911,12 @@ template:
         #   gaf zo een nep-overschot, 20-10-2026 's avonds);
         # - nooit meer dan de echte PV-productie (Enphase).
         state: >
-          {% set rob = states('sensor.ev_rob_vermogen') | float(0) if is_state('sensor.ev_rob_status_connector', 'Charging') else 0 %}
-          {% set sonia = states('sensor.ev_sonia_vermogen') | float(0) if is_state('sensor.ev_sonia_status_connector', 'Charging') else 0 %}
+          {# Direct na een start of stroomverhoging loopt het afgeleide vermogen 10-20 s achter
+             (energieteller verspringt per 10 s) en telde de lader te laag mee: het overschot leek
+             dan te klein, de zonlading zette de lader op 0 A en dat herhaalde zich elke ~30 s
+             (27-10-2026). Daarom telt voor een lader die laadt minstens het ingestelde setpunt mee. #}
+          {% set rob = ([states('sensor.ev_rob_vermogen') | float(0), states('input_number.ev_lb_setpunt_rob') | float(0) * 230 * (3 if is_state('input_select.ev_lb_rob_fase', '3-fase') else 1)] | max) if is_state('sensor.ev_rob_status_connector', 'Charging') else 0 %}
+          {% set sonia = ([states('sensor.ev_sonia_vermogen') | float(0), states('input_number.ev_lb_setpunt_sonia') | float(0) * 230 * (3 if is_state('input_select.ev_lb_sonia_fase', '3-fase') else 1)] | max) if is_state('sensor.ev_sonia_status_connector', 'Charging') else 0 %}
           {% set pv = states('sensor.envoy_122331077486_current_power_production') | float(0) %}
           {{ [[0 - states('sensor.p1_meter_power') | float(0) + rob + sonia, pv] | min, 0] | max | round(0) }}
 
@@ -1420,6 +1510,34 @@ automation:
                     entity_id: "{{ h }}"
                   data:
                     timestamp: "{{ (nieuw | as_datetime).timestamp() }}"
+  - id: ev_nacht_wel_opladen_knop
+    alias: "EV – knop 's-nachts WEL opladen: gratis- en uitgezet-stand ook uit"
+    description: >
+      De knop 'Accu 's-nachts WEL opladen' zet 'morgen thuis blijven' uit. Alleen als dat op het
+      scherm is gedaan (er is een gebruiker bij; het wissen op de vertrektijd telt niet) gaan ook
+      'gratis laden' en 'opladen uitgezet' uit, anders blijft het laden geblokkeerd terwijl de
+      status zegt dat 's-nachts wordt opgeladen (27-10-2026).
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.ev_sonia_nacht_overslaan
+        from: "on"
+        to: "off"
+        id: sonia
+      - trigger: state
+        entity_id: input_boolean.ev_rob_nacht_overslaan
+        from: "on"
+        to: "off"
+        id: rob
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.to_state.context.user_id is not none }}"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - "input_boolean.ev_{{ trigger.id }}_alleen_zon"
+            - "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
   - id: ev_nacht_overslaan_wissen
     alias: "EV – knop 'nacht overslaan' wissen op vertrektijd of bij boost"
     mode: parallel
