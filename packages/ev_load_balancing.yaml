@@ -611,12 +611,24 @@ template:
           {%- if ns.soort == 'plan' and nv is defined and nv.state == 'off' and nv.context.user_id is not none and nv.last_changed.timestamp() > anders.ts -%}
             {%- set ns.soort = 'nachtwel' -%}
           {%- endif -%}
+          {#- Planning-stand: de tekst volgt wat de lader nu doet (anders staat er 'Afwachten' terwijl hij laadt). -#}
+          {%- set tg = is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') -%}
+          {%- set pvl = is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on') and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off') -%}
+          {%- if st == 'Charging' and tg -%}
+            {%- set plan_tekst = 'Accu wordt nu op laagste tarief opgeladen → €€' -%}
+          {%- elif st == 'Charging' and pvl -%}
+            {%- set plan_tekst = 'Accu wordt nu met zonnestroom opgeladen' -%}
+          {%- elif tg -%}
+            {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
+          {%- else -%}
+            {%- set plan_tekst = 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+          {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
               'uit': 'Accu opladen uitzetten',
               'nacht': 'Morgen thuis blijven\naccu \'s-nachts NIET opladen',
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
-              'plan': 'Afwachten wanneer goedkoop laadtarief in de nacht begint'}[ns.soort] -%}
+              'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
           {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
@@ -659,12 +671,24 @@ template:
           {%- if ns.soort == 'plan' and nv is defined and nv.state == 'off' and nv.context.user_id is not none and nv.last_changed.timestamp() > anders.ts -%}
             {%- set ns.soort = 'nachtwel' -%}
           {%- endif -%}
+          {#- Planning-stand: de tekst volgt wat de lader nu doet (anders staat er 'Afwachten' terwijl hij laadt). -#}
+          {%- set tg = is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') -%}
+          {%- set pvl = is_state('binary_sensor.ev_lb_rob_pv_laden', 'on') and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off') -%}
+          {%- if st == 'Charging' and tg -%}
+            {%- set plan_tekst = 'Accu wordt nu op laagste tarief opgeladen → €€' -%}
+          {%- elif st == 'Charging' and pvl -%}
+            {%- set plan_tekst = 'Accu wordt nu met zonnestroom opgeladen' -%}
+          {%- elif tg -%}
+            {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
+          {%- else -%}
+            {%- set plan_tekst = 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+          {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
               'uit': 'Accu opladen uitzetten',
               'nacht': 'Morgen thuis blijven\naccu \'s-nachts NIET opladen',
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
-              'plan': 'Afwachten wanneer goedkoop laadtarief in de nacht begint'}[ns.soort] -%}
+              'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
           {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
