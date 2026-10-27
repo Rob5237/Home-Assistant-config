@@ -507,7 +507,7 @@ var t2, i3, s2, e3 = "$lit$", h2, o3, n3, r3, l2 = () => r3.createComment(""), c
     l += c === f2 ? s + n3 : d >= 0 ? (o.push(a), s.slice(0, d) + e3 + s.slice(d) + h2 + x) : s + h2 + (d === -2 ? i : x);
   }
   return [P(t, l + (t[s] || "<?>") + (i === 2 ? "</svg>" : i === 3 ? "</math>" : "")), o];
-}, H, I, L, j, B = (t, i, s) => {
+}, H, I, L, Z, j, B = (t, i, s) => {
   const e = s?.renderBefore ?? i;
   let h = e._$litPart$;
   if (h === undefined) {
@@ -570,6 +570,7 @@ var init_lit_html = __esm(() => {
       typeof this._$AH == "function" ? this._$AH.call(this.options?.host ?? this.element, t) : this._$AH.handleEvent(t);
     }
   };
+  Z = { M: e3, P: h2, A: o3, C: 1, L: V, R: M, D: u2, V: S2, I: R, H: k, N: I, U: L, B: H, F: z };
   j = t2.litHtmlPolyfillSupport;
   j?.(N, R), (t2.litHtmlVersions ??= []).push("3.3.1");
 });
@@ -952,11 +953,11 @@ function fireDOMEvent(node, type, data, EventConstructor) {
   return event;
 }
 var DEFAULT_STYLES_ID = "navbar-card-default-styles", USER_STYLES_ID = "navbar-card-user-styles", getNavbarTemplates = () => {
+  const lovelace = getLovelace();
+  return lovelace?.config["navbar-templates"] ?? null;
+}, getLovelace = () => {
   const lovelacePanel = document?.querySelector("home-assistant")?.shadowRoot?.querySelector("home-assistant-main")?.shadowRoot?.querySelector("ha-drawer partial-panel-resolver ha-panel-lovelace");
-  if (lovelacePanel) {
-    return lovelacePanel.lovelace.config["navbar-templates"];
-  }
-  return null;
+  return lovelacePanel?.lovelace;
 }, forceResetRipple = (target) => {
   const rippleElements = target?.querySelectorAll("ha-ripple");
   rippleElements?.forEach((ripple) => {
@@ -974,14 +975,14 @@ var DEFAULT_STYLES_ID = "navbar-card-default-styles", USER_STYLES_ID = "navbar-c
   huiRoot.lovelace.setEditMode(true);
 }, createStyleElement = (root, id, styles) => {
   const rootEl = root.shadowRoot;
-  let styleEl = rootEl?.querySelector(`#${id}`);
-  if (styleEl) {
-    styleEl.remove();
-  }
-  styleEl = document.createElement("style");
+  const styleEl = document.createElement("style");
   styleEl.id = id;
   styleEl.textContent = styles.cssText;
-  rootEl?.appendChild(styleEl);
+  const existing = rootEl?.querySelector(`#${id}`);
+  if (existing)
+    existing.replaceWith(styleEl);
+  else
+    rootEl?.appendChild(styleEl);
 }, injectStyles = (root, defaultStyles, userStyles) => {
   createStyleElement(root, DEFAULT_STYLES_ID, defaultStyles);
   createStyleElement(root, USER_STYLES_ID, userStyles);
@@ -1122,12 +1123,33 @@ var init_dashboard_padding = __esm(() => {
 });
 
 // src/utils/docs-links.ts
-var BASE_URL = "https://joseluis9595.github.io/lovelace-navbar-card/docs", DOCS_LINKS;
+var BASE_URL = "https://joseluis9595.github.io/lovelace-navbar-card/docs", DOCS_LINKS, PAGES, getOptionDocsLink = (configKey) => {
+  if (configKey === "styles")
+    return DOCS_LINKS.styles;
+  if (configKey === "template")
+    return DOCS_LINKS.template;
+  const key = configKey.replace(/\.\d+/g, "").replace("routes.popup.badge.", "routes.badge.");
+  const [page, ...path] = key.split(".");
+  if (!(PAGES[page] && path.length) || key.includes("_action.")) {
+    return;
+  }
+  const option = path.pop();
+  const sections = path.map((section) => `${section.replace(/_/g, "-")}-`);
+  return `${BASE_URL}/${PAGES[page]}#${sections.join("")}${option}`;
+};
 var init_docs_links = __esm(() => {
   DOCS_LINKS = {
     jsTemplate: `${BASE_URL}/advanced/js-templates`,
     styles: `${BASE_URL}/configuration/styles`,
     template: `${BASE_URL}/advanced/navbar-templates`
+  };
+  PAGES = {
+    desktop: "configuration/desktop",
+    haptic: "configuration/haptic",
+    layout: "configuration/layout",
+    media_player: "configuration/media-player",
+    mobile: "configuration/mobile",
+    routes: "configuration/routes"
   };
 });
 
@@ -1158,6 +1180,108 @@ var shouldTriggerHaptic = (context, actionType, isNavigation = false) => {
 var init_haptic = __esm(() => {
   init_types();
   init_utils();
+});
+
+// src/utils/shared-templates.ts
+var SHARED_TEMPLATES_DASHBOARD = "navbar-card-templates", sharedTemplates = null, loading = null, listeners, getSharedTemplates = () => sharedTemplates, getAvailableTemplates = () => ({
+  ...sharedTemplates,
+  ...getNavbarTemplates()
+}), onSharedTemplatesChange = (listener) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}, setSharedTemplates = (templates) => {
+  sharedTemplates = templates;
+  for (const listener of listeners)
+    listener();
+}, fetchDashboardConfig = async (hass) => {
+  try {
+    return await hass.callWS({
+      type: "lovelace/config",
+      url_path: SHARED_TEMPLATES_DASHBOARD
+    });
+  } catch (error) {
+    if (error.code === "config_not_found")
+      return null;
+    throw error;
+  }
+}, reload = async (hass) => {
+  try {
+    const config = await fetchDashboardConfig(hass);
+    setSharedTemplates(config?.["navbar-templates"] ?? {});
+  } catch {
+    setSharedTemplates(sharedTemplates ?? {});
+  }
+  return sharedTemplates ?? {};
+}, loadSharedTemplates = (hass) => {
+  if (!loading) {
+    loading = reload(hass);
+    hass.connection.subscribeEvents((event) => {
+      if (event.data?.url_path === SHARED_TEMPLATES_DASHBOARD)
+        reload(hass);
+    }, "lovelace_updated").catch(() => {});
+  }
+  return loading;
+}, createDashboard = async (hass) => {
+  const dashboards = await hass.callWS({
+    type: "lovelace/dashboards/list"
+  });
+  if (!dashboards.some((d) => d.url_path === SHARED_TEMPLATES_DASHBOARD)) {
+    await hass.callWS({
+      icon: "mdi:dock-bottom",
+      require_admin: false,
+      show_in_sidebar: false,
+      title: "Navbar Card templates [don't delete]",
+      type: "lovelace/dashboards/create",
+      url_path: SHARED_TEMPLATES_DASHBOARD
+    });
+  }
+  return {
+    views: [
+      {
+        cards: [
+          {
+            content: "This dashboard stores the **Navbar Card** templates shared by all your dashboards. Edit them from the Navbar Card visual editor, and don't delete this dashboard.",
+            type: "markdown"
+          }
+        ],
+        title: "Navbar Card templates"
+      }
+    ]
+  };
+}, saveSharedTemplate = async (hass, name, config) => {
+  const dashboard = await fetchDashboardConfig(hass) ?? await createDashboard(hass);
+  const templates = { ...dashboard["navbar-templates"] };
+  if (config) {
+    templates[name] = config;
+  } else {
+    delete templates[name];
+  }
+  await hass.callWS({
+    config: { ...dashboard, "navbar-templates": templates },
+    type: "lovelace/config/save",
+    url_path: SHARED_TEMPLATES_DASHBOARD
+  });
+  setSharedTemplates(templates);
+}, moveDashboardTemplateToShared = async (hass, name) => {
+  const lovelace = getLovelace();
+  const dashboardTemplates = lovelace?.config["navbar-templates"];
+  const template = dashboardTemplates?.[name];
+  if (!(lovelace && template)) {
+    throw new Error(`Template "${name}" not found in this dashboard`);
+  }
+  if (sharedTemplates?.[name]) {
+    throw new Error(`A shared template named "${name}" already exists`);
+  }
+  await saveSharedTemplate(hass, name, template);
+  const { [name]: _moved, ...remaining } = dashboardTemplates;
+  const { "navbar-templates": _templates, ...dashboard } = lovelace.config;
+  await lovelace.saveConfig(Object.keys(remaining).length > 0 ? { ...dashboard, "navbar-templates": remaining } : dashboard);
+};
+var init_shared_templates = __esm(() => {
+  init_dom();
+  listeners = new Set;
 });
 
 // src/utils/template.ts
@@ -1230,6 +1354,7 @@ var init_utils = __esm(() => {
   init_docs_links();
   init_dom();
   init_haptic();
+  init_shared_templates();
   init_template();
 });
 
@@ -1420,6 +1545,12 @@ var init_editor = __esm(() => {
     white-space: nowrap;
   }
 
+  .template-editing-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 1em;
+  }
+
   .editor-section {
     display: flex;
     flex-direction: column;
@@ -1428,30 +1559,13 @@ var init_editor = __esm(() => {
   }
 
   .editor-row {
-    gap: 6px;
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
   }
 
   .editor-row-item {
-    flex: 1;
-  }
-
-  .editor-row-item ha-input {
-    width: 100%;
-  }
-
-  @media (max-width: 600px) {
-    .editor-row {
-      flex-direction: column !important;
-      gap: 0.5em;
-    }
-    .editor-grid {
-      grid-template-columns: 1fr !important;
-    }
-    .editor-row-item {
-      width: 100%;
-    }
+    min-width: 0;
   }
 
   .editor-label {
@@ -1472,7 +1586,7 @@ var init_editor = __esm(() => {
     align-items: center;
     gap: 0.7em;
     padding: 0.2em 0.5em 0.2em 0;
-    height: 40px;
+    min-height: 40px;
     margin: 0px !important;
     margin-left: 1em;
   }
@@ -1481,6 +1595,21 @@ var init_editor = __esm(() => {
   ha-expansion-panel h5[slot='header'] .expansion-panel-title,
   ha-expansion-panel h6[slot='header'] .expansion-panel-title {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+  }
+
+  .expansion-panel-subtitle,
+  .expansion-panel-summary {
+    font-size: 0.8em;
+    font-weight: 400;
+    color: var(--secondary-text-color);
+  }
+
+  .expansion-panel-summary {
+    white-space: nowrap;
   }
 
   .draggable-item-header {
@@ -1490,23 +1619,442 @@ var init_editor = __esm(() => {
     padding: 0.2em 0.5em 0.2em 0;
   }
 
-  .draggable-item-header-title {
-    font-weight: bold;
-    color: var(--primary-color);
+  .draggable-item-header-icon {
+    display: flex;
+    color: var(--secondary-text-color);
   }
 
-  .draggable-item-header-summary {
+  .draggable-item-header-text {
     flex: 1;
-    opacity: 0.7;
-    font-size: 0.95em;
+    min-width: 0;
     display: flex;
-    align-items: center;
-    gap: 0.3em;
+    flex-direction: column;
+    line-height: 1.3;
+  }
+
+  .draggable-item-header-title,
+  .draggable-item-header-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .draggable-item-header-title {
+    font-weight: 500;
+  }
+
+  .draggable-item-header-subtitle {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
   }
 
   .draggable-item-header-image {
-    height: 1.2em;
-    vertical-align: middle;
+    height: 24px;
+    width: 24px;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  /* Dialog to edit a shared template, above the card editor */
+
+  .template-dialog {
+    width: min(600px, 95vw);
+    max-height: 90vh;
+    padding: 0;
+    border: none;
+    border-radius: var(--ha-dialog-border-radius, 24px);
+    background: var(--card-background-color, #fff);
+    color: var(--primary-text-color);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+
+  .template-dialog[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .template-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  @media (max-width: 600px) {
+    .template-dialog {
+      inset: 0;
+      margin: 0;
+      width: 100%;
+      max-width: none;
+      height: 100%;
+      max-height: none;
+      border-radius: 0;
+    }
+  }
+
+  .template-dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 12px 12px 24px;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .template-dialog-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    font-size: 1.25em;
+    font-weight: 500;
+  }
+
+  .template-dialog-subtitle {
+    font-size: 0.65em;
+    font-weight: 400;
+    color: var(--secondary-text-color);
+  }
+
+  .template-dialog-body {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 24px;
+  }
+
+  .template-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 24px 16px;
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .template-dialog-mode {
+    margin-right: auto;
+  }
+
+  @media (max-width: 600px) {
+    .template-dialog-header {
+      padding-top: calc(16px + env(safe-area-inset-top));
+    }
+
+    .template-dialog-actions {
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* Template section */
+
+  .template-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .template-save-as {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .template-save-as-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Field shell: marks values that override the template, and ends with an
+     options menu (reset, JavaScript template, documentation) */
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .field-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .field-content > ha-selector {
+    display: block;
+    width: 100%;
+  }
+
+  .field-overridden {
+    padding-left: 10px;
+    border-left: 3px solid var(--primary-color);
+  }
+
+  .field-menu-button,
+  .field-menu-spacer {
+    flex: none;
+    width: 32px;
+  }
+
+  .field-menu-button {
+    position: relative;
+    color: var(--secondary-text-color);
+    --mdc-icon-button-size: 32px;
+    --ha-icon-button-size: 32px;
+    --mdc-icon-size: 20px;
+  }
+
+  /* A dot on the menu button when a reset or template option is in use */
+  .field-menu-button.highlighted {
+    color: var(--primary-color);
+  }
+
+  .field-menu-button.highlighted::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    pointer-events: none;
+  }
+
+  /* Popover in the top layer, placed next to its button by the editor */
+  .field-menu {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    min-width: 220px;
+    padding: 4px;
+    border: 1px solid var(--divider-color);
+    border-radius: 10px;
+    background: var(--card-background-color, #fff);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    color: var(--primary-text-color);
+  }
+
+  /* Only while open, to keep the browser hiding it when closed */
+  .field-menu:popover-open {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .field-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--primary-text-color);
+    font: inherit;
+    font-size: 0.9em;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    --mdc-icon-size: 18px;
+  }
+
+  .field-menu-item:hover,
+  .field-menu-item:focus-visible {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.05));
+    outline: none;
+  }
+
+  .field-menu-item > ha-icon {
+    color: var(--secondary-text-color);
+  }
+
+  .field-menu-item > span {
+    flex: 1;
+  }
+
+  .field-menu-external {
+    --mdc-icon-size: 14px;
+  }
+
+  .templatable-field-toggle {
+    color: var(--secondary-text-color);
+  }
+
+  .templatable-field-toggle.active {
+    color: var(--primary-color);
+  }
+
+  .override-chip {
+    font-size: 0.75em;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+    white-space: nowrap;
+  }
+
+  /* Groups of fields, with a caption */
+
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .group + .group {
+    padding-top: 4px;
+  }
+
+  .group-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .group-title {
+    font-size: 0.8em;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--secondary-text-color);
+  }
+
+  .group-helper {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+  }
+
+  .group-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Compact switches, in a bordered list */
+
+  .switch-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+  }
+
+  .switch-list > .field + .field {
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .switch-list > .field-overridden {
+    padding-left: 0;
+    border-left: none;
+    box-shadow: inset 3px 0 0 var(--primary-color);
+  }
+
+  .switch-list .field-row {
+    padding-right: 4px;
+  }
+
+  /* A switch turned into a JavaScript template */
+  .switch-list .template-editor-container {
+    padding: 10px 0 10px 12px;
+  }
+
+  .switch-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 8px 6px 12px;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+
+  .switch-row.disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .switch-row-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .switch-row-helper {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+  }
+
+  .switch-row ha-switch {
+    flex: none;
+  }
+
+  /* Lists inherited from the template */
+
+  .inherited-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .inherited-list-hint,
+  .editor-subsection-helper {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+  }
+
+  .inherited-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 4px;
+    color: var(--secondary-text-color);
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .inherited-item-title {
+    color: var(--primary-text-color);
+  }
+
+  .inherited-item-subtitle {
+    flex: 1;
+    text-align: right;
+    font-size: 0.85em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inherited-list ha-button {
+    margin-top: 8px;
+  }
+
+  .inherited-list-notice {
+    display: block;
+  }
+
+  .editor-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+  }
+
+  /* Route and player actions */
+
+  .add-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .add-actions-label {
+    font-size: 0.9em;
+    color: var(--secondary-text-color);
+    margin-right: 4px;
   }
 
   .draggable-item-editor {
@@ -1532,9 +2080,9 @@ var init_editor = __esm(() => {
   }
 
   .editor-divider {
-    margin: 1.5em 0 1em 0;
+    margin: 0;
     border: none;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid var(--divider-color);
     height: 1px;
     background: none;
   }
@@ -1555,26 +2103,165 @@ var init_editor = __esm(() => {
     color: var(--secondary-text-color, #888);
   }
 
-  .quickbar-mode-container {
+  /* Segmented control */
+
+  .segmented {
+    display: flex;
+    padding: 3px;
+    gap: 3px;
+    border-radius: 10px;
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.05));
+  }
+
+  .segmented-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--secondary-text-color);
+    font: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+    --mdc-icon-size: 18px;
+  }
+
+  .segmented-option.active {
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .segmented-option:focus-visible {
+    outline: 2px solid var(--primary-color);
+  }
+
+  .segmented-badge {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 0.75em;
+    line-height: 18px;
+    color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  }
+
+  /* Route and popup item rows */
+
+  .item-list {
     display: flex;
     flex-direction: column;
+    border: 1px solid var(--divider-color);
+    border-radius: var(--ha-card-border-radius, 12px);
+    overflow: hidden;
   }
 
-  .templatable-field-container {
-    display: flex;
-    flex-direction: row;
+  .item-list:empty {
+    display: none;
   }
 
-  .templatable-field-header {
+  .item-row {
     display: flex;
-    flex-direction: row;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0.5em;
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 8px 0 4px;
+    cursor: pointer;
+    outline: none;
   }
 
-  .templatable-field-header-label {
+  .item-row + .item-row {
+    border-top: 1px solid var(--divider-color);
+  }
+
+  .item-row:hover,
+  .item-row:focus-visible {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+  }
+
+  .item-row.drop-before {
+    box-shadow: inset 0 2px 0 var(--primary-color);
+  }
+
+  .item-row.drop-after {
+    box-shadow: inset 0 -2px 0 var(--primary-color);
+  }
+
+  .item-row .drag-handle {
+    margin-right: 0;
+    padding: 8px 2px;
+  }
+
+  .item-row-icon {
+    display: flex;
+  }
+
+  .item-row-text {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+  }
+
+  .item-row-title,
+  .item-row-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .item-row-subtitle {
+    font-size: 0.85em;
+    color: var(--secondary-text-color);
+  }
+
+  .item-row-chevron {
+    color: var(--secondary-text-color);
+  }
+
+  /* Route and popup item view */
+
+  .item-view-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--divider-color);
+  }
+
+  .item-view-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    font-size: 1.1em;
+    font-weight: 500;
+  }
+
+  .item-view-subtitle {
+    font-size: 0.8em;
+    font-weight: 400;
+    color: var(--secondary-text-color);
+  }
+
+  .action-inline,
+  .popup-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+  }
+
+  .popup-items-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   /* Custom Editor inputs */
@@ -1747,14 +2434,18 @@ var init_editor = __esm(() => {
   .drag-handle {
     cursor: grab;
     margin-right: 8px;
-    color: var(--primary-color, #03a9f4);
+    color: var(--secondary-text-color);
     vertical-align: middle;
     display: inline-flex;
     align-items: center;
   }
 
-  .delete-btn ha-icon {
-    color: var(--error-color, #db4437) !important;
+  .delete-btn {
+    color: var(--secondary-text-color);
+  }
+
+  .delete-btn:hover {
+    color: var(--error-color, #db4437);
   }
 `;
 });
@@ -2145,6 +2836,18 @@ var init_styles = __esm(() => {
   .media-player .media-player-progress-bar-fill {
     background-color: var(--navbar-primary-color);
     height: 100%;
+    transform: scaleX(var(--progress));
+    transform-origin: left;
+  }
+
+  .media-player .media-player-progress-bar-fill.playing {
+    animation: navbar-media-player-progress linear forwards;
+  }
+
+  @keyframes navbar-media-player-progress {
+    to {
+      transform: scaleX(1);
+    }
   }
 
   /* Media player carousel */
@@ -2877,7 +3580,10 @@ var init_renderDropdown = __esm(() => {
 });
 
 // src/navbar-card-editor.ts
-var HAActions, GENERIC_JS_TEMPLATE_HELPER, BOOLEAN_JS_TEMPLATE_HELPER, STRING_JS_TEMPLATE_HELPER, NavbarCardEditor;
+var HAActions, GENERIC_JS_TEMPLATE_HELPER, BOOLEAN_JS_TEMPLATE_HELPER, STRING_JS_TEMPLATE_HELPER, ACTION_INFO, QUICKBAR_MODES2, plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`, errorMessage = (error) => error?.message ?? String(error), dropIndex = (e, rowIndex) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  return e.clientY > rect.top + rect.height / 2 ? rowIndex + 1 : rowIndex;
+}, NavbarCardEditor;
 var init_navbar_card_editor = __esm(() => {
   init_dist();
   init_lit();
@@ -2906,18 +3612,42 @@ var init_navbar_card_editor = __esm(() => {
   return a <strong>boolean</strong> value`;
   STRING_JS_TEMPLATE_HELPER = x`${GENERIC_JS_TEMPLATE_HELPER}<br />Must
   return a <strong>string</strong> value`;
+  ACTION_INFO = {
+    ["tap_action" /* tap_action */]: { icon: "mdi:gesture-tap", label: "Tap action" },
+    ["hold_action" /* hold_action */]: {
+      icon: "mdi:gesture-tap-hold",
+      label: "Hold action"
+    },
+    ["double_tap_action" /* double_tap_action */]: {
+      icon: "mdi:gesture-double-tap",
+      label: "Double tap action"
+    }
+  };
+  QUICKBAR_MODES2 = [
+    { label: "Search", value: "search" },
+    { label: "Entities", value: "entities" },
+    { label: "Devices", value: "devices" },
+    { label: "Commands", value: "commands" }
+  ];
   NavbarCardEditor = class NavbarCardEditor extends i4 {
     constructor() {
       super(...arguments);
       this._config = { routes: [] };
       this._loadingComponents = false;
       this._templateModeByField = {};
-      this._lazyLoadedSections = {
-        ["routes" /* routes */]: false
-      };
+      this.isTemplateEditor = false;
+      this._templateDialog = null;
+      this._newTemplateName = "";
+      this._showSaveAsTemplate = false;
+      this._openItem = null;
+      this._appearanceDevice = "desktop";
+      this._dropTarget = null;
+      this._fieldMenu = null;
+      this._savingTemplate = false;
       this.addMediaPlayer = () => {
         const players = this._config.media_player?.players ?? [];
         const newPlayer = { entity: "" };
+        this._expandedItemKey = `media_player.players.${players.length}`;
         this.updateConfig({
           media_player: {
             ...this._config.media_player,
@@ -2939,9 +3669,11 @@ var init_navbar_card_editor = __esm(() => {
         };
         if (routeIndex == null) {
           routes = [...routes, newItemData];
+          this._expandedItemKey = `routes.${routes.length - 1}`;
         } else {
           const popup = [...routes[routeIndex].popup || [], newItemData];
           routes[routeIndex] = { ...routes[routeIndex], popup };
+          this._expandedItemKey = `routes.${routeIndex}.popup.${popup.length - 1}`;
         }
         this.updateConfig({ routes });
       };
@@ -2975,6 +3707,123 @@ var init_navbar_card_editor = __esm(() => {
         };
         this._dispatchConfigChangedEvent();
       };
+      this._resetToTemplate = (key) => {
+        let config = genericSetProperty(this._config, key, null, {
+          allowDeletion: true
+        });
+        const paths = key.split(".");
+        for (let i = paths.length - 1;i > 0; i--) {
+          const parentKey = paths.slice(0, i).join(".");
+          const parent = genericGetProperty(config, parentKey);
+          if (parent && typeof parent === "object" && Object.keys(parent).length === 0) {
+            config = genericSetProperty(config, parentKey, null, {
+              allowDeletion: true
+            });
+          }
+        }
+        this._config = config;
+        this._dispatchConfigChangedEvent();
+      };
+      this._closeFieldMenu = () => {
+        this._unwatchScroll();
+        const menu = this._fieldMenuElement;
+        if (menu?.matches?.(":popover-open"))
+          menu.hidePopover();
+        if (this._fieldMenu) {
+          this._lastClosedFieldMenu = {
+            key: this._fieldMenu.key,
+            time: Date.now()
+          };
+        }
+        this._fieldMenu = null;
+      };
+      this._onScroll = () => {
+        if (this._fieldMenu)
+          this._closeFieldMenu();
+      };
+      this._scrollContainers = [];
+      this._startEditingTemplate = () => {
+        const name = this._config.template;
+        const template = name ? getSharedTemplates()?.[name] : undefined;
+        if (!(name && template))
+          return;
+        this._templateError = undefined;
+        this._templateDialog = {
+          dirty: false,
+          draft: structuredClone(template),
+          name
+        };
+      };
+      this._closeTemplateDialog = (force = false) => {
+        if (!force && this._templateDialog?.dirty && !window.confirm("Discard your changes to this template?")) {
+          return;
+        }
+        this._templateDialog = null;
+        this._templateError = undefined;
+      };
+      this._saveTemplateDialog = async () => {
+        const dialog = this._templateDialog;
+        if (!dialog)
+          return;
+        if (await this._saveTemplate(dialog.name, dialog.draft)) {
+          this._closeTemplateDialog(true);
+        }
+      };
+      this._moveTemplateToShared = async () => {
+        const name = this._config.template;
+        if (!name)
+          return;
+        this._savingTemplate = true;
+        this._templateError = undefined;
+        try {
+          await moveDashboardTemplateToShared(this.hass, name);
+          this.requestUpdate();
+        } catch (error) {
+          this._templateError = `Could not move the template: ${errorMessage(error)}`;
+        } finally {
+          this._savingTemplate = false;
+        }
+      };
+      this._saveAsTemplate = async () => {
+        const name = this._newTemplateName.trim();
+        if (!name)
+          return;
+        if (getAvailableTemplates()[name]) {
+          this._templateError = `A template named "${name}" already exists.`;
+          return;
+        }
+        const { type, template, ...cardConfig } = this._config;
+        const templateConfig = template ? getAvailableTemplates()[template] : undefined;
+        const config = deepMergeKeepArrays(templateConfig ?? { routes: [] }, cardConfig);
+        if (await this._saveTemplate(name, config)) {
+          this._newTemplateName = "";
+          this._showSaveAsTemplate = false;
+          this._config = { ...type != null ? { type } : {}, template: name };
+          this._dispatchConfigChangedEvent();
+        }
+      };
+    }
+    connectedCallback() {
+      super.connectedCallback();
+      this._unsubscribeSharedTemplates = onSharedTemplatesChange(() => this.requestUpdate());
+    }
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      this._unsubscribeSharedTemplates?.();
+      this._unwatchScroll();
+    }
+    willUpdate(changedProperties) {
+      super.willUpdate(changedProperties);
+      if (changedProperties.has("hass") && this.hass) {
+        loadSharedTemplates(this.hass);
+      }
+      if (this._openItem) {
+        const { routeIndex, popupIndex } = this._openItem;
+        const route = this._config.routes?.[routeIndex];
+        const exists = popupIndex == null ? !!route : Array.isArray(route?.popup) && !!route.popup[popupIndex];
+        if (!exists)
+          this._openItem = null;
+      }
     }
     firstUpdated(_changedProperties) {
       super.firstUpdated(_changedProperties);
@@ -2982,17 +3831,13 @@ var init_navbar_card_editor = __esm(() => {
       this._loadingComponents = true;
       loadHaComponents([
         "ha-form",
-        "ha-tooltip",
         "ha-icon",
         "ha-button",
-        "ha-combo-box",
         "ha-input",
         "ha-switch",
         "ha-expansion-panel",
         "ha-code-editor",
-        "ha-radio",
         "ha-alert",
-        "ha-formfield",
         "ha-selector",
         "ha-icon-button"
       ]).catch((error) => {
@@ -3000,14 +3845,6 @@ var init_navbar_card_editor = __esm(() => {
       }).finally(() => {
         this._loadingComponents = false;
       });
-    }
-    markSectionAsLazyLoaded(section) {
-      if (this._lazyLoadedSections[section])
-        return;
-      this._lazyLoadedSections[section] = true;
-      setTimeout(() => {
-        this.requestUpdate();
-      }, 200);
     }
     _dispatchConfigChangedEvent() {
       this.dispatchEvent(new CustomEvent("config-changed", {
@@ -3029,17 +3866,223 @@ var init_navbar_card_editor = __esm(() => {
       });
       this._dispatchConfigChangedEvent();
     }
-    _hasTemplateOverrides() {
-      const { template: _template, routes, ...rest } = this._config;
-      const hasExtraFields = Object.keys(rest).some((k) => k !== "type" && rest[k] != null);
-      const hasRoutes = Array.isArray(routes) && routes.length > 0;
-      return hasExtraFields || hasRoutes;
+    get _templateConfig() {
+      if (this.isTemplateEditor || !this._config.template)
+        return;
+      return getAvailableTemplates()[this._config.template];
+    }
+    _getValue(key) {
+      const own = genericGetProperty(this._config, key);
+      if (own !== undefined)
+        return own;
+      const template = this._templateConfig;
+      return template ? genericGetProperty(template, key) : undefined;
+    }
+    _isOverridden(key) {
+      return !!this._templateConfig && key !== "template" && !/^(routes|media_player\.players)\./.test(key) && genericGetProperty(this._config, key) !== undefined;
+    }
+    _countOverrides(key) {
+      if (!this._templateConfig)
+        return 0;
+      const count = (value) => value != null && typeof value === "object" && !Array.isArray(value) ? Object.values(value).reduce((sum, v) => sum + count(v), 0) : value === undefined ? 0 : 1;
+      return count(genericGetProperty(this._config, key));
+    }
+    _countAllOverrides() {
+      return Object.keys(this._config).filter((key) => key !== "type" && key !== "template").reduce((sum, key) => sum + this._countOverrides(key), 0);
+    }
+    _renderField(key, content, options = {}) {
+      const overridden = !!key && this._isOverridden(key);
+      const docs = key ? getOptionDocsLink(key) : undefined;
+      const actions = [
+        ...overridden && key ? [
+          {
+            icon: "mdi:undo-variant",
+            label: "Reset to template value",
+            onClick: () => this._resetToTemplate(key)
+          }
+        ] : [],
+        ...options.actions ?? [],
+        ...docs ? [
+          {
+            href: docs,
+            icon: "mdi:book-open-variant",
+            label: "Documentation"
+          }
+        ] : []
+      ];
+      const menuOpen = !!key && this._fieldMenu?.key === key;
+      const highlighted = overridden || (options.actions ?? []).some((action) => action.active);
+      return x`<div class="field ${overridden ? "field-overridden" : ""}">
+      <div class="field-row">
+        <div class="field-content">${content}</div>
+        ${actions.length > 0 ? x`<ha-icon-button
+                class="field-menu-button ${highlighted ? "highlighted" : ""}"
+                .label=${"Field options"}
+                title="Field options"
+                aria-expanded=${menuOpen}
+                @click=${(e) => {
+        e.stopPropagation();
+        if (key) {
+          this._toggleFieldMenu(key, actions, e.currentTarget);
+        }
+      }}>
+                <ha-icon icon="mdi:dots-vertical"></ha-icon>
+              </ha-icon-button>` : x`<span class="field-menu-spacer"></span>`}
+      </div>
+    </div>`;
+    }
+    async _toggleFieldMenu(key, actions, anchor) {
+      const closed = this._lastClosedFieldMenu;
+      if (this._fieldMenu?.key === key || closed?.key === key && Date.now() - closed.time < 300) {
+        this._closeFieldMenu();
+        return;
+      }
+      this._fieldMenu = { actions, key };
+      await this.updateComplete;
+      const menu = this._fieldMenuElement;
+      if (!menu)
+        return;
+      menu.showPopover?.();
+      this._positionFieldMenu(menu, anchor);
+      this._watchScroll(anchor);
+    }
+    get _fieldMenuElement() {
+      return this.shadowRoot?.querySelector(".field-menu") ?? null;
+    }
+    _positionFieldMenu(menu, anchor) {
+      const rect = anchor.getBoundingClientRect();
+      const { offsetHeight: height, offsetWidth: width } = menu;
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+      const below = rect.bottom + 4;
+      const top = below + height > window.innerHeight - 8 ? Math.max(8, rect.top - height - 4) : below;
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
+    }
+    _watchScroll(anchor) {
+      this._unwatchScroll();
+      let node = anchor;
+      while (node) {
+        if (node instanceof Element && /auto|scroll|overlay/.test(getComputedStyle(node).overflowY)) {
+          this._scrollContainers.push(node);
+        }
+        node = node.assignedSlot ?? node.parentNode ?? node.host ?? null;
+      }
+      this._scrollContainers.push(window);
+      for (const container of this._scrollContainers) {
+        container.addEventListener("scroll", this._onScroll, { passive: true });
+      }
+    }
+    _unwatchScroll() {
+      for (const container of this._scrollContainers) {
+        container.removeEventListener("scroll", this._onScroll);
+      }
+      this._scrollContainers = [];
+    }
+    _renderFieldMenu() {
+      return x`<div
+      popover="auto"
+      class="field-menu"
+      role="menu"
+      @toggle=${(e) => {
+        if (e.newState === "closed" && this._fieldMenu) {
+          this._closeFieldMenu();
+        }
+      }}>
+      ${(this._fieldMenu?.actions ?? []).map((action) => action.href ? x`<a
+              role="menuitem"
+              class="field-menu-item"
+              href=${action.href}
+              target="_blank"
+              rel="noopener"
+              @click=${this._closeFieldMenu}>
+              <ha-icon icon=${action.icon}></ha-icon>
+              <span>${action.label}</span>
+              <ha-icon
+                class="field-menu-external"
+                icon="mdi:open-in-new"></ha-icon>
+            </a>` : x`<button
+              type="button"
+              role="menuitem"
+              class="field-menu-item"
+              @click=${() => {
+        this._closeFieldMenu();
+        action.onClick?.();
+      }}>
+              <ha-icon icon=${action.icon}></ha-icon>
+              <span>${action.label}</span>
+            </button>`)}
+    </div>`;
+    }
+    _renderInheritableList(options) {
+      const key = options.configKey;
+      const templateItems = this._templateConfig ? genericGetProperty(this._templateConfig, key) : undefined;
+      if (!templateItems?.length)
+        return options.editor();
+      if (genericGetProperty(this._config, key) === undefined) {
+        return x`<div class="inherited-list">
+        <span class="inherited-list-hint">From the template</span>
+        ${templateItems.map((item) => {
+          const { icon, title, subtitle } = options.renderItem(item);
+          return x`<div class="inherited-item">
+            <ha-icon icon=${icon}></ha-icon>
+            <span class="inherited-item-title">${title}</span>
+            ${subtitle ? x`<span class="inherited-item-subtitle">${subtitle}</span>` : x``}
+          </div>`;
+        })}
+        ${this.makeButton({
+          icon: "mdi:pencil",
+          onClick: () => this.updateConfigByKey(key, structuredClone(templateItems)),
+          text: options.customizeLabel
+        })}
+      </div>`;
+      }
+      return x`<ha-alert alert-type="info" class="inherited-list-notice">
+        This card uses its own list instead of the template's.
+        <ha-button
+          slot="action"
+          size="s"
+          appearance="plain"
+          @click=${() => this._resetToTemplate(options.configKey)}>
+          ${options.resetLabel}
+        </ha-button>
+      </ha-alert>
+      ${options.editor()}`;
+    }
+    _renderSectionHeader(options) {
+      const overrides = (options.configKeys ?? []).reduce((sum, key) => sum + this._countOverrides(key), 0);
+      return x`<h4 slot="header">
+      <ha-icon icon=${options.icon}></ha-icon>
+      <span class="expansion-panel-title">
+        ${options.title}
+        ${options.subtitle ? x`<span class="expansion-panel-subtitle"
+                >${options.subtitle}</span
+              >` : x``}
+      </span>
+      ${overrides > 0 ? x`<span class="override-chip">${plural(overrides, "override")}</span>` : x``}
+    </h4>`;
+    }
+    _usesSharedTemplate() {
+      const name = this._config.template;
+      return !!name && !!getSharedTemplates()?.[name] && !getNavbarTemplates()?.[name];
+    }
+    async _saveTemplate(name, config) {
+      this._savingTemplate = true;
+      this._templateError = undefined;
+      try {
+        await saveSharedTemplate(this.hass, name, config);
+        return true;
+      } catch (error) {
+        this._templateError = `Could not save the template: ${errorMessage(error)}`;
+        return false;
+      } finally {
+        this._savingTemplate = false;
+      }
     }
     _isTemplateMode(configKey) {
       const modeByField = this._templateModeByField[String(configKey)];
       if (modeByField !== undefined)
         return modeByField;
-      return isTemplate(genericGetProperty(this._config, configKey));
+      return isTemplate(this._getValue(configKey));
     }
     _setTemplateMode(configKey, isTemplate) {
       this._templateModeByField = {
@@ -3047,49 +4090,41 @@ var init_navbar_card_editor = __esm(() => {
         [String(configKey)]: isTemplate
       };
     }
-    makeHelpTooltipIcon(options) {
-      return x`<ha-tooltip .placement="right" .content=${options.tooltip}>
-      <ha-icon icon="mdi:help-circle"></ha-icon>
-    </ha-tooltip>`;
-    }
     makeComboBox(options) {
-      return renderDropdown(genericGetProperty(this._config, options.configKey) ?? options.defaultValue ?? null, (value) => {
+      return this._renderField(options.configKey, renderDropdown(this._getValue(options.configKey) ?? options.defaultValue ?? null, (value) => {
         this.updateConfigByKey(options.configKey, value);
-      }, options);
+      }, options), { actions: options.actions });
     }
     makeNavigationPicker(options) {
       return this.makeSelector({
         configKey: options.configKey,
         disabled: options.disabled,
+        helper: options.helper,
         label: options.label,
         selector: { navigation: {} }
       });
     }
     makeSelector(options) {
-      const value = options.value !== undefined ? options.value : genericGetProperty(this._config, options.configKey) ?? "";
-      return x`
-      <div style="display: flex; align-items: center; width: 100%;">
-        ${options.tooltip ? this.makeHelpTooltipIcon({ tooltip: options.tooltip }) : ""}
-        <ha-selector
-          style="flex: 1; width: 100%;"
-          .hass=${this.hass}
-          .label=${options.label}
-          .helper=${options.helper}
-          .selector=${options.selector}
-          .value=${value}
-          .disabled=${options.disabled ?? false}
-          @value-changed=${(e) => {
+      const value = options.value !== undefined ? options.value : this._getValue(options.configKey) ?? "";
+      return this._renderField(options.configKey, x`<ha-selector
+        .hass=${this.hass}
+        .label=${options.label}
+        .helper=${options.helper}
+        .selector=${options.selector}
+        .value=${value}
+        .required=${false}
+        .disabled=${options.disabled ?? false}
+        @value-changed=${(e) => {
         let next = e.detail.value;
         if (options.mapValue) {
           next = options.mapValue(next);
         }
         this.updateConfigByKey(options.configKey, next === "" || next == null ? null : next);
-      }}></ha-selector>
-      </div>
-    `;
+      }}></ha-selector>`, { actions: options.actions });
     }
     makeTextInput(options) {
       return this.makeSelector({
+        actions: options.actions,
         configKey: options.configKey,
         disabled: options.disabled,
         helper: options.helper,
@@ -3102,17 +4137,16 @@ var init_navbar_card_editor = __esm(() => {
         } : undefined,
         selector: {
           text: {
-            autocomplete: options.autocomplete,
             placeholder: options.placeholder,
             suffix: options.suffix,
-            type: options.type === "textarea" || options.type == null ? "text" : options.type
+            type: options.type ?? "text"
           }
-        },
-        tooltip: options.tooltip
+        }
       });
     }
     makeEntityPicker(options) {
       return this.makeSelector({
+        actions: options.actions,
         configKey: options.configKey,
         disabled: options.disabled,
         label: options.label,
@@ -3125,6 +4159,7 @@ var init_navbar_card_editor = __esm(() => {
     }
     makeIconPicker(options) {
       return this.makeSelector({
+        actions: options.actions,
         configKey: options.configKey,
         disabled: options.disabled,
         label: options.label,
@@ -3132,121 +4167,119 @@ var init_navbar_card_editor = __esm(() => {
       });
     }
     makeColorPicker(options) {
+      const value = this._getValue(options.configKey);
+      const themeColor = typeof value === "string" ? value.match(/^var\(--(.+)-color\)$/) : null;
       return this.makeSelector({
+        actions: options.actions,
         configKey: options.configKey,
         disabled: options.disabled,
         label: options.label,
-        selector: {
-          ui_color: {
-            include_none: true
-          }
-        },
-        tooltip: options.tooltip
+        mapValue: (color) => typeof color === "string" && getComputedStyle(this).getPropertyValue(`--${color}-color`) ? `var(--${color}-color)` : color,
+        selector: { ui_color: {} },
+        value: themeColor?.[1] ?? value ?? ""
       });
     }
     makeTemplatable(options) {
-      const value = genericGetProperty(this._config, options.configKey);
+      const value = this._getValue(options.configKey);
       const isTemplate = this._isTemplateMode(options.configKey);
       const toggleMode = () => {
-        if (isTemplate) {
-          this._setTemplateMode(options.configKey, false);
-          const uiValue = typeof value === "string" ? (cleanTemplate(value) ?? "").trim() : "";
-          this.updateConfigByKey(options.configKey, uiValue === "" ? null : uiValue);
-        } else {
-          this._setTemplateMode(options.configKey, true);
-          const templateSource = typeof value === "string" ? (cleanTemplate(value) ?? "").trim() : "";
-          this.updateConfigByKey(options.configKey, templateSource === "" ? null : wrapTemplate(templateSource));
-        }
+        const source = typeof value === "string" ? (cleanTemplate(value) ?? "").trim() : "";
+        this._setTemplateMode(options.configKey, !isTemplate);
+        this.updateConfigByKey(options.configKey, source === "" ? null : isTemplate ? source : wrapTemplate(source));
       };
-      const buttonLabel = isTemplate ? "Switch to UI input" : "Switch to template";
-      const buttonIcon = isTemplate ? "mdi:format-text" : "mdi:code-braces";
-      return x`
-      <div class="templatable-field">
-        <div class="templatable-field-header">
-          <ha-button
-            @click=${toggleMode}
-            outlined
-            size="small"
-            variant="neutral"
-            appearance="plain">
-            <ha-icon slot="start" icon="${buttonIcon}"></ha-icon>
-            <span>${buttonLabel}</span>
-          </ha-button>
-        </div>
-        ${isTemplate ? this.makeTemplateEditor({
-        allowNull: true,
-        configKey: options.configKey,
-        helper: options.templateHelper,
-        label: options.label,
-        tooltip: options.tooltip
-      }) : options.inputType === "string" ? this.makeTextInput({
-        configKey: options.configKey,
-        disabled: options.disabled,
-        helper: "textHelper" in options ? options.textHelper : undefined,
-        label: options.label,
-        placeholder: "placeholder" in options ? options.placeholder : undefined,
-        tooltip: options.tooltip
-      }) : options.inputType === "number" ? this.makeEntityPicker({
+      const templateAction = {
+        active: isTemplate,
+        icon: isTemplate ? "mdi:form-textbox" : "mdi:code-braces",
+        label: isTemplate ? "Use the visual input" : "Use a JavaScript template",
+        onClick: toggleMode
+      };
+      const common = {
+        actions: [templateAction],
         configKey: options.configKey,
         disabled: options.disabled,
         label: options.label
-      }) : options.inputType === "icon" ? this.makeIconPicker({
-        configKey: options.configKey,
-        disabled: options.disabled,
-        label: options.label
-      }) : options.inputType === "switch" ? this.makeSwitch({
-        configKey: options.configKey,
-        defaultValue: "defaultValue" in options ? options.defaultValue : undefined,
-        disabled: options.disabled,
-        label: options.label
-      }) : options.inputType === "entity" ? this.makeEntityPicker({
-        configKey: options.configKey,
-        disabled: options.disabled,
-        excludeDomains: "excludeDomains" in options ? options.excludeDomains : undefined,
-        includeDomains: "includeDomains" in options ? options.includeDomains : undefined,
-        label: options.label
-      }) : options.inputType === "color" ? this.makeColorPicker({
-        configKey: options.configKey,
-        disabled: options.disabled,
-        label: options.label,
-        tooltip: options.tooltip
-      }) : x``}
-      </div>
-    `;
+      };
+      if (isTemplate) {
+        return this.makeTemplateEditor({
+          ...common,
+          helper: options.templateHelper
+        });
+      }
+      switch (options.inputType) {
+        case "string":
+          return this.makeTextInput({
+            ...common,
+            helper: "textHelper" in options ? options.textHelper : undefined,
+            placeholder: "placeholder" in options ? options.placeholder : undefined
+          });
+        case "icon":
+          return this.makeIconPicker(common);
+        case "switch":
+          return this.makeSwitch({
+            ...common,
+            defaultValue: "defaultValue" in options ? options.defaultValue : undefined,
+            helper: "helper" in options ? options.helper : undefined
+          });
+        case "entity":
+          return this.makeEntityPicker({
+            ...common,
+            includeDomains: "includeDomains" in options ? options.includeDomains : undefined
+          });
+        case "color":
+          return this.makeColorPicker(common);
+        default:
+          return x``;
+      }
     }
     makeTemplateEditor(options) {
-      return x`
+      return this._renderField(options.configKey, x`
       <div class="template-editor-container">
-        <label class="editor-label">${options.label} </label>
+        <label class="editor-label">${options.label}</label>
         <ha-code-editor
-          autofocus
           autocomplete-entities
           autocomplete-icons
           .hass=${this.hass}
-          .value=${cleanTemplate(genericGetProperty(this._config, options.configKey) ?? "")}
+          .value=${cleanTemplate(this._getValue(options.configKey) ?? "")}
           @value-changed=${(e) => {
         this._setTemplateMode(options.configKey, true);
-        const templateValue = e.target.value?.trim() == "" ? null : wrapTemplate(e.target.value);
+        const templateValue = e.target.value?.trim() === "" ? null : wrapTemplate(e.target.value);
         this.updateConfigByKey(options.configKey, templateValue);
       }}></ha-code-editor>
         ${options.helper ? x`<div class="template-editor-helper">${options.helper}</div>` : x``}
       </div>
-    `;
+    `, { actions: options.actions });
     }
     makeSwitch(options) {
-      const raw = genericGetProperty(this._config, options.configKey);
-      return this.makeSelector({
-        configKey: options.configKey,
-        disabled: options.disabled,
-        label: options.label,
-        mapValue: (next) => Boolean(next),
-        selector: { boolean: {} },
-        tooltip: options.tooltip,
-        value: raw ?? options.defaultValue ?? false
-      });
+      const checked = Boolean(this._getValue(options.configKey) ?? options.defaultValue ?? false);
+      const set = (value) => {
+        if (options.disabled)
+          return;
+        this.updateConfigByKey(options.configKey, value);
+      };
+      return this._renderField(options.configKey, x`<div
+        class="switch-row ${options.disabled ? "disabled" : ""}"
+        @click=${(e) => {
+        if (e.composedPath().some((el) => el.localName === "ha-switch")) {
+          return;
+        }
+        set(!checked);
+      }}>
+        <span class="switch-row-text">
+          <span class="switch-row-label">${options.label}</span>
+          ${options.helper ? x`<span class="switch-row-helper">${options.helper}</span>` : x``}
+        </span>
+        <ha-switch
+          .checked=${checked}
+          .disabled=${options.disabled ?? false}
+          aria-label=${options.label}
+          @change=${(e) => set(e.target.checked)}></ha-switch>
+      </div>`, { actions: options.actions });
     }
     makeButton(options) {
-      return x`<ha-button @click=${options.onClick} outlined hasTrailingIcon>
+      return x`<ha-button
+      @click=${options.onClick}
+      appearance="outlined"
+      variant="brand">
       <ha-icon slot="start" icon=${options.icon}></ha-icon>
       <span>${options.text}</span>
     </ha-button>`;
@@ -3279,7 +4312,9 @@ var init_navbar_card_editor = __esm(() => {
         @dragover=${handlers.onDragOver}
         @dragleave=${handlers.onDragLeave}
         @drop=${options.onDrop}>
-        <ha-expansion-panel outlined>
+        <ha-expansion-panel
+          outlined
+          .expanded=${this._expandedItemKey === options.expandKey}>
           <div
             slot="header"
             class="draggable-item-header"
@@ -3289,8 +4324,15 @@ var init_navbar_card_editor = __esm(() => {
             <span class="drag-handle" title="Drag to reorder">
               <ha-icon icon="mdi:drag"></ha-icon>
             </span>
-            <div class="draggable-item-header-title">${options.headerTitle}</div>
-            <span class="draggable-item-header-summary">${options.headerSummary}</span>
+            <span class="draggable-item-header-icon">${options.headerIcon}</span>
+            <div class="draggable-item-header-text">
+              <span class="draggable-item-header-title"
+                >${options.headerTitle}</span
+              >
+              ${options.headerSubtitle ? x`<span class="draggable-item-header-subtitle"
+                      >${options.headerSubtitle}</span
+                    >` : x``}
+            </div>
             <ha-icon-button
               @click=${(e) => {
         e.preventDefault();
@@ -3307,264 +4349,43 @@ var init_navbar_card_editor = __esm(() => {
       </div>
     `;
     }
-    makeDraggableRouteEditor(item, routeIndex, popupIndex) {
-      const isPopup = popupIndex != null;
-      const usesTemplate = !isPopup && isTemplate(item.popup);
-      const baseConfigKey = isPopup ? `routes.${routeIndex}.popup.${popupIndex}` : `routes.${routeIndex}`;
-      const onDrop = (e) => {
-        e.preventDefault();
-        e.currentTarget.classList.remove("drag-over");
-        const dragData = JSON.parse(e.dataTransfer?.getData("application/json") || "{}");
-        if (dragData.popupIndex != null !== (popupIndex != null))
-          return;
-        if (popupIndex == null) {
-          if (dragData.routeIndex === routeIndex)
-            return;
-          const routes = [...this._config.routes];
-          const [moved] = routes.splice(dragData.routeIndex, 1);
-          routes.splice(routeIndex, 0, moved);
-          this.updateConfig({ routes });
-        } else if (typeof popupIndex === "number" && typeof dragData.popupIndex === "number" && dragData.routeIndex === routeIndex) {
-          if (dragData.popupIndex === popupIndex)
-            return;
-          const routes = [...this._config.routes];
-          const popups = [...routes[routeIndex].popup || []];
-          const [moved] = popups.splice(dragData.popupIndex, 1);
-          popups.splice(popupIndex, 0, moved);
-          routes[routeIndex] = { ...routes[routeIndex], popup: popups };
-          this.updateConfig({ routes });
-        }
-      };
-      return this._renderDraggableItem({
-        body: x`
-            <div class="editor-row">
-              <div class="editor-row-item">
-                ${this.makeNavigationPicker({
-          configKey: `${baseConfigKey}.url`,
-          label: "URL"
-        })}
-              </div>
-            </div>
-
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.label`,
-          inputType: "string",
-          label: "Label",
-          templateHelper: STRING_JS_TEMPLATE_HELPER
-        })}
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.selected_color`,
-          inputType: "string",
-          label: "Selected color",
-          templateHelper: STRING_JS_TEMPLATE_HELPER
-        })}
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.icon`,
-          inputType: "icon",
-          label: "Icon"
-        })}
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.icon_selected`,
-          inputType: "icon",
-          label: "Icon selected"
-        })}
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.icon_color`,
-          inputType: "color",
-          label: "Icon color"
-        })}
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.image`,
-          inputType: "string",
-          label: "Image",
-          placeholder: "URL of the image"
-        })}
-            ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.image_selected`,
-          inputType: "string",
-          label: "Image selected",
-          placeholder: "URL of the image"
-        })}
-
-            <div class="editor-divider"></div>
-
-            <ha-expansion-panel outlined>
-              <h5 slot="header">
-                <ha-icon icon="mdi:star-circle-outline"></ha-icon>
-                Badge
-              </h5>
-              <div class="editor-section">
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.badge.color`,
-          inputType: "string",
-          label: "Color",
-          templateHelper: STRING_JS_TEMPLATE_HELPER,
-          textHelper: "Color of the badge in any CSS valid format (red, #ff0000, rgba(255,0,0,1)...)"
-        })}
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.badge.show`,
-          inputType: "switch",
-          label: "Show",
-          templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
-        })}
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.badge.icon`,
-          inputType: "icon",
-          label: "Icon",
-          templateHelper: STRING_JS_TEMPLATE_HELPER
-        })}
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.badge.icon_color`,
-          inputType: "color",
-          label: "Icon color",
-          templateHelper: STRING_JS_TEMPLATE_HELPER
-        })}
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.badge.count`,
-          inputType: "string",
-          label: "Count",
-          templateHelper: STRING_JS_TEMPLATE_HELPER
-        })}
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.badge.text_color`,
-          inputType: "string",
-          label: "Text color",
-          templateHelper: STRING_JS_TEMPLATE_HELPER
-        })}
-              </div>
-            </ha-expansion-panel>
-
-            ${!isPopup ? x`
-                  <ha-expansion-panel outlined>
-                    <h5 slot="header">
-                      <ha-icon icon="mdi:menu"></ha-icon>
-                      Popup/Submenu
-                    </h5>
-                    <div class="editor-section">
-                      <div class="editor-tab-nav">
-                        <button
-                          class="editor-tab-button ${!usesTemplate ? "active" : ""}"
-                          @click=${() => {
-          if (!usesTemplate)
-            return;
-          let parsedPopup = [];
-          try {
-            parsedPopup = JSON.parse(cleanTemplate(item.popup?.toString()) ?? "[]");
-          } catch (_e) {
-            parsedPopup = [];
-          }
-          this.updateConfigByKey(`${baseConfigKey}.popup`, parsedPopup);
-        }}>
-                          <ha-icon icon="mdi:palette"></ha-icon>
-                          UI editor
-                        </button>
-                        <button
-                          class="editor-tab-button ${usesTemplate ? "active" : ""}"
-                          @click=${() => {
-          if (usesTemplate)
-            return;
-          this.updateConfigByKey(`${baseConfigKey}.popup`, wrapTemplate(JSON.stringify(item.popup ?? [], null, 2)));
-        }}>
-                          <ha-icon icon="mdi:code-tags"></ha-icon>
-                          Use template
-                        </button>
-                      </div>
-
-                      ${usesTemplate ? this.makeTemplateEditor({
-          configKey: `${baseConfigKey}.popup`,
-          helper: GENERIC_JS_TEMPLATE_HELPER,
-          label: "Popup"
-        }) : x`<div class="routes-container">
-                              ${(item.popup ?? []).map((popupItem, index) => {
-          return this.makeDraggableRouteEditor(popupItem, routeIndex, index);
-        })}
-                            </div>
-                            ${this.makeButton({
-          icon: "mdi:plus",
-          onClick: () => this.addRouteOrPopup(routeIndex),
-          text: "Add Popup item"
-        })}`}
-                    </div>
-                  </ha-expansion-panel>
-                ` : x``}
-
-            <ha-expansion-panel outlined>
-              <h5 slot="header">
-                <ha-icon icon="mdi:cog"></ha-icon>
-                Advanced features
-              </h5>
-              <div class="editor-section">
-                ${this.makeTemplatable({
-          configKey: `${baseConfigKey}.hidden`,
-          inputType: "switch",
-          label: "Hidden",
-          templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
-        })}
-                ${!isPopup ? this.makeTemplatable({
-          configKey: `${baseConfigKey}.selected`,
-          inputType: "switch",
-          label: "Selected",
-          templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
-        }) : x``}
-              </div>
-            </ha-expansion-panel>
-
-            ${Object.values(HAActions).map((type) => {
-          const key = `${baseConfigKey}.${type}`;
-          const actionValue = genericGetProperty(this._config, key);
-          const label = this._chooseLabelForAction(type);
-          return x`
-                ${actionValue != null ? this.makeActionSelector({
-            actionType: type,
-            configKey: key
-          }) : x`
-                      <ha-button
-                      @click=${() => this.updateConfigByKey(key, {
-            action: "none"
-          })}
-                        style="margin-bottom: 1em;"
-                        outlined
-                        hasTrailingIcon>
-                        <ha-icon slot="start" icon="mdi:plus"></ha-icon>
-                        <span>Add ${label}</span>
-                      </ha-button>
-                    `}
-              `;
-        })}
-      `,
-        deleteLabel: isPopup ? "Delete popup" : "Delete route",
-        dragData: { popupIndex, routeIndex },
-        headerSummary: x`
-        ${item.image != null ? x`<img src="${item.image}" class="draggable-item-header-image" />` : x`<ha-icon icon="${item.icon}"></ha-icon>`}
-        ${item.label ? processTemplate(this.hass, undefined, item.label) : ""}
-      `,
-        headerTitle: isPopup ? "Popup item" : "Route",
-        onDelete: () => this.removeRouteOrPopup(routeIndex, popupIndex),
-        onDrop
-      });
-    }
-    _chooseIconForAction(actionType) {
-      switch (actionType) {
-        case "hold_action" /* hold_action */:
-          return "mdi:gesture-tap-hold";
-        case "double_tap_action" /* double_tap_action */:
-          return "mdi:gesture-double-tap";
-        case "tap_action" /* tap_action */:
-        default:
-          return "mdi:gesture-tap";
+    _renderItemIcon(item) {
+      if (item.image != null && !isTemplate(item.image)) {
+        return x`<img src="${item.image}" class="draggable-item-header-image" />`;
       }
+      const icon = isTemplate(item.icon) ? processTemplate(this.hass, undefined, item.icon) : item.icon;
+      return x`<ha-icon icon=${icon || "mdi:help-circle-outline"}></ha-icon>`;
     }
-    _chooseLabelForAction(actionType) {
-      switch (actionType) {
-        case "tap_action" /* tap_action */:
-          return "Tap action";
-        case "hold_action" /* hold_action */:
-          return "Hold action";
-        case "double_tap_action" /* double_tap_action */:
-          return "Double tap action";
-        default:
-          return "";
-      }
+    _itemLabel(item, fallback) {
+      const label = item.label ? processTemplate(this.hass, undefined, item.label) : "";
+      return label ? String(label) : fallback;
+    }
+    _renderActions(baseConfigKey, types = Object.values(HAActions)) {
+      const keyFor = (type) => `${baseConfigKey}.${type}`;
+      const missing = types.filter((type) => this._getValue(keyFor(type)) == null);
+      return x`
+      ${types.filter((type) => !missing.includes(type)).map((type) => this.makeActionSelector({
+        actionType: type,
+        configKey: keyFor(type)
+      }))}
+      ${missing.length > 0 ? x`<div class="add-actions">
+              <span class="add-actions-label">Add action</span>
+              ${missing.map((type) => x`<ha-button
+                  size="s"
+                  appearance="plain"
+                  @click=${() => {
+        this._expandedItemKey = keyFor(type);
+        this.updateConfigByKey(keyFor(type), {
+          action: "none"
+        });
+      }}>
+                  <ha-icon
+                    slot="start"
+                    icon=${ACTION_INFO[type].icon}></ha-icon>
+                  ${ACTION_INFO[type].label}
+                </ha-button>`)}
+            </div>` : x``}
+    `;
     }
     isCustomAction(value) {
       if (value === "none")
@@ -3572,145 +4393,287 @@ var init_navbar_card_editor = __esm(() => {
       return Object.values(NavbarCustomActions).includes(value);
     }
     renderTemplateEditor() {
-      const availableTemplates = getNavbarTemplates();
+      const dashboardTemplates = getNavbarTemplates() ?? {};
+      const name = this._config.template?.trim() || undefined;
+      const overrides = this._countAllOverrides();
+      const missing = !!name && !this._templateConfig && getSharedTemplates() !== null;
+      const kind = name ? dashboardTemplates[name] ? "From this dashboard" : "Shared" : undefined;
       return x`
-      <ha-expansion-panel outlined>
+      <ha-expansion-panel outlined class="template-section">
         <h4 slot="header">
           <ha-icon icon="mdi:bookmark-outline"></ha-icon>
-          Navbar template
+          <span class="expansion-panel-title">
+            Template
+            <span class="expansion-panel-subtitle">
+              ${name ? x`<strong>${name}</strong> · ${missing ? "not found" : kind}${overrides > 0 && this._templateConfig ? ` · ${plural(overrides, "override")} on this card` : ""}` : "None, this card has its own configuration"}
+            </span>
+          </span>
         </h4>
         <div class="editor-section">
-          ${this.makeComboBox({
+          ${renderDropdown(name ?? null, (value) => this.updateConfigByKey("template", value), {
         allowEmptyValue: true,
         configKey: "template",
-        helper: x`Reusable template name used for this card.
-              <a
-                href="${DOCS_LINKS.template}"
-                target="_blank"
-                rel="noopener"
-                >Check the documentation</a
-              >
-              for more info.`,
-        items: Object.entries(availableTemplates ?? {}).map(([key]) => ({
-          label: key,
+        helper: x`Reuse the same navbar in several cards. Shared
+                templates work on every dashboard.
+                <a href="${DOCS_LINKS.template}" target="_blank" rel="noopener"
+                  >Learn more</a
+                >`,
+        items: Object.keys(getAvailableTemplates()).map((key) => ({
+          label: dashboardTemplates[key] ? `${key} (this dashboard)` : `${key} (shared)`,
           value: key
         })),
         label: "Template"
       })}
-        </div></ha-expansion-panel
-      >
-    `;
-    }
-    renderStylesEditor() {
-      return x`
-      <ha-expansion-panel outlined>
-        <h4 slot="header">
-          <ha-icon icon="mdi:code-braces"></ha-icon>
-          CSS Styles
-        </h4>
-        <div class="editor-section">
-          <ha-alert alert-type="info" title="Custom CSS Styles">
-            Use this section to change the appearance of
-            <code>navbar-card</code>.<br />
-            Enter your CSS code here (no <code>"styles: |"</code> prefix
-            needed).<br />
-            <a
-              href="${DOCS_LINKS.styles}"
-              target="_blank"
-              rel="noopener"
-              >See documentation</a
-            >
-            for examples.
-          </ha-alert>
-          <ha-code-editor
-            mode="yaml"
-            autofocus
-            autocomplete-entities
-            autocomplete-icons
-            .hass=${this.hass}
-            .value=${this._config.styles}
-            @value-changed=${(e) => {
-        const trimmedStyles = e.target.value?.trim() == "" ? null : e.target.value;
-        this.updateConfig({ styles: trimmedStyles });
-      }}></ha-code-editor>
+          ${missing ? x`<ha-alert alert-type="warning">
+                  Template "${name}" not found.
+                </ha-alert>` : x``}
+          ${name && this._templateConfig ? x`<span class="editor-subsection-helper">
+                  ${overrides > 0 ? `This card overrides ${plural(overrides, "template option")}. Overridden options are marked, and can be reset one by one from their ⋮ menu.` : "This card uses the template as is. Options you change here override it for this card only."}
+                </span>` : x``}
+          ${this._showSaveAsTemplate ? x`<div class="template-save-as">
+                  <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ text: {} }}
+                    .label=${"Template name"}
+                    .required=${false}
+                    .helper=${"Saves this navbar as a shared template, used by this card from now on."}
+                    .value=${this._newTemplateName}
+                    @value-changed=${(e) => {
+        this._newTemplateName = e.detail.value ?? "";
+        this._templateError = undefined;
+      }}></ha-selector>
+                  <div class="template-save-as-actions">
+                    <ha-button
+                      .disabled=${!this._newTemplateName.trim() || this._savingTemplate}
+                      @click=${this._saveAsTemplate}>
+                      Save template
+                    </ha-button>
+                    <ha-button
+                      appearance="plain"
+                      @click=${() => {
+        this._showSaveAsTemplate = false;
+        this._templateError = undefined;
+      }}>
+                      Cancel
+                    </ha-button>
+                  </div>
+                </div>` : x`<div class="template-actions">
+                  ${this._usesSharedTemplate() ? x`<ha-button
+                          size="s"
+                          appearance="outlined"
+                          @click=${this._startEditingTemplate}>
+                          <ha-icon slot="start" icon="mdi:pencil"></ha-icon>
+                          Edit template
+                        </ha-button>` : x``}
+                  ${name && dashboardTemplates[name] ? x`<ha-button
+                          size="s"
+                          appearance="outlined"
+                          .disabled=${this._savingTemplate}
+                          @click=${this._moveTemplateToShared}>
+                          <ha-icon
+                            slot="start"
+                            icon="mdi:share-variant-outline"></ha-icon>
+                          Move to shared templates
+                        </ha-button>` : x``}
+                  ${overrides > 0 && this._templateConfig ? x`<ha-button
+                          size="s"
+                          appearance="outlined"
+                          @click=${this._resetToTemplateOnly}>
+                          <ha-icon slot="start" icon="mdi:undo-variant"></ha-icon>
+                          Reset changes
+                        </ha-button>` : x``}
+                  <ha-button
+                    size="s"
+                    appearance="outlined"
+                    @click=${() => {
+        this._showSaveAsTemplate = true;
+      }}>
+                    <ha-icon
+                      slot="start"
+                      icon="mdi:bookmark-plus-outline"></ha-icon>
+                    Save as new shared template
+                  </ha-button>
+                </div>`}
+          ${this._renderTemplateError()}
         </div>
       </ha-expansion-panel>
     `;
     }
-    renderLayoutEditor() {
-      const autoPaddingEnabled = genericGetProperty(this._config, "layout.auto_padding.enabled") ?? DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.enabled;
+    _renderTemplateError() {
+      return this._templateError ? x`<ha-alert alert-type="error">${this._templateError}</ha-alert>` : x``;
+    }
+    _renderTemplateDialog() {
+      const dialog = this._templateDialog;
+      return x`<dialog
+      class="template-dialog"
+      @cancel=${(e) => {
+        e.preventDefault();
+        this._closeTemplateDialog();
+      }}
+      @keydown=${(e) => {
+        if (e.key === "Escape")
+          e.stopPropagation();
+      }}>
+      ${dialog ? x`
+            <div class="template-dialog-header">
+              <span class="template-dialog-title">
+                Edit template "${dialog.name}"
+                <span class="template-dialog-subtitle">
+                  Changes apply to every navbar using it, on all dashboards.
+                </span>
+              </span>
+              <ha-icon-button
+                .label=${"Close"}
+                @click=${() => this._closeTemplateDialog()}>
+                <ha-icon icon="mdi:close"></ha-icon>
+              </ha-icon-button>
+            </div>
+            <div class="template-dialog-body">
+              ${dialog.yaml ? x`<ha-yaml-editor
+                      .hass=${this.hass}
+                      .defaultValue=${dialog.draft}
+                      @value-changed=${(e) => {
+        e.stopPropagation();
+        const { value, isValid } = e.detail;
+        const valid = isValid && !!value && typeof value === "object";
+        this._templateDialog = {
+          ...dialog,
+          dirty: true,
+          draft: valid ? value : dialog.draft,
+          invalidYaml: !valid
+        };
+      }}></ha-yaml-editor>` : x`<navbar-card-editor
+                      .hass=${this.hass}
+                      .isTemplateEditor=${true}
+                      @config-changed=${(e) => {
+        e.stopPropagation();
+        this._templateDialog = {
+          ...dialog,
+          dirty: true,
+          draft: e.detail.config
+        };
+      }}></navbar-card-editor>`}
+            </div>
+            ${this._renderTemplateError()}
+            <div class="template-dialog-actions">
+              <ha-button
+                class="template-dialog-mode"
+                appearance="plain"
+                .disabled=${!!dialog.invalidYaml}
+                @click=${() => {
+        this._templateDialog = { ...dialog, yaml: !dialog.yaml };
+      }}>
+                ${dialog.yaml ? "Show visual editor" : "Show code editor"}
+              </ha-button>
+              <ha-button
+                appearance="plain"
+                .disabled=${this._savingTemplate}
+                @click=${() => this._closeTemplateDialog()}>
+                Cancel
+              </ha-button>
+              <ha-button
+                .disabled=${this._savingTemplate || !!dialog.invalidYaml}
+                @click=${this._saveTemplateDialog}>
+                Save template
+              </ha-button>
+            </div>
+          ` : x``}
+    </dialog>`;
+    }
+    updated(changedProperties) {
+      super.updated(changedProperties);
+      if (!changedProperties.has("_templateDialog"))
+        return;
+      const dialog = this.shadowRoot?.querySelector(".template-dialog");
+      if (!dialog)
+        return;
+      const previous = changedProperties.get("_templateDialog");
+      const current = this._templateDialog;
+      if (current && !current.yaml && (!previous || previous.yaml)) {
+        dialog.querySelector("navbar-card-editor")?.setConfig(current.draft);
+      }
+      if (current && !dialog.open)
+        dialog.showModal?.();
+      if (!current && dialog.open)
+        dialog.close();
+    }
+    _renderGroup(caption, content, options = {}) {
+      return x`<div class="group">
+      ${caption ? x`<div class="group-caption">
+              <span class="group-title">${caption}</span>
+              ${options.helper ? x`<span class="group-helper">${options.helper}</span>` : x``}
+            </div>` : x``}
+      <div class=${options.switches ? "switch-list" : "group-fields"}>
+        ${content}
+      </div>
+    </div>`;
+    }
+    renderAdvancedSection() {
+      const autoPaddingEnabled = this._getValue("layout.auto_padding.enabled") ?? DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.enabled;
+      const hapticRawValue = this._getValue("haptic");
+      const hapticValue = typeof hapticRawValue === "boolean" ? hapticRawValue : undefined;
+      const hapticDefaults = DEFAULT_NAVBAR_CONFIG.haptic;
       return x`
       <ha-expansion-panel outlined>
-        <h4 slot="header">
-          <ha-icon icon="mdi:view-grid"></ha-icon>
-          Layout
-        </h4>
-        <div class="editor-section">
-          <label class="editor-label">Reflect child state</label>
-          ${this.makeSwitch({
-        configKey: "layout.reflect_child_state",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.layout?.reflect_child_state,
-        label: "Display routes as selected if any of its popup items is selected"
+        ${this._renderSectionHeader({
+        configKeys: ["layout.auto_padding", "haptic", "styles"],
+        icon: "mdi:tune-variant",
+        subtitle: "Padding, haptic feedback and CSS",
+        title: "Advanced"
       })}
-        </div>
         <div class="editor-section">
-          <label class="editor-label">Auto padding</label>
-          ${this.makeSwitch({
+          ${this._renderGroup("Auto padding", x`
+              <div class="switch-list">
+                ${this.makeSwitch({
         configKey: "layout.auto_padding.enabled",
         defaultValue: DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.enabled,
-        label: "Enable auto padding"
+        label: "Reserve space for the navbar"
       })}
-          ${this.makeTextInput({
-        configKey: "layout.auto_padding.desktop_px",
+              </div>
+              <div class="editor-row">
+                ${[
+        ["desktop_px", "Desktop"],
+        ["mobile_px", "Mobile"],
+        ["media_player_px", "Media player"]
+      ].map(([option, label]) => x`<div class="editor-row-item">
+                    ${this.makeTextInput({
+        configKey: `layout.auto_padding.${option}`,
         disabled: !autoPaddingEnabled,
-        helper: "Padding for desktop mode. 0 to disable.",
-        label: "Desktop padding",
-        placeholder: DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.desktop_px?.toString(),
+        label,
+        placeholder: DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.[option]?.toString(),
         suffix: "px",
         type: "number"
       })}
-          ${this.makeTextInput({
-        configKey: "layout.auto_padding.mobile_px",
-        disabled: !autoPaddingEnabled,
-        helper: "Padding for mobile mode. 0 to disable.",
-        label: "Mobile padding",
-        placeholder: DEFAULT_NAVBAR_CONFIG.layout?.auto_padding?.mobile_px?.toString(),
-        suffix: "px",
-        type: "number"
+                  </div>`)}
+              </div>
+            `, {
+        helper: "Space added to the dashboard so the navbar doesn't cover it."
       })}
-        </div>
-      </ha-expansion-panel>
-    `;
-    }
-    renderHapticEditor() {
-      const hapticRawValue = genericGetProperty(this._config, "haptic");
-      const hapticValue = typeof hapticRawValue === "boolean" ? hapticRawValue : undefined;
-      return x`
-      <ha-expansion-panel outlined>
-        <h4 slot="header">
-          <ha-icon icon="mdi:vibrate"></ha-icon>
-          Haptic
-        </h4>
-        <div class="editor-section">
-          ${this.makeSwitch({
-        configKey: "haptic.url",
-        defaultValue: hapticValue,
-        label: "When pressing routes with URL configured"
+          ${this._renderGroup("Haptic feedback", x`${[
+        ["url", "Navigates to its URL"],
+        ["tap_action", "Runs its tap action"],
+        ["hold_action", "Runs its hold action"],
+        ["double_tap_action", "Runs its double tap action"]
+      ].map(([option, label]) => this.makeSwitch({
+        configKey: `haptic.${option}`,
+        defaultValue: hapticValue ?? hapticDefaults[option],
+        label
+      }))}`, {
+        helper: "Vibrate the device (where supported) when a route…",
+        switches: true
       })}
-          ${this.makeSwitch({
-        configKey: "haptic.tap_action",
-        defaultValue: hapticValue,
-        label: "When executing the 'tap_action' configured for a route"
-      })}
-          ${this.makeSwitch({
-        configKey: "haptic.hold_action",
-        defaultValue: hapticValue,
-        label: "When executing the 'hold_action' configured for a route"
-      })}
-          ${this.makeSwitch({
-        configKey: "haptic.double_tap_action",
-        defaultValue: hapticValue,
-        label: "When executing the 'double_tap_action' configured for a route"
+          ${this._renderGroup("Custom CSS", this._renderField("styles", x`<ha-code-editor
+                mode="yaml"
+                autocomplete-entities
+                autocomplete-icons
+                .hass=${this.hass}
+                .value=${this._getValue("styles") ?? ""}
+                @value-changed=${(e) => {
+        const trimmedStyles = e.target.value?.trim() === "" ? null : e.target.value;
+        this.updateConfig({ styles: trimmedStyles });
+      }}></ha-code-editor>`), {
+        helper: x`Change the look of the navbar, without the
+                <code>styles: |</code> prefix.`
       })}
         </div>
       </ha-expansion-panel>
@@ -3720,52 +4683,80 @@ var init_navbar_card_editor = __esm(() => {
       const players = this._config.media_player?.players ?? [];
       return x`
       <ha-expansion-panel outlined>
-        <h4 slot="header">
-          <ha-icon icon="mdi:music"></ha-icon>
-          Media player
-        </h4>
-        <div class="editor-section">
-          ${this.makeSwitch({
-        configKey: "media_player.album_cover_background",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.media_player?.album_cover_background,
-        label: "Show album cover background"
+        ${this._renderSectionHeader({
+        configKeys: ["media_player"],
+        icon: "mdi:music",
+        subtitle: "Players shown while media plays",
+        title: "Media player"
       })}
-          ${this.makeComboBox({
+        <div class="editor-section">
+          ${this._renderGroup("Players", this._renderInheritableList({
+        configKey: "media_player.players",
+        customizeLabel: "Customize players for this card",
+        editor: () => x`
+                <div class="routes-container">
+                  ${players.map((player, i) => this.makeDraggablePlayerEditor(player, i))}
+                </div>
+                ${this.makeButton({
+          icon: "mdi:plus",
+          onClick: () => this.addMediaPlayer(),
+          text: "Add player"
+        })}
+              `,
+        renderItem: (player) => {
+          const entity = processTemplate(this.hass, undefined, player.entity);
+          return {
+            icon: "mdi:speaker",
+            subtitle: entity,
+            title: this.hass?.states?.[entity]?.attributes?.friendly_name ?? entity
+          };
+        },
+        resetLabel: "Use template"
+      }), {
+        helper: "Shown while one of them is playing or paused. With several players, swipe between them."
+      })}
+          ${this._renderGroup("Settings", x`
+              ${this.makeComboBox({
         configKey: "media_player.desktop_position",
         defaultValue: DEFAULT_NAVBAR_CONFIG.media_player?.desktop_position,
+        helper: "Where the player appears on desktop.",
         items: [
           { label: "Top left", value: "top-left" /* topLeft */ },
           { label: "Top center", value: "top-center" /* topCenter */ },
           { label: "Top right", value: "top-right" /* topRight */ },
           { label: "Bottom left", value: "bottom-left" /* bottomLeft */ },
-          { label: "Bottom center", value: "bottom-center" /* bottomCenter */ },
+          {
+            label: "Bottom center",
+            value: "bottom-center" /* bottomCenter */
+          },
           { label: "Bottom right", value: "bottom-right" /* bottomRight */ }
         ],
         label: "Desktop position"
       })}
-          ${this.makeTemplatable({
+              <div class="switch-list">
+                ${this.makeTemplatable({
         configKey: "media_player.show",
+        defaultValue: true,
+        helper: "Turn off to never show it, or use a template to choose when.",
         inputType: "switch",
-        label: "Show media player widget",
+        label: "Show the media player",
         templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
       })}
-        </div>
-        <div class="editor-section">
-          <label class="editor-label">Players</label>
-          <div class="routes-container">
-            ${players.map((player, i) => this.makeDraggablePlayerEditor(player, i))}
-          </div>
-          ${this.makeButton({
-        icon: "mdi:plus",
-        onClick: () => this.addMediaPlayer(),
-        text: "Add player"
+                ${this.makeSwitch({
+        configKey: "media_player.album_cover_background",
+        defaultValue: DEFAULT_NAVBAR_CONFIG.media_player?.album_cover_background,
+        helper: "Shows the cover of what is playing behind the player.",
+        label: "Album art as background"
       })}
+              </div>
+            `)}
         </div>
       </ha-expansion-panel>
     `;
     }
     makeDraggablePlayerEditor(player, playerIndex) {
       const baseConfigKey = `media_player.players.${playerIndex}`;
+      const entity = processTemplate(this.hass, undefined, player.entity);
       const onDrop = (e) => {
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
@@ -3814,60 +4805,64 @@ var init_navbar_card_editor = __esm(() => {
           label: "Subtitle",
           templateHelper: STRING_JS_TEMPLATE_HELPER
         })}
-          ${Object.values(HAActions).map((type) => {
-          const key = `${baseConfigKey}.${type}`;
-          const actionValue = genericGetProperty(this._config, key);
-          const label = this._chooseLabelForAction(type);
-          return x`
-              ${actionValue != null ? this.makeActionSelector({
-            actionType: type,
-            configKey: key
-          }) : x`
-                    <ha-button
-                      @click=${() => this.updateConfigByKey(key, {
-            action: "none"
-          })}
-                      style="margin-bottom: 1em;"
-                      outlined
-                      hasTrailingIcon>
-                      <ha-icon slot="start" icon="mdi:plus"></ha-icon>
-                      <span>Add ${label}</span>
-                    </ha-button>
-                  `}
-            `;
-        })}
+          ${this._renderActions(baseConfigKey)}
       `,
         deleteLabel: "Delete player",
         dragData: { playerIndex },
-        headerSummary: x`
-        ${processTemplate(this.hass, undefined, player.entity) || "No entity"}
-      `,
-        headerTitle: `Player`,
+        expandKey: baseConfigKey,
+        headerIcon: x`<ha-icon
+        icon=${(player.icon && !isTemplate(player.icon) ? player.icon : null) ?? "mdi:speaker"}></ha-icon>`,
+        headerSubtitle: entity || undefined,
+        headerTitle: entity && this.hass?.states?.[entity]?.attributes?.friendly_name || entity || "No entity selected",
         onDelete: () => this.removeMediaPlayer(playerIndex),
         onDrop
       });
     }
-    renderDesktopEditor() {
-      const labelVisibility = genericGetProperty(this._config, "desktop.show_labels") ?? DEFAULT_NAVBAR_CONFIG.desktop?.show_labels;
+    renderAppearanceSection() {
+      const device = this._appearanceDevice;
+      const labelVisibility = this._getValue(`${device}.show_labels`) ?? DEFAULT_NAVBAR_CONFIG[device]?.show_labels;
       return x`
       <ha-expansion-panel outlined>
-        <h4 slot="header">
-          <ha-icon icon="mdi:laptop"></ha-icon>
-          Desktop options
-        </h4>
+        ${this._renderSectionHeader({
+        configKeys: ["desktop", "mobile"],
+        icon: "mdi:palette-outline",
+        subtitle: "Position, labels and visibility",
+        title: "Appearance"
+      })}
         <div class="editor-section">
-          ${this.makeComboBox({
-        configKey: "desktop.mode",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.desktop?.mode,
+          ${this._renderSegmented({
+        onChange: (value) => {
+          this._appearanceDevice = value;
+        },
+        options: [
+          {
+            badge: this._countOverrides("desktop"),
+            icon: "mdi:laptop",
+            label: "Desktop",
+            value: "desktop"
+          },
+          {
+            badge: this._countOverrides("mobile"),
+            icon: "mdi:cellphone",
+            label: "Mobile",
+            value: "mobile"
+          }
+        ],
+        value: device
+      })}
+          ${this._renderGroup("Layout", x`
+              ${this.makeComboBox({
+        configKey: `${device}.mode`,
+        defaultValue: DEFAULT_NAVBAR_CONFIG[device]?.mode,
         items: [
           { label: "Floating", value: "floating" },
           { label: "Docked", value: "docked" }
         ],
-        label: "Mode"
+        label: "Style"
       })}
-          <div class="editor-row">
-            <div class="editor-row-item">
-              ${this.makeComboBox({
+              ${device === "desktop" ? x`<div class="editor-row">
+                      <div class="editor-row-item">
+                        ${this.makeComboBox({
         configKey: "desktop.position",
         defaultValue: DEFAULT_NAVBAR_CONFIG.desktop?.position,
         items: [
@@ -3878,231 +4873,560 @@ var init_navbar_card_editor = __esm(() => {
         ],
         label: "Position"
       })}
-            </div>
-            <div class="editor-row-item">
-              ${this.makeTextInput({
+                      </div>
+                      <div class="editor-row-item">
+                        ${this.makeTextInput({
         configKey: "desktop.min_width",
-        helper: "Min screen width for desktop mode to be active.",
+        helper: "Desktop layout from this screen width.",
         label: "Min width",
+        placeholder: DEFAULT_NAVBAR_CONFIG.desktop?.min_width?.toString(),
         suffix: "px",
         type: "number"
       })}
-            </div>
-          </div>
-          ${this.makeComboBox({
-        configKey: "desktop.show_labels",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.desktop?.show_labels,
-        items: [
-          { label: "Always", value: true },
-          { label: "Never", value: false },
-          { label: "Popup only", value: "popup_only" },
-          { label: "Routes only", value: "routes_only" }
-        ],
-        label: "Show labels"
-      })}
-          ${this.makeSwitch({
-        configKey: "desktop.show_popup_label_backgrounds",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.desktop?.show_popup_label_backgrounds,
-        disabled: ![true, "popup_only"].includes(labelVisibility),
-        label: "Show popup label backgrounds"
-      })}
-          ${this.makeTemplateEditor({
-        configKey: "desktop.hidden",
-        helper: BOOLEAN_JS_TEMPLATE_HELPER,
-        label: "Hidden"
-      })}
-        </div>
-      </ha-expansion-panel>
-    `;
-    }
-    renderMobileEditor() {
-      const labelVisibility = genericGetProperty(this._config, "mobile.show_labels") ?? DEFAULT_NAVBAR_CONFIG.mobile?.show_labels;
-      return x`
-      <ha-expansion-panel outlined>
-        <h4 slot="header">
-          <ha-icon icon="mdi:cellphone"></ha-icon>
-          Mobile options
-        </h4>
-        <div class="editor-section">
-          ${this.makeComboBox({
-        configKey: "mobile.mode",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.mobile?.mode,
-        items: [
-          { label: "Floating", value: "floating" },
-          { label: "Docked", value: "docked" }
-        ],
-        label: "Mode"
-      })}
-          ${this.makeComboBox({
-        configKey: "mobile.show_labels",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.mobile?.show_labels,
-        items: [
-          { label: "Always", value: true },
-          { label: "Never", value: false },
-          { label: "Popup only", value: "popup_only" },
-          { label: "Routes only", value: "routes_only" }
-        ],
-        label: "Show labels"
-      })}
-          ${this.makeSwitch({
-        configKey: "mobile.show_popup_label_backgrounds",
-        defaultValue: DEFAULT_NAVBAR_CONFIG.mobile?.show_popup_label_backgrounds,
-        disabled: ![true, "popup_only"].includes(labelVisibility),
-        label: "Show popup label backgrounds"
-      })}
-          ${this.makeSwitch({
+                      </div>
+                    </div>` : x`<div class="switch-list">
+                      ${this.makeSwitch({
         configKey: "mobile.safe_area",
         defaultValue: DEFAULT_NAVBAR_CONFIG.mobile?.safe_area,
-        label: "Respect safe area insets"
+        helper: "Keeps the navbar clear of the notch and home bar.",
+        label: "Respect the safe area"
       })}
-          ${this.makeTemplateEditor({
-        configKey: "mobile.hidden",
-        helper: BOOLEAN_JS_TEMPLATE_HELPER,
-        label: "Hidden"
+                    </div>`}
+            `)}
+          ${this._renderGroup("Labels", x`
+              ${this.makeComboBox({
+        configKey: `${device}.show_labels`,
+        defaultValue: DEFAULT_NAVBAR_CONFIG[device]?.show_labels,
+        items: [
+          { label: "Always", value: true },
+          { label: "Never", value: false },
+          { label: "In popups only", value: "popup_only" },
+          { label: "In routes only", value: "routes_only" }
+        ],
+        label: "Show labels"
       })}
+              ${[true, "popup_only"].includes(labelVisibility) ? x`<div class="switch-list">
+                      ${this.makeSwitch({
+        configKey: `${device}.show_popup_label_backgrounds`,
+        defaultValue: DEFAULT_NAVBAR_CONFIG[device]?.show_popup_label_backgrounds,
+        label: "Background behind popup labels"
+      })}
+                    </div>` : x``}
+            `)}
+          ${this._renderGroup("Visibility", this.makeTemplatable({
+        configKey: `${device}.hidden`,
+        inputType: "switch",
+        label: device === "desktop" ? "Hide on desktop" : "Hide on mobile",
+        templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
+      }), { switches: true })}
         </div>
       </ha-expansion-panel>
     `;
     }
-    renderRoutesEditor() {
+    _renderSegmented(options) {
+      return x`<div class="segmented" role="radiogroup">
+      ${options.options.map((option) => x`<button
+          type="button"
+          role="radio"
+          aria-checked=${option.value === options.value}
+          class="segmented-option ${option.value === options.value ? "active" : ""}"
+          @click=${() => options.onChange(option.value)}>
+          ${option.icon ? x`<ha-icon icon=${option.icon}></ha-icon>` : x``}
+          ${option.label}
+          ${option.badge ? x`<span class="segmented-badge">${option.badge}</span>` : x``}
+        </button>`)}
+    </div>`;
+    }
+    renderRoutesSection() {
       return x`
-      <ha-expansion-panel
-        outlined
-        @expanded-changed=${(e) => {
-        if (e.target.expanded) {
-          this.markSectionAsLazyLoaded("routes" /* routes */);
-        }
-      }}>
-        <h4 slot="header">
-          <ha-icon icon="mdi:routes"></ha-icon>
-          Routes
-        </h4>
+      <ha-expansion-panel outlined expanded>
+        ${this._renderSectionHeader({
+        configKeys: ["routes", "layout.reflect_child_state"],
+        icon: "mdi:routes",
+        title: "Routes"
+      })}
         <div class="editor-section">
-          ${conditionallyRender(this._lazyLoadedSections["routes" /* routes */], () => x`
-              <div class="routes-container">
-                ${(this._config.routes ?? []).map((route, i) => {
-        return this.makeDraggableRouteEditor(route, i);
-      })}
+          ${this._renderInheritableList({
+        configKey: "routes",
+        customizeLabel: "Customize routes for this card",
+        editor: () => x`
+              <div class="item-list">
+                ${(this._config.routes ?? []).map((route, i) => this._renderItemRow(route, i))}
               </div>
-            `)}
-          ${this.makeButton({
-        icon: "mdi:plus",
-        onClick: () => this.addRouteOrPopup(),
-        text: "Add Route"
+              ${this.makeButton({
+          icon: "mdi:plus",
+          onClick: () => {
+            this.addRouteOrPopup();
+            this._openItem = {
+              routeIndex: this._config.routes.length - 1
+            };
+          },
+          text: "Add route"
+        })}
+            `,
+        renderItem: (route) => ({
+          icon: route.image != null ? "mdi:image" : processTemplate(this.hass, undefined, route.icon) ?? "mdi:help-circle-outline",
+          subtitle: this._itemSummary(route),
+          title: this._itemLabel(route, "Route")
+        }),
+        resetLabel: "Use template"
       })}
+          <div class="switch-list">
+            ${this.makeSwitch({
+        configKey: "layout.reflect_child_state",
+        defaultValue: DEFAULT_NAVBAR_CONFIG.layout?.reflect_child_state,
+        helper: "When one of its popup items is selected.",
+        label: "Show routes as selected"
+      })}
+          </div>
         </div>
       </ha-expansion-panel>
     `;
+    }
+    _itemSummary(item) {
+      switch (this._tapMode(item)) {
+        case "popup": {
+          const popup = item.popup;
+          if (isTemplate(popup))
+            return "Popup from a template";
+          const count = Array.isArray(popup) ? popup.length : 0;
+          return `Popup · ${plural(count, "item")}`;
+        }
+        case "action": {
+          const action = item.tap_action?.action;
+          return action ? `Action · ${action.replace(/[-_]/g, " ")}` : "Action";
+        }
+        default:
+          return typeof item.url === "string" ? item.url : undefined;
+      }
+    }
+    _renderItemRow(item, routeIndex, popupIndex) {
+      const popupOf = popupIndex == null ? undefined : routeIndex;
+      const index = popupIndex ?? routeIndex;
+      const listLength = popupOf == null ? this._config.routes.length : this._config.routes[popupOf].popup.length;
+      const drop = this._dropTarget;
+      const target = drop && drop.popupOf === popupOf ? drop.index : null;
+      const open = () => {
+        this._openItem = { popupIndex, routeIndex };
+      };
+      return x`<div
+      class="item-row ${target === index ? "drop-before" : ""} ${target === listLength && index === listLength - 1 ? "drop-after" : ""}"
+      role="button"
+      tabindex="0"
+      @click=${open}
+      @keydown=${(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      }}
+      @dragover=${(e) => {
+        if (!this._draggedItem || this._draggedItem.popupOf !== popupOf) {
+          return;
+        }
+        e.preventDefault();
+        const next = dropIndex(e, index);
+        if (this._dropTarget?.index !== next) {
+          this._dropTarget = { index: next, popupOf };
+        }
+      }}
+      @drop=${(e) => {
+        e.preventDefault();
+        this._moveDraggedItem();
+      }}>
+      <span
+        class="drag-handle"
+        title="Drag to reorder"
+        draggable="true"
+        @click=${(e) => e.stopPropagation()}
+        @dragstart=${(e) => {
+        if (e.dataTransfer) {
+          e.dataTransfer.setData("text/plain", "");
+          e.dataTransfer.effectAllowed = "move";
+        }
+        this._draggedItem = { index, popupOf };
+      }}
+        @dragend=${() => {
+        this._draggedItem = undefined;
+        this._dropTarget = null;
+      }}>
+        <ha-icon icon="mdi:drag"></ha-icon>
+      </span>
+      <span class="item-row-icon">${this._renderItemIcon(item)}</span>
+      <span class="item-row-text">
+        <span class="item-row-title"
+          >${this._itemLabel(item, popupIndex == null ? "Route" : "Popup item")}</span
+        >
+        <span class="item-row-subtitle">${this._itemSummary(item) ?? ""}</span>
+      </span>
+      <ha-icon class="item-row-chevron" icon="mdi:chevron-right"></ha-icon>
+    </div>`;
+    }
+    _moveDraggedItem() {
+      const from = this._draggedItem;
+      const target = this._dropTarget;
+      this._draggedItem = undefined;
+      this._dropTarget = null;
+      if (!(from && target) || from.popupOf !== target.popupOf)
+        return;
+      const move = (list) => {
+        const to = from.index < target.index ? target.index - 1 : target.index;
+        const [moved] = list.splice(from.index, 1);
+        list.splice(to, 0, moved);
+        return list;
+      };
+      const routes = [...this._config.routes];
+      if (target.popupOf == null) {
+        this.updateConfig({ routes: move(routes) });
+      } else {
+        const route = routes[target.popupOf];
+        routes[target.popupOf] = {
+          ...route,
+          popup: move([...route.popup])
+        };
+        this.updateConfig({ routes });
+      }
+    }
+    _tapMode(item) {
+      const action = item.tap_action?.action;
+      if (action === "open-popup" /* openPopup */)
+        return "popup";
+      return action ? "action" : "navigate";
+    }
+    _setTapMode(baseConfigKey, item, mode) {
+      const tapKey = `${baseConfigKey}.tap_action`;
+      if (mode === "navigate") {
+        this.updateConfigByKey(tapKey, null);
+      } else if (mode === "popup") {
+        this._config = genericSetProperty(this._config, `${baseConfigKey}.popup`, item.popup ?? []);
+        this.updateConfigByKey(tapKey, {
+          action: "open-popup" /* openPopup */
+        });
+      } else {
+        this.updateConfigByKey(tapKey, { action: "none" });
+      }
+    }
+    renderItemView() {
+      const { routeIndex, popupIndex } = this._openItem ?? {};
+      const route = routeIndex != null ? this._config.routes?.[routeIndex] : null;
+      const item = popupIndex != null ? route?.popup?.[popupIndex] ?? null : route;
+      if (routeIndex == null || !item)
+        return x``;
+      const isPopup = popupIndex != null;
+      const baseConfigKey = isPopup ? `routes.${routeIndex}.popup.${popupIndex}` : `routes.${routeIndex}`;
+      const key = (field) => `${baseConfigKey}.${field}`;
+      const mode = this._tapMode(item);
+      const goBack = () => {
+        this._openItem = isPopup ? { routeIndex } : null;
+      };
+      return x`
+      <div class="item-view">
+        <div class="item-view-header">
+          <ha-icon-button .label=${"Back"} @click=${goBack}>
+            <ha-icon icon="mdi:arrow-left"></ha-icon>
+          </ha-icon-button>
+          <span class="item-view-title">
+            ${this._itemLabel(item, isPopup ? "Popup item" : "Route")}
+            <span class="item-view-subtitle">
+              ${isPopup ? `Popup item of ${this._itemLabel(route, "route")}` : `Route ${routeIndex + 1}`}
+            </span>
+          </span>
+          <ha-icon-button
+            class="delete-btn"
+            .label=${isPopup ? "Delete popup item" : "Delete route"}
+            title=${isPopup ? "Delete popup item" : "Delete route"}
+            @click=${() => {
+        goBack();
+        this.removeRouteOrPopup(routeIndex, popupIndex);
+      }}>
+            <ha-icon icon="mdi:delete"></ha-icon>
+          </ha-icon-button>
+        </div>
+
+        <div class="editor-section">
+          <div class="editor-row">
+            <div class="editor-row-item">
+              ${this.makeTemplatable({
+        configKey: key("icon"),
+        inputType: "icon",
+        label: "Icon",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+            </div>
+            <div class="editor-row-item">
+              ${this.makeTemplatable({
+        configKey: key("label"),
+        inputType: "string",
+        label: "Label",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+            </div>
+          </div>
+
+          ${this._renderGroup("When tapped", x`
+              ${this._renderSegmented({
+        onChange: (value) => this._setTapMode(baseConfigKey, item, value),
+        options: [
+          {
+            icon: "mdi:link-variant",
+            label: "Navigate",
+            value: "navigate"
+          },
+          ...isPopup ? [] : [
+            {
+              icon: "mdi:menu",
+              label: "Open popup",
+              value: "popup"
+            }
+          ],
+          { icon: "mdi:gesture-tap", label: "Action", value: "action" }
+        ],
+        value: mode
+      })}
+              ${mode === "navigate" ? this.makeNavigationPicker({
+        configKey: key("url"),
+        label: "Page"
+      }) : mode === "popup" ? this._renderPopupItems(route, routeIndex) : this.makeActionSelector({
+        actionType: "tap_action" /* tap_action */,
+        configKey: key("tap_action"),
+        disabledActions: ["open-popup" /* openPopup */],
+        inline: true
+      })}
+            `)}
+
+          <ha-expansion-panel outlined>
+            ${this._renderSubsectionHeader("mdi:star-circle-outline", "Badge", item.badge ? "On" : "Off")}
+            <div class="editor-section">
+              ${this._renderGroup(null, this.makeTemplatable({
+        configKey: key("badge.show"),
+        helper: "A small dot, count or icon on the route.",
+        inputType: "switch",
+        label: "Show a badge",
+        templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
+      }), { switches: true })}
+              ${this._renderGroup("Content", x`<div class="editor-row">
+                  <div class="editor-row-item">
+                    ${this.makeTemplatable({
+        configKey: key("badge.count"),
+        inputType: "string",
+        label: "Count or text",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                  </div>
+                  <div class="editor-row-item">
+                    ${this.makeTemplatable({
+        configKey: key("badge.icon"),
+        inputType: "icon",
+        label: "Icon",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                  </div>
+                </div>`, { helper: "Leave both empty for a plain dot." })}
+              ${this._renderGroup("Colors", x`
+                  ${this.makeTemplatable({
+        configKey: key("badge.color"),
+        inputType: "color",
+        label: "Background",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                  ${this.makeTemplatable({
+        configKey: key("badge.text_color"),
+        inputType: "color",
+        label: "Count or text",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                  ${this.makeTemplatable({
+        configKey: key("badge.icon_color"),
+        inputType: "color",
+        label: "Icon",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                `, {
+        helper: "Optional. The badge is red by default, and its count, text and icon turn black or white to stay readable on any background."
+      })}
+            </div>
+          </ha-expansion-panel>
+
+          <ha-expansion-panel outlined>
+            ${this._renderSubsectionHeader("mdi:dots-horizontal", "More options", "Look, selected state, hold")}
+            <div class="editor-section">
+              ${this._renderGroup("Look", x`
+                  ${this.makeTemplatable({
+        configKey: key("icon_color"),
+        inputType: "color",
+        label: "Icon color",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                  ${this.makeTemplatable({
+        configKey: key("image"),
+        inputType: "string",
+        label: "Image",
+        placeholder: "/local/image.png",
+        templateHelper: STRING_JS_TEMPLATE_HELPER,
+        textHelper: "Shown instead of the icon."
+      })}
+                `)}
+              ${this._renderGroup("When selected", x`
+                  ${mode === "navigate" ? x`` : this.makeNavigationPicker({
+        configKey: key("url"),
+        helper: "Selected while on this page.",
+        label: "Page"
+      })}
+                  <div class="editor-row">
+                    <div class="editor-row-item">
+                      ${this.makeTemplatable({
+        configKey: key("icon_selected"),
+        inputType: "icon",
+        label: "Icon",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                    </div>
+                    <div class="editor-row-item">
+                      ${this.makeTemplatable({
+        configKey: key("image_selected"),
+        inputType: "string",
+        label: "Image",
+        placeholder: "/local/image.png",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                    </div>
+                  </div>
+                  ${this.makeTemplatable({
+        configKey: key("selected_color"),
+        inputType: "color",
+        label: "Color",
+        templateHelper: STRING_JS_TEMPLATE_HELPER
+      })}
+                  ${isPopup ? x`` : x`<div class="switch-list">
+                          ${this.makeTemplatable({
+        configKey: key("selected"),
+        helper: "Instead of following the current page.",
+        inputType: "switch",
+        label: "Always selected",
+        templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
+      })}
+                        </div>`}
+                `, { helper: "While on its page, or when always selected." })}
+              ${this._renderGroup("Visibility", this.makeTemplatable({
+        configKey: key("hidden"),
+        inputType: "switch",
+        label: "Hide",
+        templateHelper: BOOLEAN_JS_TEMPLATE_HELPER
+      }), { switches: true })}
+              ${this._renderGroup("Other gestures", this._renderActions(baseConfigKey, [
+        "hold_action" /* hold_action */,
+        "double_tap_action" /* double_tap_action */
+      ]))}
+            </div>
+          </ha-expansion-panel>
+        </div>
+      </div>
+    `;
+    }
+    _renderPopupItems(route, routeIndex) {
+      const popupKey = `routes.${routeIndex}.popup`;
+      const usesTemplate = isTemplate(route.popup);
+      const toggleLabel = usesTemplate ? "Use the visual editor" : "Use a JavaScript template";
+      return x`<div class="popup-items">
+      <div class="popup-items-header">
+        <span class="editor-label">Popup items</span>
+        <ha-icon-button
+          class="templatable-field-toggle ${usesTemplate ? "active" : ""}"
+          .label=${toggleLabel}
+          title=${toggleLabel}
+          @click=${() => {
+        if (usesTemplate) {
+          let parsed = [];
+          try {
+            parsed = JSON.parse(cleanTemplate(route.popup?.toString()) ?? "[]");
+          } catch (_e) {
+            parsed = [];
+          }
+          this.updateConfigByKey(popupKey, parsed);
+        } else {
+          this.updateConfigByKey(popupKey, wrapTemplate(JSON.stringify(route.popup ?? [], null, 2)));
+        }
+      }}>
+          <ha-icon
+            icon=${usesTemplate ? "mdi:form-textbox" : "mdi:code-braces"}></ha-icon>
+        </ha-icon-button>
+      </div>
+      ${usesTemplate ? this.makeTemplateEditor({
+        configKey: popupKey,
+        helper: GENERIC_JS_TEMPLATE_HELPER,
+        label: "Popup"
+      }) : x`<div class="item-list">
+                ${(route.popup ?? []).map((popupItem, index) => this._renderItemRow(popupItem, routeIndex, index))}
+              </div>
+              ${this.makeButton({
+        icon: "mdi:plus",
+        onClick: () => {
+          this.addRouteOrPopup(routeIndex);
+          const popup = this._config.routes[routeIndex].popup;
+          this._openItem = {
+            popupIndex: popup.length - 1,
+            routeIndex
+          };
+        },
+        text: "Add popup item"
+      })}`}
+    </div>`;
+    }
+    _renderSubsectionHeader(icon, title, summary) {
+      return x`<h5 slot="header">
+      <ha-icon icon=${icon}></ha-icon>
+      <span class="expansion-panel-title">${title}</span>
+      <span class="expansion-panel-summary">${summary}</span>
+    </h5>`;
     }
     makeActionSelector(options) {
       const ACTIONS = [
         { label: "Home Assistant action", value: "hass_action" },
-        { label: "Open Popup", value: "open-popup" /* openPopup */ },
-        { label: "Navigate Back", value: "navigate-back" /* navigateBack */ },
-        { label: "Toggle Menu", value: "toggle-menu" /* toggleMenu */ },
-        { label: "Quickbar", value: "quickbar" /* quickbar */ },
-        { label: "Open Edit Mode", value: "open-edit-mode" /* openEditMode */ },
-        { label: "Logout current user", value: "logout" /* logout */ },
+        { label: "Open popup", value: "open-popup" /* openPopup */ },
+        { label: "Navigate back", value: "navigate-back" /* navigateBack */ },
+        { label: "Toggle sidebar", value: "toggle-menu" /* toggleMenu */ },
+        { label: "Open quick bar", value: "quickbar" /* quickbar */ },
         {
-          label: "Custom JS Action",
+          label: "Edit dashboard",
+          value: "open-edit-mode" /* openEditMode */
+        },
+        { label: "Log out", value: "logout" /* logout */ },
+        {
+          label: "Run JavaScript",
           value: "custom-js-action" /* customJSAction */
         },
         {
-          label: "Show Notifications",
+          label: "Show notifications",
           value: "show-notifications" /* showNotifications */
         }
       ].filter((action) => !options.disabledActions?.includes(action.value));
-      const raw = genericGetProperty(this._config, options.configKey);
+      const raw = this._getValue(options.configKey);
       const selected = this.isCustomAction(raw?.action) ? raw?.action : "hass_action";
-      return x`
-      <ha-expansion-panel outlined>
-        <h5 slot="header" style="display: flex; flex-direction: row">
-          <div class="expansion-panel-title">
-            <ha-icon
-              icon="${this._chooseIconForAction(options.actionType)}"></ha-icon>
-            ${this._chooseLabelForAction(options.actionType)}
-          </div>
-          <ha-icon-button
-            .label=${`Remove ${options.actionType}`}
-            class="delete-btn"
-            @click=${(e) => {
-        e.stopPropagation();
-        this.updateConfigByKey(options.configKey, null);
-      }}>
-            <ha-icon icon="mdi:delete"></ha-icon>
-          </ha-icon-button>
-        </h5>
-        <div class="editor-section">
-          <div class="editor-select-field">
-            <label class="editor-label">
-              ${this._chooseLabelForAction(options.actionType)}
-            </label>
-            <select
-              class="editor-select"
-              .value=${selected}
-              ?disabled=${options.disabled}
-              @change=${(e) => {
-        const newSel = e.target.value;
-        if (newSel === "hass_action") {
-          this.updateConfigByKey(options.configKey, {
-            action: "none"
-          });
-        } else {
-          this.updateConfigByKey(options.configKey, {
-            action: newSel
-          });
-        }
-      }}>
-              ${ACTIONS.map((action) => x`<option
-                  value=${action.value}
-                  ?selected=${action.value === selected}>
-                  ${action.label}
-                </option>`)}
-            </select>
-          </div>
+      const body = x`
+          ${renderDropdown(selected, (newSel) => {
+        if (!newSel || newSel === selected)
+          return;
+        this.updateConfigByKey(options.configKey, {
+          action: newSel === "hass_action" ? "none" : newSel
+        });
+      }, {
+        configKey: options.configKey,
+        disabled: options.disabled,
+        items: ACTIONS,
+        label: "Action type"
+      })}
 
           ${selected === "quickbar" /* quickbar */ ? x`
-                <div class="quickbar-mode-container">
-                  <ha-formfield label="Devices">
-                    <ha-radio
-                      name="quickbar-mode"
-                      value="devices"
-                      label="Devices"
-                      .checked=${raw?.mode === "devices"}
-                      @change=${() => {
-        this.updateConfigByKey(options.configKey, {
-          action: "quickbar" /* quickbar */,
-          mode: "devices"
-        });
-      }}></ha-radio>
-                  </ha-formfield>
-                  <ha-formfield label="Entities">
-                    <ha-radio
-                      name="quickbar-mode"
-                      value="entities"
-                      label="Entities"
-                      .checked=${raw?.mode === "entities"}
-                      @change=${() => {
-        this.updateConfigByKey(options.configKey, {
-          action: "quickbar" /* quickbar */,
-          mode: "entities"
-        });
-      }}></ha-radio>
-                  </ha-formfield>
-                  <ha-formfield label="Commands">
-                    <ha-radio
-                      name="quickbar-mode"
-                      value="commands"
-                      label="Commands"
-                      .checked=${raw?.mode === "commands"}
-                      @change=${() => {
-        this.updateConfigByKey(options.configKey, {
-          action: "quickbar" /* quickbar */,
-          mode: "commands"
-        });
-      }}></ha-radio>
-                  </ha-formfield>
-                </div>
+                ${this._renderSegmented({
+        onChange: (mode) => {
+          this.updateConfigByKey(options.configKey, {
+            action: "quickbar" /* quickbar */,
+            ...mode === "search" ? {} : { mode }
+          });
+        },
+        options: QUICKBAR_MODES2,
+        value: raw?.mode ?? "search"
+      })}
               ` : x``}
           ${selected === "custom-js-action" /* customJSAction */ ? this.makeTemplateEditor({
         configKey: `${options.configKey}.code`,
@@ -4115,7 +5439,7 @@ var init_navbar_card_editor = __esm(() => {
                   .data=${typeof raw === "object" ? { action: raw } : {}}
                   .schema=${[
         {
-          label: this._chooseLabelForAction(options.actionType),
+          label: ACTION_INFO[options.actionType].label,
           name: "action",
           required: true,
           selector: {
@@ -4136,7 +5460,30 @@ var init_navbar_card_editor = __esm(() => {
         disabled: options.disabled,
         label: ""
       }) : x``}
-        </div>
+`;
+      if (options.inline)
+        return x`<div class="action-inline">${body}</div>`;
+      return x`
+      <ha-expansion-panel
+        outlined
+        .expanded=${this._expandedItemKey === options.configKey}>
+        <h5 slot="header" style="display: flex; flex-direction: row">
+          <div class="expansion-panel-title">
+            <ha-icon
+              icon=${ACTION_INFO[options.actionType].icon}></ha-icon>
+            ${ACTION_INFO[options.actionType].label}
+          </div>
+          <ha-icon-button
+            .label=${`Remove ${options.actionType}`}
+            class="delete-btn"
+            @click=${(e) => {
+        e.stopPropagation();
+        this.updateConfigByKey(options.configKey, null);
+      }}>
+            <ha-icon icon="mdi:delete"></ha-icon>
+          </ha-icon-button>
+        </h5>
+        <div class="editor-section">${body}</div>
       </ha-expansion-panel>
     `;
     }
@@ -4144,34 +5491,15 @@ var init_navbar_card_editor = __esm(() => {
       return x`
     ${conditionallyRender(!this._loadingComponents, () => x`
       <div class="navbar-editor">
-        ${this._config.template != null && this._config.template?.trim() != "" ? x`
-              <ha-alert alert-type="warning">
-                You have the <code>template</code> field configured for
-                navbar-card. Using the editor will override the props for
-                <strong>this card only</strong>, but will not update the
-                template defined in your dashboard.
-                <br />
-                <a
-                  href="${DOCS_LINKS.template}"
-                  target="_blank"
-                  rel="noopener"
-                  >Check the documentation</a
-                >
-                to know how to configure your navbar-card templates.
-                <ha-button
-                  class="reset-overrides-button"
-                  slot="action"
-                  .disabled=${!this._hasTemplateOverrides()}
-                  @click=${this._resetToTemplateOnly}>
-                  Reset overrides
-                </ha-button>
-              </ha-alert>
-            ` : x``}
-        ${this.renderTemplateEditor()} ${this.renderRoutesEditor()}
-        ${this.renderDesktopEditor()} ${this.renderMobileEditor()}
-        ${this.renderLayoutEditor()} ${this.renderMediaPlayerEditor()}
-        ${this.renderHapticEditor()} ${this.renderStylesEditor()}
+        ${this._openItem ? this.renderItemView() : x`
+              ${this.isTemplateEditor ? x`` : this.renderTemplateEditor()}
+              ${this.renderRoutesSection()}
+              ${this.renderAppearanceSection()}
+              ${this.renderMediaPlayerEditor()}
+              ${this.renderAdvancedSection()}
+            `}
       </div>
+      ${this._renderFieldMenu()} ${this._renderTemplateDialog()}
     `)}`;
     }
     static styles = getEditorStyles();
@@ -4189,8 +5517,35 @@ var init_navbar_card_editor = __esm(() => {
     r5()
   ], NavbarCardEditor.prototype, "_templateModeByField", undefined);
   __legacyDecorateClassTS([
+    n4({ attribute: false })
+  ], NavbarCardEditor.prototype, "isTemplateEditor", undefined);
+  __legacyDecorateClassTS([
     r5()
-  ], NavbarCardEditor.prototype, "_lazyLoadedSections", undefined);
+  ], NavbarCardEditor.prototype, "_templateDialog", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_newTemplateName", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_showSaveAsTemplate", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_openItem", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_appearanceDevice", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_dropTarget", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_fieldMenu", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_templateError", undefined);
+  __legacyDecorateClassTS([
+    r5()
+  ], NavbarCardEditor.prototype, "_savingTemplate", undefined);
   NavbarCardEditor = __legacyDecorateClassTS([
     t3("navbar-card-editor")
   ], NavbarCardEditor);
@@ -4250,6 +5605,27 @@ var e6 = e5(class extends i5 {
       s === this.st.has(t) || this.nt?.has(t) || (s ? (r.add(t), this.st.add(t)) : (r.remove(t), this.st.delete(t)));
     }
     return T;
+  }
+});
+// node_modules/lit-html/directives/keyed.js
+init_lit_html();
+
+// node_modules/lit-html/directive-helpers.js
+init_lit_html();
+var { I: t5 } = Z;
+var u3 = {};
+var m2 = (o, t = u3) => o._$AH = t;
+
+// node_modules/lit-html/directives/keyed.js
+var i6 = e5(class extends i5 {
+  constructor() {
+    super(...arguments), this.key = E;
+  }
+  render(r, t) {
+    return this.key = r, t;
+  }
+  update(r, [t, e]) {
+    return t !== this.key && (m2(r), this.key = t), e;
   }
 });
 // src/lib/event-detection.ts
@@ -4368,6 +5744,7 @@ class MediaPlayer {
     this._dragStartX = 0;
     this._dragOffset = 0;
     this._isDragging = false;
+    this._progressAnchors = new Map;
     this.isVisible = () => {
       const config = this._navbarCard.config?.media_player;
       const players = config?.players ?? [];
@@ -4465,6 +5842,12 @@ class MediaPlayer {
       this._isDragging = false;
       this._dragOffset = 0;
       this._navbarCard.requestUpdate();
+    };
+    this._onProgressAnimationStart = (e, state, anchorPosition) => {
+      const elapsed = this._getPosition(state) - anchorPosition;
+      for (const animation of e.target.getAnimations?.() ?? []) {
+        animation.currentTime = elapsed * 1000;
+      }
     };
   }
   get desktop_position() {
@@ -4579,11 +5962,35 @@ class MediaPlayer {
       </ha-card>
     `;
   }
+  _getProgress(entity, state) {
+    const {
+      media_position: reported,
+      media_duration: duration,
+      media_position_updated_at: updatedAt
+    } = state.attributes;
+    if (reported == null || !(duration > 0))
+      return null;
+    const playing = state.state === "playing";
+    const key = `${reported}|${duration}|${updatedAt}|${state.state}`;
+    let anchor = this._progressAnchors.get(entity);
+    if (anchor?.key !== key) {
+      anchor = { key, position: this._getPosition(state) };
+      this._progressAnchors.set(entity, anchor);
+    }
+    return { duration, key, playing, position: anchor.position };
+  }
+  _getPosition(state) {
+    const {
+      media_position: reported,
+      media_duration: duration,
+      media_position_updated_at: updatedAt
+    } = state.attributes;
+    const elapsed = state.state === "playing" && updatedAt ? (Date.now() - new Date(updatedAt).getTime()) / 1000 : 0;
+    return Math.min(reported + Math.max(0, elapsed), duration);
+  }
   _renderCardContent(player, entity, state) {
     const image = state.attributes.entity_picture_local ?? state.attributes.entity_picture;
-    const pos = state.attributes.media_position;
-    const dur = state.attributes.media_duration;
-    const progress = pos != null && dur != null && dur > 0 ? pos / dur : null;
+    const progress = this._getProgress(entity, state);
     const icon = this._resolveIcon(player);
     const title = this._resolveTitle(player, state);
     const subtitle = this._resolveSubtitle(player, state);
@@ -4593,9 +6000,13 @@ class MediaPlayer {
         class="media-player-bg"
         style=${albumBg ? `background-image: url(${image});` : ""}></div>
       ${progress != null ? x`<div class="media-player-progress-bar">
-              <div
-                class="media-player-progress-bar-fill"
-                style="width: ${progress * 100}%"></div>
+              ${i6(progress.key, x`<div
+                  class=${e6({
+      "media-player-progress-bar-fill": true,
+      playing: progress.playing
+    })}
+                  style="--progress: ${progress.position / progress.duration}; animation-duration: ${progress.duration - progress.position}s"
+                  @animationstart=${(e) => this._onProgressAnimationStart(e, state, progress.position)}></div>`)}
             </div>` : x``}
       ${image && !icon ? x`<img
               class="media-player-image"
@@ -4636,7 +6047,7 @@ init_lit();
 // node_modules/lit-html/directives/style-map.js
 init_lit_html();
 var n5 = "important";
-var i6 = " !" + n5;
+var i7 = " !" + n5;
 var o6 = e5(class extends i5 {
   constructor(t) {
     if (super(t), t.type !== t4.ATTRIBUTE || t.name !== "style" || t.strings?.length > 2)
@@ -4658,7 +6069,7 @@ var o6 = e5(class extends i5 {
       const e = r[t];
       if (e != null) {
         this.ft.add(t);
-        const r = typeof e == "string" && e.endsWith(i6);
+        const r = typeof e == "string" && e.endsWith(i7);
         t.includes("-") || r ? s.setProperty(t, r ? e.slice(0, -11) : e, r ? n5 : "") : s[t] = e;
       }
     }
@@ -5348,7 +6759,7 @@ init_types();
 init_utils();
 init_docs_links();
 // package.json
-var version = "1.7.2";
+var version = "1.8.0";
 
 // src/navbar-card.ts
 window.customCards = window.customCards || [];
@@ -5367,12 +6778,23 @@ class NavbarCard extends i4 {
     this.focusedPopup = null;
     this._mediaPlayerPosition = null;
     this._isHidden = false;
+    this._applyTemplate = () => {
+      if (!this._rawConfig?.template)
+        return;
+      try {
+        this.setConfig(this._rawConfig);
+      } catch (error) {
+        console.error("[navbar-card]", error);
+      }
+    };
     this._onDesktopChange = (event) => {
       this.isDesktop = event.matches;
     };
   }
   set hass(hass) {
     this._hass = hass;
+    if (this._rawConfig?.template)
+      loadSharedTemplates(hass);
     const { visible } = this._mediaPlayer.isVisible();
     this._mediaPlayerPosition = visible ? this._mediaPlayer.desktop_position : null;
   }
@@ -5394,26 +6816,29 @@ class NavbarCard extends i4 {
     forceResetRipple(this);
     this._detectModes();
     this._watchDesktop();
-    injectStyles(this, getDefaultStyles(), this.config?.styles ? r(this.config.styles) : i``);
+    this._injectStyles();
     this._applyDashboardPadding();
+    this._unsubscribeSharedTemplates = onSharedTemplatesChange(this._applyTemplate);
+    this._applyTemplate();
   }
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._unsubscribeSharedTemplates?.();
     this._unwatchDesktop();
     removeDashboardPadding(this);
     this.focusedPopup = null;
   }
   setConfig(config) {
+    this._rawConfig = config;
     let mergedConfig = config;
     if (config?.template) {
-      const templates = getNavbarTemplates();
-      if (templates) {
-        const templateConfig = templates[config.template];
-        if (templateConfig) {
-          mergedConfig = deepMergeKeepArrays(templateConfig, config);
-        }
+      const templateConfig = getAvailableTemplates()[config.template];
+      if (templateConfig) {
+        mergedConfig = deepMergeKeepArrays(templateConfig, config);
+      } else if (getSharedTemplates() === null) {
+        return;
       } else {
-        console.warn(`[navbar-card] No templates configured in this dashboard. Please refer to "templates" documentation for more information.
+        console.warn(`[navbar-card] Template "${config.template}" not found. Please refer to "templates" documentation for more information.
 
 ${DOCS_LINKS.template}
 `);
@@ -5426,8 +6851,13 @@ ${DOCS_LINKS.template}
       return;
     this._routes = mergedConfig.routes.map((route) => new Route(this, route));
     this.config = mergedConfig;
-    if (this.isConnected)
+    if (this.isConnected) {
       this._watchDesktop();
+      this._injectStyles();
+    }
+  }
+  _injectStyles() {
+    injectStyles(this, getDefaultStyles(), this.config?.styles ? r(this.config.styles) : i``);
   }
   willUpdate(changedProperties) {
     super.willUpdate(changedProperties);
