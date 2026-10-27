@@ -57,6 +57,15 @@ input_boolean:
   ev_rob_opladen_uitgezet:
     name: "EV-Rob – opladen uitgezet (knop)"
     icon: mdi:battery-off
+  # 'Alleen gratis laden op zonnepanelen' (knop): prijssturing uit, laden op
+  # PV-overschot blijft werken. Gewist op de vertrektijd, bij boost en bij
+  # 'weer volgens planning laden'. Wordt NIET gewist door het starten van het laden.
+  ev_sonia_alleen_zon:
+    name: "EV-Sonia – alleen gratis laden op zonnepanelen (knop)"
+    icon: mdi:solar-power
+  ev_rob_alleen_zon:
+    name: "EV-Rob – alleen gratis laden op zonnepanelen (knop)"
+    icon: mdi:solar-power
   # Prijssturing overslaan tot de vertrektijd (knop 'Nacht overslaan'); wordt
   # automatisch gewist op de vertrektijd. Boost en PV-laden blijven werken.
   ev_rob_nacht_overslaan:
@@ -503,6 +512,8 @@ template:
             Niet aangesloten
           {% elif is_state('input_boolean.ev_sonia_opladen_uitgezet', 'on') %}
             Opladen handmatig uitgezet
+          {% elif is_state('input_boolean.ev_sonia_alleen_zon', 'on') and not is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
+            Alleen gratis laden op zonnepanelen
           {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
             {# Laden mag nu; wat de tekst zegt hangt af van wat de lader/auto echt doet #}
             {% set st = states('sensor.ev_sonia_status_connector') %}
@@ -570,6 +581,8 @@ template:
             Niet aangesloten
           {% elif is_state('input_boolean.ev_rob_opladen_uitgezet', 'on') %}
             Opladen handmatig uitgezet
+          {% elif is_state('input_boolean.ev_rob_alleen_zon', 'on') and not is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
+            Alleen gratis laden op zonnepanelen
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
             {% set st = states('sensor.ev_rob_status_connector') %}
             {{ 'De accu wordt nu opgeladen' if st == 'Charging'
@@ -888,6 +901,7 @@ template:
           {{ is_state('input_boolean.ev_sonia_direct_laden', 'on')
              or (is_state('input_boolean.ev_sonia_nacht_overslaan', 'off')
                  and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off')
+                 and is_state('input_boolean.ev_sonia_alleen_zon', 'off')
                  and (states('sensor.zonneplan_current_electricity_tariff') | float(99)
                       <= states('input_number.ev_prijsdrempel') | float(-99)
                       or is_state('binary_sensor.ev_lb_sonia_goedkoop_uur', 'on'))) }}
@@ -897,6 +911,7 @@ template:
           {{ is_state('input_boolean.ev_rob_direct_laden', 'on')
              or (is_state('input_boolean.ev_rob_nacht_overslaan', 'off')
                  and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off')
+                 and is_state('input_boolean.ev_rob_alleen_zon', 'off')
                  and (states('sensor.zonneplan_current_electricity_tariff') | float(99)
                       <= states('input_number.ev_prijsdrempel') | float(-99)
                       or is_state('binary_sensor.ev_lb_rob_goedkoop_uur', 'on'))) }}
@@ -980,7 +995,22 @@ script:
           entity_id: input_boolean.ev_sonia_opladen_uitgezet
       - action: input_boolean.turn_off
         target:
-          entity_id: input_boolean.ev_sonia_direct_laden
+          entity_id:
+            - input_boolean.ev_sonia_direct_laden
+            - input_boolean.ev_sonia_alleen_zon
+  ev_sonia_alleen_zon_laden:
+    alias: "EV-Sonia – alleen gratis laden op zonnepanelen (knop)"
+    sequence:
+      # Dit was de routine van de knop 'Accu opladen uitzetten' voordat die ook
+      # het zonneladen stopte: prijssturing uit, boost uit, PV-laden blijft werken.
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ev_sonia_alleen_zon
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.ev_sonia_opladen_uitgezet
+            - input_boolean.ev_sonia_direct_laden
   ev_rob_opladen_uitzetten:
     alias: "EV-Rob – opladen uitzetten (knop)"
     sequence:
@@ -990,7 +1020,22 @@ script:
           entity_id: input_boolean.ev_rob_opladen_uitgezet
       - action: input_boolean.turn_off
         target:
-          entity_id: input_boolean.ev_rob_direct_laden
+          entity_id:
+            - input_boolean.ev_rob_direct_laden
+            - input_boolean.ev_rob_alleen_zon
+  ev_rob_alleen_zon_laden:
+    alias: "EV-Rob – alleen gratis laden op zonnepanelen (knop)"
+    sequence:
+      # Dit was de routine van de knop 'Accu opladen uitzetten' voordat die ook
+      # het zonneladen stopte: prijssturing uit, boost uit, PV-laden blijft werken.
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.ev_rob_alleen_zon
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+            - input_boolean.ev_rob_opladen_uitgezet
+            - input_boolean.ev_rob_direct_laden
   ev_sonia_laden_volgens_planning:
     alias: "EV-Sonia – weer volgens planning laden (knop)"
     sequence:
@@ -998,6 +1043,7 @@ script:
         target:
           entity_id:
             - input_boolean.ev_sonia_opladen_uitgezet
+            - input_boolean.ev_sonia_alleen_zon
             - input_boolean.ev_sonia_direct_laden
       # Oude blokstart wissen (datum ver in het verleden = geen lopende cyclus);
       # ev_blok_vastleggen legt direct daarna de nieuwe start vast.
@@ -1018,6 +1064,7 @@ script:
         target:
           entity_id:
             - input_boolean.ev_rob_opladen_uitgezet
+            - input_boolean.ev_rob_alleen_zon
             - input_boolean.ev_rob_direct_laden
       # Oude blokstart wissen (datum ver in het verleden = geen lopende cyclus);
       # ev_blok_vastleggen legt direct daarna de nieuwe start vast.
@@ -1398,6 +1445,9 @@ automation:
       - action: input_boolean.turn_off
         target:
           entity_id: "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: "input_boolean.ev_{{ trigger.id }}_alleen_zon"
   # ---------------------------------------------------------------
   # Na een herstart van HA: setpunten op 6 A, daarna rustig opbouwen.
   # (Hier worden bewust GEEN profielen naar de laders geschreven: een apart
@@ -1492,6 +1542,7 @@ automation:
           controle: binary_sensor.ev_lb_sonia_onder_controle
           toegestaan: binary_sensor.ev_lb_sonia_laden_toegestaan
           pv: binary_sensor.ev_lb_sonia_pv_laden
+          uitgezet: input_boolean.ev_sonia_opladen_uitgezet
           vermogen: sensor.ev_sonia_vermogen
           fase: input_select.ev_lb_sonia_fase
         - naam: rob
@@ -1503,6 +1554,7 @@ automation:
           controle: binary_sensor.ev_lb_rob_onder_controle
           toegestaan: binary_sensor.ev_lb_rob_laden_toegestaan
           pv: binary_sensor.ev_lb_rob_pv_laden
+          uitgezet: input_boolean.ev_rob_opladen_uitgezet
           vermogen: sensor.ev_rob_vermogen
           fase: input_select.ev_lb_rob_fase
       # Werkelijke laadstroom van Sonia's lader (OCPP), om te zien of haar auto
@@ -1538,7 +1590,7 @@ automation:
                  Zijn stroom zit wel in de P1-meting, dus de rest regelt eromheen. #}
               {% set b = states(l.status) in bezig_statussen and is_state(l.controle, 'on') %}
               {% set h = states(l.setpunt) | int(0) %}
-              {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on')}}) %}
+              {% set ns.out = dict(ns.out, **{l.naam: {'bezig': b, 'huidig': h, 'nieuw': (h if b else 6), 'tg': is_state(l.toegestaan, 'on'), 'pv': is_state(l.pv, 'on') and is_state(l.uitgezet, 'off')}}) %}
             {% endfor %}
 
             {% if overbelast and ruimte < zwaar and lasten_uit %}
@@ -1727,7 +1779,9 @@ automation:
                               or is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on'))
                          and states('input_number.ev_lb_setpunt_sonia') | int(0)
                              < states('input_number.ev_lb_max_sonia') | int(16) %}
-                    {{ is_state(status, 'Preparing') and (is_state(toegestaan, 'on') or is_state(pv, 'on'))
+                    {{ is_state(status, 'Preparing')
+                       and (is_state(toegestaan, 'on')
+                            or (is_state(pv, 'on') and is_state('input_boolean.ev_' ~ repeat.item.naam ~ '_opladen_uitgezet', 'off')))
                        and is_state(controle, 'on') and is_state(schakelaar, 'off')
                        and not sonia_wacht
                        and (repeat.item.naam != 'rob' or states('sensor.ev_lb_ruimte') | float(0) >= 7) }}
