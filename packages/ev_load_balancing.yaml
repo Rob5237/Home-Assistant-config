@@ -618,10 +618,14 @@ template:
             {%- set plan_tekst = 'Accu wordt nu op laagste tarief opgeladen → €€' -%}
           {%- elif st == 'Charging' and pvl -%}
             {%- set plan_tekst = 'Accu wordt nu met zonnestroom opgeladen' -%}
+          {%- elif tg and st in ['SuspendedEV', 'SuspendedEVSE'] and states('sensor.ev_sonia_vermogen') | float(0) < 100
+                      and (now() - states.sensor.ev_sonia_status_connector.last_changed).total_seconds() > 120 -%}
+            {%- set plan_tekst = 'Laden toegestaan, maar de auto neemt geen stroom af (accu vol?)' -%}
           {%- elif tg -%}
             {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
           {%- else -%}
-            {%- set plan_tekst = 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+            {%- set vs = states('sensor.ev_sonia_verwachte_start') -%}
+            {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
           {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
@@ -678,10 +682,14 @@ template:
             {%- set plan_tekst = 'Accu wordt nu op laagste tarief opgeladen → €€' -%}
           {%- elif st == 'Charging' and pvl -%}
             {%- set plan_tekst = 'Accu wordt nu met zonnestroom opgeladen' -%}
+          {%- elif tg and st in ['SuspendedEV', 'SuspendedEVSE'] and states('sensor.ev_rob_vermogen') | float(0) < 100
+                      and (now() - states.sensor.ev_rob_status_connector.last_changed).total_seconds() > 120 -%}
+            {%- set plan_tekst = 'Laden toegestaan, maar de auto neemt geen stroom af (accu vol?)' -%}
           {%- elif tg -%}
             {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
           {%- else -%}
-            {%- set plan_tekst = 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+            {%- set vs = states('sensor.ev_rob_verwachte_start') -%}
+            {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
           {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
