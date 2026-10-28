@@ -21,6 +21,57 @@
   Caching-valkuil: na een wijziging in dit bestand is een volledige core/restart het zekerst (zie CLAUDE.md).
 #}
 
+{#
+  zon_kw(mid, nu_test=none): verwacht zonvermogen (kW) van de panelen op tijdstip `mid` (datetime), uit de
+    Forecast.Solar-sensoren (3 dakdelen) met een sinusvorm over zonsopkomst-zonsondergang. Vandaag: de
+    resterende dagopbrengst verdeeld over de resterende daglicht-uren; morgen: de dagopbrengst; later: 0.
+  eff_prijs(p, st, p_kw): effectieve stroomprijs (EUR/kWh) voor een verbruiker met elektrisch vermogen p_kw
+    in het kwartier `st` van een Zonneplan-kwartierforecast-item `p`. Het deel dat uit zonne-overschot kan komen
+    (zonforecast - huisverbruik, begrensd op 0..1 van p_kw) wordt gewaardeerd tegen de zonwaarde, de rest tegen
+    het tarief incl. belasting. Zonwaarde: tot input_datetime.ev_lb_saldering_einde het tarief x
+    input_number.ev_lb_zonwaarde_factor_saldering, daarna max(0, prijs excl. belasting + terugleveraanpassing).
+    Met factor 1,0 vóór de einddatum is het resultaat gelijk aan het kale tarief (gebruikt door de
+    warmtepomp-macro's in warmtepomp_macros.jinja en door ev_dag_blok).
+#}
+{%- macro zon_kw(mid, nu_test=none) -%}
+  {%- set nu = nu_test if nu_test is not none else now() -%}
+  {%- set rise = state_attr('sun.sun', 'next_rising') | as_datetime | as_local -%}
+  {%- set sett = state_attr('sun.sun', 'next_setting') | as_datetime | as_local -%}
+  {%- set rise0 = rise - timedelta(days=(rise.date() - nu.date()).days) -%}
+  {%- set sett0 = sett - timedelta(days=(sett.date() - nu.date()).days) -%}
+  {%- set j = (mid.date() - nu.date()).days -%}
+  {%- set sr = rise0 + timedelta(days=j) -%}
+  {%- set ss = sett0 + timedelta(days=j) -%}
+  {%- set dd = (ss - sr).total_seconds() / 3600 -%}
+  {%- set x = (mid - sr).total_seconds() / 3600 -%}
+  {%- set zon = 0 -%}
+  {%- if dd > 1 and 0 < x < dd -%}
+    {%- if j == 0 -%}
+      {%- set rest = states('sensor.energy_production_today_remaining') | float(0) + states('sensor.energy_production_today_remaining_2') | float(0) + states('sensor.energy_production_today_remaining_3') | float(0) -%}
+      {%- set xa = [(nu - sr).total_seconds() / 3600, 0] | max -%}
+      {%- set integraal = dd / pi * (cos(pi * xa / dd) + 1) -%}
+      {%- if integraal > 0.01 and nu < ss -%}{%- set zon = rest / integraal * sin(pi * x / dd) -%}{%- endif -%}
+    {%- elif j == 1 -%}
+      {%- set morgen = states('sensor.energy_production_tomorrow') | float(0) + states('sensor.energy_production_tomorrow_2') | float(0) + states('sensor.energy_production_tomorrow_3') | float(0) -%}
+      {%- set zon = morgen * pi / (2 * dd) * sin(pi * x / dd) -%}
+    {%- endif -%}
+  {%- endif -%}
+  {{- zon -}}
+{%- endmacro %}
+
+{%- macro eff_prijs(p, st, p_kw, nu_test=none) -%}
+  {%- set incl = p.price_tax_included.amount | float(3000000) / 10000000 -%}
+  {%- set excl = (p.get('price_tax_excluded', {}).get('amount', none) | float(none) / 10000000) if p.get('price_tax_excluded', {}).get('amount', none) is not none else incl -%}
+  {%- set zon = zon_kw(st + timedelta(minutes=7.5), nu_test) | float(0) -%}
+  {%- set huis_kw = states('sensor.ev_huisverbruik_24u') | float(850) / 1000 -%}
+  {%- set aandeel = ([[(zon - huis_kw) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
+  {%- set einde = states('input_datetime.ev_lb_saldering_einde') | as_datetime | as_local -%}
+  {%- set factor = states('input_number.ev_lb_zonwaarde_factor_saldering') | float(1) -%}
+  {%- set aanpas = states('input_number.ev_lb_terugleveraanpassing') | float(0) -%}
+  {%- set waarde = incl * factor if st < einde else ([excl + aanpas, 0] | max) -%}
+  {{- incl * (1 - aandeel) + waarde * aandeel -}}
+{%- endmacro %}
+
 {%- macro ev_dag_blok(n, nu_test=none) -%}
   {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
   {%- set nu = nu_test if nu_test is not none else now() -%}
@@ -57,22 +108,7 @@
       {%- set p = q.price_tax_included.amount | float(0) / 10000000 -%}
       {%- set pe = q.price_tax_excluded.amount | float(0) / 10000000 -%}
       {%- set mid = st + timedelta(minutes=7.5) -%}
-      {#- Zon-vermogen (kW) op het midden van dit kwartier -#}
-      {%- set j = (mid.date() - nu.date()).days -%}
-      {%- set sr = rise0 + timedelta(days=j) -%}
-      {%- set ss = sett0 + timedelta(days=j) -%}
-      {%- set dd = (ss - sr).total_seconds() / 3600 -%}
-      {%- set x = (mid - sr).total_seconds() / 3600 -%}
-      {%- set zon = 0 -%}
-      {%- if dd > 1 and 0 < x < dd -%}
-        {%- if j == 0 -%}
-          {%- set xa = [(nu - sr).total_seconds() / 3600, 0] | max -%}
-          {%- set integraal = dd / pi * (cos(pi * xa / dd) + 1) -%}
-          {%- if integraal > 0.01 and nu < ss -%}{%- set zon = rest / integraal * sin(pi * x / dd) -%}{%- endif -%}
-        {%- elif j == 1 -%}
-          {%- set zon = morgen * pi / (2 * dd) * sin(pi * x / dd) -%}
-        {%- endif -%}
-      {%- endif -%}
+      {%- set zon = zon_kw(mid, nu) | float(0) -%}
       {%- set aandeel = ([[(zon - huis_kw) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
       {%- set waarde = p * factor if st < einde else ([pe + aanpas, 0] | max) -%}
       {%- set kosten = p * (1 - aandeel) + waarde * aandeel -%}

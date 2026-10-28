@@ -10,6 +10,12 @@
   Stooklijn: lineair van t_aanvoer_min @ t_drempel tot t_aanvoer_max @ -10°C,
   clamped op beide uiteinden.
   Zonneplan-prijs: p.electricity_price is in 10^-7 €/kWh → /10000000 = €/kWh.
+
+  Zonwaarde (28-10-2026): de kwartier-macro's (bereken_kwartieren, bereken_tdi_kwartieren,
+  bereken_dhw_kwartieren) rekenen met de EFFECTIEVE prijs uit ev_macros.jinja (eff_prijs): het deel van het
+  elektrisch vermogen (wp_kw) dat uit zonne-overschot kan komen telt tegen de zonwaarde (saldering: tarief x
+  factor; vanaf input_datetime.ev_lb_saldering_einde de terugleverprijs). Veld 'prijs' = effectieve prijs,
+  'tarief' = kale tarief incl. belasting. Vóór de einddatum met factor 1,0 is prijs gelijk aan tarief.
 #}
 
 {%- macro stooklijn_aanvoer(t_buiten, t_min, t_max, t_drempel) -%}
@@ -84,7 +90,8 @@
   temp/aanvoer/COP, alleen de prijs varieert per kwartier.
   Output: zelfde velden als bereken_uren plus 'kwartier' (0/15/30/45).
 #}
-{%- macro bereken_kwartieren(prijzen_kw, weer, t_min, t_max, t_drempel) -%}
+{%- macro bereken_kwartieren(prijzen_kw, weer, t_min, t_max, t_drempel, wp_kw=1.2) -%}
+  {%- from 'ev_macros.jinja' import eff_prijs -%}
   {%- set helling = (t_max - t_min) / (t_drempel - (-10)) -%}
   {%- set ns = namespace(uren=[]) -%}
   {%- for p in prijzen_kw -%}
@@ -111,7 +118,8 @@
         {%- set t_a = [[t_min, t_min + helling * (t_drempel - t)] | max, t_max] | min -%}
         {%- set lift = [1, t_a - t] | max -%}
         {%- set c = [[1.5, 0.4 * (t_a + 273) / lift] | max, 6.0] | min -%}
-        {%- set prijs_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+        {%- set tarief_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+{%- set prijs_eur = eff_prijs(p, p_start, wp_kw) | float(tarief_eur) -%}
         {%- set k = prijs_eur / c -%}
         {%- set ns.uren = ns.uren + [{
           'dag': p_start.strftime('%Y-%m-%d'),
@@ -122,6 +130,7 @@
           'aanvoer': t_a | round(1),
           'cop_geschat': c | round(2),
           'prijs': prijs_eur | round(4),
+          'tarief': tarief_eur | round(4),
           'kosten_warmte': k | round(4)
         }] -%}
       {%- endif -%}
@@ -184,7 +193,8 @@
   7), maar daarna alle kwartieren binnen 09:00-16:00 van die dag i.p.v. hele
   uren. Zie bereken_kwartieren voor de forecast-structuurverschillen.
 #}
-{%- macro bereken_tdi_kwartieren(prijzen_kw, weer, tdi_dagen) -%}
+{%- macro bereken_tdi_kwartieren(prijzen_kw, weer, tdi_dagen, wp_kw=2.0) -%}
+  {%- from 'ev_macros.jinja' import eff_prijs -%}
   {%- set t_aanvoer_tdi = 65 -%}
   {%- set ns = namespace(eerste_dag=none) -%}
   {%- for p in prijzen_kw -%}
@@ -215,7 +225,8 @@
           {%- set t = m.t -%}
           {%- set lift = [1, t_aanvoer_tdi - t] | max -%}
           {%- set c = [[1.5, 0.4 * (t_aanvoer_tdi + 273) / lift] | max, 6.0] | min -%}
-          {%- set prijs_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+          {%- set tarief_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+{%- set prijs_eur = eff_prijs(p, p_start, wp_kw) | float(tarief_eur) -%}
           {%- set k = prijs_eur / c -%}
           {%- set ns2.uren = ns2.uren + [{
             'dag': p_start.strftime('%Y-%m-%d'),
@@ -224,6 +235,7 @@
             'label': p_start.strftime('%d-%m %H:%M'),
             'cop_geschat': c | round(2),
             'prijs': prijs_eur | round(4),
+          'tarief': tarief_eur | round(4),
             'kosten_warmte': k | round(4)
           }] -%}
         {%- endif -%}
@@ -402,7 +414,8 @@
   zodra het begint). Output bevat ook 'start'/'einde' (ISO) zodat de
   aanroeper kan checken of "nu" binnen het beste kwartier-interval valt.
 #}
-{%- macro bereken_dhw_kwartieren(prijzen_kw, weer, t_aanvoer_vast) -%}
+{%- macro bereken_dhw_kwartieren(prijzen_kw, weer, t_aanvoer_vast, wp_kw=2.0) -%}
+  {%- from 'ev_macros.jinja' import eff_prijs -%}
   {%- set ns = namespace(uren=[]) -%}
   {%- for p in prijzen_kw -%}
     {%- set p_start = as_datetime(p.start_date) | as_local -%}
@@ -422,7 +435,8 @@
         {%- set t = m.t -%}
         {%- set lift = [1, t_aanvoer_vast - t] | max -%}
         {%- set c = [[1.5, 0.4 * (t_aanvoer_vast + 273) / lift] | max, 6.0] | min -%}
-        {%- set prijs_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+        {%- set tarief_eur = (p.price_tax_included.amount | float(3000000)) / 10000000 -%}
+{%- set prijs_eur = eff_prijs(p, p_start, wp_kw) | float(tarief_eur) -%}
         {%- set k = prijs_eur / c -%}
         {%- set ns.uren = ns.uren + [{
           'dag': p_start.strftime('%Y-%m-%d'),
@@ -433,6 +447,7 @@
           'einde': p_end.isoformat(),
           'cop_geschat': c | round(2),
           'prijs': prijs_eur | round(4),
+          'tarief': tarief_eur | round(4),
           'kosten_warmte': k | round(4)
         }] -%}
       {%- endif -%}
