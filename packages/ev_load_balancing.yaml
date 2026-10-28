@@ -616,8 +616,13 @@ template:
           {#- Planning-stand: de tekst volgt wat de lader nu doet (anders staat er 'Afwachten' terwijl hij laadt). -#}
           {%- set tg = is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') -%}
           {%- set pvl = is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on') and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off') -%}
+          {#- Accu vol: alleen 'verwarmt of koelt het interieur' als het afgenomen vermogen en de duur lijken
+              op het voorverwarmen van Sonia op 28-10-2026 vóór 07:00 (27 min, gemiddeld 3 kW; eerst 4-6,5 kW,
+              daarna ~2,2 kW, nooit boven 7 kW): 1-8 kW en al minstens 5 min aan het afnemen. Anders alleen 'Accu is vol'. -#}
           {%- if is_state('input_boolean.ev_sonia_accu_vol', 'on') -%}
-            {%- set plan_tekst = 'Accu is vol, auto verwarmt of koelt het interieur' if st == 'Charging' else 'Accu is vol' -%}
+            {%- set pw = states('sensor.ev_sonia_vermogen') | float(0) -%}
+            {%- set stil = (now() - states.sensor.ev_sonia_status_connector.last_changed).total_seconds() -%}
+            {%- set plan_tekst = 'Accu is vol, auto verwarmt of koelt het interieur' if (st == 'Charging' and 1000 <= pw <= 8000 and stil >= 300) else 'Accu is vol' -%}
           {%- elif st == 'Charging' and tg -%}
             {%- set plan_tekst = 'Accu wordt nu op laagste tarief opgeladen → €€' -%}
           {%- elif st == 'Charging' and pvl -%}
@@ -682,8 +687,13 @@ template:
           {#- Planning-stand: de tekst volgt wat de lader nu doet (anders staat er 'Afwachten' terwijl hij laadt). -#}
           {%- set tg = is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') -%}
           {%- set pvl = is_state('binary_sensor.ev_lb_rob_pv_laden', 'on') and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off') -%}
+          {#- Accu vol: alleen 'verwarmt of koelt het interieur' als het afgenomen vermogen en de duur lijken
+              op het voorverwarmen van Sonia op 28-10-2026 vóór 07:00 (27 min, gemiddeld 3 kW; eerst 4-6,5 kW,
+              daarna ~2,2 kW, nooit boven 7 kW): 1-8 kW en al minstens 5 min aan het afnemen. Anders alleen 'Accu is vol'. -#}
           {%- if is_state('input_boolean.ev_rob_accu_vol', 'on') -%}
-            {%- set plan_tekst = 'Accu is vol, auto verwarmt of koelt het interieur' if st == 'Charging' else 'Accu is vol' -%}
+            {%- set pw = states('sensor.ev_rob_vermogen') | float(0) -%}
+            {%- set stil = (now() - states.sensor.ev_rob_status_connector.last_changed).total_seconds() -%}
+            {%- set plan_tekst = 'Accu is vol, auto verwarmt of koelt het interieur' if (st == 'Charging' and 1000 <= pw <= 8000 and stil >= 300) else 'Accu is vol' -%}
           {%- elif st == 'Charging' and tg -%}
             {%- set plan_tekst = 'Accu wordt nu op laagste tarief opgeladen → €€' -%}
           {%- elif st == 'Charging' and pvl -%}
