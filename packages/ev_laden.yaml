@@ -407,7 +407,8 @@ template:
   # Gecorrigeerde sessie-energie (Sonia). Twee correcties op de OCPP-sessieteller:
   # 1. Op 28-10-2026 05:14:57 sprong de teller van 0,115 naar 11547,9 (de absolute meterstand
   #    van de lader). Boven 1000 tellen we alleen het verschil vanaf het eerste foute meetpunt
-  #    op bij de laatste goede waarde; bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
+  #    op bij de laatste goede waarde (stappen in kWh, gemeten 28-10-2026: 0,647 kWh bij ~11 kW in
+  #    4,5 min; eerder ten onrechte door 1000 gedeeld); bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
   # 2. Staat input_boolean.ev_sonia_accu_vol aan (de auto stopte zelf: accu vol), dan staat de
   #    teller stil: wat de auto daarna afneemt (interieur verwarmen/koelen) is geen accu-lading.
   #    Bij het uitzetten van de vlag (stekker eruit) begint de teller weer op 0.
@@ -435,7 +436,7 @@ template:
           {% elif raw is none or vol %}{{ oud }}
           {% elif raw <= 1000 %}{{ raw | round(3) }}
           {% elif basis is none or raw < basis %}{{ (oud if oud < 1000 else 0) | round(3) }}
-          {% else %}{{ ((this.attributes.get('start') | float(0)) + (raw - basis) / 1000) | round(3) }}{% endif %}
+          {% else %}{{ ((this.attributes.get('start') | float(0)) + (raw - basis)) | round(3) }}{% endif %}
         attributes:
           basis: >
             {% set raw = states('sensor.ev_sonia_energy_session') | float(none) %}
@@ -457,7 +458,8 @@ template:
   # Gecorrigeerde sessie-energie (Rob). Twee correcties op de OCPP-sessieteller:
   # 1. Op 28-10-2026 05:14:57 sprong de teller van 0,115 naar 11547,9 (de absolute meterstand
   #    van de lader). Boven 1000 tellen we alleen het verschil vanaf het eerste foute meetpunt
-  #    op bij de laatste goede waarde; bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
+  #    op bij de laatste goede waarde (stappen in kWh, gemeten 28-10-2026: 0,647 kWh bij ~11 kW in
+  #    4,5 min; eerder ten onrechte door 1000 gedeeld); bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
   # 2. Staat input_boolean.ev_rob_accu_vol aan (de auto stopte zelf: accu vol), dan staat de
   #    teller stil: wat de auto daarna afneemt (interieur verwarmen/koelen) is geen accu-lading.
   #    Bij het uitzetten van de vlag (stekker eruit) begint de teller weer op 0.
@@ -485,7 +487,7 @@ template:
           {% elif raw is none or vol %}{{ oud }}
           {% elif raw <= 1000 %}{{ raw | round(3) }}
           {% elif basis is none or raw < basis %}{{ (oud if oud < 1000 else 0) | round(3) }}
-          {% else %}{{ ((this.attributes.get('start') | float(0)) + (raw - basis) / 1000) | round(3) }}{% endif %}
+          {% else %}{{ ((this.attributes.get('start') | float(0)) + (raw - basis)) | round(3) }}{% endif %}
         attributes:
           basis: >
             {% set raw = states('sensor.ev_rob_energy_session') | float(none) %}
