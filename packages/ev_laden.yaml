@@ -37,6 +37,13 @@ input_boolean:
   ev_rob_direct_laden:
     name: "EV-Rob – direct laden (boost)"
     icon: mdi:lightning-bolt
+  # Aan zodra de auto zelf stopte met laden (accu vol); uit bij het uitpluggen.
+  ev_sonia_accu_vol:
+    name: "EV-Sonia – accu is vol (auto stopte zelf)"
+    icon: mdi:battery-check
+  ev_rob_accu_vol:
+    name: "EV-Rob – accu is vol (auto stopte zelf)"
+    icon: mdi:battery-check
 
 input_select:
   ev_prioriteit:
@@ -324,7 +331,7 @@ template:
         state: >
           {% set x = 'a' %}
           {% set need = states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_benodigde_kwh') | float(0) %}
-          {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_energy_session') | float(0) %}
+          {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_sessie_energie') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
           forecast_ok: &forecast_ok >
@@ -342,7 +349,7 @@ template:
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
             {% set need = states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_benodigde_kwh') | float(0) %}
-            {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_energy_session') | float(0) %}
+            {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_sessie_energie') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {# kW per A: 3-fase 0,65 / 1-fase 0,215 (incl. marge voor verliezen) #}
             {% set kwa = 0.215 if is_state('input_select.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_auto', '1-fase') else 0.65 %}
@@ -367,7 +374,7 @@ template:
         state: >
           {% set x = 'b' %}
           {% set need = states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_benodigde_kwh') | float(0) %}
-          {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_energy_session') | float(0) %}
+          {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_sessie_energie') | float(0) %}
           {{ [need - done, 0] | max | round(1) }}
         attributes:
           forecast_ok: *forecast_ok
@@ -380,7 +387,7 @@ template:
               {% set slot = (as_datetime(fc[1].datetime) - as_datetime(fc[0].datetime)).total_seconds() | int %}
             {% endif %}
             {% set need = states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_benodigde_kwh') | float(0) %}
-            {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_energy_session') | float(0) %}
+            {% set done = states('sensor.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_sessie_energie') | float(0) %}
             {% set rest = [need - done, 0] | max %}
             {% set kwa = 0.215 if is_state('input_select.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_auto', '1-fase') else 0.65 %}
             {% set kw = states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_max_stroom') | float(16) * kwa %}
@@ -396,6 +403,106 @@ template:
             {% endfor %}
             {{ ((ns.s | sort(attribute='p'))[:n] | map(attribute='t') | sort | list) if n > 0 else [] }}
           plan_leesbaar: *plan_leesbaar
+
+  # Gecorrigeerde sessie-energie (Sonia). Twee correcties op de OCPP-sessieteller:
+  # 1. Op 28-10-2026 05:14:57 sprong de teller van 0,115 naar 11547,9 (de absolute meterstand
+  #    van de lader). Boven 1000 tellen we alleen het verschil vanaf het eerste foute meetpunt
+  #    op bij de laatste goede waarde; bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
+  # 2. Staat input_boolean.ev_sonia_accu_vol aan (de auto stopte zelf: accu vol), dan staat de
+  #    teller stil: wat de auto daarna afneemt (interieur verwarmen/koelen) is geen accu-lading.
+  #    Bij het uitzetten van de vlag (stekker eruit) begint de teller weer op 0.
+  - trigger:
+      - trigger: state
+        entity_id: sensor.ev_sonia_energy_session
+        id: meting
+      - trigger: state
+        entity_id: input_boolean.ev_sonia_accu_vol
+        to: "off"
+        id: reset
+    sensor:
+      - name: "EV Sonia sessie energie"
+        unique_id: ev_sonia_sessie_energie
+        unit_of_measurement: kWh
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:ev-station
+        state: >
+          {% set raw = states('sensor.ev_sonia_energy_session') | float(none) %}
+          {% set vol = is_state('input_boolean.ev_sonia_accu_vol', 'on') %}
+          {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 0 %}
+          {% set basis = this.attributes.get('basis') if this is defined else none %}
+          {% if trigger.id == 'reset' %}0
+          {% elif raw is none or vol %}{{ oud }}
+          {% elif raw <= 1000 %}{{ raw | round(3) }}
+          {% elif basis is none or raw < basis %}{{ (oud if oud < 1000 else 0) | round(3) }}
+          {% else %}{{ ((this.attributes.get('start') | float(0)) + (raw - basis) / 1000) | round(3) }}{% endif %}
+        attributes:
+          basis: >
+            {% set raw = states('sensor.ev_sonia_energy_session') | float(none) %}
+            {% set vol = is_state('input_boolean.ev_sonia_accu_vol', 'on') %}
+            {% set b = this.attributes.get('basis') if this is defined else none %}
+            {% if raw is none or raw <= 1000 %}{{ none }}
+            {% elif trigger.id == 'reset' or vol or b is none or raw < b %}{{ raw }}
+            {% else %}{{ b }}{% endif %}
+          start: >
+            {% set raw = states('sensor.ev_sonia_energy_session') | float(none) %}
+            {% set vol = is_state('input_boolean.ev_sonia_accu_vol', 'on') %}
+            {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 0 %}
+            {% set b = this.attributes.get('basis') if this is defined else none %}
+            {% if raw is none or raw <= 1000 %}{{ none }}
+            {% elif trigger.id == 'reset' %}0
+            {% elif vol or b is none or raw < b %}{{ oud if oud < 1000 else 0 }}
+            {% else %}{{ this.attributes.get('start') }}{% endif %}
+
+  # Gecorrigeerde sessie-energie (Rob). Twee correcties op de OCPP-sessieteller:
+  # 1. Op 28-10-2026 05:14:57 sprong de teller van 0,115 naar 11547,9 (de absolute meterstand
+  #    van de lader). Boven 1000 tellen we alleen het verschil vanaf het eerste foute meetpunt
+  #    op bij de laatste goede waarde; bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
+  # 2. Staat input_boolean.ev_rob_accu_vol aan (de auto stopte zelf: accu vol), dan staat de
+  #    teller stil: wat de auto daarna afneemt (interieur verwarmen/koelen) is geen accu-lading.
+  #    Bij het uitzetten van de vlag (stekker eruit) begint de teller weer op 0.
+  - trigger:
+      - trigger: state
+        entity_id: sensor.ev_rob_energy_session
+        id: meting
+      - trigger: state
+        entity_id: input_boolean.ev_rob_accu_vol
+        to: "off"
+        id: reset
+    sensor:
+      - name: "EV Rob sessie energie"
+        unique_id: ev_rob_sessie_energie
+        unit_of_measurement: kWh
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:ev-station
+        state: >
+          {% set raw = states('sensor.ev_rob_energy_session') | float(none) %}
+          {% set vol = is_state('input_boolean.ev_rob_accu_vol', 'on') %}
+          {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 0 %}
+          {% set basis = this.attributes.get('basis') if this is defined else none %}
+          {% if trigger.id == 'reset' %}0
+          {% elif raw is none or vol %}{{ oud }}
+          {% elif raw <= 1000 %}{{ raw | round(3) }}
+          {% elif basis is none or raw < basis %}{{ (oud if oud < 1000 else 0) | round(3) }}
+          {% else %}{{ ((this.attributes.get('start') | float(0)) + (raw - basis) / 1000) | round(3) }}{% endif %}
+        attributes:
+          basis: >
+            {% set raw = states('sensor.ev_rob_energy_session') | float(none) %}
+            {% set vol = is_state('input_boolean.ev_rob_accu_vol', 'on') %}
+            {% set b = this.attributes.get('basis') if this is defined else none %}
+            {% if raw is none or raw <= 1000 %}{{ none }}
+            {% elif trigger.id == 'reset' or vol or b is none or raw < b %}{{ raw }}
+            {% else %}{{ b }}{% endif %}
+          start: >
+            {% set raw = states('sensor.ev_rob_energy_session') | float(none) %}
+            {% set vol = is_state('input_boolean.ev_rob_accu_vol', 'on') %}
+            {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 0 %}
+            {% set b = this.attributes.get('basis') if this is defined else none %}
+            {% if raw is none or raw <= 1000 %}{{ none }}
+            {% elif trigger.id == 'reset' %}0
+            {% elif vol or b is none or raw < b %}{{ oud if oud < 1000 else 0 }}
+            {% else %}{{ this.attributes.get('start') }}{% endif %}
 
   - binary_sensor:
       - name: "EV-Sonia goedkoop slot"
@@ -414,6 +521,62 @@ template:
           {{ p | select('le', t) | select('gt', t - slot) | list | count > 0 }}
 
 automation:
+  # -------------------------------------------------------------------
+  # Accu vol: de auto stopt zelf met laden (SuspendedEV) terwijl de opdracht is om (ook) met
+  # netstroom te laden (laden_toegestaan: tarief/goedkoop blok/direct). Laden op alleen
+  # zonne-overschot telt niet mee.
+  # Wat de auto daarna afneemt is interieur verwarmen/koelen (zie sessie-energie).
+  # -------------------------------------------------------------------
+  - id: ev_accu_vol_melden
+    alias: "EV – accu is vol (auto stopte zelf met laden)"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_sonia_status_connector
+        to: "SuspendedEV"
+        for: "00:10:00"
+        variables: {n: sonia, naam: Sonia}
+      - trigger: state
+        entity_id: sensor.ev_rob_status_connector
+        to: "SuspendedEV"
+        for: "00:10:00"
+        variables: {n: rob, naam: Rob}
+    conditions:
+      - condition: template
+        value_template: >
+          {{ is_state('input_boolean.ev_' ~ n ~ '_accu_vol', 'off')
+             and is_state('binary_sensor.ev_lb_' ~ n ~ '_laden_toegestaan', 'on') }}
+    actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: "input_boolean.ev_{{ n }}_accu_vol"
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Accu is vol"
+          message: >-
+            {{ now().strftime('%H:%M') }} — Accu is vol, {{ naam }}'s auto stopte zelf met laden
+            ({{ states('sensor.ev_' ~ n ~ '_sessie_energie') }} kWh deze sessie).
+          data:
+            tag: "ev_{{ n }}_accu_vol"
+            channel: "EV laden"
+
+  - id: ev_accu_vol_wissen
+    alias: "EV – accu-vol vlag wissen bij uitpluggen"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_sonia_status_connector
+        to: ["Available", "Finishing"]
+        variables: {n: sonia}
+      - trigger: state
+        entity_id: sensor.ev_rob_status_connector
+        to: ["Available", "Finishing"]
+        variables: {n: rob}
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: "input_boolean.ev_{{ n }}_accu_vol"
+
   # -------------------------------------------------------------------
   # Hoofdregelaar: bepaalt per lader stroom en fasen, met load balancing
   # -------------------------------------------------------------------

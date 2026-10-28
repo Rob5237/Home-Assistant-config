@@ -2988,13 +2988,13 @@
         message: >-
           Tijd: {{ now().strftime('%H:%M') }}.
           Status: {{ states('sensor.ev_rob_status_connector') }}.
-          Energie deze sessie: {{ states('sensor.ev_rob_energy_session') }} kWh.
+          Energie deze sessie: {{ states('sensor.ev_rob_sessie_energie') }} kWh.
     - action: notify.mobile_app_sm_g781b
       data:
         title: "Laadpaal Rob: laadsessie beëindigd"
         message: >-
           {{ now().strftime('%H:%M') }} — EV-Rob is gestopt met laden
-          ({{ states('sensor.ev_rob_energy_session') }} kWh deze sessie).
+          ({{ states('sensor.ev_rob_sessie_energie') }} kWh deze sessie).
         data:
           tag: ev_rob_laadsessie_einde
           channel: "EV laden"
@@ -3017,13 +3017,13 @@
         message: >-
           Tijd: {{ now().strftime('%H:%M') }}.
           Status: {{ states('sensor.ev_sonia_status_connector') }}.
-          Energie deze sessie: {{ states('sensor.ev_sonia_energy_session') }} kWh.
+          Energie deze sessie: {{ states('sensor.ev_sonia_sessie_energie') }} kWh.
     - action: notify.mobile_app_sm_g781b
       data:
         title: "Laadpaal Sonia: laadsessie beëindigd"
         message: >-
           {{ now().strftime('%H:%M') }} — EV-Sonia is gestopt met laden
-          ({{ states('sensor.ev_sonia_energy_session') }} kWh deze sessie).
+          ({{ states('sensor.ev_sonia_sessie_energie') }} kWh deze sessie).
         data:
           tag: ev_sonia_laadsessie_einde
           channel: "EV laden"
