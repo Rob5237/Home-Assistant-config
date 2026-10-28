@@ -58,6 +58,13 @@ verse herlading.
 - `binary_sensor.goedkoopste_nachtuur_nu` — `on` als het huidige kwartier het goedkoopste resterende kwartier is binnen het 22:00-06:00 venster (Zonneplan kwartier-forecast). Gebruikt door `tapwater_goedkoopste_nachtuur`. Kwartierprecisie sinds 14-10-2026 (zie "Kwartierprecisie" onder Warmtepomp-logica) — had voorheen dezelfde "sluit lopend uur exact op het kritieke moment uit"-bug als de warmtepomp-macro's; nu gefixt.
 - `binary_sensor.goedkoopste_tdi_uur_nu` — `on` als het huidige kwartier het goedkoopste resterende kwartier is binnen 09:00-16:00 vandaag. Gebruikt door `tdi_legionella_solar_overschot`. Had de bug hierboven niet (gebruikte al `now().hour <= dt.hour`), maar is voor consistentie ook naar kwartierprecisie gemigreerd.
 
+## EV – "Morgen thuis blijven" en saldering (28-10-2026)
+- Knop `input_boolean.ev_<sonia|rob>_nacht_overslaan` kiest niet meer "alleen zon" maar het **goedkoopste laadblok** tussen nu en **17:00 op de dag na de nacht** (accu moet dan vol zijn). Berekening: macro `ev_dag_blok` in `custom_templates/ev_macros.jinja`, aangeroepen vanuit de attributen `kandidaat_start`/`dl`/`morgen_thuis` van `sensor.ev_<naam>_blokplanning`; `ev_blok_vastleggen` legt het blok vast, `goedkoop_uur` schakelt `laden_toegestaan` in (de prijsdrempel telt in deze stand niet mee).
+- Kosten per kwartier = tarief × (1 − zon_aandeel) + zonwaarde × zon_aandeel. Zon_aandeel = (zonforecast − huisverbruik) / laadvermogen (0..1). Zonforecast = Forecast.Solar (3 dakdelen, sinusvorm over opkomst-ondergang), huisverbruik = vlak gemiddelde `sensor.ev_huisverbruik_24u` (EWMA, P1 + opwek − laders).
+- **Zonwaarde hangt af van de salderingsregeling** (`input_datetime.ev_lb_saldering_einde`, nu 2027-01-01): tot die datum geldt het tarief incl. belasting (saldering/Zonneplan-contract: zon zelf laden geeft geen prijsvoordeel); daarna `max(0, prijs_excl_belasting + input_number.ev_lb_terugleveraanpassing)`. **Vóór 1-1-2027 controleren** of de datum, de aanpassing (inkoopvergoeding/zonnebonus) en de voorwaarden van het nieuwe Zonneplan-contract (huidige loopt tot ~6-2-2027) kloppen.
+- De knop vervalt om 17:00 (alleen als hij vóór de vertrektijd van die dag is ingedrukt); "opladen uitzetten"/"gratis laden" vervallen op de vertrektijd. Aanzetten wist het vastgelegde blok (`ev_nacht_overslaan_blok_wissen`).
+- Na een wijziging in `ev_macros.jinja` is een volledige `core/restart` het zekerst (zie caching-valkuil hierboven).
+
 ## Energie-meters (utility_meter)
 - `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
 - `energy_daily/monthly/yearly` — bron: P1 import

@@ -100,6 +100,13 @@ input_datetime:
     name: "EV-Rob – start laadblok"
     has_date: true
     has_time: true
+  # Einde van de salderingsregeling. Tot deze datum is zonnestroom zelf laden evenveel waard als de
+  # afnameprijs (saldering, Zonneplan-contract); daarna alleen de terugleverprijs. Zie ev_macros.jinja.
+  ev_lb_saldering_einde:
+    name: "EV LB – einde salderingsregeling"
+    has_date: true
+    has_time: false
+    initial: "2027-01-01"
 
 input_select:
   # Op welke fase(n) laadt de auto aan deze lader? Voor 1-fase auto's: de fase
@@ -115,6 +122,16 @@ input_select:
     icon: mdi:sine-wave
 
 input_number:
+  # Na het einde van de saldering: bijtelling op de prijs excl. belasting als terugleververgoeding
+  # (EUR/kWh, bv. +0,02 inkoopvergoeding, negatief bij teruglevermaten). Zie ev_macros.jinja.
+  ev_lb_terugleveraanpassing:
+    name: "EV LB – teruglever-aanpassing vanaf einde saldering"
+    min: -0.5
+    max: 0.5
+    step: 0.001
+    unit_of_measurement: "€/kWh"
+    mode: box
+    initial: 0
   # Hoeveel van de goedkoopste uren (tot de vertrektijd) mag deze lader laden?
   # Geen initial: wordt bewaard. 6 u x 3,5 kW = 21 kWh.
   ev_sonia_fase_bewijs:
@@ -253,6 +270,25 @@ input_number:
     unit_of_measurement: A
 
 template:
+  # Huisverbruik zonder auto's, voortschrijdend gemiddelde over ~24 uur (alle 5 min bijgewerkt; tijdconstante
+  # 24 u). P1 + opwek - laders. Startwaarde 850 W (gemeten gemiddelde 27-28 okt 2026). Wordt gebruikt als
+  # vlakke 'forecast van het huisverbruik' in ev_macros.jinja.
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+    sensor:
+      - name: "EV huisverbruik 24u"
+        unique_id: ev_huisverbruik_24u
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set oud = this.state | float(850) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 850 %}
+          {% if has_value('sensor.p1_meter_power') and has_value('sensor.envoy_122331077486_current_power_production') %}
+            {% set x = [0, states('sensor.p1_meter_power') | float(0) + states('sensor.envoy_122331077486_current_power_production') | float(0)
+                           - states('sensor.ev_sonia_vermogen') | float(0) - states('sensor.ev_rob_vermogen') | float(0)] | max %}
+            {{ (oud + (x - oud) * 0.0035) | round(0) }}
+          {% else %}{{ oud }}{% endif %}
   - sensor:
       - name: "EV LB stroom L1"
         unique_id: ev_lb_stroom_l1
@@ -666,10 +702,22 @@ template:
             {%- set fa = states('sensor.ev_lb_sonia_fase_actief') -%}
             {%- set extra = 'Beperkt tot ' ~ (sp | int) ~ ' A door fase ' ~ (fa if fa in ['L1', 'L2', 'L3'] else 'L' ~ (i_f.index(i_f | max) + 1)) -%}
           {%- endif -%}
+          {#- Morgen thuis blijven: regel 2 = het geplande blok (goedkoopste in nacht of dag, zon + net, klaar vóór 17:00) -#}
+          {%- set mt = state_attr('sensor.ev_sonia_blokplanning', 'morgen_thuis') -%}
+          {%- set mt = (mt | from_json) if (mt is string and mt) else (mt if mt is mapping else {}) -%}
+          {%- if tg or st == 'Charging' -%}
+            {%- set nacht_tekst = plan_tekst ~ '\nMorgen thuis blijven' -%}
+          {%- elif mt.get('start') -%}
+            {%- set ms = mt.start | as_datetime | as_local -%}
+            {%- set dagw = 'vannacht' if ms.hour < 6 else ('morgen' if ms.date() > now().date() else ('vanavond' if ms.hour >= 18 else 'vandaag')) -%}
+            {%- set nacht_tekst = 'Morgen thuis blijven\nLaden ' ~ dagw ~ ' ' ~ ms.strftime('%H:%M') ~ (' (zon + net)' if mt.get('zon', 0) >= 0.2 else ' (net)') -%}
+          {%- else -%}
+            {%- set nacht_tekst = 'Morgen thuis blijven\nPlanning volgt' -%}
+          {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
               'uit': 'Accu opladen uitzetten',
-              'nacht': 'Morgen thuis blijven\nAlleen laden met zonlicht',
+              'nacht': nacht_tekst,
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
               'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown', 'Faulted', 'Reserved'] -%}{{ laad }}
@@ -767,10 +815,22 @@ template:
             {%- set fa = states('sensor.ev_lb_rob_fase_actief') -%}
             {%- set extra = 'Beperkt tot ' ~ (sp | int) ~ ' A door fase ' ~ (fa if fa in ['L1', 'L2', 'L3'] else 'L' ~ (i_f.index(i_f | max) + 1)) -%}
           {%- endif -%}
+          {#- Morgen thuis blijven: regel 2 = het geplande blok (goedkoopste in nacht of dag, zon + net, klaar vóór 17:00) -#}
+          {%- set mt = state_attr('sensor.ev_rob_blokplanning', 'morgen_thuis') -%}
+          {%- set mt = (mt | from_json) if (mt is string and mt) else (mt if mt is mapping else {}) -%}
+          {%- if tg or st == 'Charging' -%}
+            {%- set nacht_tekst = plan_tekst ~ '\nMorgen thuis blijven' -%}
+          {%- elif mt.get('start') -%}
+            {%- set ms = mt.start | as_datetime | as_local -%}
+            {%- set dagw = 'vannacht' if ms.hour < 6 else ('morgen' if ms.date() > now().date() else ('vanavond' if ms.hour >= 18 else 'vandaag')) -%}
+            {%- set nacht_tekst = 'Morgen thuis blijven\nLaden ' ~ dagw ~ ' ' ~ ms.strftime('%H:%M') ~ (' (zon + net)' if mt.get('zon', 0) >= 0.2 else ' (net)') -%}
+          {%- else -%}
+            {%- set nacht_tekst = 'Morgen thuis blijven\nPlanning volgt' -%}
+          {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
               'uit': 'Accu opladen uitzetten',
-              'nacht': 'Morgen thuis blijven\nAlleen laden met zonlicht',
+              'nacht': nacht_tekst,
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
               'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown', 'Faulted', 'Reserved'] -%}{{ laad }}
@@ -822,11 +882,6 @@ template:
           {% elif is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on') and not is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
                   and states('sensor.ev_sonia_status_connector') in ['Charging', 'Preparing', 'SuspendedEVSE', 'SuspendedEV'] %}
             {{ ('Laadt nu op zonnestroom' ~ klaar_regel) if states('sensor.ev_sonia_status_connector') == 'Charging' else 'Wacht op zonne-overschot' }}
-          {# 'Morgen thuis blijven': alleen PV-laden; geldt als het de laatst ingedrukte stand is #}
-          {% elif is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') and not is_state('input_boolean.ev_sonia_direct_laden', 'on')
-                  and (is_state('input_boolean.ev_sonia_alleen_zon', 'off')
-                       or states.input_boolean.ev_sonia_nacht_overslaan.last_changed > states.input_boolean.ev_sonia_alleen_zon.last_changed) %}
-            Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('input_boolean.ev_sonia_alleen_zon', 'on') and not is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
             Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
@@ -896,11 +951,6 @@ template:
           {% elif is_state('binary_sensor.ev_lb_rob_pv_laden', 'on') and not is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on')
                   and states('sensor.ev_rob_status_connector') in ['Charging', 'Preparing', 'SuspendedEVSE', 'SuspendedEV'] %}
             {{ ('Laadt nu op zonnestroom' ~ klaar_regel) if states('sensor.ev_rob_status_connector') == 'Charging' else 'Wacht op zonne-overschot' }}
-          {# 'Morgen thuis blijven': alleen PV-laden; geldt als het de laatst ingedrukte stand is #}
-          {% elif is_state('input_boolean.ev_rob_nacht_overslaan', 'on') and not is_state('input_boolean.ev_rob_direct_laden', 'on')
-                  and (is_state('input_boolean.ev_rob_alleen_zon', 'off')
-                       or states.input_boolean.ev_rob_nacht_overslaan.last_changed > states.input_boolean.ev_rob_alleen_zon.last_changed) %}
-            Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('input_boolean.ev_rob_alleen_zon', 'on') and not is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
             Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
@@ -962,6 +1012,10 @@ template:
         state: "ok"
         attributes:
           kandidaat_start: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') -%}
+            {{- (ev_dag_blok('sonia') | from_json).get('start', '') -}}
+            {%- else -%}
             {%- macro blok(fc, k, lo, hi, strikt) -%}
             {%- set ns = namespace(l=[], best='', bp=-1) -%}
             {%- for f in fc -%}
@@ -987,6 +1041,7 @@ template:
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
             {%- set k = (states('sensor.ev_sonia_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ blok(fc, k, now(), dl, false) }}
+            {%- endif -%}
           start_na_nacht: >-
             {%- macro blok(fc, k, lo, hi, strikt) -%}
             {%- set ns = namespace(l=[], best='', bp=-1) -%}
@@ -1014,6 +1069,10 @@ template:
             {%- set k = (states('sensor.ev_sonia_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ blok(fc, k, dl, dl + timedelta(days=1), true) }}
           eerste_start: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') -%}
+            {{- '' -}}
+            {%- else -%}
             {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
             {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
@@ -1023,23 +1082,37 @@ template:
             {%- if not ns.f and as_datetime(f.end_date) > now() and as_datetime(f.end_date) <= dl -%}{%- set ns.f = as_datetime(f.start_date).isoformat() -%}{%- endif -%}
             {%- endfor -%}
             {{ ns.f }}
+            {%- endif -%}
           dl: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') -%}
+            {{- (ev_dag_blok('sonia') | from_json).get('dl', '') -}}
+            {%- else -%}
             {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
             {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
             {%- set k = (states('sensor.ev_sonia_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ dl.isoformat() }}
+            {%- endif -%}
           k: >-
             {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
             {%- set dl = today_at(states('input_datetime.ev_sonia_vertrek')) -%}
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
             {%- set k = (states('sensor.ev_sonia_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ k }}
+          morgen_thuis: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') -%}{{- ev_dag_blok('sonia') -}}{%- endif -%}
+
       - name: "EV Rob blokplanning"
         unique_id: ev_rob_blokplanning
         state: "ok"
         attributes:
           kandidaat_start: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') -%}
+            {{- (ev_dag_blok('rob') | from_json).get('start', '') -}}
+            {%- else -%}
             {%- macro blok(fc, k, lo, hi, strikt) -%}
             {%- set ns = namespace(l=[], best='', bp=-1) -%}
             {%- for f in fc -%}
@@ -1065,6 +1138,7 @@ template:
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
             {%- set k = (states('sensor.ev_rob_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ blok(fc, k, now(), dl, false) }}
+            {%- endif -%}
           start_na_nacht: >-
             {%- macro blok(fc, k, lo, hi, strikt) -%}
             {%- set ns = namespace(l=[], best='', bp=-1) -%}
@@ -1092,6 +1166,10 @@ template:
             {%- set k = (states('sensor.ev_rob_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ blok(fc, k, dl, dl + timedelta(days=1), true) }}
           eerste_start: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') -%}
+            {{- '' -}}
+            {%- else -%}
             {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
             {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
@@ -1101,18 +1179,27 @@ template:
             {%- if not ns.f and as_datetime(f.end_date) > now() and as_datetime(f.end_date) <= dl -%}{%- set ns.f = as_datetime(f.start_date).isoformat() -%}{%- endif -%}
             {%- endfor -%}
             {{ ns.f }}
+            {%- endif -%}
           dl: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') -%}
+            {{- (ev_dag_blok('rob') | from_json).get('dl', '') -}}
+            {%- else -%}
             {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
             {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
             {%- set k = (states('sensor.ev_rob_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ dl.isoformat() }}
+            {%- endif -%}
           k: >-
             {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
             {%- set dl = today_at(states('input_datetime.ev_rob_vertrek')) -%}
             {%- if dl <= now() -%}{%- set dl = dl + timedelta(days=1) -%}{%- endif -%}
             {%- set k = (states('sensor.ev_rob_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
             {{ k }}
+          morgen_thuis: >-
+            {%- from 'ev_macros.jinja' import ev_dag_blok -%}
+            {%- if is_state('input_boolean.ev_rob_nacht_overslaan', 'on') -%}{{- ev_dag_blok('rob') -}}{%- endif -%}
 
   - sensor:
       # PV-overschot voor de laders: wat er na het huisverbruik overblijft.
@@ -1203,25 +1290,27 @@ template:
           {% endif %}
         attributes:
           doel_tijd: "{{ today_at(states('input_datetime.ev_rob_vertrek')) if today_at(states('input_datetime.ev_rob_vertrek')) > now() else today_at(states('input_datetime.ev_rob_vertrek')) + timedelta(days=1) }}"
+      # Morgen thuis blijven (nacht_overslaan aan): niet op de prijsdrempel laden, alleen in het geplande
+      # blok (goedkoop_uur, zie ev_macros.jinja).
       - name: "EV LB Sonia laden toegestaan"
         unique_id: ev_lb_sonia_laden_toegestaan
         state: >
           {{ is_state('input_boolean.ev_sonia_direct_laden', 'on')
-             or (is_state('input_boolean.ev_sonia_nacht_overslaan', 'off')
-                 and is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off')
+             or (is_state('input_boolean.ev_sonia_opladen_uitgezet', 'off')
                  and is_state('input_boolean.ev_sonia_alleen_zon', 'off')
-                 and (states('sensor.zonneplan_current_electricity_tariff') | float(99)
-                      <= states('input_number.ev_prijsdrempel') | float(-99)
+                 and ((is_state('input_boolean.ev_sonia_nacht_overslaan', 'off')
+                       and states('sensor.zonneplan_current_electricity_tariff') | float(99)
+                           <= states('input_number.ev_prijsdrempel') | float(-99))
                       or is_state('binary_sensor.ev_lb_sonia_goedkoop_uur', 'on'))) }}
       - name: "EV LB Rob laden toegestaan"
         unique_id: ev_lb_rob_laden_toegestaan
         state: >
           {{ is_state('input_boolean.ev_rob_direct_laden', 'on')
-             or (is_state('input_boolean.ev_rob_nacht_overslaan', 'off')
-                 and is_state('input_boolean.ev_rob_opladen_uitgezet', 'off')
+             or (is_state('input_boolean.ev_rob_opladen_uitgezet', 'off')
                  and is_state('input_boolean.ev_rob_alleen_zon', 'off')
-                 and (states('sensor.zonneplan_current_electricity_tariff') | float(99)
-                      <= states('input_number.ev_prijsdrempel') | float(-99)
+                 and ((is_state('input_boolean.ev_rob_nacht_overslaan', 'off')
+                       and states('sensor.zonneplan_current_electricity_tariff') | float(99)
+                           <= states('input_number.ev_prijsdrempel') | float(-99))
                       or is_state('binary_sensor.ev_lb_rob_goedkoop_uur', 'on'))) }}
 
       # ---------------------------------------------------------------
@@ -1829,33 +1918,83 @@ automation:
             - "input_boolean.ev_{{ trigger.id }}_alleen_zon"
             - "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
   - id: ev_nacht_overslaan_wissen
-    alias: "EV – knop 'nacht overslaan' wissen op vertrektijd of bij boost"
+    alias: "EV – knop 'morgen thuis blijven' wissen om 17:00, andere knoppen op vertrektijd of bij boost"
+    description: >
+      'Morgen thuis blijven' geldt tot 17:00 op de dag na de nacht (dan moet de accu vol zijn; zie
+      ev_macros.jinja). Op 17:00 wordt de knop gewist als hij vóór de vertrektijd van die dag is ingedrukt
+      (anders hoort hij bij de volgende dag). 'Opladen uitzetten' en 'gratis laden' vervallen op de
+      vertrektijd; een boost (direct laden) wist alle drie.
     mode: parallel
     triggers:
       - trigger: time
         at: input_datetime.ev_sonia_vertrek
-        id: sonia
+        id: sonia_vertrek
       - trigger: time
         at: input_datetime.ev_rob_vertrek
-        id: rob
+        id: rob_vertrek
+      - trigger: time
+        at: "17:00:00"
+        id: sonia_17
+      - trigger: time
+        at: "17:00:00"
+        id: rob_17
       - trigger: state
         entity_id: input_boolean.ev_sonia_direct_laden
         to: "on"
-        id: sonia
+        id: sonia_direct
       - trigger: state
         entity_id: input_boolean.ev_rob_direct_laden
         to: "on"
+        id: rob_direct
+    variables:
+      n: "{{ trigger.id.split('_')[0] }}"
+      soort: "{{ trigger.id.split('_')[1] }}"
+    actions:
+      - choose:
+          - conditions: "{{ soort == '17' }}"
+            sequence:
+              - if: >
+                  {{ states.input_boolean['ev_' ~ n ~ '_nacht_overslaan'].last_changed
+                     < today_at(states('input_datetime.ev_' ~ n ~ '_vertrek')) }}
+                then:
+                  - action: input_boolean.turn_off
+                    target:
+                      entity_id: "input_boolean.ev_{{ n }}_nacht_overslaan"
+          - conditions: "{{ soort == 'direct' }}"
+            sequence:
+              - action: input_boolean.turn_off
+                target:
+                  entity_id:
+                    - "input_boolean.ev_{{ n }}_nacht_overslaan"
+                    - "input_boolean.ev_{{ n }}_opladen_uitgezet"
+                    - "input_boolean.ev_{{ n }}_alleen_zon"
+        default:
+          - action: input_boolean.turn_off
+            target:
+              entity_id:
+                - "input_boolean.ev_{{ n }}_opladen_uitgezet"
+                - "input_boolean.ev_{{ n }}_alleen_zon"
+  - id: ev_nacht_overslaan_blok_wissen
+    alias: "EV – bij 'morgen thuis blijven' het vastgelegde laadblok wissen"
+    description: >
+      Zet de knop aan terwijl er al een blok was vastgelegd (of al geladen werd), dan moet het nieuwe
+      blok (goedkoopste in nacht of dag, zon + net, klaar vóór 17:00) de oude vervangen.
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.ev_sonia_nacht_overslaan
+        to: "on"
+        id: sonia
+      - trigger: state
+        entity_id: input_boolean.ev_rob_nacht_overslaan
+        to: "on"
         id: rob
     actions:
-      - action: input_boolean.turn_off
+      - action: input_datetime.set_datetime
         target:
-          entity_id: "input_boolean.ev_{{ trigger.id }}_nacht_overslaan"
-      - action: input_boolean.turn_off
-        target:
-          entity_id: "input_boolean.ev_{{ trigger.id }}_opladen_uitgezet"
-      - action: input_boolean.turn_off
-        target:
-          entity_id: "input_boolean.ev_{{ trigger.id }}_alleen_zon"
+          entity_id: "input_datetime.ev_{{ trigger.id }}_blok_start"
+        data:
+          timestamp: 0
   # ---------------------------------------------------------------
   # Na een herstart van HA: setpunten op 6 A, daarna rustig opbouwen.
   # (Hier worden bewust GEEN profielen naar de laders geschreven: een apart
