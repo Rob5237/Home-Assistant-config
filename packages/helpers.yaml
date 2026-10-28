@@ -18,6 +18,53 @@ input_number:
     unit_of_measurement: "kWh"
     icon: mdi:weather-sunny
 
+  # --- Drempels voor NA het einde van de salderingsregeling (input_datetime.ev_lb_saldering_einde, 1-1-2027) ---
+  # Geen 'initial': eigen waarden blijven na een herstart bewaard. Tot die datum gelden de vaste drempels in
+  # de automatiseringen (okt-feb 1000 W / mrt-sep 2000 W enz.). Zonder saldering is teruglevering veel minder
+  # waard, dus zon opslaan (boiler, auto) loont ook bij een kleiner overschot.
+  saldering_na_klein_p1_w:
+    name: "Na saldering: tapwater klein overschot vanaf teruglevering (W)"
+    min: 100
+    max: 3000
+    step: 50
+    unit_of_measurement: "W"
+    icon: mdi:solar-power
+  saldering_na_klein_enphase_w:
+    name: "Na saldering: tapwater klein overschot, Enphase-productie boven (W)"
+    min: 0
+    max: 3000
+    step: 50
+    unit_of_measurement: "W"
+    icon: mdi:solar-power
+  saldering_na_klein_forecast_kwh:
+    name: "Na saldering: tapwater klein overschot, zonforecast volgend uur vanaf (kWh)"
+    min: 0
+    max: 5
+    step: 0.1
+    unit_of_measurement: "kWh"
+    icon: mdi:weather-sunny
+  saldering_na_groot_p1_w:
+    name: "Na saldering: tapwater groot overschot vanaf teruglevering (W)"
+    min: 1000
+    max: 6000
+    step: 100
+    unit_of_measurement: "W"
+    icon: mdi:solar-power-variant
+  saldering_na_ev_pv_aan_w:
+    name: "Na saldering: EV laden op zon aan vanaf overschot (W)"
+    min: 500
+    max: 3000
+    step: 50
+    unit_of_measurement: "W"
+    icon: mdi:ev-station
+  saldering_na_ev_pv_uit_w:
+    name: "Na saldering: EV laden op zon uit onder overschot (W)"
+    min: 300
+    max: 3000
+    step: 50
+    unit_of_measurement: "W"
+    icon: mdi:ev-station
+
   vakantie_parallel_shift_backup:
     name: "Backup parallel_shift voor vakantie (0 = geen backup)"
     initial: 0

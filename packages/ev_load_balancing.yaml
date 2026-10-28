@@ -277,6 +277,14 @@ input_number:
     unit_of_measurement: A
 
 template:
+  # Salderingsregeling voorbij (vanaf input_datetime.ev_lb_saldering_einde): schakelt de drempels voor
+  # tapwater-zonne-overschot (automations.yaml) en EV-laden op zon (pv_laden) naar de saldering_na_*-waarden.
+  - binary_sensor:
+      - name: "Saldering voorbij"
+        unique_id: saldering_voorbij
+        icon: mdi:calendar-end
+        availability: "{{ has_value('input_datetime.ev_lb_saldering_einde') }}"
+        state: "{{ now().date() >= (states('input_datetime.ev_lb_saldering_einde') | as_datetime).date() }}"
   # Huisverbruik zonder auto's, voortschrijdend gemiddelde over ~24 uur (alle 5 min bijgewerkt; tijdconstante
   # 24 u). P1 + opwek - laders. Startwaarde 850 W (gemeten gemiddelde 27-28 okt 2026). Wordt gebruikt als
   # vlakke 'forecast van het huisverbruik' in ev_macros.jinja.
@@ -1242,13 +1250,21 @@ template:
         delay_off: "00:03:00"
         state: >
           {% set o = states('sensor.ev_lb_pv_overschot') | float(0) %}
-          {{ o >= 1500 or (this.state == 'on' and o >= 1300) }}
+          {# Na de saldering (2027): lagere drempels, zie input_number.saldering_na_ev_pv_* #}
+          {% set na = is_state('binary_sensor.saldering_voorbij', 'on') %}
+          {% set aan = states('input_number.saldering_na_ev_pv_aan_w') | float(1100) if na else 1500 %}
+          {% set uit = states('input_number.saldering_na_ev_pv_uit_w') | float(900) if na else 1300 %}
+          {{ o >= aan or (this.state == 'on' and o >= uit) }}
       - name: "EV LB Sonia PV laden"
         unique_id: ev_lb_sonia_pv_laden
         delay_off: "00:03:00"
         state: >
           {% set o = states('sensor.ev_lb_pv_overschot') | float(0) %}
-          {{ o >= 1500 or (this.state == 'on' and o >= 1300) }}
+          {# Na de saldering (2027): lagere drempels, zie input_number.saldering_na_ev_pv_* #}
+          {% set na = is_state('binary_sensor.saldering_voorbij', 'on') %}
+          {% set aan = states('input_number.saldering_na_ev_pv_aan_w') | float(1100) if na else 1500 %}
+          {% set uit = states('input_number.saldering_na_ev_pv_uit_w') | float(900) if na else 1300 %}
+          {{ o >= aan or (this.state == 'on' and o >= uit) }}
 
   - binary_sensor:
       # ---------------------------------------------------------------
@@ -1815,7 +1831,9 @@ automation:
                 k: "{{ state_attr(p, 'k') | int(0) }}"
                 # 'Meteen starten' (eerst) alleen als er echt iets te laden is (k > 0);
                 # bij k = 0 (bv. tijdens een herlaad) nooit een start vastleggen
-                nieuw: "{{ kand or (eerst if k > 0 else '') }}"
+                # Een geldig, nog niet begonnen blok wordt niet vervangen door 'meteen starten' als de kandidaat
+                # even leeg is (gebeurde bij template.reload op 28-10-2026: blok 23:15 -> 'nu')
+                nieuw: "{{ kand or (eerst if (k > 0 and not (cyclus and s_ts > nu)) else '') }}"
             - if: >
                 {{ not vast and nieuw != ''
                    and ((nieuw | as_datetime).timestamp() | round(0)) != (s_ts | round(0)) }}

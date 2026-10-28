@@ -621,8 +621,10 @@
   # De cyclus (~2,3 kW compressor) draait in de winter dus deels op netstroom.
   - trigger: template
     value_template: >
+      {% set na = is_state('binary_sensor.saldering_voorbij', 'on') %}
       {{ states('sensor.p1_meter_power') | float(0)
-         < (-1000 if now().month in [10, 11, 12, 1, 2] else -2000) }}
+         < (-(states('input_number.saldering_na_klein_p1_w') | float(500)) if na
+            else (-1000 if now().month in [10, 11, 12, 1, 2] else -2000)) }}
     for:
       hours: 0
       minutes: 5
@@ -633,13 +635,16 @@
     below: 52
   - condition: template
     value_template: >
+      {% set fk = state_attr('binary_sensor.zon_forecast_volgend_uur_voldoende', 'forecast_kwh') | float(0) %}
       {{ is_state('binary_sensor.zon_forecast_volgend_uur_voldoende', 'on')
-         or (now().month in [10, 11, 12, 1, 2]
-             and state_attr('binary_sensor.zon_forecast_volgend_uur_voldoende', 'forecast_kwh') | float(0) >= 1.0) }}
+         or (now().month in [10, 11, 12, 1, 2] and fk >= 1.0)
+         or (is_state('binary_sensor.saldering_voorbij', 'on')
+             and fk >= states('input_number.saldering_na_klein_forecast_kwh') | float(0.5)) }}
   - condition: template
     value_template: >
       {{ states('sensor.envoy_122331077486_current_power_production') | float(0)
-         > (1000 if now().month in [10, 11, 12, 1, 2] else 1500) }}
+         > (states('input_number.saldering_na_klein_enphase_w') | float(600) if is_state('binary_sensor.saldering_voorbij', 'on')
+            else (1000 if now().month in [10, 11, 12, 1, 2] else 1500)) }}
   # Niet klein-overschot draaien als groot-overschot net Party heeft gezet:
   # anders zou setpoint 62→57 en mode Party→Automatic worden overschreven,
   # wat de zonne_overschot_extra_opslag_reset (DHW>58 + mode=Party) breekt.
@@ -687,11 +692,13 @@
     de WP opnieuw naar 62 zou laten lopen. Mode: single blokkeert in deze 45
     min nieuwe boost-starts, wat acceptabel is (geen dubbele boost gewenst).
   triggers:
-  - entity_id: sensor.p1_meter_power
-    below: -4000
+  # Na de saldering (2027) een lagere drempel: input_number.saldering_na_groot_p1_w
+  - trigger: template
+    value_template: >
+      {{ states('sensor.p1_meter_power') | float(0)
+         < (-(states('input_number.saldering_na_groot_p1_w') | float(3000)) if is_state('binary_sensor.saldering_voorbij', 'on') else -4000) }}
     for:
       minutes: 10
-    trigger: numeric_state
   conditions:
   - condition: numeric_state
     entity_id: number.luxtronik_280807_0450_dhw_target_temperature
