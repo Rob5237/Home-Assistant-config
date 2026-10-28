@@ -591,8 +591,9 @@ template:
             {%- set laad = {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
                 'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
                 'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
-                'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
-                'Faulted': 'Storing'}.get(st, st) -%}
+                'Reserved': 'Gereserveerd', 'Unavailable': 'Lader niet bereikbaar',
+                'unavailable': 'Lader niet bereikbaar', 'unknown': 'Lader niet bereikbaar',
+                'Faulted': 'Storing op de lader'}.get(st, st) -%}
           {%- endif -%}
           {%- set ns = namespace(ts=0, soort='plan') -%}
           {%- for soort, ent in [('direct', 'input_boolean.ev_sonia_direct_laden'), ('zon', 'input_boolean.ev_sonia_alleen_zon'), ('uit', 'input_boolean.ev_sonia_opladen_uitgezet'), ('nacht', 'input_boolean.ev_sonia_nacht_overslaan')] -%}
@@ -636,9 +637,11 @@ template:
             {%- set plan_tekst = 'Auto pauzeert even' -%}
           {%- elif tg -%}
             {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
+          {%- elif pvl and st in ['Preparing', 'SuspendedEVSE', 'SuspendedEV'] -%}
+            {%- set plan_tekst = 'Wacht: Rob laadt eerst op zon' if (states('sensor.ev_rob_status_connector') == 'Charging' and is_state('binary_sensor.ev_lb_rob_pv_laden', 'on')) else 'Wacht op meer zonne-overschot' -%}
           {%- else -%}
             {%- set vs = states('sensor.ev_sonia_verwachte_start').split('\n')[0] -%}
-            {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+            {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Nog geen laadblok gepland' -%}
           {%- endif -%}
           {#- Regel 2: alleen bij een beperking door load balancing, delen of een volle fase (niet bij normaal laden). -#}
           {%- set sp = states('input_number.ev_lb_setpunt_sonia') | float(0) -%}
@@ -666,10 +669,10 @@ template:
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
               'uit': 'Accu opladen uitzetten',
-              'nacht': 'Morgen thuis blijven\naccu \'s-nachts NIET opladen',
+              'nacht': 'Morgen thuis blijven\nAlleen laden met zonlicht',
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
               'plan': plan_tekst}[ns.soort] -%}
-          {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
+          {%- if st in ['Available', 'unavailable', 'unknown', 'Faulted', 'Reserved'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
           {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}{{ ('\n' ~ extra) if extra else '' }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
@@ -689,8 +692,9 @@ template:
             {%- set laad = {'Available': 'Beschikbaar', 'Preparing': 'Aangesloten, wacht op start',
                 'Charging': 'Laden', 'SuspendedEVSE': 'Accu NU opladen gepauzeerd door EV-lader',
                 'SuspendedEV': 'Gepauzeerd door auto', 'Finishing': 'Afronden',
-                'Reserved': 'Gereserveerd', 'Unavailable': 'Niet beschikbaar',
-                'Faulted': 'Storing'}.get(st, st) -%}
+                'Reserved': 'Gereserveerd', 'Unavailable': 'Lader niet bereikbaar',
+                'unavailable': 'Lader niet bereikbaar', 'unknown': 'Lader niet bereikbaar',
+                'Faulted': 'Storing op de lader'}.get(st, st) -%}
           {%- endif -%}
           {%- set ns = namespace(ts=0, soort='plan') -%}
           {%- for soort, ent in [('direct', 'input_boolean.ev_rob_direct_laden'), ('zon', 'input_boolean.ev_rob_alleen_zon'), ('uit', 'input_boolean.ev_rob_opladen_uitgezet'), ('nacht', 'input_boolean.ev_rob_nacht_overslaan')] -%}
@@ -734,9 +738,11 @@ template:
             {%- set plan_tekst = 'Auto pauzeert even' -%}
           {%- elif tg -%}
             {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
+          {%- elif pvl and st in ['Preparing', 'SuspendedEVSE', 'SuspendedEV'] -%}
+            {%- set plan_tekst = 'Wacht op meer zonne-overschot' -%}
           {%- else -%}
             {%- set vs = states('sensor.ev_rob_verwachte_start').split('\n')[0] -%}
-            {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+            {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Nog geen laadblok gepland' -%}
           {%- endif -%}
           {#- Regel 2: alleen bij een beperking door load balancing, delen of een volle fase (niet bij normaal laden). -#}
           {%- set sp = states('input_number.ev_lb_setpunt_rob') | float(0) -%}
@@ -764,10 +770,10 @@ template:
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
               'uit': 'Accu opladen uitzetten',
-              'nacht': 'Morgen thuis blijven\naccu \'s-nachts NIET opladen',
+              'nacht': 'Morgen thuis blijven\nAlleen laden met zonlicht',
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
               'plan': plan_tekst}[ns.soort] -%}
-          {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
+          {%- if st in ['Available', 'unavailable', 'unknown', 'Faulted', 'Reserved'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
           {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}{{ ('\n' ~ extra) if extra else '' }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
@@ -803,12 +809,19 @@ template:
           {% if k_dl <= now() %}{% set k_dl = k_dl + timedelta(days=1) %}{% endif %}
           {% set k_ts = (now() + timedelta(hours=k_rest / k_pw)) if (states('sensor.ev_sonia_status_connector') == 'Charging' and k_pw >= 1 and k_rest > 0) else none %}
           {% set klaar_regel = ('\nVerwacht klaar ' ~ ('morgen ' if k_ts.date() != now().date() else '') ~ k_ts.strftime('%H:%M') ~ (' (na vertrek ' ~ k_dl.strftime('%H:%M') ~ ')' if k_ts > k_dl else '')) if k_ts is not none else '' %}
-          {% if states('sensor.ev_sonia_status_connector') in ['Available', 'unavailable', 'unknown'] %}
+          {% if states('sensor.ev_sonia_status_connector') == 'Available' %}
             Niet aangesloten
+          {% elif states('sensor.ev_sonia_status_connector') in ['unavailable', 'unknown'] %}
+            Lader niet bereikbaar
+          {% elif states('sensor.ev_sonia_status_connector') == 'Faulted' %}
+            Lader heeft een storing
           {% elif is_state('input_boolean.ev_sonia_opladen_uitgezet', 'on') %}
             Opladen wordt niet verwacht
           {% elif is_state('input_boolean.ev_sonia_accu_vol', 'on') %}
             Accu is vol, laden niet meer nodig
+          {% elif is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on') and not is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on')
+                  and states('sensor.ev_sonia_status_connector') in ['Charging', 'Preparing', 'SuspendedEVSE', 'SuspendedEV'] %}
+            {{ ('Laadt nu op zonnestroom' ~ klaar_regel) if states('sensor.ev_sonia_status_connector') == 'Charging' else 'Wacht op zonne-overschot' }}
           {# 'Morgen thuis blijven': alleen PV-laden; geldt als het de laatst ingedrukte stand is #}
           {% elif is_state('input_boolean.ev_sonia_nacht_overslaan', 'on') and not is_state('input_boolean.ev_sonia_direct_laden', 'on')
                   and (is_state('input_boolean.ev_sonia_alleen_zon', 'off')
@@ -821,9 +834,8 @@ template:
             {% set st = states('sensor.ev_sonia_status_connector') %}
             {{ ('De accu wordt nu opgeladen' ~ klaar_regel) if st == 'Charging'
                else 'Laden toegestaan, maar de auto neemt geen stroom af' if st == 'SuspendedEV'
+               else 'Gepauzeerd door load balancing' if (st == 'SuspendedEVSE' and states('input_number.ev_lb_setpunt_sonia') | float(0) < 6)
                else 'Laden toegestaan, wacht op start' }}
-          {% elif is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on') and is_state('sensor.ev_sonia_status_connector', 'Charging') %}
-            {{ 'Laadt nu op zonnestroom' ~ klaar_regel }}
           {% else %}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
             {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
@@ -871,12 +883,19 @@ template:
           {% set r_uur = (r_ts | timestamp_custom('%H') | int(12)) %}
           {% set samen = sonia_actief and (is_state('binary_sensor.ev_lb_deelmodus', 'on') or r_uur >= 22 or r_uur < 7) %}
           {% set na = sonia_actief and not samen %}
-          {% if states('sensor.ev_rob_status_connector') in ['Available', 'unavailable', 'unknown'] %}
+          {% if states('sensor.ev_rob_status_connector') == 'Available' %}
             Niet aangesloten
+          {% elif states('sensor.ev_rob_status_connector') in ['unavailable', 'unknown'] %}
+            Lader niet bereikbaar
+          {% elif states('sensor.ev_rob_status_connector') == 'Faulted' %}
+            Lader heeft een storing
           {% elif is_state('input_boolean.ev_rob_opladen_uitgezet', 'on') %}
             Opladen wordt niet verwacht
           {% elif is_state('input_boolean.ev_rob_accu_vol', 'on') %}
             Accu is vol, laden niet meer nodig
+          {% elif is_state('binary_sensor.ev_lb_rob_pv_laden', 'on') and not is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on')
+                  and states('sensor.ev_rob_status_connector') in ['Charging', 'Preparing', 'SuspendedEVSE', 'SuspendedEV'] %}
+            {{ ('Laadt nu op zonnestroom' ~ klaar_regel) if states('sensor.ev_rob_status_connector') == 'Charging' else 'Wacht op zonne-overschot' }}
           {# 'Morgen thuis blijven': alleen PV-laden; geldt als het de laatst ingedrukte stand is #}
           {% elif is_state('input_boolean.ev_rob_nacht_overslaan', 'on') and not is_state('input_boolean.ev_rob_direct_laden', 'on')
                   and (is_state('input_boolean.ev_rob_alleen_zon', 'off')
@@ -889,9 +908,8 @@ template:
             {{ ('De accu wordt nu opgeladen' ~ klaar_regel) if st == 'Charging'
                else 'Pas na EV-Sonia' if na
                else 'Laden toegestaan, maar de auto neemt geen stroom af' if st == 'SuspendedEV'
+               else 'Gepauzeerd door load balancing' if (st == 'SuspendedEVSE' and states('input_number.ev_lb_setpunt_rob') | float(0) < 6)
                else 'Laden toegestaan, wacht op start' }}
-          {% elif is_state('binary_sensor.ev_lb_rob_pv_laden', 'on') and is_state('sensor.ev_rob_status_connector', 'Charging') %}
-            {{ 'Laadt nu op zonnestroom' ~ klaar_regel }}
           {% else %}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
             {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
@@ -909,7 +927,7 @@ template:
               {% set s = goed[0].t | as_local %}
               {% set kp = s + timedelta(hours=states('sensor.ev_rob_plan_uren') | float(0)) %}
               {% set kp_regel = ('\nVerwacht klaar ' ~ ('morgen ' if kp.date() != now().date() else '') ~ kp.strftime('%H:%M')) if states('sensor.ev_rob_plan_uren') | float(0) > 0 and not na else '' %}
-              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ kp_regel }}{{ ' – Pas na EV-Sonia' if na else ' – Samen met EV-Sonia' if samen else '' }}
+              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ ' – Pas na EV-Sonia' if na else ' – Samen met EV-Sonia' if samen else '' }}{{ kp_regel }}
             {% endif %}
           {% endif %}
 
