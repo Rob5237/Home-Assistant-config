@@ -183,7 +183,7 @@ input_number:
     min: 0
     max: 5
     step: 0.5
-    initial: 1
+    initial: 2
     unit_of_measurement: A
     mode: box
   # Sonia heeft voorrang: krijgt ruimte als eerste en mag tot haar max.
@@ -1193,7 +1193,8 @@ template:
           {{ nacht and sonia and rob }}
       # Echte overschrijding van 25 A, 15 s aanhoudend (de Quooker geeft elke ~36 min
       # een puls van 5-10 s van ~9 A op L2; dat is voor de zekering geen gevaar).
-      # Zware overschrijding (> zekering + 4 A) telt na 3 s, zoals voorheen.
+      # Zware overschrijding (> zekering + 4 A) telt na 12 s (was 3 s, 28-10-2026: een
+      # Quooker-puls van 5-10 s tot ~32 A zette Sonia op 0 A).
       - name: "EV LB overbelasting"
         unique_id: ev_lb_overbelasting
         device_class: problem
@@ -1202,7 +1203,7 @@ template:
           {% set m = [ states('sensor.ev_lb_stroom_l1') | float(0),
                        states('sensor.ev_lb_stroom_l2') | float(0),
                        states('sensor.ev_lb_stroom_l3') | float(0) ] | max %}
-          {{ '00:00:03' if m > z + 4 else '00:00:15' }}
+          {{ '00:00:12' if m > z + 4 else '00:00:15' }}
         state: >
           {% set z = states('input_number.ev_lb_zekering') | float(25) %}
           {{ [ states('sensor.ev_lb_stroom_l1') | float(0),
@@ -1952,8 +1953,8 @@ automation:
                 {% endif %}
               {% endfor %}
 
-            {% elif ruimte < 0 and (ruimte < zwaar or tekort_lang) and lasten_uit %}
-              {# OMLAAG na 12 s tekort (of direct bij > 6 A tekort): eerst Rob, dan pas Sonia #}
+            {% elif ruimte < 0 and tekort_lang and lasten_uit %}
+              {# OMLAAG na 12 s tekort (ook bij zwaar tekort, zodat een Quooker-puls van 5-10 s niet tot 0 A leidt): eerst Rob, dan pas Sonia #}
               {% for l in laders | reverse %}
                 {% set o = ns.out[l.naam] %}
                 {% if o.bezig and ns.rest < 0 and o.huidig > 0 and (is_state(l.fase, '3-fase') or states(l.fase) == slechtste) %}
