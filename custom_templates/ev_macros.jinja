@@ -9,7 +9,8 @@
       = (zonforecast - huisverbruik) / laadvermogen, begrensd op 0..1.
     Zonwaarde (wat je misloopt als je zonnestroom zelf laadt in plaats van terug te leveren):
       - tot input_datetime.ev_lb_saldering_einde (salderingsregeling, Zonneplan-contract): het tarief
-        incl. belasting (teruglevering wordt verrekend tegen de afnameprijs) -> zon geeft geen prijsvoordeel
+        incl. belasting x input_number.ev_lb_zonwaarde_factor_saldering (1,0 = zon geeft geen prijsvoordeel;
+        gemeten gemiddelde teruglevering/afname is 0,90-0,98)
       - daarna (geen saldering): prijs excl. belasting + input_number.ev_lb_terugleveraanpassing, minimaal 0
     Zonforecast: Forecast.Solar-sensoren (3 dakdelen) over zonsopkomst-zonsondergang met een sinusvorm;
     vandaag verdeeld over de resterende daglicht-uren. Huisverbruik: sensor.ev_huisverbruik_24u (gemiddelde
@@ -47,6 +48,7 @@
   {%- set morgen = states('sensor.energy_production_tomorrow') | float(0) + states('sensor.energy_production_tomorrow_2') | float(0) + states('sensor.energy_production_tomorrow_3') | float(0) -%}
   {%- set einde = states('input_datetime.ev_lb_saldering_einde') | as_datetime | as_local -%}
   {%- set aanpas = states('input_number.ev_lb_terugleveraanpassing') | float(0) -%}
+  {%- set factor = states('input_number.ev_lb_zonwaarde_factor_saldering') | float(1) -%}
   {%- set ns = namespace(l=[]) -%}
   {%- for q in fc | sort(attribute='start_date') -%}
     {%- set st = as_datetime(q.start_date) | as_local -%}
@@ -72,7 +74,7 @@
         {%- endif -%}
       {%- endif -%}
       {%- set aandeel = ([[(zon - huis_kw) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
-      {%- set waarde = p if st < einde else ([pe + aanpas, 0] | max) -%}
+      {%- set waarde = p * factor if st < einde else ([pe + aanpas, 0] | max) -%}
       {%- set kosten = p * (1 - aandeel) + waarde * aandeel -%}
       {%- set ns.l = ns.l + [{'t': st, 'c': kosten, 'a': aandeel}] -%}
     {%- endif -%}
