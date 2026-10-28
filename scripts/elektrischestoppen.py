@@ -250,7 +250,7 @@ c.setFillColor(SOFT); c.rect(M, y - mh, CW, mh, stroke=0, fill=1)
 for k in range(3):
     c.setFillColor(P[k + 1][0]); c.setFont(B, 9); c.drawCentredString(DOTX[k], y - 10.5, f"L{k + 1}")
 text(M + 8, y - 10.3, "VERBRUIKER", B, 7)
-text(NOTEX, y - 10.3, "BELASTING", B, 7)
+text(NOTEX, y - 10.3, "FASE BELASTING", B, 7)
 rows_total = [max(len(wrap(n, NOTEW, R, 8.2)) * 9.5 + 4, 15.5) for _, _, n in matrix]
 mt = mh + sum(rows_total)
 c.setStrokeColor(RULE); c.setLineWidth(0.6); c.setFillColor(white)
