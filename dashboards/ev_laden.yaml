@@ -558,8 +558,8 @@ views:
                     card_mod:
                       style: |
                         ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
-                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
-                        ha-card { color: #000 !important; --primary-text-color: #000; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #fff !important; }
+                        ha-card { color: #fff !important; --primary-text-color: #fff; }
   - title: EV-Rob
     path: rob
     theme: laden_koppen
@@ -1101,5 +1101,5 @@ views:
                     card_mod:
                       style: |
                         ha-card { height: 34px !important; min-height: 0 !important; padding: 0 !important; border-radius: 8px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; border-bottom: 2px solid rgba(0, 0, 0, 0.45) !important; }
-                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #000 !important; }
-                        ha-card { color: #000 !important; --primary-text-color: #000; }
+                        span, .state { font-size: 14px !important; font-weight: 400 !important; color: #fff !important; }
+                        ha-card { color: #fff !important; --primary-text-color: #fff; }
