@@ -637,8 +637,31 @@ template:
           {%- elif tg -%}
             {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
           {%- else -%}
-            {%- set vs = states('sensor.ev_sonia_verwachte_start') -%}
+            {%- set vs = states('sensor.ev_sonia_verwachte_start').split('\n')[0] -%}
             {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+          {%- endif -%}
+          {#- Regel 2: alleen bij een beperking door load balancing, delen of een volle fase (niet bij normaal laden). -#}
+          {%- set sp = states('input_number.ev_lb_setpunt_sonia') | float(0) -%}
+          {%- set actief = st == 'Charging' or (tg and st in ['Preparing', 'SuspendedEVSE']) -%}
+          {%- set i_f = [states('sensor.ev_lb_stroom_l1') | float(0), states('sensor.ev_lb_stroom_l2') | float(0), states('sensor.ev_lb_stroom_l3') | float(0)] -%}
+          {%- set p1 = namespace(oud=false) -%}
+          {%- for f in [1, 2, 3] -%}
+            {%- set e = states['sensor.p1_meter_power_phase_' ~ f] -%}
+            {%- if e is none or e.state in ['unavailable', 'unknown'] or (now() - e.last_reported).total_seconds() > 30 -%}{%- set p1.oud = true -%}{%- endif -%}
+          {%- endfor -%}
+          {%- set extra = '' -%}
+          {%- if not actief or is_state('input_boolean.ev_sonia_accu_vol', 'on') or ns.soort in ['uit', 'nacht'] -%}
+          {%- elif is_state('binary_sensor.ev_lb_overbelasting', 'on') -%}{%- set extra = 'Gestopt: aansluiting overbelast' -%}
+          {%- elif states('input_number.ev_lb_afschakel_niveau') | int(0) > 0 -%}{%- set extra = 'Huislast uit voor het laden' -%}
+          {%- elif is_state('binary_sensor.ev_lb_tekort_aanhoudend', 'on') -%}{%- set extra = 'Beperkt: huis gebruikt veel stroom' -%}
+          {%- elif p1.oud -%}{%- set extra = 'P1-meter niet bereikbaar, laadt op 6 A' -%}
+          {%- elif is_state('input_boolean.ev_lb_actief', 'off') -%}{%- set extra = 'Load balancing uit, laadt op 6 A' -%}
+          {%- elif is_state('binary_sensor.ev_lb_deelmodus', 'on') -%}{%- set extra = 'Samen met Rob, max ' ~ (states('input_number.ev_lb_deel_max_sonia') | int(0)) ~ ' A' -%}
+          {%- elif st == 'Charging' and sp >= 6 and sp < states('input_number.ev_lb_max_sonia') | float(16)
+                    and states('sensor.ev_lb_ruimte') | float(9) < 3
+                    and (now() - states['input_number.ev_lb_setpunt_sonia'].last_changed).total_seconds() > 60 -%}
+            {%- set fa = states('sensor.ev_lb_sonia_fase_actief') -%}
+            {%- set extra = 'Beperkt tot ' ~ (sp | int) ~ ' A door fase ' ~ (fa if fa in ['L1', 'L2', 'L3'] else 'L' ~ (i_f.index(i_f | max) + 1)) -%}
           {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
@@ -648,7 +671,7 @@ template:
               'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
-          {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
+          {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}{{ ('\n' ~ extra) if extra else '' }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
       - name: "EV Rob status NL"
         unique_id: ev_rob_status_nl
@@ -712,8 +735,31 @@ template:
           {%- elif tg -%}
             {%- set plan_tekst = 'Laden op laagste tarief wordt gestart' -%}
           {%- else -%}
-            {%- set vs = states('sensor.ev_rob_verwachte_start') -%}
+            {%- set vs = states('sensor.ev_rob_verwachte_start').split('\n')[0] -%}
             {%- set plan_tekst = ('Laden op laagste tarief begint ' ~ vs) if vs is match('^(vandaag|morgen|overmorgen|Vannacht)') else 'Afwachten wanneer goedkoop laadtarief in de nacht begint' -%}
+          {%- endif -%}
+          {#- Regel 2: alleen bij een beperking door load balancing, delen of een volle fase (niet bij normaal laden). -#}
+          {%- set sp = states('input_number.ev_lb_setpunt_rob') | float(0) -%}
+          {%- set actief = st == 'Charging' or (tg and st in ['Preparing', 'SuspendedEVSE']) -%}
+          {%- set i_f = [states('sensor.ev_lb_stroom_l1') | float(0), states('sensor.ev_lb_stroom_l2') | float(0), states('sensor.ev_lb_stroom_l3') | float(0)] -%}
+          {%- set p1 = namespace(oud=false) -%}
+          {%- for f in [1, 2, 3] -%}
+            {%- set e = states['sensor.p1_meter_power_phase_' ~ f] -%}
+            {%- if e is none or e.state in ['unavailable', 'unknown'] or (now() - e.last_reported).total_seconds() > 30 -%}{%- set p1.oud = true -%}{%- endif -%}
+          {%- endfor -%}
+          {%- set extra = '' -%}
+          {%- if not actief or is_state('input_boolean.ev_rob_accu_vol', 'on') or ns.soort in ['uit', 'nacht'] -%}
+          {%- elif is_state('binary_sensor.ev_lb_overbelasting', 'on') -%}{%- set extra = 'Gestopt: aansluiting overbelast' -%}
+          {%- elif states('input_number.ev_lb_afschakel_niveau') | int(0) > 0 -%}{%- set extra = 'Huislast uit voor het laden' -%}
+          {%- elif is_state('binary_sensor.ev_lb_tekort_aanhoudend', 'on') -%}{%- set extra = 'Beperkt: huis gebruikt veel stroom' -%}
+          {%- elif p1.oud -%}{%- set extra = 'P1-meter niet bereikbaar, laadt op 6 A' -%}
+          {%- elif is_state('input_boolean.ev_lb_actief', 'off') -%}{%- set extra = 'Load balancing uit, laadt op 6 A' -%}
+          {%- elif is_state('binary_sensor.ev_lb_deelmodus', 'on') -%}{%- set extra = 'Samen met Sonia, max ' ~ (states('input_number.ev_lb_deel_max_rob') | int(0)) ~ ' A' -%}
+          {%- elif st == 'Charging' and sp >= 6 and sp < states('input_number.ev_lb_max_rob') | float(16)
+                    and states('sensor.ev_lb_ruimte') | float(9) < 3
+                    and (now() - states['input_number.ev_lb_setpunt_rob'].last_changed).total_seconds() > 60 -%}
+            {%- set fa = states('sensor.ev_lb_rob_fase_actief') -%}
+            {%- set extra = 'Beperkt tot ' ~ (sp | int) ~ ' A door fase ' ~ (fa if fa in ['L1', 'L2', 'L3'] else 'L' ~ (i_f.index(i_f | max) + 1)) -%}
           {%- endif -%}
           {%- set modus = {'direct': 'Accu NU SNEL opladen → €€€',
               'zon': 'Accu GRATIS opladen met de zon maar langzamer',
@@ -723,7 +769,7 @@ template:
               'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
-          {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}
+          {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}{{ ('\n' ~ extra) if extra else '' }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
 
   - sensor:
@@ -750,6 +796,13 @@ template:
         unique_id: ev_sonia_verwachte_start
         icon: mdi:clock-start
         state: >-
+          {# Verwacht klaar: resterende kWh (planning minus gedaan) / gemeten vermogen; alleen tijdens het laden bij >= 1 kW #}
+          {% set k_rest = [states('input_number.ev_lb_sonia_plan_kwh') | float(0) - states('sensor.ev_sonia_sessie_energie') | float(0), 0] | max %}
+          {% set k_pw = states('sensor.ev_sonia_vermogen') | float(0) / 1000 %}
+          {% set k_dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
+          {% if k_dl <= now() %}{% set k_dl = k_dl + timedelta(days=1) %}{% endif %}
+          {% set k_ts = (now() + timedelta(hours=k_rest / k_pw)) if (states('sensor.ev_sonia_status_connector') == 'Charging' and k_pw >= 1 and k_rest > 0) else none %}
+          {% set klaar_regel = ('\nVerwacht klaar ' ~ ('morgen ' if k_ts.date() != now().date() else '') ~ k_ts.strftime('%H:%M') ~ (' (na vertrek ' ~ k_dl.strftime('%H:%M') ~ ')' if k_ts > k_dl else '')) if k_ts is not none else '' %}
           {% if states('sensor.ev_sonia_status_connector') in ['Available', 'unavailable', 'unknown'] %}
             Niet aangesloten
           {% elif is_state('input_boolean.ev_sonia_opladen_uitgezet', 'on') %}
@@ -766,11 +819,11 @@ template:
           {% elif is_state('binary_sensor.ev_lb_sonia_laden_toegestaan', 'on') %}
             {# Laden mag nu; wat de tekst zegt hangt af van wat de lader/auto echt doet #}
             {% set st = states('sensor.ev_sonia_status_connector') %}
-            {{ 'De accu wordt nu opgeladen' if st == 'Charging'
+            {{ ('De accu wordt nu opgeladen' ~ klaar_regel) if st == 'Charging'
                else 'Laden toegestaan, maar de auto neemt geen stroom af' if st == 'SuspendedEV'
                else 'Laden toegestaan, wacht op start' }}
           {% elif is_state('binary_sensor.ev_lb_sonia_pv_laden', 'on') and is_state('sensor.ev_sonia_status_connector', 'Charging') %}
-            Laadt nu op zonnestroom
+            {{ 'Laadt nu op zonnestroom' ~ klaar_regel }}
           {% else %}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
             {% set dl = today_at(states('input_datetime.ev_sonia_vertrek')) %}
@@ -786,13 +839,22 @@ template:
               Geen goedkoop uur gepland
             {% else %}
               {% set s = goed[0].t | as_local %}
-              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}
+              {% set kp = s + timedelta(hours=states('sensor.ev_sonia_plan_uren') | float(0)) %}
+              {% set kp_regel = ('\nVerwacht klaar ' ~ ('morgen ' if kp.date() != now().date() else '') ~ kp.strftime('%H:%M')) if states('sensor.ev_sonia_plan_uren') | float(0) > 0 else '' %}
+              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ kp_regel }}
             {% endif %}
           {% endif %}
       - name: "EV Rob verwachte start"
         unique_id: ev_rob_verwachte_start
         icon: mdi:clock-start
         state: >-
+          {# Verwacht klaar: resterende kWh (planning minus gedaan) / gemeten vermogen; alleen tijdens het laden bij >= 1 kW #}
+          {% set k_rest = [states('input_number.ev_lb_rob_plan_kwh') | float(0) - states('sensor.ev_rob_sessie_energie') | float(0), 0] | max %}
+          {% set k_pw = states('sensor.ev_rob_vermogen') | float(0) / 1000 %}
+          {% set k_dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
+          {% if k_dl <= now() %}{% set k_dl = k_dl + timedelta(days=1) %}{% endif %}
+          {% set k_ts = (now() + timedelta(hours=k_rest / k_pw)) if (states('sensor.ev_rob_status_connector') == 'Charging' and k_pw >= 1 and k_rest > 0) else none %}
+          {% set klaar_regel = ('\nVerwacht klaar ' ~ ('morgen ' if k_ts.date() != now().date() else '') ~ k_ts.strftime('%H:%M') ~ (' (na vertrek ' ~ k_dl.strftime('%H:%M') ~ ')' if k_ts > k_dl else '')) if k_ts is not none else '' %}
           {# Sonia heeft voorrang: zolang zij aangesloten is en nog laadt/wacht, start Rob pas daarna #}
           {# Alleen als Sonia ook echt mag laden (niet bij 'nacht overslaan' / buiten haar uren) #}
           {# Ook vooruitkijkend: Sonia's geplande blok loopt op Rob's startmoment (en ze slaat de nacht niet over) #}
@@ -824,12 +886,12 @@ template:
             Alleen met zonlicht, maar wanneer en hoe snel is onbekend
           {% elif is_state('binary_sensor.ev_lb_rob_laden_toegestaan', 'on') %}
             {% set st = states('sensor.ev_rob_status_connector') %}
-            {{ 'De accu wordt nu opgeladen' if st == 'Charging'
+            {{ ('De accu wordt nu opgeladen' ~ klaar_regel) if st == 'Charging'
                else 'Pas na EV-Sonia' if na
                else 'Laden toegestaan, maar de auto neemt geen stroom af' if st == 'SuspendedEV'
                else 'Laden toegestaan, wacht op start' }}
           {% elif is_state('binary_sensor.ev_lb_rob_pv_laden', 'on') and is_state('sensor.ev_rob_status_connector', 'Charging') %}
-            Laadt nu op zonnestroom
+            {{ 'Laadt nu op zonnestroom' ~ klaar_regel }}
           {% else %}
             {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
             {% set dl = today_at(states('input_datetime.ev_rob_vertrek')) %}
@@ -845,7 +907,9 @@ template:
               Geen goedkoop uur gepland
             {% else %}
               {% set s = goed[0].t | as_local %}
-              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ ' – Pas na EV-Sonia' if na else ' – Samen met EV-Sonia' if samen else '' }}
+              {% set kp = s + timedelta(hours=states('sensor.ev_rob_plan_uren') | float(0)) %}
+              {% set kp_regel = ('\nVerwacht klaar ' ~ ('morgen ' if kp.date() != now().date() else '') ~ kp.strftime('%H:%M')) if states('sensor.ev_rob_plan_uren') | float(0) > 0 and not na else '' %}
+              {{ 'Vannacht om' if s.hour < 6 else 'vandaag' if s.date() == now().date() else 'morgen' }} {{ s.strftime('%H:%M') }}{{ kp_regel }}{{ ' – Pas na EV-Sonia' if na else ' – Samen met EV-Sonia' if samen else '' }}
             {% endif %}
           {% endif %}
 
