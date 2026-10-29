@@ -61,6 +61,14 @@ input_boolean:
     name: "EV-Rob – werkdag zaterdag"
   ev_rob_werkdag_zo:
     name: "EV-Rob – werkdag zondag"
+  # Eenmalig: 'Morgen vroeg weg' (knop). Dwingt voor het eerstvolgende vertrek de werkdagtijd af, ook als
+  # die dag normaal geen werkdag is. Wist zichzelf op die vertrektijd (zie ev_vroeg_weg_wissen).
+  ev_sonia_vroeg_weg:
+    name: "EV-Sonia – morgen vroeg weg (eenmalig)"
+    icon: mdi:alarm
+  ev_rob_vroeg_weg:
+    name: "EV-Rob – morgen vroeg weg (eenmalig)"
+    icon: mdi:alarm
 
 automation:
   - id: ev_vertrektijd_werkdag_weekend
@@ -98,7 +106,16 @@ automation:
           - input_boolean.ev_rob_werkdag_vr
           - input_boolean.ev_rob_werkdag_za
           - input_boolean.ev_rob_werkdag_zo
+          - input_boolean.ev_sonia_vroeg_weg
+          - input_boolean.ev_rob_vroeg_weg
     actions:
+      # Het wissen van 'vroeg weg' op de vertrektijd zelf mag de geldende tijd niet terugzetten:
+      # tot 12:00 blijft de werkdagtijd staan (net als op een gewone werkdag).
+      - condition: template
+        value_template: >
+          {{ not (trigger.platform == 'state' and trigger.entity_id.endswith('_vroeg_weg')
+                  and trigger.to_state.state == 'off' and now().hour < 12
+                  and now().strftime('%H:%M:%S') >= states('input_datetime.ev_' ~ trigger.entity_id.split('.')[1].split('_')[1] ~ '_vertrek')) }}
       - delay: "00:00:05"
       - action: workday.check_date
         target:
@@ -116,7 +133,8 @@ automation:
           sequence:
             - variables:
                 is_werkdag: >
-                  {{ geen_feestdag and is_state('input_boolean.ev_' ~ repeat.item ~ '_werkdag_' ~ dagkort, 'on') }}
+                  {{ is_state('input_boolean.ev_' ~ repeat.item ~ '_vroeg_weg', 'on')
+                     or (geen_feestdag and is_state('input_boolean.ev_' ~ repeat.item ~ '_werkdag_' ~ dagkort, 'on')) }}
                 nieuw: >
                   {{ states('input_datetime.ev_' ~ repeat.item ~ '_vertrek_' ~ ('werkdag' if is_werkdag else 'weekend')) }}
             - if:
@@ -130,6 +148,52 @@ automation:
                     entity_id: "input_datetime.ev_{{ repeat.item }}_vertrek"
                   data:
                     time: "{{ nieuw }}"
+
+  - id: ev_vroeg_weg_wissen
+    alias: "EV – 'morgen vroeg weg' wissen op de vertrektijd"
+    description: >
+      De eenmalige knop 'Morgen vroeg weg' geldt voor het eerstvolgende vertrek en gaat uit op die
+      vertrektijd (input_datetime.ev_<auto>_vertrek is dan de werkdagtijd, zie ev_vertrektijd_werkdag_weekend).
+    mode: parallel
+    triggers:
+      - trigger: time
+        at: input_datetime.ev_sonia_vertrek
+        id: sonia
+      - trigger: time
+        at: input_datetime.ev_rob_vertrek
+        id: rob
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: "input_boolean.ev_{{ trigger.id }}_vroeg_weg"
+  - id: ev_vroeg_weg_of_thuis
+    alias: "EV – 'morgen vroeg weg' en 'morgen thuis blijven' sluiten elkaar uit"
+    description: >
+      De ene knop aanzetten zet de andere uit (ze zijn tegengesteld: vroeg weg verkort de deadline,
+      thuis blijven verlengt die tot 17:00 de dag erna).
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.ev_sonia_vroeg_weg
+        to: "on"
+        id: sonia_vroeg
+      - trigger: state
+        entity_id: input_boolean.ev_rob_vroeg_weg
+        to: "on"
+        id: rob_vroeg
+      - trigger: state
+        entity_id: input_boolean.ev_sonia_nacht_overslaan
+        to: "on"
+        id: sonia_thuis
+      - trigger: state
+        entity_id: input_boolean.ev_rob_nacht_overslaan
+        to: "on"
+        id: rob_thuis
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: >-
+            {{ 'input_boolean.ev_' ~ trigger.id.split('_')[0] ~ ('_nacht_overslaan' if trigger.id.endswith('_vroeg') else '_vroeg_weg') }}
 
 # Tekstversie (HH:MM met voorloopnul) van de tijden, zodat de dubbele punten in het
 # dashboard onder elkaar staan (anders toont HA '7:00' en '10:00' verschillend breed).

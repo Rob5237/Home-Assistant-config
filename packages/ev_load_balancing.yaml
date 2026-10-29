@@ -647,7 +647,7 @@ template:
                 'Faulted': 'Storing op de lader'}.get(st, st) -%}
           {%- endif -%}
           {%- set ns = namespace(ts=0, soort='plan') -%}
-          {%- for soort, ent in [('direct', 'input_boolean.ev_sonia_direct_laden'), ('zon', 'input_boolean.ev_sonia_alleen_zon'), ('uit', 'input_boolean.ev_sonia_opladen_uitgezet'), ('nacht', 'input_boolean.ev_sonia_nacht_overslaan')] -%}
+          {%- for soort, ent in [('direct', 'input_boolean.ev_sonia_direct_laden'), ('zon', 'input_boolean.ev_sonia_alleen_zon'), ('uit', 'input_boolean.ev_sonia_opladen_uitgezet'), ('nacht', 'input_boolean.ev_sonia_nacht_overslaan'), ('vroeg', 'input_boolean.ev_sonia_vroeg_weg')] -%}
             {%- set v = states.input_boolean | selectattr('entity_id', 'eq', ent) | first -%}
             {%- if v is defined and v.state == 'on' and v.last_changed.timestamp() > ns.ts -%}
               {%- set ns.ts = v.last_changed.timestamp() -%}{%- set ns.soort = soort -%}
@@ -725,7 +725,7 @@ template:
           {%- elif mt.get('start') -%}
             {%- set ms = mt.start | as_datetime | as_local -%}
             {%- set dagw = 'vannacht' if ms.hour < 6 else ('morgen' if ms.date() > now().date() else ('vanavond' if ms.hour >= 18 else 'vandaag')) -%}
-            {%- set nacht_tekst = 'Morgen thuis blijven\nLaden ' ~ dagw ~ ' ' ~ ms.strftime('%H:%M') ~ (' (zon + net)' if mt.get('zon', 0) >= 0.2 else ' (net)') -%}
+            {%- set nacht_tekst = 'Morgen thuis blijven\nLaden ' ~ dagw ~ ' ' ~ ms.strftime('%H:%M') ~ (' (zon + net)' if mt.get('zon', 0) >= 0.2 else ' (net)') ~ (' · weinig voordeel' if (mt.get('besp_pct') is number and mt.get('besp_pct') < 5) else (' · €' ~ ('%.2f' | format(mt.get('besp_eur'))).replace('.', ',') ~ ' voordeel' if mt.get('besp_eur') is number else '')) -%}
           {%- else -%}
             {%- set nacht_tekst = 'Morgen thuis blijven\nPlanning volgt' -%}
           {%- endif -%}
@@ -734,9 +734,11 @@ template:
               'uit': 'Accu opladen uitzetten',
               'nacht': nacht_tekst,
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
+              'vroeg': plan_tekst,
               'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown', 'Faulted', 'Reserved'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
+          {%- elif ns.soort == 'vroeg' -%}{{ modus }}{{ '\n' ~ (extra if extra else 'Morgen vroeg weg, klaar vóór ' ~ states('sensor.ev_sonia_vertrektijd_geldend_tekst')) }}
           {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}{{ ('\n' ~ extra) if extra else '' }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
       - name: "EV Rob status NL"
@@ -760,7 +762,7 @@ template:
                 'Faulted': 'Storing op de lader'}.get(st, st) -%}
           {%- endif -%}
           {%- set ns = namespace(ts=0, soort='plan') -%}
-          {%- for soort, ent in [('direct', 'input_boolean.ev_rob_direct_laden'), ('zon', 'input_boolean.ev_rob_alleen_zon'), ('uit', 'input_boolean.ev_rob_opladen_uitgezet'), ('nacht', 'input_boolean.ev_rob_nacht_overslaan')] -%}
+          {%- for soort, ent in [('direct', 'input_boolean.ev_rob_direct_laden'), ('zon', 'input_boolean.ev_rob_alleen_zon'), ('uit', 'input_boolean.ev_rob_opladen_uitgezet'), ('nacht', 'input_boolean.ev_rob_nacht_overslaan'), ('vroeg', 'input_boolean.ev_rob_vroeg_weg')] -%}
             {%- set v = states.input_boolean | selectattr('entity_id', 'eq', ent) | first -%}
             {%- if v is defined and v.state == 'on' and v.last_changed.timestamp() > ns.ts -%}
               {%- set ns.ts = v.last_changed.timestamp() -%}{%- set ns.soort = soort -%}
@@ -838,7 +840,7 @@ template:
           {%- elif mt.get('start') -%}
             {%- set ms = mt.start | as_datetime | as_local -%}
             {%- set dagw = 'vannacht' if ms.hour < 6 else ('morgen' if ms.date() > now().date() else ('vanavond' if ms.hour >= 18 else 'vandaag')) -%}
-            {%- set nacht_tekst = 'Morgen thuis blijven\nLaden ' ~ dagw ~ ' ' ~ ms.strftime('%H:%M') ~ (' (zon + net)' if mt.get('zon', 0) >= 0.2 else ' (net)') -%}
+            {%- set nacht_tekst = 'Morgen thuis blijven\nLaden ' ~ dagw ~ ' ' ~ ms.strftime('%H:%M') ~ (' (zon + net)' if mt.get('zon', 0) >= 0.2 else ' (net)') ~ (' · weinig voordeel' if (mt.get('besp_pct') is number and mt.get('besp_pct') < 5) else (' · €' ~ ('%.2f' | format(mt.get('besp_eur'))).replace('.', ',') ~ ' voordeel' if mt.get('besp_eur') is number else '')) -%}
           {%- else -%}
             {%- set nacht_tekst = 'Morgen thuis blijven\nPlanning volgt' -%}
           {%- endif -%}
@@ -847,9 +849,11 @@ template:
               'uit': 'Accu opladen uitzetten',
               'nacht': nacht_tekst,
               'nachtwel': 'Accu wordt \'s-nachts op laagste tarief snel opgeladen → €€',
+              'vroeg': plan_tekst,
               'plan': plan_tekst}[ns.soort] -%}
           {%- if st in ['Available', 'unavailable', 'unknown', 'Faulted', 'Reserved'] -%}{{ laad }}
           {%- elif ns.soort == 'uit' and st != 'Charging' -%}Accu opladen uitgezet
+          {%- elif ns.soort == 'vroeg' -%}{{ modus }}{{ '\n' ~ (extra if extra else 'Morgen vroeg weg, klaar vóór ' ~ states('sensor.ev_rob_vertrektijd_geldend_tekst')) }}
           {%- elif ns.soort in ['direct', 'zon', 'nacht', 'nachtwel', 'plan'] -%}{{ modus }}{{ ('\n' ~ extra) if extra else '' }}
           {%- else -%}{{ modus }}{{ '\n' }}{{ laad }}{%- endif -%}
 

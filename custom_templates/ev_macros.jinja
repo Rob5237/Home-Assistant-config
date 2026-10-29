@@ -136,6 +136,11 @@
   {%- if b.alle is none -%}
     {{- {} | tojson -}}
   {%- else -%}
-    {{- dict(b.alle, dl=t17.isoformat(), nacht=({'start': b.nacht.start, 'kosten': b.nacht.kosten, 'zon': b.nacht.zon} if b.nacht is not none else {}), dag=({'start': b.dag.start, 'kosten': b.dag.kosten, 'zon': b.dag.zon} if b.dag is not none else {})) | tojson -}}
+    {#- Besparing t.o.v. het goedkoopste nachtblok (voor de status bij 'morgen thuis blijven') -#}
+    {%- set nk = b.nacht.kosten if b.nacht is not none else none -%}
+    {%- set kwh = p_kw * k / 4 -%}
+    {%- set besp_eur = ((nk - b.alle.kosten) * kwh) | round(2) if nk is not none else none -%}
+    {%- set besp_pct = ((nk - b.alle.kosten) / nk * 100) | round(1) if (nk is not none and nk > 0) else none -%}
+    {{- dict(b.alle, besp_eur=besp_eur, besp_pct=besp_pct, dl=t17.isoformat(), nacht=({'start': b.nacht.start, 'kosten': b.nacht.kosten, 'zon': b.nacht.zon} if b.nacht is not none else {}), dag=({'start': b.dag.start, 'kosten': b.dag.kosten, 'zon': b.dag.zon} if b.dag is not none else {})) | tojson -}}
   {%- endif -%}
 {%- endmacro %}
