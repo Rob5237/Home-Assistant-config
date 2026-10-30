@@ -1,6 +1,6 @@
 # Thema voor het Laden-dashboard: sectiekoppen (EV Sonia, EV Rob) groter en zwart
 laden_koppen:
-  ha-heading-card-title-font-size: 32px
-  ha-heading-card-title-line-height: 38px
-  ha-heading-card-title-color: "#000000"
+  ha-heading-card-title-font-size: 21.1px
+  ha-heading-card-title-line-height: 26px
+  ha-heading-card-title-color: "var(--primary-text-color)"
   ha-heading-card-title-font-weight: 700
