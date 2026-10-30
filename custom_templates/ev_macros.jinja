@@ -72,13 +72,15 @@
   {{- incl * (1 - aandeel) + waarde * aandeel -}}
 {%- endmacro %}
 
-{%- macro ev_dag_blok(n, nu_test=none) -%}
+{%- macro ev_dag_blok(n, nu_test=none, modus='dag', einde_test=none) -%}
   {%- set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] -%}
   {%- set nu = nu_test if nu_test is not none else now() -%}
   {#- Deadline: 17:00 op de dag van de eerstvolgende vertrektijd = de dag na de nacht ('morgen thuis') -#}
   {%- set vt = today_at(states('input_datetime.ev_' ~ n ~ '_vertrek')) -%}
   {%- set vt_volgende = vt if vt > nu else vt + timedelta(days=1) -%}
   {%- set t17 = vt_volgende.replace(hour=17, minute=0, second=0, microsecond=0) -%}
+  {#- modus 'normaal': gewone planning, deadline = de vertrektijd zelf; modus 'dag' ('morgen thuis blijven'): tot 17:00 -#}
+  {%- set t_end = vt_volgende if modus == 'normaal' else t17 -%}
   {#- Laadvermogen (kW) en aantal kwartieren, gelijk aan sensor.ev_<n>_plan_uren -#}
   {%- set f = 3 if is_state('sensor.ev_lb_' ~ n ~ '_fase_actief', '3-fase') else 1 -%}
   {%- if n == 'rob' -%}
@@ -97,21 +99,35 @@
   {%- set sett0 = sett - timedelta(days=(sett.date() - nu.date()).days) -%}
   {%- set rest = states('sensor.energy_production_today_remaining') | float(0) + states('sensor.energy_production_today_remaining_2') | float(0) + states('sensor.energy_production_today_remaining_3') | float(0) -%}
   {%- set morgen = states('sensor.energy_production_tomorrow') | float(0) + states('sensor.energy_production_tomorrow_2') | float(0) + states('sensor.energy_production_tomorrow_3') | float(0) -%}
-  {%- set einde = states('input_datetime.ev_lb_saldering_einde') | as_datetime | as_local -%}
+  {%- set einde = einde_test if einde_test is not none else (states('input_datetime.ev_lb_saldering_einde') | as_datetime | as_local) -%}
   {%- set aanpas = states('input_number.ev_lb_terugleveraanpassing') | float(0) -%}
   {%- set factor = states('input_number.ev_lb_zonwaarde_factor_saldering') | float(1) -%}
+  {#- De andere lader gebruikt dezelfde zon: zijn (vastgelegde) laadblok telt in zijn kwartieren als extra last. Rob
+      houdt rekening met het blok van Sonia (voorrang, ook als het nog moet beginnen); Sonia alleen met een blok van
+      Rob dat al is begonnen (anders sturen ze elkaars keuze om en om). -#}
+  {%- set o = 'rob' if n == 'sonia' else 'sonia' -%}
+  {%- set o_verb = states('sensor.ev_' ~ o ~ '_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE', 'SuspendedEV'] -%}
+  {%- set o_f = 3 if is_state('sensor.ev_lb_' ~ o ~ '_fase_actief', '3-fase') else 1 -%}
+  {%- set o_a = states('input_number.ev_lb_deel_max_' ~ o) | float(9 if o == 'rob' else 13) -%}
+  {%- set o_p = o_f * 230 * o_a / 1000 -%}
+  {%- set o_k = (states('sensor.ev_' ~ o ~ '_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+  {%- set o_s = state_attr('input_datetime.ev_' ~ o ~ '_blok_start', 'timestamp') | float(0) -%}
+  {%- set nu_ts = nu.timestamp() -%}
+  {%- set o_telt = o_verb and o_k > 0 and o_s > nu_ts - 86400 and o_s < nu_ts + 172800 and o_s + o_k * 900 > nu_ts and (n == 'rob' or o_s <= nu_ts) -%}
   {%- set ns = namespace(l=[]) -%}
   {%- for q in fc | sort(attribute='start_date') -%}
     {%- set st = as_datetime(q.start_date) | as_local -%}
     {%- set en = as_datetime(q.end_date) | as_local -%}
-    {%- if en > nu and en <= t17 -%}
+    {%- if en > nu and en <= t_end -%}
       {%- set p = q.price_tax_included.amount | float(0) / 10000000 -%}
       {%- set pe = q.price_tax_excluded.amount | float(0) / 10000000 -%}
       {%- set mid = st + timedelta(minutes=7.5) -%}
       {%- set zon = zon_kw(mid, nu) | float(0) -%}
-      {%- set aandeel = ([[(zon - huis_kw) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
+      {%- set o_nu = o_telt and st.timestamp() >= o_s and st.timestamp() < o_s + o_k * 900 -%}
+      {%- set aandeel = ([[(zon - huis_kw - (o_p if o_nu else 0)) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
       {%- set waarde = p * factor if st < einde else ([pe + aanpas, 0] | max) -%}
-      {%- set kosten = p * (1 - aandeel) + waarde * aandeel -%}
+      {#- zonder prijsverschil (waarde = tarief) exact het tarief, geen afrondingsruis die gelijke blokken anders rangschikt -#}
+      {%- set kosten = p if waarde == p else (p * (1 - aandeel) + waarde * aandeel) -%}
       {%- set ns.l = ns.l + [{'t': st, 'c': kosten, 'a': aandeel}] -%}
     {%- endif -%}
   {%- endfor -%}
@@ -126,7 +142,7 @@
         {%- set eind_blok = l[i + k - 1].t + timedelta(minutes=15) -%}
         {#- 'nacht' = blok eindigt vóór de vertrektijd; anders 'dag' (de dag na de nacht) -#}
         {%- set is_nacht = eind_blok <= vt_volgende -%}
-        {%- set item = {'start': l[i].t.isoformat(), 'eind': eind_blok.isoformat(), 'kosten': (som / k) | round(4), 'zon': (zsom / k) | round(2), 'soort': 'nacht' if is_nacht else 'dag'} -%}
+        {%- set item = {'start': l[i].t.isoformat(), 'eind': eind_blok.isoformat(), 'kosten': (som / k) | round(4), 'zon': (zsom / k) | round(2), 'p_kw': p_kw | round(1), 'zon_kw': (zsom / k * p_kw) | round(1), 'net_kw': ((1 - zsom / k) * p_kw) | round(1), 'soort': 'nacht' if is_nacht else 'dag'} -%}
         {%- if b.alle is none or som / k < b.alle.kosten -%}{%- set b.alle = item -%}{%- endif -%}
         {%- if is_nacht and (b.nacht is none or som / k < b.nacht.kosten) -%}{%- set b.nacht = item -%}{%- endif -%}
         {%- if not is_nacht and (b.dag is none or som / k < b.dag.kosten) -%}{%- set b.dag = item -%}{%- endif -%}
@@ -141,6 +157,6 @@
     {%- set kwh = p_kw * k / 4 -%}
     {%- set besp_eur = ((nk - b.alle.kosten) * kwh) | round(2) if nk is not none else none -%}
     {%- set besp_pct = ((nk - b.alle.kosten) / nk * 100) | round(1) if (nk is not none and nk > 0) else none -%}
-    {{- dict(b.alle, besp_eur=besp_eur, besp_pct=besp_pct, dl=t17.isoformat(), nacht=({'start': b.nacht.start, 'kosten': b.nacht.kosten, 'zon': b.nacht.zon} if b.nacht is not none else {}), dag=({'start': b.dag.start, 'kosten': b.dag.kosten, 'zon': b.dag.zon} if b.dag is not none else {})) | tojson -}}
+    {{- dict(b.alle, besp_eur=besp_eur, besp_pct=besp_pct, dl=t_end.isoformat(), nacht=({'start': b.nacht.start, 'kosten': b.nacht.kosten, 'zon': b.nacht.zon} if b.nacht is not none else {}), dag=({'start': b.dag.start, 'kosten': b.dag.kosten, 'zon': b.dag.zon} if b.dag is not none else {})) | tojson -}}
   {%- endif -%}
 {%- endmacro %}
