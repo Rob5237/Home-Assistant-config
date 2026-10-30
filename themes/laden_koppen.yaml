@@ -4,3 +4,6 @@ laden_koppen:
   ha-heading-card-title-line-height: 26px
   ha-heading-card-title-color: "var(--primary-text-color)"
   ha-heading-card-title-font-weight: 700
+  # Zelfde ruimte tussen alle kaarten, horizontaal en verticaal (8 px)
+  ha-view-sections-row-gap: 8px
+  ha-view-sections-column-gap: 8px
