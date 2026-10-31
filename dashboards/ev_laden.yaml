@@ -398,9 +398,11 @@ views:
             icon: mdi:flash
             grid_options:
               columns: 12
+              rows: auto
           - type: vertical-stack
             grid_options:
               columns: 12
+              rows: auto
             card_mod:
               style: |
                 #root { gap: 0 !important; border-radius: var(--ha-card-border-radius, 12px) !important; overflow: hidden !important; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color) !important; }
@@ -1012,9 +1014,11 @@ views:
             icon: mdi:flash
             grid_options:
               columns: 12
+              rows: auto
           - type: vertical-stack
             grid_options:
               columns: 12
+              rows: auto
             card_mod:
               style: |
                 #root { gap: 0 !important; border-radius: var(--ha-card-border-radius, 12px) !important; overflow: hidden !important; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color) !important; }
