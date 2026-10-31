@@ -21,6 +21,16 @@ recorder:
     entities:
       - sensor.ev_fasedetectie
 
+logbook:
+  exclude:
+    entities:
+      - script.ev_lb_profiel
+      - automation.ev_dynamische_load_balancing_p1_voorrang_sonia
+      - automation.ev_aantal_fasen_van_de_auto_herkennen
+      - automation.ev_lader_automatisch_starten_prijssturing
+      - automation.ev_laden_hervatten_na_noodstop_auto_gepauzeerd
+      - automation.ev_goedkoopste_laadblok_vastleggen
+
 shell_command:
   git_backup: "bash /config/git_push.sh"
 

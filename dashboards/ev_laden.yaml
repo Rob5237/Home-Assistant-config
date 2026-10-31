@@ -53,6 +53,7 @@ views:
             name: Status
             grid_options:
               columns: 12
+              rows: auto
           - type: tile
             card_mod:
               style:
@@ -666,6 +667,7 @@ views:
             name: Status
             grid_options:
               columns: 12
+              rows: auto
           - type: tile
             card_mod:
               style:
