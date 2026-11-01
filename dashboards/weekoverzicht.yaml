@@ -141,13 +141,17 @@ views:
                     name: Marktgemiddelde
               - type: statistics-graph
                 title: Voordeel ten opzichte van het marktgemiddelde (% per dag)
-                chart_type: bar
+                chart_type: line
                 period: day
                 days_to_show: 150
                 stat_types: [mean]
                 entities:
                   - entity: sensor.dag_voordeel_pct
                     name: Voordeel
+                  - entity: sensor.dag_voordeel_gemiddeld
+                    name: Gemiddeld voordeel (7 dagen)
+                  - entity: sensor.dag_voordeel_gemiddeld_30
+                    name: Gemiddeld voordeel (30 dagen)
           - type: horizontal-stack
             grid_options:
               columns: full
