@@ -13,49 +13,91 @@
   Na een wijziging in dit bestand: volledige core/restart (zie caching-valkuil in CLAUDE.md).
 #}
 {%- macro wv(per, e) -%}
-  {%- set s = state_attr(e, 'last_period') if per == 'vorige' else states(e) -%}
-  {{- s | float(0) -}}
+  {%- if per == 'vorige' -%}
+    {#- Tot de eerste echte wissel: waarden uit sensor.rapport_historie (packages/rapport_historie.yaml); daarna last_period. -#}
+    {%- set naam = e.split('.')[1] -%}
+    {%- set soort = naam.split('_')[0] -%}
+    {%- set h = state_attr('sensor.rapport_historie', soort ~ '_vorige') -%}
+    {%- set tot = state_attr('sensor.rapport_historie', soort ~ '_vorige_tot') -%}
+    {%- if h and tot and now() < (tot | as_datetime | as_local) -%}
+      {{- h.get(naam[(soort | length) + 1:], 0) | float(0) -}}
+    {%- else -%}
+      {{- state_attr(e, 'last_period') | float(0) -}}
+    {%- endif -%}
+  {%- else -%}
+    {{- states(e) | float(0) -}}
+  {%- endif -%}
 {%- endmacro -%}
 
-{%- macro week(per) -%}
+{%- macro rapport(soort, per) -%}
   {%- set sfx = '_vorige' if per == 'vorige' else '_nu' -%}
-  {%- set afname = wv(per, 'sensor.week_afname_kwh') | float(0) -%}
-  {%- set terug = wv(per, 'sensor.week_teruglevering_kwh') | float(0) -%}
-  {%- set opwek = wv(per, 'sensor.week_opwek') | float(0) * 1000 -%}
+  {%- set afname = wv(per, 'sensor.' ~ soort ~ '_afname_kwh') | float(0) -%}
+  {%- set terug = wv(per, 'sensor.' ~ soort ~ '_teruglevering_kwh') | float(0) -%}
+  {%- set opwek = wv(per, 'sensor.' ~ soort ~ '_opwek') | float(0) * 1000 -%}
   {%- set verbruik = afname + opwek - terug -%}
   {%- set zelf = [opwek - terug, 0] | max -%}
-  {%- set afname_eur = wv(per, 'sensor.week_afname_eur') | float(0) -%}
-  {%- set terug_eur = wv(per, 'sensor.week_teruglevering_eur') | float(0) -%}
+  {%- set afname_eur = wv(per, 'sensor.' ~ soort ~ '_afname_eur') | float(0) -%}
+  {%- set terug_eur = wv(per, 'sensor.' ~ soort ~ '_teruglevering_eur') | float(0) -%}
   {%- set netto = afname_eur - terug_eur -%}
   {%- set inkoop = (afname_eur / afname) if afname > 1 else none -%}
-  {%- set markt_n = wv(per, 'sensor.week_markt_n') | float(0) -%}
-  {%- set markt = (wv(per, 'sensor.week_markt_som') | float(0) / markt_n) if markt_n > 0 else none -%}
+  {%- set markt_n = wv(per, 'sensor.' ~ soort ~ '_markt_n') | float(0) -%}
+  {%- set markt = (wv(per, 'sensor.' ~ soort ~ '_markt_som') | float(0) / markt_n) if markt_n > 0 else none -%}
   {%- set voordeel = ((markt - inkoop) / markt * 100) if (markt and inkoop is not none and markt > 0) else none -%}
+  {#- Historie: voor een deel van de periode ontbreken gegevens (zie sensor.rapport_historie) -#}
+  {%- set hh = state_attr('sensor.rapport_historie', soort ~ '_vorige') if per == 'vorige' else none -%}
+  {%- set hh_tot = state_attr('sensor.rapport_historie', soort ~ '_vorige_tot') -%}
+  {%- set hist_actief = (hh is not none) and hh_tot and now() < (hh_tot | as_datetime | as_local) -%}
+  {%- set markt_ev = (hh.get('markt_ev') if (hist_actief and hh.get('markt_ev')) else markt) -%}
+  {%- set jaar_tot = state_attr('sensor.rapport_historie', 'jaar_nu_tot') -%}
+  {%- set jaar_deels = soort == 'jaar' and per == 'nu' and jaar_tot and now() < (jaar_tot | as_datetime | as_local) -%}
   {#- Warmtepomp -#}
-  {%- set wp_in = wv(per, 'sensor.week_wp_input_verw') | float(0) + wv(per, 'sensor.week_wp_input_tap') | float(0) -%}
-  {%- set wp_warmte = wv(per, 'sensor.week_wp_warmte_verw') | float(0) + wv(per, 'sensor.week_wp_warmte_tap') | float(0) -%}
-  {%- set wp_kosten = wv(per, 'sensor.week_kosten_wp') | float(0) -%}
+  {%- set wp_in = wv(per, 'sensor.' ~ soort ~ '_wp_input_verw') | float(0) + wv(per, 'sensor.' ~ soort ~ '_wp_input_tap') | float(0) -%}
+  {%- set wp_warmte = wv(per, 'sensor.' ~ soort ~ '_wp_warmte_verw') | float(0) + wv(per, 'sensor.' ~ soort ~ '_wp_warmte_tap') | float(0) -%}
+  {%- set wp_in_verw = wv(per, 'sensor.' ~ soort ~ '_wp_input_verw') | float(0) -%}
+  {%- set wp_in_tap = wv(per, 'sensor.' ~ soort ~ '_wp_input_tap') | float(0) -%}
+  {%- set wp_w_verw = wv(per, 'sensor.' ~ soort ~ '_wp_warmte_verw') | float(0) -%}
+  {%- set wp_w_tap = wv(per, 'sensor.' ~ soort ~ '_wp_warmte_tap') | float(0) -%}
+  {%- set wp_kosten = wv(per, 'sensor.' ~ soort ~ '_kosten_wp') | float(0) -%}
   {%- set wp_prijs = (wp_kosten / wp_in) if wp_in > 1 else none -%}
   {%- set wp_voordeel = ((markt - wp_prijs) / markt * 100) if (markt and wp_prijs is not none and markt > 0) else none -%}
   {#- EV -#}
-  {%- set rob_kwh = wv(per, 'sensor.week_ev_rob') | float(0) -%}
-  {%- set rob_kosten = wv(per, 'sensor.week_kosten_rob') | float(0) -%}
+  {%- set rob_kwh = wv(per, 'sensor.' ~ soort ~ '_ev_rob') | float(0) -%}
+  {%- set rob_kosten = wv(per, 'sensor.' ~ soort ~ '_kosten_rob') | float(0) -%}
   {%- set rob_prijs = (rob_kosten / rob_kwh) if rob_kwh > 0.5 else none -%}
-  {%- set rob_voordeel = ((markt - rob_prijs) / markt * 100) if (markt and rob_prijs is not none and markt > 0) else none -%}
-  {%- set sonia_kwh = wv(per, 'sensor.week_ev_sonia') | float(0) -%}
-  {%- set sonia_kosten = wv(per, 'sensor.week_kosten_sonia') | float(0) -%}
+  {%- set rob_voordeel = ((markt_ev - rob_prijs) / markt_ev * 100) if (markt_ev and rob_prijs is not none and markt_ev > 0 and not jaar_deels) else none -%}
+  {%- set sonia_kwh = wv(per, 'sensor.' ~ soort ~ '_ev_sonia') | float(0) -%}
+  {%- set sonia_kosten = wv(per, 'sensor.' ~ soort ~ '_kosten_sonia') | float(0) -%}
   {%- set sonia_prijs = (sonia_kosten / sonia_kwh) if sonia_kwh > 0.5 else none -%}
-  {%- set sonia_voordeel = ((markt - sonia_prijs) / markt * 100) if (markt and sonia_prijs is not none and markt > 0) else none -%}
+  {%- set sonia_voordeel = ((markt_ev - sonia_prijs) / markt_ev * 100) if (markt_ev and sonia_prijs is not none and markt_ev > 0 and not jaar_deels) else none -%}
   {#- Scenario zonder saldering: teruglevering tegen prijs excl. belasting + aanpassing -#}
-  {%- set waarde_2027 = wv(per, 'sensor.week_waarde_teruglevering_2027') | float(0) -%}
+  {%- set waarde_2027 = wv(per, 'sensor.' ~ soort ~ '_waarde_teruglevering_2027') | float(0) -%}
   {%- set netto_2027 = afname_eur - waarde_2027 -%}
   {#- Compressor en comfort (history_stats over dezelfde week) -#}
-  {%- set starts = states('sensor.week_compressorstarts' ~ sfx) | float(0) -%}
-  {%- set uren = states('sensor.week_compressor_uren' ~ sfx) | float(0) -%}
-  {%- set maandag = (now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday() + (7 if per == 'vorige' else 0))) -%}
+  {%- set starts = states('sensor.' ~ soort ~ '_compressorstarts' ~ sfx) | float(0) -%}
+  {%- set uren = states('sensor.' ~ soort ~ '_compressor_uren' ~ sfx) | float(0) -%}
+  {%- set mnd = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'] -%}
+  {%- set nu0 = now().replace(hour=0, minute=0, second=0, microsecond=0) -%}
+  {%- if soort == 'maand' -%}
+    {%- set m0 = nu0.replace(day=1) -%}
+    {%- set mp = (m0 - timedelta(days=1)) if per == 'vorige' else m0 -%}
+    {%- set titel = (mnd[mp.month - 1] | capitalize) ~ ' ' ~ (mp.year | string) -%}
+    {%- set van = mp.strftime('%d-%m') -%}
+    {%- set tot = '' -%}
+  {%- elif soort == 'jaar' -%}
+    {%- set jaar = nu0.year - (1 if per == 'vorige' else 0) -%}
+    {%- set titel = 'Jaar ' ~ (jaar | string) -%}
+    {%- set van = '01-01' -%}
+    {%- set tot = '31-12' -%}
+  {%- else -%}
+    {%- set maandag = nu0 - timedelta(days=nu0.weekday() + (7 if per == 'vorige' else 0)) -%}
+    {%- set van = maandag.strftime('%d-%m') -%}
+    {%- set tot = (maandag + timedelta(days=6)).strftime('%d-%m') -%}
+    {%- set titel = 'Week ' ~ van ~ ' t/m ' ~ tot -%}
+  {%- endif -%}
   {{- {
-    'van': maandag.strftime('%d-%m'),
-    'tot': (maandag + timedelta(days=6)).strftime('%d-%m'),
+    'titel': titel,
+    'van': van,
+    'tot': tot,
     'afname_kwh': afname | round(1),
     'teruglevering_kwh': terug | round(1),
     'opwek_kwh': opwek | round(1),
@@ -71,48 +113,73 @@
     'voordeel_pct': voordeel | round(1) if voordeel is not none else none,
     'wp_kwh': wp_in | round(1),
     'wp_cop': ((wp_warmte / wp_in) | round(2)) if wp_in > 1 else none,
+    'wp_kwh_verw': wp_in_verw | round(1),
+    'wp_kwh_tap': wp_in_tap | round(1),
+    'wp_cop_verw': ((wp_w_verw / wp_in_verw) | round(2)) if wp_in_verw > 0.5 else none,
+    'wp_cop_tap': ((wp_w_tap / wp_in_tap) | round(2)) if wp_in_tap > 0.5 else none,
     'wp_prijs': wp_prijs | round(3) if wp_prijs is not none else none,
     'wp_voordeel_pct': wp_voordeel | round(1) if wp_voordeel is not none else none,
-    'element_kwh_warmte': wv(per, 'sensor.week_element_warmte') | float(0) | round(1),
+    'element_kwh_warmte': wv(per, 'sensor.' ~ soort ~ '_element_warmte') | float(0) | round(1),
     'rob_kwh': rob_kwh | round(1),
     'rob_prijs': rob_prijs | round(3) if rob_prijs is not none else none,
     'rob_voordeel_pct': rob_voordeel | round(1) if rob_voordeel is not none else none,
     'sonia_kwh': sonia_kwh | round(1),
     'sonia_prijs': sonia_prijs | round(3) if sonia_prijs is not none else none,
     'sonia_voordeel_pct': sonia_voordeel | round(1) if sonia_voordeel is not none else none,
-    'netto_zonder_saldering': netto_2027 | round(2),
-    'meerkosten_zonder_saldering': (netto_2027 - netto) | round(2),
+    'netto_zonder_saldering': none if jaar_deels else (netto_2027 | round(2)),
+    'meerkosten_zonder_saldering': none if jaar_deels else ((netto_2027 - netto) | round(2)),
     'compressor_starts': starts | round(0),
     'compressor_uren': uren | round(1),
     'compressor_gem_run_min': ((uren * 60 / starts) | round(0)) if starts > 0 else none,
-    'kamer_te_koud_pct': states('sensor.week_kamer_te_koud' ~ sfx) | float(0) | round(1),
+    'kamer_te_koud_pct': states('sensor.' ~ soort ~ '_kamer_te_koud' ~ sfx) | float(0) | round(1),
     'boiler_laagste_7d': states('sensor.week_boiler_laagste_7_dagen') | float(none)
   } | tojson -}}
 {%- endmacro -%}
 
-{#- f(x, d, eenheid): getal met komma, 'n.v.' als er geen waarde is -#}
+{%- macro week(per) -%}{{- rapport('week', per) -}}{%- endmacro -%}
+
+{#- f(x, d, eenheid): getal met komma, een streepje (–) als er geen waarde is -#}
 {%- macro f(x, d=2, eh='') -%}
-  {%- if x is none -%}n.v.{%- else -%}{{ (('%.' ~ d ~ 'f') | format(x | float(0))) | replace('.', ',') }}{{ eh }}{%- endif -%}
+  {%- if x is none -%}–{%- else -%}{{ (('%.' ~ d ~ 'f') | format(x | float(0))) | replace('.', ',') }}{{ eh }}{%- endif -%}
 {%- endmacro -%}
 
 {#- EV-regels: label en getal opgevuld met (cijferbreedte-)spaties zodat de komma's van de kWh onder elkaar
     staan; in een gewoon (niet-vaste-breedte) lettertype is dat een benadering. -#}
-{%- macro bericht(per) -%}
-  {%- set d = week(per) | from_json -%}
-  {%- set ka = f(d.rob_kwh, 1) | trim -%}
-  {%- set kb = f(d.sonia_kwh, 1) | trim -%}
+{#- kw(x): kWh-hoeveelheid; kleiner dan 1 met één cijfer achter de komma, anders hele getallen -#}
+{%- macro kw(x) -%}
+  {%- if x is none -%}–{%- elif x | float(0) < 1 -%}{{ f(x, 1) }}{%- else -%}{{ f(x, 0) }}{%- endif -%}
+{%- endmacro -%}
+
+{%- macro bericht(per, soort='week') -%}
+  {%- set d = rapport(soort, per) | from_json -%}
+  {%- set deze = {'week': 'deze week', 'maand': 'deze maand', 'jaar': 'dit jaar'}[soort] -%}
+  {%- set ka = kw(d.rob_kwh) | trim -%}
+  {%- set kb = kw(d.sonia_kwh) | trim -%}
   {%- set pr = '€ ' ~ (f(d.rob_prijs, 3) | trim) ~ ' (' ~ (f(d.rob_voordeel_pct, 1, ' %') | trim) ~ ')' -%}
   {%- set ps = '€ ' ~ (f(d.sonia_prijs, 3) | trim) ~ ' (' ~ (f(d.sonia_voordeel_pct, 1, ' %') | trim) ~ ')' -%}
   {%- set w = [ka | length, kb | length] | max -%}
   {%- set fs = ' ' -%}
   {%- set ev_blok = '  - EV Rob:\u00a0\u00a0\u00a0' ~ (fs * (w - ka | length)) ~ ka ~ ' kWh à ' ~ pr ~ '  \n    EV Sonia:\u00a0' ~ (fs * (w - kb | length)) ~ kb ~ ' kWh à ' ~ ps -%}
-  Week {{ d.van }} t/m {{ d.tot }}
+  {{ d.titel }}
+  {%- if d.afname_kwh == 0 and d.opwek_kwh == 0 %}
+  Geen gegevens beschikbaar voor deze periode.
+  {%- else %}
   - Netto energiekosten: € {{ f(d.netto) }} (afname € {{ f(d.afname_eur) }} min teruglevering € {{ f(d.teruglevering_eur) }})
   - Inkoopprijs € {{ f(d.inkoopprijs, 3) }}/kWh tegenover marktgemiddelde € {{ f(d.marktprijs, 3) }} ({{ f(d.voordeel_pct, 1, ' %') }} voordeel)
-  - Zonnestroom: {{ f(d.opwek_kwh, 0) }} kWh opgewekt, {{ f(d.zelfverbruik_pct, 0, ' %') }} zelf gebruikt, {{ f(d.zelfvoorzienend_pct, 0, ' %') }} zelfvoorzienend
-  - Warmtepompcompressor: {{ f(d.wp_kwh, 0) }} kWh, COP {{ f(d.wp_cop) }}, € {{ f(d.wp_prijs, 3) }}/kWh ({{ f(d.wp_voordeel_pct, 1, ' %') }} t.o.v. markt){{ '  ' }}
-    Element {{ f(d.element_kwh_warmte, 1) }} kWh warmte
+  - Zonnestroom: {{ kw(d.opwek_kwh) }} kWh opgewekt, {{ f(d.zelfverbruik_pct, 0, ' %') }} zelf gebruikt, {{ f(d.zelfvoorzienend_pct, 0, ' %') }} zelfvoorzienend
+  - Warmtepompcompressor: {{ kw(d.wp_kwh) }} kWh, € {{ f(d.wp_prijs, 3) }}/kWh ({{ f(d.wp_voordeel_pct, 1, ' %') }} t.o.v. markt){{ '  ' }}
+    COP verwarming {{ f(d.wp_cop_verw) }} ({{ kw(d.wp_kwh_verw) }} kWh){{ '  ' }}
+    COP tapwater {{ f(d.wp_cop_tap) }} ({{ kw(d.wp_kwh_tap) }} kWh){{ '  ' }}
+    Element {{ kw(d.element_kwh_warmte) }} kWh warmte
   - Compressor: {{ f(d.compressor_starts, 0) }} starts, gem. run {{ f(d.compressor_gem_run_min, 0, ' min') }}; kamer {{ f(d.kamer_te_koud_pct, 1, ' %') }} van de tijd meer dan 0,5 °C onder setpoint
 {{ ev_blok }}
-  - Zonder saldering zou deze week € {{ f(d.netto_zonder_saldering) }} kosten (€ {{ f(d.meerkosten_zonder_saldering) }} meer)
+  {%- if d.netto_zonder_saldering is not none %}
+  - Zonder saldering zou {{ deze }} € {{ f(d.netto_zonder_saldering) }} kosten (€ {{ f(d.meerkosten_zonder_saldering) }} meer)
+  {%- endif %}
+  {%- set opm = state_attr('sensor.rapport_historie', soort ~ '_' ~ per ~ '_opm') -%}
+  {%- set opm_tot = state_attr('sensor.rapport_historie', soort ~ '_' ~ per ~ '_tot') -%}
+  {%- if opm and opm_tot and now() < (opm_tot | as_datetime | as_local) %}
+  Let op: {{ opm }}
+  {%- endif %}
+  {%- endif %}
 {%- endmacro -%}

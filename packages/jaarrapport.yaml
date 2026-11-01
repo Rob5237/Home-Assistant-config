@@ -1,0 +1,173 @@
+# =====================================================================
+# Jaarrapport (aangemaakt 01-11-2026): zelfde cijfers als het weekrapport (packages/weekoverzicht.yaml),
+# nu per jaar. Gegenereerd naar het voorbeeld van de weekmeters; de tellers sensor.week_teller_*
+# zijn gedeeld. Berekening in custom_templates/weekoverzicht.jinja (macro rapport('jaar', ...)).
+# Op het dashboard 'Weekrapport' (dashboards/weekoverzicht.yaml). Melding naar de telefoon: 1 januari 08:00.
+#
+# Beperkingen:
+#   - De meters tellen pas vanaf de eerste start met dit pakket (01-11-2026, ±17:40 uur); de eerste
+#     jaar is daardoor niet volledig. Compressor en comfort (history_stats) gebruiken de recorder
+#     (historie vanaf 28-09-2026), dus ook niet volledig voor eerdere perioden.
+#   - Jaarwissel: de Zonneplan 'dit jaar'-bedragen beginnen op 1 januari opnieuw; de meter van die periode kan daardoor afwijken.
+# =====================================================================
+
+utility_meter:
+  jaar_afname_kwh:
+    source: sensor.p1_meter_energy_import
+    cycle: yearly
+  jaar_teruglevering_kwh:
+    source: sensor.p1_meter_energie_export
+    cycle: yearly
+  jaar_opwek:
+    source: sensor.envoy_122331077486_lifetime_energy_production
+    cycle: yearly
+  jaar_afname_eur:
+    source: sensor.zonneplan_afname_dit_jaar
+    cycle: yearly
+  jaar_teruglevering_eur:
+    source: sensor.zonneplan_teruglevering_dit_jaar
+    cycle: yearly
+  jaar_wp_input_verw:
+    source: sensor.luxtronik_280807_0450_heat_energy_input
+    cycle: yearly
+  jaar_wp_input_tap:
+    source: sensor.luxtronik_280807_0450_dhw_energy_input
+    cycle: yearly
+  jaar_wp_warmte_verw:
+    source: sensor.luxtronik_280807_0450_heat_amount_heating
+    cycle: yearly
+  jaar_wp_warmte_tap:
+    source: sensor.luxtronik_280807_0450_dhw_heat_amount
+    cycle: yearly
+  jaar_element_warmte:
+    source: sensor.luxtronik_280807_0450_second_heat_generator_amount_counter
+    cycle: yearly
+  jaar_ev_rob:
+    source: sensor.ev_rob_energy_active_import_register
+    cycle: yearly
+  jaar_ev_sonia:
+    source: sensor.ev_sonia_energy_active_import_register
+    cycle: yearly
+  jaar_kosten_wp:
+    source: sensor.week_teller_kosten_warmtepomp
+    cycle: yearly
+  jaar_kosten_rob:
+    source: sensor.week_teller_kosten_ev_rob
+    cycle: yearly
+  jaar_kosten_sonia:
+    source: sensor.week_teller_kosten_ev_sonia
+    cycle: yearly
+  jaar_waarde_teruglevering_2027:
+    source: sensor.week_teller_waarde_teruglevering_zonder_saldering
+    cycle: yearly
+  jaar_markt_som:
+    source: sensor.week_teller_marktprijs_som
+    cycle: yearly
+  jaar_markt_n:
+    source: sensor.week_teller_marktprijs_aantal
+    cycle: yearly
+
+sensor:
+  - platform: history_stats
+    name: "Jaar compressorstarts nu"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: count
+    start: "{{ now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Jaar compressor uren nu"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: time
+    start: "{{ now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Jaar kamer te koud nu"
+    entity_id: binary_sensor.kamer_te_koud
+    state: "on"
+    type: ratio
+    start: "{{ now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Jaar compressorstarts vorige"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: count
+    start: "{{ now().replace(year=now().year - 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+  - platform: history_stats
+    name: "Jaar compressor uren vorige"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: time
+    start: "{{ now().replace(year=now().year - 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+  - platform: history_stats
+    name: "Jaar kamer te koud vorige"
+    entity_id: binary_sensor.kamer_te_koud
+    state: "on"
+    type: ratio
+    start: "{{ now().replace(year=now().year - 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+
+template:
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: "Jaar overzicht nu"
+        unique_id: jaar_overzicht_nu
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% from 'weekoverzicht.jinja' import rapport %}
+          {{ (rapport('jaar', 'nu') | from_json).netto }}
+        attributes:
+          data: >-
+            {% from 'weekoverzicht.jinja' import rapport %}
+            {{ rapport('jaar', 'nu') | from_json }}
+          tekst: >-
+            {% from 'weekoverzicht.jinja' import bericht %}
+            {{ bericht('nu', 'jaar') }}
+      - name: "Jaar overzicht vorige"
+        unique_id: jaar_overzicht_vorige
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% from 'weekoverzicht.jinja' import rapport %}
+          {{ (rapport('jaar', 'vorige') | from_json).netto }}
+        attributes:
+          data: >-
+            {% from 'weekoverzicht.jinja' import rapport %}
+            {{ rapport('jaar', 'vorige') | from_json }}
+          tekst: >-
+            {% from 'weekoverzicht.jinja' import bericht %}
+            {{ bericht('vorige', 'jaar') }}
+
+automation:
+  - id: jaarrapport_melding
+    alias: "Jaarrapport: samenvatting vorig jaar naar de telefoon"
+    description: >
+      1 januari 08:00: de afgelopen jaar is dan compleet (Zonneplan-bedragen zijn binnen).
+      Zelfde tekst staat op het dashboard 'Weekrapport'. Alleen melden als de sensor een tekst heeft.
+    triggers:
+      - trigger: time
+        at: "08:00:00"
+    conditions:
+      - condition: template
+        value_template: "{{ now().month == 1 and now().day == 1 }}"
+      - condition: template
+        value_template: "{{ state_attr('sensor.jaar_overzicht_vorige', 'tekst') not in [none, ''] }}"
+    actions:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Jaarrapport energie"
+          message: "{{ state_attr('sensor.jaar_overzicht_vorige', 'tekst') }}"
+      - action: logbook.log
+        data:
+          name: "Jaarrapport"
+          message: "Samenvatting vorige jaar verstuurd."
+    mode: single

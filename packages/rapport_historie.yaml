@@ -1,0 +1,24 @@
+# =====================================================================
+# Historie voor de rapporten (aangemaakt 01-11-2026, eenmalig berekend uit de langetermijnstatistieken).
+# De week-/maand-/jaarmeters tellen pas vanaf 01-11-2026; hierin staat wat daarvoor al gemeten was.
+# 'vorige' week en maand gebruiken deze waarden tot de eerste echte wissel (zie geldig_tot);
+# daarna neemt het attribuut last_period van de meter het over. De lopende perioden (week, maand, jaar)
+# zijn gelijkgezet met utility_meter.calibrate. Zie CLAUDE.md, hoofdstuk Weekoverzicht.
+# Bron: P1, Enphase en Zonneplan sinds 2025-07 / 2026-06; Luxtronik sinds 2026-04; laders sinds 2026-10-20;
+# kosten per verbruiker = uurverbruik x gemiddeld uurtarief (schatting); scenario zonder saldering
+# gebruikt prijs excl. belasting = prijs incl. belasting - 0,1108 (afgeleid uit de Zonneplan-forecast).
+# =====================================================================
+template:
+  - sensor:
+      - name: "Rapport historie"
+        unique_id: rapport_historie
+        state: "ok"
+        attributes:
+          week_vorige: "{{ {'markt_ev': 0.2645, 'afname_kwh': 215.164, 'teruglevering_kwh': 66.03, 'opwek': 0.1015, 'afname_eur': 64.5968, 'teruglevering_eur': 18.708, 'wp_input_verw': 39.46, 'wp_input_tap': 10.93, 'wp_warmte_verw': 266.8, 'wp_warmte_tap': 36.2, 'element_warmte': 0.6, 'ev_rob': 32.793, 'ev_sonia': 93.978, 'kosten_wp': 13.8286, 'kosten_rob': 8.7086, 'kosten_sonia': 28.6326, 'markt_n': 652, 'markt_som': 187.6949, 'waarde_teruglevering_2027': 10.1693} }}"
+          week_vorige_tot: "2026-11-02T00:00:00+01:00"
+          week_vorige_opm: "EV-gegevens beginnen op 20-10 15:00"
+          maand_vorige: "{{ {'markt_ev': 0.3419, 'afname_kwh': 796.001, 'teruglevering_kwh': 374.136, 'opwek': 0.6019, 'afname_eur': 272.703, 'teruglevering_eur': 112.5535, 'wp_input_verw': 94.27, 'wp_input_tap': 40.25, 'wp_warmte_verw': 625.9, 'wp_warmte_tap': 120.6, 'element_warmte': 0.6, 'ev_rob': 62.312, 'ev_sonia': 192.806, 'kosten_wp': 44.6088, 'kosten_rob': 19.8699, 'kosten_sonia': 52.7642, 'markt_n': 2956, 'markt_som': 999.7282, 'waarde_teruglevering_2027': 68.3466} }}"
+          maand_vorige_tot: "2026-12-01T00:00:00+01:00"
+          maand_vorige_opm: "EV-gegevens beginnen op 20-10 15:00"
+          jaar_nu_tot: "2027-01-01T00:00:00+01:00"
+          jaar_nu_opm: "cijfers sinds 06-02 (start Zonneplan-contract); warmtepomp en marktprijs vanaf 07-04, laders vanaf 20-10; compressor en comfort vanaf 28-09"

@@ -1,0 +1,95 @@
+# =====================================================================
+# COP verwarming en COP tapwater per dag, week, maand en jaar (aangemaakt 01-11-2026).
+# COP = geleverde warmte / verbruikte stroom over de periode (Luxtronik-tellers), apart voor verwarming
+# (heat_amount_heating / heat_energy_input) en tapwater (dhw_heat_amount / dhw_energy_input).
+#   sensor.cop_verwarming_dag|week|maand|jaar   en   sensor.cop_tapwater_dag|week|maand|jaar
+# Week, maand en jaar gebruiken de meters sensor.week_/maand_/jaar_wp_* (packages/weekoverzicht.yaml,
+# maandrapport.yaml, jaarrapport.yaml); de dag gebruikt een stand van middernacht (cop_snap_*).
+# Grafieken: dashboards/weekoverzicht.yaml. Geschiedenis vanaf 07-04-2026 (start Luxtronik-statistieken)
+# is eenmalig geïmporteerd via recorder/import_statistics; voor lopende perioden is de waarde de COP
+# tot nu toe (de periodewaarde is pas aan het eind precies).
+# Een sensor is 'unavailable' zolang er te weinig stroomverbruik in de periode is (< 0,3 kWh).
+# =====================================================================
+template:
+  - triggers:
+      - trigger: time
+        at: "00:00:00"
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/30"
+    sensor:
+      - name: "COP snap verwarming warmte"
+        unique_id: cop_snap_verw_warmte
+        state: >-
+          {% if trigger.platform == 'time' or this.state in ['unknown', 'unavailable', 'none', ''] %}{{ states('sensor.luxtronik_280807_0450_heat_amount_heating') }}{% else %}{{ this.state }}{% endif %}
+      - name: "COP snap verwarming stroom"
+        unique_id: cop_snap_verw_stroom
+        state: >-
+          {% if trigger.platform == 'time' or this.state in ['unknown', 'unavailable', 'none', ''] %}{{ states('sensor.luxtronik_280807_0450_heat_energy_input') }}{% else %}{{ this.state }}{% endif %}
+      - name: "COP snap tapwater warmte"
+        unique_id: cop_snap_tap_warmte
+        state: >-
+          {% if trigger.platform == 'time' or this.state in ['unknown', 'unavailable', 'none', ''] %}{{ states('sensor.luxtronik_280807_0450_dhw_heat_amount') }}{% else %}{{ this.state }}{% endif %}
+      - name: "COP snap tapwater stroom"
+        unique_id: cop_snap_tap_stroom
+        state: >-
+          {% if trigger.platform == 'time' or this.state in ['unknown', 'unavailable', 'none', ''] %}{{ states('sensor.luxtronik_280807_0450_dhw_energy_input') }}{% else %}{{ this.state }}{% endif %}
+
+  - sensor:
+      - name: "COP verwarming dag"
+        unique_id: cop_verwarming_dag
+        state_class: measurement
+        icon: mdi:heat-pump
+        availability: >-
+          {{ states('sensor.cop_snap_verwarming_stroom') | is_number and states('sensor.cop_snap_verwarming_warmte') | is_number
+             and (states('sensor.luxtronik_280807_0450_heat_energy_input') | float(0) - states('sensor.cop_snap_verwarming_stroom') | float(0)) >= 0.3 }}
+        state: >-
+          {{ ((states('sensor.luxtronik_280807_0450_heat_amount_heating') | float(0) - states('sensor.cop_snap_verwarming_warmte') | float(0))
+              / (states('sensor.luxtronik_280807_0450_heat_energy_input') | float(0) - states('sensor.cop_snap_verwarming_stroom') | float(1))) | round(2) }}
+      - name: "COP tapwater dag"
+        unique_id: cop_tapwater_dag
+        state_class: measurement
+        icon: mdi:water-boiler
+        availability: >-
+          {{ states('sensor.cop_snap_tapwater_stroom') | is_number and states('sensor.cop_snap_tapwater_warmte') | is_number
+             and (states('sensor.luxtronik_280807_0450_dhw_energy_input') | float(0) - states('sensor.cop_snap_tapwater_stroom') | float(0)) >= 0.3 }}
+        state: >-
+          {{ ((states('sensor.luxtronik_280807_0450_dhw_heat_amount') | float(0) - states('sensor.cop_snap_tapwater_warmte') | float(0))
+              / (states('sensor.luxtronik_280807_0450_dhw_energy_input') | float(0) - states('sensor.cop_snap_tapwater_stroom') | float(1))) | round(2) }}
+      - name: "COP verwarming week"
+        unique_id: cop_verwarming_week
+        state_class: measurement
+        icon: mdi:heat-pump
+        availability: "{{ states('sensor.week_wp_input_verw') | float(0) >= 0.3 }}"
+        state: "{{ (states('sensor.week_wp_warmte_verw') | float(0) / states('sensor.week_wp_input_verw') | float(1)) | round(2) }}"
+      - name: "COP tapwater week"
+        unique_id: cop_tapwater_week
+        state_class: measurement
+        icon: mdi:water-boiler
+        availability: "{{ states('sensor.week_wp_input_tap') | float(0) >= 0.3 }}"
+        state: "{{ (states('sensor.week_wp_warmte_tap') | float(0) / states('sensor.week_wp_input_tap') | float(1)) | round(2) }}"
+      - name: "COP verwarming maand"
+        unique_id: cop_verwarming_maand
+        state_class: measurement
+        icon: mdi:heat-pump
+        availability: "{{ states('sensor.maand_wp_input_verw') | float(0) >= 0.3 }}"
+        state: "{{ (states('sensor.maand_wp_warmte_verw') | float(0) / states('sensor.maand_wp_input_verw') | float(1)) | round(2) }}"
+      - name: "COP tapwater maand"
+        unique_id: cop_tapwater_maand
+        state_class: measurement
+        icon: mdi:water-boiler
+        availability: "{{ states('sensor.maand_wp_input_tap') | float(0) >= 0.3 }}"
+        state: "{{ (states('sensor.maand_wp_warmte_tap') | float(0) / states('sensor.maand_wp_input_tap') | float(1)) | round(2) }}"
+      - name: "COP verwarming jaar"
+        unique_id: cop_verwarming_jaar
+        state_class: measurement
+        icon: mdi:heat-pump
+        availability: "{{ states('sensor.jaar_wp_input_verw') | float(0) >= 0.3 }}"
+        state: "{{ (states('sensor.jaar_wp_warmte_verw') | float(0) / states('sensor.jaar_wp_input_verw') | float(1)) | round(2) }}"
+      - name: "COP tapwater jaar"
+        unique_id: cop_tapwater_jaar
+        state_class: measurement
+        icon: mdi:water-boiler
+        availability: "{{ states('sensor.jaar_wp_input_tap') | float(0) >= 0.3 }}"
+        state: "{{ (states('sensor.jaar_wp_warmte_tap') | float(0) / states('sensor.jaar_wp_input_tap') | float(1)) | round(2) }}"

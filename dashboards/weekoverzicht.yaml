@@ -27,28 +27,158 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: Verloop per week
+            heading: Vorige maand (volledig)
             heading_style: title
-          - type: statistics-graph
-            title: Afname en teruglevering (€)
-            chart_type: bar
-            period: week
-            days_to_show: 84
-            stat_types: [change]
-            entities:
-              - sensor.week_afname_eur
-              - sensor.week_teruglevering_eur
-          - type: statistics-graph
-            title: Energie (kWh)
-            chart_type: bar
-            period: week
-            days_to_show: 84
-            stat_types: [change]
-            entities:
-              - sensor.week_afname_kwh
-              - sensor.week_teruglevering_kwh
+          - type: markdown
+            content: "{{ state_attr('sensor.maand_overzicht_vorige', 'tekst') }}"
+      - type: grid
+        cards:
+          - type: heading
+            heading: Deze maand (tot nu)
+            heading_style: title
+          - type: markdown
+            content: "{{ state_attr('sensor.maand_overzicht_nu', 'tekst') }}"
+      - type: grid
+        cards:
+          - type: heading
+            heading: Vorig jaar (volledig)
+            heading_style: title
+          - type: markdown
+            content: "{{ state_attr('sensor.jaar_overzicht_vorige', 'tekst') }}"
+      - type: grid
+        cards:
+          - type: heading
+            heading: Dit jaar (tot nu)
+            heading_style: title
+          - type: markdown
+            content: "{{ state_attr('sensor.jaar_overzicht_nu', 'tekst') }}"
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: COP warmtepomp
+            heading_style: title
+          - type: horizontal-stack
+            grid_options:
+              columns: full
+            cards:
+              - type: statistics-graph
+                title: COP per dag
+                chart_type: line
+                period: day
+                days_to_show: 60
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.cop_verwarming_dag
+                    name: COP verwarming
+                  - entity: sensor.cop_tapwater_dag
+                    name: COP tapwater
+              - type: statistics-graph
+                title: COP per week
+                chart_type: line
+                period: week
+                days_to_show: 190
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.cop_verwarming_week
+                    name: COP verwarming
+                  - entity: sensor.cop_tapwater_week
+                    name: COP tapwater
+          - type: horizontal-stack
+            grid_options:
+              columns: full
+            cards:
+              - type: statistics-graph
+                title: COP per maand
+                chart_type: bar
+                period: month
+                days_to_show: 240
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.cop_verwarming_maand
+                    name: COP verwarming
+                  - entity: sensor.cop_tapwater_maand
+                    name: COP tapwater
+              - type: statistics-graph
+                title: COP dit jaar
+                chart_type: bar
+                period: year
+                days_to_show: 400
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.cop_verwarming_jaar
+                    name: COP verwarming
+                  - entity: sensor.cop_tapwater_jaar
+                    name: COP tapwater
           - type: markdown
             content: >-
-              Week = maandag 00:00 t/m zondag 24:00. Zonneplan-bedragen komen ~1 uur na het
-              verbruik binnen. Marktgemiddelde = gemiddelde van alle kwartiertarieven in die week
-              (incl. belasting); voordeel = hoeveel lager je gewogen inkoopprijs is.
+              COP = geleverde warmte gedeeld door verbruikte stroom, apart voor verwarming en tapwater (Luxtronik-tellers). Geschiedenis vanaf 07-04-2026; in de zomer is er weinig verwarming, dus de verwarmingslijn heeft gaten. De waarde van een lopende dag, week, maand of jaar is de COP tot nu toe.
+      - type: grid
+        column_span: 2
+        cards:
+          - type: heading
+            heading: Verloop
+            heading_style: title
+          - type: horizontal-stack
+            grid_options:
+              columns: full
+            cards:
+              - type: statistics-graph
+                title: Inkoopprijs tegenover marktgemiddelde (€/kWh per dag)
+                chart_type: line
+                period: day
+                days_to_show: 150
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.dag_inkoopprijs
+                    name: Inkoopprijs
+                  - entity: sensor.dag_marktgemiddelde
+                    name: Marktgemiddelde
+              - type: statistics-graph
+                title: Voordeel ten opzichte van het marktgemiddelde (% per dag)
+                chart_type: bar
+                period: day
+                days_to_show: 150
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.dag_voordeel_pct
+                    name: Voordeel
+          - type: horizontal-stack
+            grid_options:
+              columns: full
+            cards:
+              - type: statistics-graph
+                title: Afname en teruglevering (€)
+                chart_type: bar
+                period: week
+                days_to_show: 84
+                stat_types: [change]
+                entities:
+                  - sensor.week_afname_eur
+                  - sensor.week_teruglevering_eur
+              - type: statistics-graph
+                title: Energie (kWh)
+                chart_type: bar
+                period: week
+                days_to_show: 84
+                stat_types: [change]
+                entities:
+                  - sensor.week_afname_kwh
+                  - sensor.week_teruglevering_kwh
+          - type: statistics-graph
+            title: Afname en teruglevering per maand (€)
+            grid_options:
+              columns: full
+            chart_type: bar
+            period: month
+            days_to_show: 365
+            stat_types: [change]
+            entities:
+              - sensor.maand_afname_eur
+              - sensor.maand_teruglevering_eur
+          - type: markdown
+            content: >-
+              Week = maandag 00:00 t/m zondag 24:00; maand en jaar lopen van de 1e tot het einde. De meters tellen pas vanaf 01-11-2026, dus de eerste maand en het eerste jaar zijn niet volledig. Zonneplan-bedragen komen ~1 uur na het
+              verbruik binnen. Marktgemiddelde = gemiddelde van alle kwartiertarieven in die periode
+              (incl. belasting); voordeel = hoeveel lager je gewogen inkoopprijs is (negatief: hoger). De dagwaarden vanaf juni zijn uit de
+              statistieken berekend; een nieuwe dag is pas aan het eind van de dag precies.

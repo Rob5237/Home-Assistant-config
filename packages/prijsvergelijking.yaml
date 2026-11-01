@@ -1,0 +1,59 @@
+# =====================================================================
+# Prijsvergelijking per dag (aangemaakt 01-11-2026): inkoopprijs tegenover het marktgemiddelde.
+# Voedt de grafiek op het dashboard 'Weekrapport' (dashboards/weekoverzicht.yaml).
+#   sensor.dag_inkoopprijs      gewogen inkoopprijs vandaag (Zonneplan, EUR/kWh incl. belasting)
+#   sensor.dag_marktgemiddelde  gemiddelde van alle kwartiertarieven vandaag
+#   sensor.dag_voordeel_pct     (markt - inkoop) / markt x 100
+# Geschiedenis vanaf 02-06-2026 is eenmalig als langetermijnstatistiek aangevuld (uit P1 en Zonneplan
+# uurstanden en het uurtarief). Voor nieuwe dagen is de dagwaarde de gemiddelde stand over de dag: het
+# eind van de dag is de juiste dagwaarde, vroeg op de dag is het een benadering.
+# =====================================================================
+template:
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/15"
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: "Dag markt som"
+        unique_id: dag_markt_som
+        state_class: total
+        state: >-
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {% set nieuw = now().hour == 0 and now().minute < 15 %}
+          {% if trigger.platform == 'time_pattern' and p | is_number %}
+            {{ ((0 if nieuw else this.state | float(0)) + p | float(0)) | round(4) }}
+          {% else %}{{ this.state | float(0) }}{% endif %}
+      - name: "Dag markt aantal"
+        unique_id: dag_markt_n
+        state_class: total
+        state: >-
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {% set nieuw = now().hour == 0 and now().minute < 15 %}
+          {% if trigger.platform == 'time_pattern' and p | is_number %}
+            {{ ((0 if nieuw else this.state | float(0)) + 1) | int }}
+          {% else %}{{ this.state | float(0) | int }}{% endif %}
+
+  - sensor:
+      - name: "Dag inkoopprijs"
+        unique_id: dag_inkoopprijs
+        unit_of_measurement: "€/kWh"
+        state_class: measurement
+        availability: >-
+          {{ states('sensor.zonneplan_afname_gemiddelde_prijs_per_kwh_vandaag') | is_number
+             and states('sensor.zonneplan_afname_gemiddelde_prijs_per_kwh_vandaag') | float(0) > 0 }}
+        state: "{{ states('sensor.zonneplan_afname_gemiddelde_prijs_per_kwh_vandaag') | float(0) | round(4) }}"
+      - name: "Dag marktgemiddelde"
+        unique_id: dag_marktgemiddelde
+        unit_of_measurement: "€/kWh"
+        state_class: measurement
+        availability: "{{ states('sensor.dag_markt_aantal') | float(0) > 0 }}"
+        state: "{{ (states('sensor.dag_markt_som') | float(0) / states('sensor.dag_markt_aantal') | float(1)) | round(4) }}"
+      - name: "Dag voordeel pct"
+        unique_id: dag_voordeel_pct
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: "{{ has_value('sensor.dag_inkoopprijs') and has_value('sensor.dag_marktgemiddelde') }}"
+        state: >-
+          {% set m = states('sensor.dag_marktgemiddelde') | float(0) %}
+          {{ (((m - states('sensor.dag_inkoopprijs') | float(0)) / m * 100) | round(1)) if m > 0 else 0 }}

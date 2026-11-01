@@ -1,0 +1,173 @@
+# =====================================================================
+# Maandrapport (aangemaakt 01-11-2026): zelfde cijfers als het weekrapport (packages/weekoverzicht.yaml),
+# nu per maand. Gegenereerd naar het voorbeeld van de weekmeters; de tellers sensor.week_teller_*
+# zijn gedeeld. Berekening in custom_templates/weekoverzicht.jinja (macro rapport('maand', ...)).
+# Op het dashboard 'Weekrapport' (dashboards/weekoverzicht.yaml). Melding naar de telefoon: de 1e van elke maand 08:00.
+#
+# Beperkingen:
+#   - De meters tellen pas vanaf de eerste start met dit pakket (01-11-2026, ±17:40 uur); de eerste
+#     maand is daardoor niet volledig. Compressor en comfort (history_stats) gebruiken de recorder
+#     (historie vanaf 28-09-2026), dus ook niet volledig voor eerdere perioden.
+#   - Maandwissel: de Zonneplan-bedragen komen ~1 uur na het verbruik binnen; op de 1e om 08:00 is de vorige maand compleet.
+# =====================================================================
+
+utility_meter:
+  maand_afname_kwh:
+    source: sensor.p1_meter_energy_import
+    cycle: monthly
+  maand_teruglevering_kwh:
+    source: sensor.p1_meter_energie_export
+    cycle: monthly
+  maand_opwek:
+    source: sensor.envoy_122331077486_lifetime_energy_production
+    cycle: monthly
+  maand_afname_eur:
+    source: sensor.zonneplan_afname_dit_jaar
+    cycle: monthly
+  maand_teruglevering_eur:
+    source: sensor.zonneplan_teruglevering_dit_jaar
+    cycle: monthly
+  maand_wp_input_verw:
+    source: sensor.luxtronik_280807_0450_heat_energy_input
+    cycle: monthly
+  maand_wp_input_tap:
+    source: sensor.luxtronik_280807_0450_dhw_energy_input
+    cycle: monthly
+  maand_wp_warmte_verw:
+    source: sensor.luxtronik_280807_0450_heat_amount_heating
+    cycle: monthly
+  maand_wp_warmte_tap:
+    source: sensor.luxtronik_280807_0450_dhw_heat_amount
+    cycle: monthly
+  maand_element_warmte:
+    source: sensor.luxtronik_280807_0450_second_heat_generator_amount_counter
+    cycle: monthly
+  maand_ev_rob:
+    source: sensor.ev_rob_energy_active_import_register
+    cycle: monthly
+  maand_ev_sonia:
+    source: sensor.ev_sonia_energy_active_import_register
+    cycle: monthly
+  maand_kosten_wp:
+    source: sensor.week_teller_kosten_warmtepomp
+    cycle: monthly
+  maand_kosten_rob:
+    source: sensor.week_teller_kosten_ev_rob
+    cycle: monthly
+  maand_kosten_sonia:
+    source: sensor.week_teller_kosten_ev_sonia
+    cycle: monthly
+  maand_waarde_teruglevering_2027:
+    source: sensor.week_teller_waarde_teruglevering_zonder_saldering
+    cycle: monthly
+  maand_markt_som:
+    source: sensor.week_teller_marktprijs_som
+    cycle: monthly
+  maand_markt_n:
+    source: sensor.week_teller_marktprijs_aantal
+    cycle: monthly
+
+sensor:
+  - platform: history_stats
+    name: "Maand compressorstarts nu"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: count
+    start: "{{ now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Maand compressor uren nu"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: time
+    start: "{{ now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Maand kamer te koud nu"
+    entity_id: binary_sensor.kamer_te_koud
+    state: "on"
+    type: ratio
+    start: "{{ now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Maand compressorstarts vorige"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: count
+    start: "{{ (now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).replace(day=1) }}"
+    end: "{{ now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+  - platform: history_stats
+    name: "Maand compressor uren vorige"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: time
+    start: "{{ (now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).replace(day=1) }}"
+    end: "{{ now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+  - platform: history_stats
+    name: "Maand kamer te koud vorige"
+    entity_id: binary_sensor.kamer_te_koud
+    state: "on"
+    type: ratio
+    start: "{{ (now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).replace(day=1) }}"
+    end: "{{ now().replace(day=1, hour=0, minute=0, second=0, microsecond=0) }}"
+
+template:
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: "Maand overzicht nu"
+        unique_id: maand_overzicht_nu
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% from 'weekoverzicht.jinja' import rapport %}
+          {{ (rapport('maand', 'nu') | from_json).netto }}
+        attributes:
+          data: >-
+            {% from 'weekoverzicht.jinja' import rapport %}
+            {{ rapport('maand', 'nu') | from_json }}
+          tekst: >-
+            {% from 'weekoverzicht.jinja' import bericht %}
+            {{ bericht('nu', 'maand') }}
+      - name: "Maand overzicht vorige"
+        unique_id: maand_overzicht_vorige
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% from 'weekoverzicht.jinja' import rapport %}
+          {{ (rapport('maand', 'vorige') | from_json).netto }}
+        attributes:
+          data: >-
+            {% from 'weekoverzicht.jinja' import rapport %}
+            {{ rapport('maand', 'vorige') | from_json }}
+          tekst: >-
+            {% from 'weekoverzicht.jinja' import bericht %}
+            {{ bericht('vorige', 'maand') }}
+
+automation:
+  - id: maandrapport_melding
+    alias: "Maandrapport: samenvatting vorige maand naar de telefoon"
+    description: >
+      De 1e van elke maand 08:00: de afgelopen maand is dan compleet (Zonneplan-bedragen zijn binnen).
+      Zelfde tekst staat op het dashboard 'Weekrapport'. Alleen melden als de sensor een tekst heeft.
+    triggers:
+      - trigger: time
+        at: "08:00:00"
+    conditions:
+      - condition: template
+        value_template: "{{ now().day == 1 }}"
+      - condition: template
+        value_template: "{{ state_attr('sensor.maand_overzicht_vorige', 'tekst') not in [none, ''] }}"
+    actions:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Maandrapport energie"
+          message: "{{ state_attr('sensor.maand_overzicht_vorige', 'tekst') }}"
+      - action: logbook.log
+        data:
+          name: "Maandrapport"
+          message: "Samenvatting vorige maand verstuurd."
+    mode: single
