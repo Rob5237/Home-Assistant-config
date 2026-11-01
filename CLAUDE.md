@@ -75,6 +75,15 @@ verse herlading.
 - `enphase_daily/monthly/yearly` — bron: Enphase lifetime_energy_production (bruto zonneopwekking)
 - `sensor.huisverbruik_totaal_berekend` — totaal huisverbruik in kWh = P1 afname + Enphase productie − P1 teruglevering (templates/elektriciteit_verbruik.yaml, aangemaakt 27-10-2026). `state_class: total` met opzet (Envoy-teller loopt in stappen van 1 kWh; bij `total_increasing` geeft een kleine daling een reset en een piek). Absolute stand heeft geen betekenis, gebruik verschillen. Het oude `sensor.huisverbruik_totaal_kwh` volgde alleen de netafname en staat sinds 29-05-2026 stil.
 
+## Weekoverzicht (01-11-2026)
+Alleen meten, geen sturing. `packages/weekoverzicht.yaml` + `custom_templates/weekoverzicht.jinja` + `dashboards/weekoverzicht.yaml` (dashboard 'Weekrapport').
+- Week = maandag 00:00 t/m zondag 24:00 (`utility_meter` cycle weekly, namen `sensor.week_*`). `sensor.week_overzicht_nu` / `_vorige`: attribuut `data` (alle cijfers) en `tekst`.
+- Cijfers: netto kosten (Zonneplan `*_dit_jaar` € via weekmeter), gewogen inkoopprijs tegenover het marktgemiddelde (som/aantal kwartiertarieven), zelfverbruik % en zelfvoorzienend %, warmtepomp (kWh, COP, €/kWh), EV Rob en Sonia (kWh, €/kWh), compressorstarts en gemiddelde run, % tijd kamer >0,5 °C onder setpoint, laagste boilertemp (7 dagen), en het scenario zonder saldering.
+- Kosten per verbruiker: trigger-sensoren `sensor.week_teller_*` tellen kWh-stap x kwartiertarief incl. belasting op. Ze herstellen hun stand via `this.state`: na de eerste herstart controleren dat de waarde niet terugvalt op 0.
+- Scenario zonder saldering: teruglevering x max(0, prijs excl. belasting + `ev_lb_terugleveraanpassing`), dezelfde regel als `eff_prijs`.
+- `automation weekoverzicht_melding`: maandag 08:00 de tekst van vorige week naar `notify.mobile_app_sm_g781b`. Maandag i.p.v. zondagavond omdat Zonneplan-bedragen ~1 uur na het verbruik binnenkomen.
+- Beperkingen: Enphase-opwek heeft lage resolutie; in de week van 1 januari beginnen de 'dit jaar'-bedragen van Zonneplan opnieuw. Wijzig je `weekoverzicht.jinja`: volledige `core/restart`.
+
 ## Warmtepomp-logica
 - **COP-sensoren**: Verwarming, Tapwater, Totaal, Berekend (formule op basis van aanvoer- en buitentemperatuur; entiteit blijft `sensor.warmtepomp_cop_geschat`)
 - **Optimaal startuur**: berekent goedkoopste stookmoment via Zonneplan kwartier-forecast × COP × dynamische stooklijn

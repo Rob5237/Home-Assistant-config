@@ -1,0 +1,322 @@
+# =====================================================================
+# Weekoverzicht (aangemaakt 01-11-2026): maakt kosten en zelfverbruik meetbaar.
+# Alleen meten en rapporteren; er verandert niets aan de sturing.
+#
+# Opbouw:
+#   1. Tellers (template, trigger-based): kosten per verbruiker, marktprijs en
+#      de waarde van teruglevering in het scenario zonder saldering.
+#      Cumulatief; de week-meters hieronder halen er de weken uit.
+#   2. utility_meter 'weekly' (week = maandag 00:00 t/m zondag 24:00).
+#   3. history_stats / statistics: compressor, comfort, boiler.
+#   4. sensor.week_overzicht_nu / _vorige: alle kerncijfers (macro's in
+#      custom_templates/weekoverzicht.jinja).
+#   5. Automatisering: maandag 08:00 samenvatting van de vorige week naar de telefoon.
+#   Dashboard 'Weekrapport': dashboards/weekoverzicht.yaml (zie configuration.yaml).
+#
+# Bekende beperkingen:
+#   - Zonneplan-bedragen komen ~1 uur na het verbruik binnen; daarom komt de
+#     samenvatting maandag 08:00 en niet zondagavond.
+#   - Enphase-opwek heeft een lage resolutie (stappen); per week hooguit enkele kWh afwijking.
+#   - Week van 1 januari: de 'dit jaar'-bedragen van Zonneplan beginnen opnieuw
+#     (de meter van die week kan dan afwijken).
+#   - Kosten per verbruiker = kWh-stap x kwartiertarief op het moment van de stap
+#     (Luxtronik meldt in stappen van 0,1 kWh); op weekniveau nauwkeurig genoeg.
+#   - Tellers herstellen hun stand na een herstart (this.state); controleer dat na de
+#     eerste herstart (waarde mag niet terugvallen op 0).
+# =====================================================================
+
+template:
+  # ---------------------------------------------------------------
+  # 1a. Kosten per verbruiker (cumulatief, EUR)
+  # ---------------------------------------------------------------
+  - triggers:
+      - trigger: state
+        entity_id:
+          - sensor.luxtronik_280807_0450_heat_energy_input
+          - sensor.luxtronik_280807_0450_dhw_energy_input
+    sensor:
+      - name: "Week teller kosten warmtepomp"
+        unique_id: week_teller_kosten_wp
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {% set a = trigger.from_state.state if trigger.from_state else none %}
+          {% set b = trigger.to_state.state %}
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {% set d = (b | float(0) - a | float(0)) if (a is not none and a | is_number and b | is_number) else 0 %}
+          {% set inc = (d * p | float(0)) if (0 < d < 5 and p | is_number) else 0 %}
+          {{ (this.state | float(0) + inc) | round(4) }}
+
+  - triggers:
+      - trigger: state
+        entity_id: sensor.ev_rob_energy_active_import_register
+    sensor:
+      - name: "Week teller kosten EV Rob"
+        unique_id: week_teller_kosten_rob
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {% set a = trigger.from_state.state if trigger.from_state else none %}
+          {% set b = trigger.to_state.state %}
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {% set d = (b | float(0) - a | float(0)) if (a is not none and a | is_number and b | is_number) else 0 %}
+          {% set inc = (d * p | float(0)) if (0 < d < 30 and p | is_number) else 0 %}
+          {{ (this.state | float(0) + inc) | round(4) }}
+
+  - triggers:
+      - trigger: state
+        entity_id: sensor.ev_sonia_energy_active_import_register
+    sensor:
+      - name: "Week teller kosten EV Sonia"
+        unique_id: week_teller_kosten_sonia
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {% set a = trigger.from_state.state if trigger.from_state else none %}
+          {% set b = trigger.to_state.state %}
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {% set d = (b | float(0) - a | float(0)) if (a is not none and a | is_number and b | is_number) else 0 %}
+          {% set inc = (d * p | float(0)) if (0 < d < 30 and p | is_number) else 0 %}
+          {{ (this.state | float(0) + inc) | round(4) }}
+
+  # ---------------------------------------------------------------
+  # 1b. Marktprijs: som en aantal kwartieren (gemiddelde = som / aantal, per week)
+  # ---------------------------------------------------------------
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/15"
+    sensor:
+      - name: "Week teller marktprijs som"
+        unique_id: week_teller_markt_som
+        state_class: total
+        state: >-
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {{ (this.state | float(0) + (p | float(0) if p | is_number else 0)) | round(4) }}
+      - name: "Week teller marktprijs aantal"
+        unique_id: week_teller_markt_n
+        state_class: total
+        state: >-
+          {% set p = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') %}
+          {{ (this.state | float(0) + (1 if p | is_number else 0)) | int }}
+
+  # ---------------------------------------------------------------
+  # 1c. Scenario zonder saldering: teruglevering tegen prijs excl. belasting
+  #     + terugleveraanpassing (zelfde regel als eff_prijs in ev_macros.jinja), minimaal 0.
+  # ---------------------------------------------------------------
+  - triggers:
+      - trigger: state
+        entity_id: sensor.p1_meter_energie_export
+    sensor:
+      - name: "Week teller waarde teruglevering zonder saldering"
+        unique_id: week_teller_waarde_teruglevering_2027
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state_class: total
+        state: >-
+          {% set a = trigger.from_state.state if trigger.from_state else none %}
+          {% set b = trigger.to_state.state %}
+          {% set d = (b | float(0) - a | float(0)) if (a is not none and a | is_number and b | is_number) else 0 %}
+          {% set ns = namespace(e=none) %}
+          {% for f in state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+            {% if ns.e is none and (f.start_date | as_datetime) <= now() < (f.end_date | as_datetime) %}
+              {% set ns.e = f.price_tax_excluded.amount | float(0) / 10000000 %}
+            {% endif %}
+          {% endfor %}
+          {% set aanpas = states('input_number.ev_lb_terugleveraanpassing') | float(0) %}
+          {% set inc = (d * ([ns.e + aanpas, 0] | max)) if (0 < d < 30 and ns.e is not none) else 0 %}
+          {{ (this.state | float(0) + inc) | round(4) }}
+
+  # ---------------------------------------------------------------
+  # 3a. Comfort: kamer meer dan 0,5 °C onder setpoint
+  # ---------------------------------------------------------------
+  - binary_sensor:
+      - name: "Kamer te koud"
+        unique_id: week_kamer_te_koud
+        availability: >-
+          {{ has_value('sensor.luxtronik_280807_0450_room_thermostat_temperature')
+             and has_value('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') }}
+        state: >-
+          {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') | float(0)
+             < states('sensor.luxtronik_280807_0450_room_thermostat_temperature_target') | float(0) - 0.5 }}
+
+  # ---------------------------------------------------------------
+  # 4. Kerncijfers deze en vorige week (elke 5 min en bij start)
+  # ---------------------------------------------------------------
+  - triggers:
+      - trigger: time_pattern
+        minutes: "/5"
+      - trigger: homeassistant
+        event: start
+    sensor:
+      - name: "Week overzicht nu"
+        unique_id: week_overzicht_nu
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% from 'weekoverzicht.jinja' import week %}
+          {{ (week('nu') | from_json).netto }}
+        attributes:
+          data: >-
+            {% from 'weekoverzicht.jinja' import week %}
+            {{ week('nu') | from_json }}
+          tekst: >-
+            {% from 'weekoverzicht.jinja' import bericht %}
+            {{ bericht('nu') }}
+      - name: "Week overzicht vorige"
+        unique_id: week_overzicht_vorige
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state: >-
+          {% from 'weekoverzicht.jinja' import week %}
+          {{ (week('vorige') | from_json).netto }}
+        attributes:
+          data: >-
+            {% from 'weekoverzicht.jinja' import week %}
+            {{ week('vorige') | from_json }}
+          tekst: >-
+            {% from 'weekoverzicht.jinja' import bericht %}
+            {{ bericht('vorige') }}
+
+# ---------------------------------------------------------------------
+# 2. Week-meters (maandag 00:00)
+# ---------------------------------------------------------------------
+utility_meter:
+  week_afname_kwh:
+    source: sensor.p1_meter_energy_import
+    cycle: weekly
+  week_teruglevering_kwh:
+    source: sensor.p1_meter_energie_export
+    cycle: weekly
+  week_opwek:
+    source: sensor.envoy_122331077486_lifetime_energy_production
+    cycle: weekly
+  week_afname_eur:
+    source: sensor.zonneplan_afname_dit_jaar
+    cycle: weekly
+  week_teruglevering_eur:
+    source: sensor.zonneplan_teruglevering_dit_jaar
+    cycle: weekly
+  week_wp_input_verw:
+    source: sensor.luxtronik_280807_0450_heat_energy_input
+    cycle: weekly
+  week_wp_input_tap:
+    source: sensor.luxtronik_280807_0450_dhw_energy_input
+    cycle: weekly
+  week_wp_warmte_verw:
+    source: sensor.luxtronik_280807_0450_heat_amount_heating
+    cycle: weekly
+  week_wp_warmte_tap:
+    source: sensor.luxtronik_280807_0450_dhw_heat_amount
+    cycle: weekly
+  week_element_warmte:
+    source: sensor.luxtronik_280807_0450_second_heat_generator_amount_counter
+    cycle: weekly
+  week_ev_rob:
+    source: sensor.ev_rob_energy_active_import_register
+    cycle: weekly
+  week_ev_sonia:
+    source: sensor.ev_sonia_energy_active_import_register
+    cycle: weekly
+  week_kosten_wp:
+    source: sensor.week_teller_kosten_warmtepomp
+    cycle: weekly
+  week_kosten_rob:
+    source: sensor.week_teller_kosten_ev_rob
+    cycle: weekly
+  week_kosten_sonia:
+    source: sensor.week_teller_kosten_ev_sonia
+    cycle: weekly
+  week_waarde_teruglevering_2027:
+    source: sensor.week_teller_waarde_teruglevering_zonder_saldering
+    cycle: weekly
+  week_markt_som:
+    source: sensor.week_teller_marktprijs_som
+    cycle: weekly
+  week_markt_n:
+    source: sensor.week_teller_marktprijs_aantal
+    cycle: weekly
+
+# ---------------------------------------------------------------------
+# 3b. Compressor, comfort en boiler over dezelfde week
+# ---------------------------------------------------------------------
+sensor:
+  - platform: history_stats
+    name: "Week compressorstarts nu"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: count
+    start: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday()) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Week compressorstarts vorige"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: count
+    start: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday() + 7) }}"
+    end: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday()) }}"
+  - platform: history_stats
+    name: "Week compressor uren nu"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: time
+    start: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday()) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Week compressor uren vorige"
+    entity_id: binary_sensor.luxtronik_280807_0450_compressor
+    state: "on"
+    type: time
+    start: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday() + 7) }}"
+    end: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday()) }}"
+  - platform: history_stats
+    name: "Week kamer te koud nu"
+    entity_id: binary_sensor.kamer_te_koud
+    state: "on"
+    type: ratio
+    start: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday()) }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "Week kamer te koud vorige"
+    entity_id: binary_sensor.kamer_te_koud
+    state: "on"
+    type: ratio
+    start: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday() + 7) }}"
+    end: "{{ now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now().weekday()) }}"
+  - platform: statistics
+    name: "Week boiler laagste 7 dagen"
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    state_characteristic: value_min
+    max_age:
+      days: 7
+
+# ---------------------------------------------------------------------
+# 5. Samenvatting naar de telefoon (maandag 08:00, vorige week is dan compleet)
+# ---------------------------------------------------------------------
+automation:
+  - id: weekoverzicht_melding
+    alias: "Weekoverzicht: samenvatting vorige week naar de telefoon"
+    description: >
+      Maandag 08:00 (Zonneplan-bedragen zijn dan binnen). Zelfde tekst staat op het
+      dashboard 'Weekrapport'. Alleen melden als de sensor een tekst heeft.
+    triggers:
+      - trigger: time
+        at: "08:00:00"
+    conditions:
+      - condition: time
+        weekday:
+          - mon
+      - condition: template
+        value_template: "{{ state_attr('sensor.week_overzicht_vorige', 'tekst') not in [none, ''] }}"
+    actions:
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Weekoverzicht energie"
+          message: "{{ state_attr('sensor.week_overzicht_vorige', 'tekst') }}"
+      - action: logbook.log
+        data:
+          name: "Weekoverzicht"
+          message: "Samenvatting vorige week verstuurd."
+    mode: single

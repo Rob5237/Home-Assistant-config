@@ -42,3 +42,9 @@ lovelace:
       icon: mdi:ev-station
       show_in_sidebar: true
       filename: dashboards/ev_laden.yaml
+    dashboard-week:
+      mode: yaml
+      title: Weekrapport
+      icon: mdi:calendar-week
+      show_in_sidebar: true
+      filename: dashboards/weekoverzicht.yaml

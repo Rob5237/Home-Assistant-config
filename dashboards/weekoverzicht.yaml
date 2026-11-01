@@ -1,0 +1,54 @@
+# =====================================================================
+# config/dashboards/weekoverzicht.yaml  – YAML-dashboard "Weekrapport"
+# Hoort bij packages/weekoverzicht.yaml. Alleen standaardkaarten.
+# In configuration.yaml: lovelace.dashboards.dashboard-week (mode: yaml).
+# Wijzigingen: browser verversen.
+# =====================================================================
+views:
+  - title: Weekrapport
+    path: week
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Vorige week (volledig)
+            heading_style: title
+          - type: markdown
+            content: "{{ state_attr('sensor.week_overzicht_vorige', 'tekst') }}"
+      - type: grid
+        cards:
+          - type: heading
+            heading: Deze week (tot nu)
+            heading_style: title
+          - type: markdown
+            content: "{{ state_attr('sensor.week_overzicht_nu', 'tekst') }}"
+      - type: grid
+        cards:
+          - type: heading
+            heading: Verloop per week
+            heading_style: title
+          - type: statistics-graph
+            title: Afname en teruglevering (€)
+            chart_type: bar
+            period: week
+            days_to_show: 84
+            stat_types: [change]
+            entities:
+              - sensor.week_afname_eur
+              - sensor.week_teruglevering_eur
+          - type: statistics-graph
+            title: Energie (kWh)
+            chart_type: bar
+            period: week
+            days_to_show: 84
+            stat_types: [change]
+            entities:
+              - sensor.week_afname_kwh
+              - sensor.week_teruglevering_kwh
+          - type: markdown
+            content: >-
+              Week = maandag 00:00 t/m zondag 24:00. Zonneplan-bedragen komen ~1 uur na het
+              verbruik binnen. Marktgemiddelde = gemiddelde van alle kwartiertarieven in die week
+              (incl. belasting); voordeel = hoeveel lager je gewogen inkoopprijs is.
