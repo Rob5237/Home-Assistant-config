@@ -1256,8 +1256,12 @@
   description: >
     Elk kwartier tussen 22:00 en 06:00 wordt gecheckt of dit het goedkoopste
     kwartier in het nachtvenster is (Zonneplan kwartier-forecast). Als ja en
-    tapwater < 54°C → opwarmen naar 57°C. Reset volgt via
+    tapwater < 47°C → opwarmen naar 57°C. Reset volgt via
     tapwater_reset_na_bijverwarmen.
+    Drempel 47°C (was 54, aangepast 01-11-2026): met hysterese 10K start de
+    compressor pas bij setpoint − 10 = 47°C. Bij 47-54°C zette de automatisering
+    alleen het setpoint op 57 zonder dat de compressor startte, waardoor 57
+    bleef hangen en de latere autonome start op 47°C i.p.v. 40°C viel.
     Kwartierprecisie (14-10-2026, was elk heel uur): trigger nu elk kwartier
     i.p.v. alleen xx:00, zodat het goedkoopste kwartier (niet per se op het
     hele uur) ook daadwerkelijk gecheckt wordt.
@@ -1270,7 +1274,7 @@
     state: "off"
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
-    below: 54
+    below: 47
   - condition: state
     entity_id: binary_sensor.goedkoopste_nachtuur_nu
     state: "on"

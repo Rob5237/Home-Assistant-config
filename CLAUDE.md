@@ -108,7 +108,7 @@ verse herlading.
 | Trigger | Conditie | Doel-setpoint | DHW-mode | Automatie |
 |---|---|---|---|---|
 | DHW < 46°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 40°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
-| Elk kwartier 22:00-06:00 | goedkoopste kwartier **EN** DHW < 54°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
+| Elk kwartier 22:00-06:00 | goedkoopste kwartier **EN** DHW < 47°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
 | P1 < -2000W voor 5 min (okt-feb: < -1000W) | DHW < 52°C **EN** zon-forecast ≥ 2 kWh (okt-feb: ≥ 1 kWh) **EN** Enphase nu > 1500W (okt-feb: > 1000W) **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C (+ hysterese 10K→3K) | Party | `tapwater_extra_opslag_groot_overschot` |
 | Elk kwartier 09:00-16:00 | goedkoopste kwartier **EN** TDI ≥7 dgn geleden **EN** DHW < 60°C | 65°C (+ hysterese 10K→3K) | Party | `tdi_legionella_solar_overschot` |
@@ -146,7 +146,7 @@ Safety-reset in `tapwater_extra_opslag_groot_overschot`: na 45 min interne delay
 | **46°C** | Bijverwarm-trigger (mits tarief OK) |
 | **52°C** | Bovengrens zonne-overschot start |
 | **50°C** | Rust-setpoint → autonome WP-start bij **40°C** (50-10K), gelijk aan de noodgrens |
-| **54°C** | Bovengrens nachtuur start |
+| **47°C** | Bovengrens nachtuur start (setpoint 57 − hysterese 10K; sinds 01-11-2026, was 54) |
 | **57°C** | Target voor bijverwarmen/nacht/overschot + reset-trigger bijverwarmen (voor 1 min) |
 | **58°C** | Reset-trigger zonne-overschot extra opslag |
 | **60°C** | Reset-trigger TDI (voor 15 min — borgt Legionella-houdtijd voor mid-tanksensor) |
