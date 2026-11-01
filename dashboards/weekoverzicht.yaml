@@ -101,6 +101,11 @@ views:
                     name: COP tapwater
               - type: statistics-graph
                 title: COP dit jaar
+                card_mod:
+                  style: |
+                    ha-card {
+                      background: rgba(255, 152, 0, 0.14);
+                    }
                 chart_type: bar
                 period: year
                 days_to_show: 400
