@@ -1936,10 +1936,10 @@
   mode: single
 
 - id: kamer_gelijk_buiten_actueel_signaal
-  alias: "Signaal: ventileren — kamer ≥20°C en buiten < kamer (actueel)"
+  alias: "Signaal: ventileren — kamer ≥23°C en buiten < kamer (actueel)"
   description: >
     Vergelijkt kamertemperatuur met de actueel waargenomen buitentemperatuur
-    van weather.thuis. Edge-triggered mobile+HA-UI push als kamer ≥20°C is
+    van weather.thuis. Edge-triggered mobile+HA-UI push als kamer ≥23°C is
     EN buiten LAGER is dan de kamer. Guards: onderdrukt tijdens vakantie
     (input_boolean.vakantie_actief on), tijdens regen (weather.thuis
     state rainy/pouring/lightning-rainy/snowy-rainy/hail — het regen-
@@ -1965,7 +1965,7 @@
       stijgend: "{{ is_state('input_boolean.kamer_stijgt', 'on') }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp >= 20 and buiten_actueel < kamer_temp
+           and kamer_temp >= 23 and buiten_actueel < kamer_temp
            and not vakantie and not regen and not stijgend }}
       gemeld: "{{ is_state('input_boolean.ventileren_signaal_actief', 'on') }}"
       stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
@@ -2099,10 +2099,10 @@
   mode: single
 
 - id: kamer_te_koel_sluit_ramen_signaal
-  alias: "Signaal: sluit ramen — kamer ≤20°C en buiten ≤20°C (actueel)"
+  alias: "Signaal: sluit ramen — kamer <19,5°C en buiten ≤20°C (actueel)"
   description: >
     Waarschuwt om ramen/tuindeuren te sluiten wanneer kamer én actuele
-    buitentemperatuur (weather.thuis) beide ≤ 20°C zijn. Edge-triggered
+    buitentemperatuur (weather.thuis) (kamer < 19,5°C, buiten ≤ 20°C) zijn. Edge-triggered
     mobile+HA-UI push. Guards: onderdrukt tijdens vakantie en tijdens regen
     (het regen-signaal neemt het dan over). Meldingen komen 24/7 door;
     alleen het push-geluid is uit tijdens het stil-venster 22:30-07:30
@@ -2122,7 +2122,7 @@
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp <= 20 and buiten_actueel <= 20
+           and kamer_temp < 19.5 and buiten_actueel <= 20
            and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.sluit_ramen_signaal_actief', 'on') }}"
       stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"

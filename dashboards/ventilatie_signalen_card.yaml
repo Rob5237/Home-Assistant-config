@@ -17,8 +17,8 @@ cards:
       {% set regen = weer in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] %}
       {% set stil_venster = now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) %}
       {% set in_nacht = (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 6 %}
-      {% set s_ventileren = ok and kamer >= 20 and buiten < kamer and not vakantie and not regen %}
-      {% set s_sluit = ok and kamer <= 20 and buiten <= 20 and not vakantie and not regen %}
+      {% set s_ventileren = ok and kamer >= 23 and buiten < kamer and not vakantie and not regen %}
+      {% set s_sluit = ok and kamer < 19.5 and buiten <= 20 and not vakantie and not regen %}
       {% set s_houd_dicht = ok and kamer > 20 and buiten > kamer and not vakantie and not regen %}
       {% set s_regen = regen and not vakantie %}
       {% set s_nachtvent = ok and kamer > 20 and buiten < 18 and in_nacht and not vakantie and not regen %}
