@@ -1,0 +1,59 @@
+# Dagelijkse energiesamenvatting (02-11-2026)
+# Alleen meten en melden, geen sturing. Elke dag 21:30 schrijft de AI Task
+# (ai_task.claude_ai_task, Anthropic-integratie) een korte Nederlandse tekst uit
+# de dagcijfers en stuurt die naar de telefoon van Rob. Eén API-aanroep per dag.
+# Mislukt de AI Task, dan komt er een melding met de kale cijfers.
+automation:
+  - id: dagsamenvatting_energie
+    alias: "Dagsamenvatting: energie van vandaag naar de telefoon"
+    description: >
+      Dagelijks 21:30. Cijfers uit de dagmeters (afname, teruglevering, opwek,
+      COP, inkoopprijs tegenover de markt, boiler, compressorstarts). Alleen
+      naar notify.mobile_app_sm_g781b.
+    triggers:
+      - trigger: time
+        at: "21:30:00"
+    actions:
+      - variables:
+          cijfers: >-
+            Afname net: {{ states('sensor.energy_daily') | float(0) | round(1) }} kWh.
+            Teruglevering: {{ states('sensor.solar_daily') | float(0) | round(1) }} kWh.
+            Zonne-opwek: {{ (states('sensor.enphase_daily') | float(0) * 1000) | round(1) }} kWh.
+            Huidige stand vandaag: gemiddelde inkoopprijs {{ states('sensor.dag_inkoopprijs') }} €/kWh,
+            marktgemiddelde {{ states('sensor.dag_marktgemiddelde') }} €/kWh,
+            voordeel {{ states('sensor.dag_voordeel_pct') }} %.
+            Warmtepomp: COP verwarming {{ states('sensor.cop_verwarming_dag') }},
+            COP tapwater {{ states('sensor.cop_tapwater_dag') }},
+            tapwater {{ states('sensor.dhw_input_dagelijks') }} kWh stroom voor
+            {{ states('sensor.dhw_heat_dagelijks') }} kWh warmte.
+            Boiler nu {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }} °C,
+            kamer {{ states('sensor.luxtronik_280807_0450_room_thermostat_temperature') }} °C,
+            buiten {{ states('sensor.luxtronik_280807_0450_outdoor_temperature') }} °C.
+            Auto's: Rob sessie {{ states('sensor.ev_rob_sessie_energie') }} kWh,
+            Sonia sessie {{ states('sensor.ev_sonia_sessie_energie') }} kWh.
+      - action: ai_task.generate_data
+        continue_on_error: true
+        response_variable: ai
+        data:
+          task_name: Dagsamenvatting energie
+          entity_id: ai_task.claude_ai_task
+          instructions: >-
+            Schrijf in het Nederlands een korte samenvatting van de energiedag
+            voor een huiseigenaar, maximaal 5 regels, zonder opmaak en zonder
+            aanhef. Noem alleen wat opvalt (veel teruglevering, hoge afname,
+            inkoopprijs onder of boven de markt, bijzondere COP). Verzin niets
+            en noem geen cijfers die niet in de gegevens staan. Waarden die
+            'unknown' of 'unavailable' zijn sla je over. Gegevens: {{ cijfers }}
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "Energie vandaag"
+          message: >-
+            {{ ai.data if ai is defined and ai is mapping and ai.data is defined
+               else cijfers }}
+      - action: logbook.log
+        data:
+          name: "Dagsamenvatting"
+          message: >-
+            {{ 'Verstuurd met AI-tekst.' if ai is defined and ai is mapping and ai.data is defined
+               else 'AI Task mislukt, kale cijfers verstuurd.' }}
+    mode: single
