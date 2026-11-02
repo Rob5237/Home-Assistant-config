@@ -20,7 +20,7 @@ Fasevolgorde van de aardlekschakelaars in de meterkast, van links naar rechts: L
 | 3 | 2 | L2 | Quooker |
 | 4 | 2 | L2 | Woonkamer, tuinverlichting, laadpaalsensoren, meterkast stopcontact linksboven |
 | 5 | 2 | L2 | Combimagnetron |
-| 6 | 2 | L2 | Koffiemachine, keukennis WCD rechterzijde |
+| 6 | 2 | L2 | Koffiemachine, WCD keuken-nis rechterzijde |
 | 7, 8 | 3 | L3 | AardLekSchakelaar |
 | 9 | 3 | L3 | ALARM + vaatwasser |
 | 10 | 3 | L3 | WCD achter badkamerdeur |
@@ -28,7 +28,7 @@ Fasevolgorde van de aardlekschakelaars in de meterkast, van links naar rechts: L
 | 12 | 3 | L3 | Wasmachine |
 | 17, 18 | 1 | L1 | AardLekSchakelaar |
 | 19 | 1 | L1 | WCD in muur achter keukenwandkast (ongebruikt) |
-| 20 | 1 | L1 | Hal, toilet beneden, keukennis WCD linkerzijde, overloop, slaapkamers Ivan & Taeke, computer zolder, mechanische ventilatie, zolderplafondlicht |
+| 20 | 1 | L1 | Hal, toilet beneden, WCD keuken-nis linkerzijde, overloop, slaapkamers Ivan & Taeke, computer zolder, mechanische ventilatie, zolderplafondlicht |
 | 21 | 1 | L1 | Meterkast stopcontact rechtsboven, internet/wifi/glasvezel, Home Assistant, deurbel, garage (licht, koelkast, roldeur), buitenlamp rechterzijgevel, slaapkamers achterzijde (Rob & Sonia, Aukje), badkamerverlichting (excl. WCD achter deur), WCD zolder (staande vloerlamp) |
 | 22 | 1 | L1 | Stopcontacten keukenmuur, keukenvriezer, keukenkoelkast, keukenlicht, WCD terras, rookmelder hal, ingebouwde deurbel meterkast (ongebruikt) |
 
