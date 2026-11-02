@@ -56,6 +56,10 @@ for stop, wat, fase in table_rows(section("Hoofdcomponenten")):
     if m:
         als[fase] = (stop, m.group(1))
 
+# fasen waarvan de kolomkop op pagina 1 geen tekst "Stop N - Aardlek M" toont
+_m = re.search(r'^Kolomkop zonder tekst .*? voor: (.+)$', section("Hoofdcomponenten"), re.M)
+ALS_VERBERGEN = set(re.findall(r"L\d", _m.group(1))) if _m else set()
+
 # positie in de meterkast
 pos = dict((f"L{n}", p) for n, p in re.findall(r"L(\d) = (links|midden|rechts)", md))
 if sorted(pos.values()) != ["links", "midden", "rechts"]:
@@ -222,7 +226,8 @@ for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
     text(x + colw - 8 - c.stringWidth(hx_, B, 6), yt + 3.3, hx_, B, 6, FG)
     c.setFillColor(col); c.rect(x, yt - HEAD, colw, HEAD, stroke=0, fill=1)
     text(x + 8, yt - 22, l, B, 22, white)
-    text(x + colw - 8 - c.stringWidth(als_t, B, 8.5), yt - 18, als_t, B, 8.5, white)
+    if l not in ALS_VERBERGEN:
+        text(x + colw - 8 - c.stringWidth(als_t, B, 8.5), yt - 18, als_t, B, 8.5, white)
     c.setFillColor(soft); c.rect(x, yt - HEAD - POS, colw, POS, stroke=0, fill=1)
     text(x + 8, yt - HEAD - 9.3, pos_t.upper(), R, 6.5)
     ry = yt - HEAD - POS

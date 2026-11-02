@@ -13,6 +13,8 @@ Fasevolgorde van de aardlekschakelaars in de meterkast, van links naar rechts: L
 | 15 | Aardlekschakelaar 2 | L2 |
 | 16 | Aardlekschakelaar 3 | L3 |
 
+Kolomkop zonder tekst "Stop N - Aardlek M" voor: L1
+
 ## Enkelfase-groepen
 | Stop | ALS | Fase | Wat |
 |------|-----|------|-----|
