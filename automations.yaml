@@ -2248,9 +2248,9 @@
   mode: single
 
 - id: kamer_warm_buiten_warmer_signaal
-  alias: "Signaal: houd ramen en tuindeuren dicht — kamer >20°C en buiten > kamer (actueel)"
+  alias: "Signaal: houd ramen en tuindeuren dicht — kamer >23°C en buiten > kamer (actueel)"
   description: >
-    Waarschuwt om ramen en tuindeuren dicht te houden wanneer kamer >20°C is
+    Waarschuwt om ramen en tuindeuren dicht te houden wanneer kamer >23°C is
     én de actuele buitentemperatuur (weather.thuis) HOGER is dan de kamer —
     ventileren zou dan juist opwarmen. Edge-triggered mobile+HA-UI push.
     Guards: onderdrukt tijdens vakantie en tijdens regen (het regen-signaal
@@ -2272,7 +2272,7 @@
       regen: "{{ states('weather.thuis') in ['rainy','pouring','lightning-rainy','snowy-rainy','hail'] }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp > 20 and buiten_actueel > kamer_temp
+           and kamer_temp > 23 and buiten_actueel > kamer_temp
            and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.ramen_dicht_signaal_actief', 'on') }}"
       stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"
@@ -2543,10 +2543,10 @@
   mode: single
 
 - id: nachtventilatie_signaal
-  alias: "Signaal: nachtventilatie — kamer >20°C en buiten <18°C (22:30-06:00)"
+  alias: "Signaal: nachtventilatie — kamer >23°C en buiten <18°C (22:30-06:00)"
   description: >
     Sterke pre-slaap wenk om ramen open te zetten wanneer 's avonds/nachts
-    (22:30-06:00) de kamer nog >20°C is EN buiten al <18°C (koele nacht na
+    (22:30-06:00) de kamer nog >23°C is EN buiten al <18°C (koele nacht na
     warme dag). Vakantie-onderdrukking actief. Regen heeft voorrang (regen-
     guard in conditie). Meldingen 24/7 door, maar in het stil-venster
     22:30-07:30 gaat de push naar het aparte 'Ventilatie advies
@@ -2567,7 +2567,7 @@
       in_venster: "{{ (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 6 }}"
       conditie: >-
         {{ kamer_temp > -900 and buiten_actueel > -900
-           and kamer_temp > 20 and buiten_actueel < 18
+           and kamer_temp > 23 and buiten_actueel < 18
            and in_venster and not vakantie and not regen }}
       gemeld: "{{ is_state('input_boolean.nachtventilatie_signaal_actief', 'on') }}"
       stil_venster: "{{ now().hour >= 23 or now().hour < 7 or (now().hour == 22 and now().minute >= 30) or (now().hour == 7 and now().minute < 30) }}"

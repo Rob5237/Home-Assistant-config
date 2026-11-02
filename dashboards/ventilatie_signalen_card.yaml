@@ -19,9 +19,9 @@ cards:
       {% set in_nacht = (now().hour == 22 and now().minute >= 30) or now().hour >= 23 or now().hour < 6 %}
       {% set s_ventileren = ok and kamer >= 23 and buiten < kamer and not vakantie and not regen %}
       {% set s_sluit = ok and kamer < 19.5 and buiten <= 20 and not vakantie and not regen %}
-      {% set s_houd_dicht = ok and kamer > 20 and buiten > kamer and not vakantie and not regen %}
+      {% set s_houd_dicht = ok and kamer > 23 and buiten > kamer and not vakantie and not regen %}
       {% set s_regen = regen and not vakantie %}
-      {% set s_nachtvent = ok and kamer > 20 and buiten < 18 and in_nacht and not vakantie and not regen %}
+      {% set s_nachtvent = ok and kamer > 23 and buiten < 18 and in_nacht and not vakantie and not regen %}
       {% set kamer_str = ('%.1f' % kamer) + ' °C' %}
       {% set buiten_str = ('%.1f' % buiten) + ' °C' %}
       {% set kamer_bg = '#e53935' if kamer > buiten else '' %}
