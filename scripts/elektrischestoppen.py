@@ -83,7 +83,7 @@ def split_items(desc):
 
 groepen = {"L1": [], "L2": [], "L3": []}
 for nums, _, fase, desc in table_rows(section("Enkelfase-groepen")):
-    kind = "res" if desc == "AardLekSchakelaar" else ""
+    kind = "res" if desc == "AardLekSchakelaar" else "onb" if nums.strip() == "?" else ""  # onb = stop onbekend
     items = split_items(desc)
     groepen[fase].append(("\n".join(n.strip() for n in nums.split(",")), items, kind))
 
@@ -201,7 +201,7 @@ def item_lines(items):
 
 def row_h(items, num, tag):
     n = sum(len(x) for x in item_lines(items)) + (1 if tag else 0)
-    return max(n, 1 + num.count("\n")) * LEAD + 8
+    return max(n, 1 + num.count("\n")) * LEAD + 6.5
 
 
 def tag_of(num, items):
@@ -450,7 +450,7 @@ LW, LH = landscape(A4)
 def label_secties(fases):
     out = []
     for f in fases:
-        rows = sorted(groepen[f], key=lambda r: int(r[0].split("\n")[0]))
+        rows = sorted((r for r in groepen[f] if r[2] != "onb"), key=lambda r: int(r[0].split("\n")[0]))
         out.append((f, [(n.split("\n"), kind == "res", items[0]) for n, items, kind in rows]))
     return out
 
@@ -531,7 +531,7 @@ def teken_hoofdschakelaar(x0, ytop):
 
 
 def stopreeks(fases):
-    nums = [int(n.split("\n")[0]) for f in fases for n, _, k in groepen[f] if k != "res"]
+    nums = [int(n.split("\n")[0]) for f in fases for n, _, k in groepen[f] if k not in ("res", "onb")]
     return f"{min(nums)}-{max(nums)}"
 
 

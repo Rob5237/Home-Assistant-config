@@ -26,6 +26,7 @@ Fasevolgorde van de aardlekschakelaars in de meterkast, van links naar rechts: L
 | 10 | 3 | L3 | WCD achter badkamerdeur |
 | 11 | 3 | L3 | Droger |
 | 12 | 3 | L3 | Wasmachine |
+| ? | 3 | L3 | WCD naast inductie (niet zeker) |
 | 17, 18 | 1 | L1 | AardLekSchakelaar |
 | 19 | 1 | L1 | WCD in muur achter keukenwandkast (ongebruikt) |
 | 20 | 1 | L1 | Hal, toilet beneden, WCD keuken-nis linkerzijde, overloop, slaapkamers Ivan & Taeke, computer zolder, mechanische ventilatie, zolderplafondlicht |
@@ -51,7 +52,7 @@ Elke regel krijgt de datum van de meting tussen haakjes achter de titel, bijvoor
 - **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tonen in dezelfde volgorde en kleur.
 - **Voeding hoofdschakelaar** (26-10-2026): de hoofdschakelaar (stop 13) krijgt voeding van de onderzijde. // links = L2 (paars in HomeWizard), // midden = L1 (roze in HomeWizard), // rechts = L3 (Lichtblauw in Homewizard).
 - **Quooker op L2** (24-10-2026): ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
-- **WCD naast inductiekookplaat op L3** (02-11-2026): het stopcontact naast de inductiekookplaat zit op L3 (opgave gebruiker, niet gemeten). Welke stop dit is, is nog niet vastgelegd.
+- **WCD naast inductiekookplaat op L3** (02-11-2026): het stopcontact naast de inductiekookplaat zit op L3 (opgave gebruiker, niet gemeten). Welke stop dit is, is nog niet vastgelegd: in de tabel Enkelfase-groepen staat hij als stop `?` (alleen op pagina 1 van het PDF, niet op de labels).
 - **Element zonder compressor** (24-10-2026): Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
 
 ## HomeWizard kleuren bij teruglevering
