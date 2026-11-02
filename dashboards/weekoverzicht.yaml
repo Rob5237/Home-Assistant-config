@@ -152,6 +152,8 @@ views:
                     name: Gemiddeld voordeel (7 dagen)
                   - entity: sensor.dag_voordeel_gemiddeld_30
                     name: Gemiddeld voordeel (30 dagen)
+                  - entity: sensor.dag_voordeel_gemiddeld_60
+                    name: Gemiddeld voordeel (60 dagen)
           - type: horizontal-stack
             grid_options:
               columns: full

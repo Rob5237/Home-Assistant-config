@@ -6,6 +6,7 @@
 #   sensor.dag_voordeel_pct     (markt - inkoop) / markt x 100
 #   sensor.dag_voordeel_gemiddeld     voortschrijdend gemiddelde van het voordeel over de afgelopen 7 dagen (lijn in de grafiek)
 #   sensor.dag_voordeel_gemiddeld_30  idem over de afgelopen 30 dagen
+#   sensor.dag_voordeel_gemiddeld_60  idem over de afgelopen 60 dagen
 # Geschiedenis vanaf 02-06-2026 is eenmalig als langetermijnstatistiek aangevuld (uit P1 en Zonneplan
 # uurstanden en het uurtarief). Voor nieuwe dagen is de dagwaarde de gemiddelde stand over de dag: het
 # eind van de dag is de juiste dagwaarde, vroeg op de dag is het een benadering.
@@ -82,6 +83,29 @@ template:
           {% endif %}
           [{{ l | join(',') }}]
 
+  # Eerdere dagen: de 30 dagen vóór de 29 dagen hierboven (samen 59 afgesloten dagen voor het 60-dagengemiddelde).
+  # De waarde gaat om 23:59:00 (30 seconden vóór de opslag hierboven) mee met wat daar afvalt.
+  - triggers:
+      - trigger: time
+        at: "23:59:00"
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/30"
+    sensor:
+      - name: "Dag voordeel eerdere dagen"
+        unique_id: dag_voordeel_eerdere_dagen
+        state: >-
+          {% set zaad = [-19.9, -7.9, -2.7, 34.7, 13.2, 25.5, -8.2, 0.9, -19.6, 1.5, 13.8, 4.2, 12.1, -8.8, -6.7, -14.9, 36.6, -8.4, -27.5, -14.9, -17.2, -11.3, -12.7, 7.6, -17.3, 38.2, -4.8, 13.7, 11.1, 11.3] %}
+          {% set l = (this.state | from_json) if this.state not in ['unknown', 'unavailable', 'none', ''] else zaad %}
+          {% if l | length < 30 %}{% set l = zaad %}{% endif %}
+          {% set a = states('sensor.dag_voordeel_laatste_dagen') %}
+          {% if trigger.platform == 'time' and a not in ['unknown', 'unavailable', 'none', ''] %}
+            {% set la = a | from_json %}
+            {% if la | length >= 29 %}{% set l = (l + [la[0]])[-30:] %}{% endif %}
+          {% endif %}
+          [{{ l | join(',') }}]
+
   - sensor:
       - name: "Dag voordeel gemiddeld"
         unique_id: dag_voordeel_gemiddeld
@@ -101,3 +125,15 @@ template:
           {% set l = states('sensor.dag_voordeel_laatste_dagen') | from_json %}
           {% set nu = [states('sensor.dag_voordeel_pct') | float(0)] if has_value('sensor.dag_voordeel_pct') else [] %}
           {{ ((l + nu) | average) | round(2) }}
+      - name: "Dag voordeel gemiddeld 60"
+        unique_id: dag_voordeel_gemiddeld_60
+        unit_of_measurement: "%"
+        state_class: measurement
+        availability: >-
+          {{ states('sensor.dag_voordeel_laatste_dagen') not in ['unknown', 'unavailable', 'none', '']
+             and states('sensor.dag_voordeel_eerdere_dagen') not in ['unknown', 'unavailable', 'none', ''] }}
+        state: >-
+          {% set a = states('sensor.dag_voordeel_laatste_dagen') | from_json %}
+          {% set b = states('sensor.dag_voordeel_eerdere_dagen') | from_json %}
+          {% set nu = [states('sensor.dag_voordeel_pct') | float(0)] if has_value('sensor.dag_voordeel_pct') else [] %}
+          {{ ((b + a + nu) | average) | round(2) }}
