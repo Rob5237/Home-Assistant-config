@@ -358,54 +358,42 @@ template:
         device_class: current
         state_class: measurement
         availability: "{{ has_value('sensor.p1_meter_power_phase_1') }}"
-        # Stroom = P1-vermogen / spanning (spanning- en stroomsensoren van de P1 aangezet op
-        # 02-11-2026). Bij blindvermogen (lage arbeidsfactor) is de werkelijke stroom hoger dan
-        # P/U: dan geldt de gemeten fasestroom van de meter min 1 A (marge tegen meetverschil).
-        # Alleen bij afname; teruglevering blijft P/U. De meterstroom heeft teken (negatief bij
-        # teruglevering) en decimalen. Nog te controleren bij afname: vergelijk
-        # sensor.p1_meter_current_phase_N met P/U en pas de 1 A zo nodig aan.
+        # Stroom = P1-vermogen / spanning (spanningssensoren van de P1 aangezet op 02-11-2026,
+        # daarvoor 230 V vast). Let op: bij blindvermogen (lage arbeidsfactor) is de werkelijke
+        # stroom hoger. sensor.p1_meter_current_phase_N is geen aparte meting maar gelijk aan P/U
+        # (gemeten 02-11-2026, verschil 0,0 A bij 7,2 A afname), dus daar is geen correctie uit te halen.
         state: >
           {% set p = states('sensor.p1_meter_power_phase_1') | float(0) %}
-          {% set u = [states('sensor.p1_meter_voltage_phase_1') | float(230), 200] | max %}
-          {% set i = p / u %}
-          {% set m = states('sensor.p1_meter_current_phase_1') | float(0) | abs %}
-          {{ ([i, m - 1] | max if p > 0 else i) | round(2) }}
+          {% set u = states('sensor.p1_meter_voltage_phase_1') | float(230) %}
+          {{ (p / ([u, 200] | max)) | round(2) }}
       - name: "EV LB stroom L2"
         unique_id: ev_lb_stroom_l2
         unit_of_measurement: A
         device_class: current
         state_class: measurement
         availability: "{{ has_value('sensor.p1_meter_power_phase_2') }}"
-        # Stroom = P1-vermogen / spanning (spanning- en stroomsensoren van de P1 aangezet op
-        # 02-11-2026). Bij blindvermogen (lage arbeidsfactor) is de werkelijke stroom hoger dan
-        # P/U: dan geldt de gemeten fasestroom van de meter min 1 A (marge tegen meetverschil).
-        # Alleen bij afname; teruglevering blijft P/U. De meterstroom heeft teken (negatief bij
-        # teruglevering) en decimalen. Nog te controleren bij afname: vergelijk
-        # sensor.p1_meter_current_phase_N met P/U en pas de 1 A zo nodig aan.
+        # Stroom = P1-vermogen / spanning (spanningssensoren van de P1 aangezet op 02-11-2026,
+        # daarvoor 230 V vast). Let op: bij blindvermogen (lage arbeidsfactor) is de werkelijke
+        # stroom hoger. sensor.p1_meter_current_phase_N is geen aparte meting maar gelijk aan P/U
+        # (gemeten 02-11-2026, verschil 0,0 A bij 7,2 A afname), dus daar is geen correctie uit te halen.
         state: >
           {% set p = states('sensor.p1_meter_power_phase_2') | float(0) %}
-          {% set u = [states('sensor.p1_meter_voltage_phase_2') | float(230), 200] | max %}
-          {% set i = p / u %}
-          {% set m = states('sensor.p1_meter_current_phase_2') | float(0) | abs %}
-          {{ ([i, m - 1] | max if p > 0 else i) | round(2) }}
+          {% set u = states('sensor.p1_meter_voltage_phase_2') | float(230) %}
+          {{ (p / ([u, 200] | max)) | round(2) }}
       - name: "EV LB stroom L3"
         unique_id: ev_lb_stroom_l3
         unit_of_measurement: A
         device_class: current
         state_class: measurement
         availability: "{{ has_value('sensor.p1_meter_power_phase_3') }}"
-        # Stroom = P1-vermogen / spanning (spanning- en stroomsensoren van de P1 aangezet op
-        # 02-11-2026). Bij blindvermogen (lage arbeidsfactor) is de werkelijke stroom hoger dan
-        # P/U: dan geldt de gemeten fasestroom van de meter min 1 A (marge tegen meetverschil).
-        # Alleen bij afname; teruglevering blijft P/U. De meterstroom heeft teken (negatief bij
-        # teruglevering) en decimalen. Nog te controleren bij afname: vergelijk
-        # sensor.p1_meter_current_phase_N met P/U en pas de 1 A zo nodig aan.
+        # Stroom = P1-vermogen / spanning (spanningssensoren van de P1 aangezet op 02-11-2026,
+        # daarvoor 230 V vast). Let op: bij blindvermogen (lage arbeidsfactor) is de werkelijke
+        # stroom hoger. sensor.p1_meter_current_phase_N is geen aparte meting maar gelijk aan P/U
+        # (gemeten 02-11-2026, verschil 0,0 A bij 7,2 A afname), dus daar is geen correctie uit te halen.
         state: >
           {% set p = states('sensor.p1_meter_power_phase_3') | float(0) %}
-          {% set u = [states('sensor.p1_meter_voltage_phase_3') | float(230), 200] | max %}
-          {% set i = p / u %}
-          {% set m = states('sensor.p1_meter_current_phase_3') | float(0) | abs %}
-          {{ ([i, m - 1] | max if p > 0 else i) | round(2) }}
+          {% set u = states('sensor.p1_meter_voltage_phase_3') | float(230) %}
+          {{ (p / ([u, 200] | max)) | round(2) }}
       - name: "EV LB ruimte"
         unique_id: ev_lb_ruimte
         unit_of_measurement: A

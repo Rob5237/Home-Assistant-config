@@ -71,7 +71,7 @@ verse herlading.
 
 ## Fasebelasting en overbelasting (02-11-2026)
 Aansluiting 3×25 A, regelgrens 23 A (zekering − marge 2 A). Code: `packages/ev_load_balancing.yaml` (regeling) en `packages/fase_bescherming.yaml` (element, waarschuwing).
-- **Meting**: `sensor.ev_lb_stroom_l1/2/3` = P1-vermogen / spanning (spanningssensoren `sensor.p1_meter_voltage_phase_N` aangezet op 02-11-2026, anders viel hij terug op 230 V). Bij afname geldt het maximum van P/U en de gemeten fasestroom (`sensor.p1_meter_current_phase_N`, ook aangezet) min 1 A, tegen onderschatting bij blindvermogen. De 1 A-marge nog controleren bij afname. `sensor.ev_lb_ruimte` = grens − zwaarst belaste fase.
+- **Meting**: `sensor.ev_lb_stroom_l1/2/3` = P1-vermogen / spanning (spanningssensoren `sensor.p1_meter_voltage_phase_N` aangezet op 02-11-2026, anders viel hij terug op 230 V). `sensor.p1_meter_current_phase_N` staat ook aan maar is gelijk aan P/U (gemeten 02-11-2026, verschil 0,0 A), dus geen correctie voor blindvermogen: de echte stroom kan bij lage arbeidsfactor hoger zijn. `sensor.ev_lb_ruimte` = grens − zwaarst belaste fase.
 - **Drempels**: tekort > 23 A na 3 s; laders terug na 12 s aanhoudend tekort; overbelasting > 25 A na 15 s; zwaar > 29 A na 12 s (laders naar 6 A/0 A, melding, kritieke melding na 20 s).
 - **Afschakellijst fasegevoelig**: lasten met `fasen` (element: L1, L3) worden alleen uitgezet als de zwaarst belaste fase erbij zit; overgeslagen lasten tellen mee in `ev_lb_afschakel_niveau` zonder scene en vragen bij herstel geen extra ruimte. De laders gaan pas terug als de hele lijst is afgewerkt.
 - **Opregelen per fase**: een lader op 1 fase mag omhoog zolang zijn eigen fase ruimte heeft (`pf` in `ev_lb_dynamisch`); 3-fase en onbekend rekenen met de krapste fase.
