@@ -9,7 +9,7 @@ Fasevolgorde van de aardlekschakelaars in de meterkast, van links naar rechts: L
 | Stop | Wat | Fasen |
 |------|-----|-------|
 | 13 | Hoofdschakelaar | L1 L2 L3 |
-| 14 | Aardlekschakelaar 1 | L1 |
+| 13 & 14 | Aardlekschakelaar 1 | L1 |
 | 15 | Aardlekschakelaar 2 | L2 |
 | 16 | Aardlekschakelaar 3 | L3 |
 

@@ -69,6 +69,15 @@ verse herlading.
 - Na een wijziging in `ev_macros.jinja` is een volledige `core/restart` het zekerst (zie caching-valkuil hierboven).
 - **Drempels vanaf het einde van de saldering** (`binary_sensor.saldering_voorbij`, aan vanaf `ev_lb_saldering_einde`): tot die datum gelden de vaste drempels in de automaties; daarna de `input_number.saldering_na_*` (packages/helpers.yaml, geen `initial`, startwaarden gezet op 28-10-2026): `tapwater_zonne_overschot_klein` teruglevering ≥ 500 W / Enphase > 600 W / forecast ≥ 0,5 kWh (was okt–feb 1000 W/1000 W/1,0 kWh, mrt–sep 2000 W/1500 W/2,0 kWh); `tapwater_extra_opslag_groot_overschot` teruglevering ≥ 3000 W (was 4000 W); EV `pv_laden` aan ≥ 1100 W / uit < 900 W (was 1500/1300 W). Startwaarden zijn schattingen; bijstellen na ervaring met het nieuwe contract. Ook de warmtepomp-optimalisatie is aangepast (zie hieronder, regel "Zonwaarde" bij Warmtepomp-logica).
 
+## Fasebelasting en overbelasting (02-11-2026)
+Aansluiting 3×25 A, regelgrens 23 A (zekering − marge 2 A). Code: `packages/ev_load_balancing.yaml` (regeling) en `packages/fase_bescherming.yaml` (element, waarschuwing).
+- **Meting**: `sensor.ev_lb_stroom_l1/2/3` = P1-vermogen / spanning (spanningssensoren `sensor.p1_meter_voltage_phase_N` aangezet op 02-11-2026, anders viel hij terug op 230 V). Bij afname geldt het maximum van P/U en de gemeten fasestroom (`sensor.p1_meter_current_phase_N`, ook aangezet) min 1 A, tegen onderschatting bij blindvermogen. De 1 A-marge nog controleren bij afname. `sensor.ev_lb_ruimte` = grens − zwaarst belaste fase.
+- **Drempels**: tekort > 23 A na 3 s; laders terug na 12 s aanhoudend tekort; overbelasting > 25 A na 15 s; zwaar > 29 A na 12 s (laders naar 6 A/0 A, melding, kritieke melding na 20 s).
+- **Afschakellijst fasegevoelig**: lasten met `fasen` (element: L1, L3) worden alleen uitgezet als de zwaarst belaste fase erbij zit; overgeslagen lasten tellen mee in `ev_lb_afschakel_niveau` zonder scene en vragen bij herstel geen extra ruimte. De laders gaan pas terug als de hele lijst is afgewerkt.
+- **Opregelen per fase**: een lader op 1 fase mag omhoog zolang zijn eigen fase ruimte heeft (`pf` in `ev_lb_dynamisch`); 3-fase en onbekend rekenen met de krapste fase.
+- **Element**: start alleen bij negatieve prijs en L1 én L3 ≤ `input_number.element_start_max_fase_a` (14 A; stond per ongeluk op 5 A omdat de helper geen opgeslagen waarde had). Daarna stopt `fase_element_stoppen` het element als L1 of L3 langer dan 20 s boven `input_number.element_stop_max_fase_a` (21 A) komt.
+- **Valkuil helpers zonder `initial`**: na (her)aanmaken beginnen ze op het minimum; waarde zetten.
+
 ## Energie-meters (utility_meter)
 - `solar_daily/monthly/yearly` — bron: P1 export (teruglevering naar net; naam historisch, meet NIET productie)
 - `energy_daily/monthly/yearly` — bron: P1 import

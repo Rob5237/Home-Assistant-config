@@ -5,11 +5,24 @@
 input_number:
   # Het element start alleen als L1 én L3 hieronder (of op) deze netstroom staan:
   # element ~8,7 A erbij blijft dan onder de regelgrens van 23 A. Geen initial: de waarde
-  # blijft na een herstart behouden (default bij eerste gebruik: 14).
+  # blijft na een herstart behouden. LET OP: een helper zonder opgeslagen waarde begint op het
+  # minimum (5 A; dat was het geval tot 02-11-2026, het element startte dus bijna nooit): na
+  # het (her)aanmaken de waarde zetten op 14.
   element_start_max_fase_a:
     name: "Element – start alleen als L1 en L3 hieronder staan"
     min: 5
     max: 23
+    step: 1
+    unit_of_measurement: A
+    mode: box
+  # Draait het element en gaat L1 of L3 langer dan 20 s boven deze netstroom (inclusief het
+  # element zelf, ~9 A), dan wordt het element gestopt (fase_element_stoppen). Zo grijpt de
+  # bescherming in vóór de algemene regelgrens van 23 A (tekort na 12 s) bereikt wordt.
+  # Zelfde valkuil: zonder opgeslagen waarde begint hij op 15; zet hem op 21.
+  element_stop_max_fase_a:
+    name: "Element – stoppen als L1 of L3 hierboven komt"
+    min: 15
+    max: 25
     step: 1
     unit_of_measurement: A
     mode: box
@@ -128,3 +141,42 @@ automation:
           notification_id: "fase_hoog_{{ trigger.id | lower }}"
           title: "Fase {{ trigger.id }} hoog belast"
           message: "{{ bericht }}"
+
+  - id: fase_element_stoppen
+    alias: "Element stoppen bij hoge belasting L1 of L3 (>drempel langer dan 20 s)"
+    description: >
+      Het element (L1 + L3, ~9 A per fase) wordt bij de start getoetst (zie
+      tapwater_negatieve_prijs_opwarmen), maar daarna kan er op L1/L3 een zware last bijkomen
+      (kookplaat, droger, auto). Boven element_stop_max_fase_a langer dan 20 s gaat het element
+      uit via switch.wp_element_tapwater (zelfde reset als tapwater_element_stop). Een nieuwe
+      start volgt pas via tapwater_negatieve_prijs_opwarmen als L1 en L3 weer onder de
+      startdrempel staan (controle elk kwartier).
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id:
+          - sensor.ev_lb_stroom_l1
+          - sensor.ev_lb_stroom_l3
+        above: input_number.element_stop_max_fase_a
+        for: "00:00:20"
+    conditions:
+      - condition: state
+        entity_id: switch.wp_element_tapwater
+        state: "on"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.wp_element_tapwater
+      - action: logbook.log
+        data:
+          name: "Fasebescherming"
+          message: >
+            Element gestopt: {{ trigger.to_state.name }} {{ trigger.to_state.state }} A
+            (drempel {{ states('input_number.element_stop_max_fase_a') }} A).
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "⚡ Element gestopt"
+          message: >
+            L1/L3 te hoog belast ({{ states('sensor.ev_lb_stroom_l1') }} / {{ states('sensor.ev_lb_stroom_l3') }} A,
+            drempel {{ states('input_number.element_stop_max_fase_a') }} A): het warmtepomp-element is uitgezet.
+        continue_on_error: true

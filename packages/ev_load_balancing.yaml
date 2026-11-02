@@ -20,15 +20,24 @@
 #   3. Huislasten afschakelen (afschakellijst) EERST bij tekort/overbelasting;
 #      pas als de hele lijst uit staat gaan de laders terug (zie ev_lb_dynamisch);
 #      herstel in omgekeerde volgorde
-#   3b. Noodstop: fase > 25 A gedurende 3 s → laders 0 A en in één keer
-#      genoeg huislasten uit; melding (+ kritieke melding na 20 s)
+#      De afschakellijst is fasegevoelig (02-11-2026): een last met 'fasen' wordt
+#      alleen uitgezet als de zwaarst belaste fase er een van is (het element
+#      op L1+L3 helpt niet bij een tekort op L2); een overgeslagen last telt
+#      wel mee in het afschakelniveau en wordt bij herstel overgeslagen.
+#   3b. Noodstop (zwaar: fase > zekering + 4 A = 29 A gedurende 12 s) → laders
+#      naar 6 A (of 0 A als ze al op 6 A stonden) en in één keer genoeg
+#      huislasten uit; melding (+ kritieke melding na 20 s). Lichte
+#      overschrijding (25–29 A) telt na 15 s en regelt de laders alleen terug.
 #
 #  Ontwerpdoel 3×25A:
 #   - continu nooit boven 23 A per fase (regelgrens = 25 − 2 A marge)
-#   - boven 25 A: binnen ~10–15 s terug onder de grens (meetinterval
-#     P1 + 3 s bevestiging + reactietijd lader/apparaat)
-#   - korte inschakelpieken (< 3 s) worden genegeerd; die kan de
-#     hoofdzekering (gG, traag) ruimschoots aan
+#   - tekort (> 23 A) telt na 3 s; terugregelen van de laders na 12 s
+#     aanhoudend tekort (korte pulsen zoals de Quooker worden zo genegeerd)
+#   - boven 25 A: binnen ~15–20 s terug onder de grens (meetinterval
+#     P1 + 12/15 s bevestiging + reactietijd lader/apparaat)
+#   - opregelen kijkt per fase (02-11-2026 aangepast, zie ev_lb_dynamisch): een
+#     lader op 1 fase mag omhoog zolang zíjn fase ruimte heeft; 3-fase en
+#     'onbekend' rekenen met de krapste fase
 #   4. P1 verouderd (>30 s) → niet meer verversen → terugval op basis
 #   5. Op de lader: de laatste periode van het profiel = terugval (dodemansknop)
 #   6. Op de lader: maximum_current eenmalig op de max van die lader
@@ -349,30 +358,54 @@ template:
         device_class: current
         state_class: measurement
         availability: "{{ has_value('sensor.p1_meter_power_phase_1') }}"
+        # Stroom = P1-vermogen / spanning (spanning- en stroomsensoren van de P1 aangezet op
+        # 02-11-2026). Bij blindvermogen (lage arbeidsfactor) is de werkelijke stroom hoger dan
+        # P/U: dan geldt de gemeten fasestroom van de meter min 1 A (marge tegen meetverschil).
+        # Alleen bij afname; teruglevering blijft P/U. De meterstroom heeft teken (negatief bij
+        # teruglevering) en decimalen. Nog te controleren bij afname: vergelijk
+        # sensor.p1_meter_current_phase_N met P/U en pas de 1 A zo nodig aan.
         state: >
           {% set p = states('sensor.p1_meter_power_phase_1') | float(0) %}
-          {% set u = states('sensor.p1_meter_voltage_phase_1') | float(230) %}
-          {{ (p / ([u, 200] | max)) | round(2) }}
+          {% set u = [states('sensor.p1_meter_voltage_phase_1') | float(230), 200] | max %}
+          {% set i = p / u %}
+          {% set m = states('sensor.p1_meter_current_phase_1') | float(0) | abs %}
+          {{ ([i, m - 1] | max if p > 0 else i) | round(2) }}
       - name: "EV LB stroom L2"
         unique_id: ev_lb_stroom_l2
         unit_of_measurement: A
         device_class: current
         state_class: measurement
         availability: "{{ has_value('sensor.p1_meter_power_phase_2') }}"
+        # Stroom = P1-vermogen / spanning (spanning- en stroomsensoren van de P1 aangezet op
+        # 02-11-2026). Bij blindvermogen (lage arbeidsfactor) is de werkelijke stroom hoger dan
+        # P/U: dan geldt de gemeten fasestroom van de meter min 1 A (marge tegen meetverschil).
+        # Alleen bij afname; teruglevering blijft P/U. De meterstroom heeft teken (negatief bij
+        # teruglevering) en decimalen. Nog te controleren bij afname: vergelijk
+        # sensor.p1_meter_current_phase_N met P/U en pas de 1 A zo nodig aan.
         state: >
           {% set p = states('sensor.p1_meter_power_phase_2') | float(0) %}
-          {% set u = states('sensor.p1_meter_voltage_phase_2') | float(230) %}
-          {{ (p / ([u, 200] | max)) | round(2) }}
+          {% set u = [states('sensor.p1_meter_voltage_phase_2') | float(230), 200] | max %}
+          {% set i = p / u %}
+          {% set m = states('sensor.p1_meter_current_phase_2') | float(0) | abs %}
+          {{ ([i, m - 1] | max if p > 0 else i) | round(2) }}
       - name: "EV LB stroom L3"
         unique_id: ev_lb_stroom_l3
         unit_of_measurement: A
         device_class: current
         state_class: measurement
         availability: "{{ has_value('sensor.p1_meter_power_phase_3') }}"
+        # Stroom = P1-vermogen / spanning (spanning- en stroomsensoren van de P1 aangezet op
+        # 02-11-2026). Bij blindvermogen (lage arbeidsfactor) is de werkelijke stroom hoger dan
+        # P/U: dan geldt de gemeten fasestroom van de meter min 1 A (marge tegen meetverschil).
+        # Alleen bij afname; teruglevering blijft P/U. De meterstroom heeft teken (negatief bij
+        # teruglevering) en decimalen. Nog te controleren bij afname: vergelijk
+        # sensor.p1_meter_current_phase_N met P/U en pas de 1 A zo nodig aan.
         state: >
           {% set p = states('sensor.p1_meter_power_phase_3') | float(0) %}
-          {% set u = states('sensor.p1_meter_voltage_phase_3') | float(230) %}
-          {{ (p / ([u, 200] | max)) | round(2) }}
+          {% set u = [states('sensor.p1_meter_voltage_phase_3') | float(230), 200] | max %}
+          {% set i = p / u %}
+          {% set m = states('sensor.p1_meter_current_phase_3') | float(0) | abs %}
+          {{ ([i, m - 1] | max if p > 0 else i) | round(2) }}
       - name: "EV LB ruimte"
         unique_id: ev_lb_ruimte
         unit_of_measurement: A
@@ -394,6 +427,8 @@ template:
       # Bovenaan = minst merkbaar. Herstel gaat in omgekeerde volgorde.
       #   type:   switch (aan/uit) of select (optie 'uit' / vorige stand)
       #   ampere: geschatte stroom op de zwaarst belaste fase (voor herstel)
+      #   fasen:  (optioneel) fasen waarop de last staat; zonder = geschikt voor elke fase.
+      #           Bij een tekort wordt alleen een last uitgezet die op de zwaarst belaste fase staat.
       # Opgeschoond 20-10-2026: alleen entiteiten die in HA bestaan. Zijn
       # verwijderd (bestonden niet): stekkerbatterij wasmachine/droger, ZWE-
       # bijverwarming (Luxtronik toont geen schakelaar), droger, wasmachine.
@@ -408,7 +443,7 @@ template:
           lasten: >
             {{ [
               {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1},
-              {'naam': 'Warmtepomp-element',      'type': 'switch', 'entity': 'switch.wp_element_tapwater',            'ampere': 9}
+              {'naam': 'Warmtepomp-element',      'type': 'switch', 'entity': 'switch.wp_element_tapwater',            'ampere': 9, 'fasen': ['L1', 'L3']}
             ] }}
 
   # -------------------------------------------------------------------
@@ -1617,6 +1652,11 @@ script:
       - variables:
           lasten: "{{ state_attr('sensor.ev_lb_afschakellijst', 'lasten') or [] }}"
           doel: "{{ [nodig | float(0), 0.1] | max }}"
+          # Zwaarst belaste fase: een last die daar niet op staat helpt niet en blijft aan
+          slechtste: >
+            {{ {'L1': states('sensor.ev_lb_stroom_l1') | float(0),
+                'L2': states('sensor.ev_lb_stroom_l2') | float(0),
+                'L3': states('sensor.ev_lb_stroom_l3') | float(0)} | dictsort(false, 'value') | last | first }}
       - condition: template
         value_template: "{{ states('input_number.ev_lb_afschakel_niveau') | int(0) < lasten | count }}"
       - action: input_number.set_value
@@ -1631,12 +1671,22 @@ script:
                 l: "{{ lasten[idx - 1] }}"
                 staat_aan: >
                   {{ states(l.entity) not in ['off', 'unavailable', 'unknown', l.uit | default('off')] }}
+                # Last zonder 'fasen' is voor elke fase geschikt; met 'fasen' alleen als de zwaarst
+                # belaste fase erbij zit. Overgeslagen lasten tellen wel mee in het niveau
+                # (geen scene; bij herstel worden ze dan overgeslagen).
+                relevant: "{{ not (l.fasen | default([])) or slechtste in l.fasen }}"
             - action: input_number.set_value
               target:
                 entity_id: input_number.ev_lb_afschakel_niveau
               data:
                 value: "{{ idx }}"
-            - if: "{{ staat_aan }}"
+            - if: "{{ staat_aan and not relevant }}"
+              then:
+                - action: logbook.log
+                  data:
+                    name: "EV load balancing"
+                    message: "Niet afgeschakeld: {{ l.naam }} staat niet op de zwaarst belaste fase ({{ slechtste }})"
+            - if: "{{ staat_aan and relevant }}"
               then:
                 - action: scene.create
                   data:
@@ -2330,8 +2380,12 @@ automation:
               {% endfor %}
 
             {% elif trigger.id == 'ramp' and niveau == 0 %}
-              {# OMHOOG: Sonia eerst, Rob krijgt wat overblijft; 1 A buffer #}
-              {% set ns.rest = ns.rest - 1 %}
+              {# OMHOOG: Sonia eerst, Rob krijgt wat overblijft; 1 A buffer.
+                 Per fase gerekend (02-11-2026): een lader op 1 fase mag omhoog zolang zijn fase
+                 ruimte heeft; 3-fase (en 'onbekend' = 3-fase) rekent met de krapste fase. De ruimte per
+                 fase wordt bijgehouden in pf en loopt terug als een lader erbij komt. #}
+              {% set grens = states('input_number.ev_lb_zekering') | float(25) - states('input_number.ev_lb_marge') | float(2) %}
+              {% set pf = namespace(d={'L1': grens - fi['L1'] - 1, 'L2': grens - fi['L2'] - 1, 'L3': grens - fi['L3'] - 1}) %}
               {% for l in volgorde %}
                 {% set o = ns.out[l.naam] %}
                 {% set mx = states(l.max) | int(10) %}
@@ -2341,15 +2395,18 @@ automation:
                 {% set wacht = l.naam != voorrang and not deel and ns.out[voorrang].bezig and (ns.out[voorrang].tg or ns.out[voorrang].pv)
                                and ns.out[voorrang].nieuw < states('input_number.ev_lb_max_' ~ voorrang) | int(16) %}
                 {% if o.bezig and (o.tg or o.pv) and not wacht %}
+                  {% set fl = ['L1', 'L2', 'L3'] if states(l.fase) not in ['L1', 'L2', 'L3'] else [states(l.fase)] %}
+                  {% set av = namespace(v=999) %}
+                  {% for f in fl %}{% set av.v = [av.v, pf.d[f]] | min %}{% endfor %}
                   {% if o.huidig > mx %}
                     {% set x = mx %}
                   {% elif o.huidig == 0 %}
-                    {% set x = 6 if ns.rest >= 7 else 0 %}
+                    {% set x = 6 if av.v >= 7 else 0 %}
                   {% else %}
-                    {% set st = [[l.stap, ns.rest | round(0, 'floor') | int] | min, 0] | max %}
+                    {% set st = [[l.stap, av.v | round(0, 'floor') | int] | min, 0] | max %}
                     {% set x = [o.huidig + st, mx] | min %}
                   {% endif %}
-                  {% set ns.rest = ns.rest - (x - o.huidig) %}
+                  {% for f in fl %}{% set pf.d = dict(pf.d, **{f: pf.d[f] - (x - o.huidig)}) %}{% endfor %}
                   {% set ns.out = dict(ns.out, **{l.naam: dict(o, nieuw=x)}) %}
                 {% endif %}
               {% endfor %}
@@ -2703,7 +2760,9 @@ automation:
         value_template: >
           {% set n = states('input_number.ev_lb_afschakel_niveau') | int(0) %}
           {% set lasten = state_attr('sensor.ev_lb_afschakellijst', 'lasten') or [] %}
-          {% set nodig = (lasten[n - 1].ampere if 0 < n <= lasten | count else 10) + 2 %}
+          {# Overgeslagen last (andere fase, geen scene): geen extra ruimte nodig #}
+          {% set heeft = ('scene.ev_lb_last_' ~ n) in (states.scene | map(attribute='entity_id') | list) %}
+          {% set nodig = (lasten[n - 1].ampere if heeft and 0 < n <= lasten | count else 0) + 2 %}
           {{ n > 0
              and is_state('binary_sensor.ev_lb_tekort', 'off')
              and is_state('binary_sensor.ev_lb_overbelasting', 'off')
