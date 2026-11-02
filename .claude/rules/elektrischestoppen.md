@@ -51,7 +51,17 @@ Elke regel krijgt de datum van de meting tussen haakjes achter de titel, bijvoor
 - **P1-fasen = L1, L2, L3** (24-10-2026): HomeWizard-app en P1-sensor tonen in dezelfde volgorde en kleur.
 - **Voeding hoofdschakelaar** (26-10-2026): de hoofdschakelaar (stop 13) krijgt voeding van de onderzijde. // links = L2 (paars in HomeWizard), // midden = L1 (roze in HomeWizard), // rechts = L3 (Lichtblauw in Homewizard).
 - **Quooker op L2** (24-10-2026): ~51 pulsen per dag van ~10 s en ~2,1 kW, naar schatting ~0,3 kWh per dag.
+- **WCD naast inductiekookplaat op L3** (02-11-2026): het stopcontact naast de inductiekookplaat zit op L3 (opgave gebruiker, niet gemeten). Welke stop dit is, is nog niet vastgelegd.
 - **Element zonder compressor** (24-10-2026): Tapwatermode "Second heatsource" en setpoint 65 °C. Start pas als de boiler onder 55 °C staat.
+
+## HomeWizard kleuren bij teruglevering
+Kleur van de fasewaarde in de HomeWizard-app (kaart Stroomtotaal, weergave Nu) zodra een fase teruglevert (zonneoverschot). Gemeten op 02-11-2026 uit een screenshot (JPEG, hexcodes ongeveer, een paar punten afwijking mogelijk): L1 440 W, L2 337 W en L3 522 W teruglevering. Zonder teruglevering gelden de gewone fasekleuren (roze, paars, lichtblauw). Het PDF toont deze kleuren als balkje boven de kop van elke aardlekschakelaar.
+
+| Fase | Kleur | Hex |
+|------|-------|-----|
+| L1 | groen | #00D870 |
+| L2 | turquoise-groen | #18E088 |
+| L3 | geelgroen | #90E020 |
 
 ## Controle P1-fasenummering (24-10-2026)
 P1-fase 1/2/3 (HomeWizard-app en `sensor.p1_meter_power_phase_N`, zelfde volgorde) is vergeleken met de groepenkast:

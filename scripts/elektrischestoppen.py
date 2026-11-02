@@ -94,6 +94,12 @@ for stop, ov, lb in table_rows(section("Toelichting per stop")):
     if lb:
         LABELTEKST[stop] = [x.strip() for x in lb.split(" / ")]
 
+overschot = {}  # fase -> (kleurnaam, hex): HomeWizard-kleur bij teruglevering
+for fase, naam, hx in table_rows(section("HomeWizard kleuren bij teruglevering")):
+    overschot[fase] = (naam, hx.upper())
+if sorted(overschot) != ["L1", "L2", "L3"]:
+    sys.exit("sectie 'HomeWizard kleuren bij teruglevering' mist een van L1, L2, L3")
+
 matrix = []
 for wat, fasen, toel in table_rows(section("Meerfase-verbruikers")):
     belast = set(re.findall(r"L\d", re.sub(r"\(.*?\)", "", fasen)))
@@ -161,7 +167,7 @@ y -= 9
 # hoofdschakelaar met fasevolgorde in kleur
 bh = 18
 c.setFillColor(FG); c.rect(M, y - bh, CW, bh, stroke=0, fill=1)
-text(M + 8, y - 12, "Stop 13", MONO, 9, white)
+text(M + 8, y - 12, "Stop 13", B, 9, white)
 text(M + 55, y - 12.4, "HOOFDSCHAKELAAR", B, 9.9, white)
 volgorde = [f for p in ("links", "midden", "rechts") for f in pos if pos[f] == p]
 segs = [("Faseschakelaars:", white), ("    ", white)]
@@ -202,19 +208,24 @@ def tag_of(num, items):
     return TAGS.get(num)
 
 
-HEAD, POS = 30, 13
-colh = max(HEAD + POS + sum(row_h(it, n, tag_of(n, it)) for n, it, k in rows) for *_, rows in cols)
+HEAD, POS, SR = 30, 13, 10
+colh = SR + max(HEAD + POS + sum(row_h(it, n, tag_of(n, it)) for n, it, k in rows) for *_, rows in cols)
 for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
     x = M + i * (colw + GAP)
     col, soft = P[pn]
     c.setStrokeColor(RULE); c.setLineWidth(0.6); c.setFillColor(white)
     c.rect(x, y - colh, colw, colh, stroke=1, fill=1)
-    c.setFillColor(col); c.rect(x, y - HEAD, colw, HEAD, stroke=0, fill=1)
-    text(x + 8, y - 22, l, B, 22, white)
-    text(x + colw - 8 - c.stringWidth(als_t, MONO, 8), y - 18, als_t, MONO, 8, white)
-    c.setFillColor(soft); c.rect(x, y - HEAD - POS, colw, POS, stroke=0, fill=1)
-    text(x + 8, y - HEAD - 9.3, pos_t.upper(), R, 6.5)
-    ry = y - HEAD - POS
+    yt = y - SR
+    nm_, hx_ = overschot[l]
+    c.setFillColor(HexColor(hx_)); c.rect(x, yt, colw, SR, stroke=0, fill=1)
+    text(x + 8, yt + 3.3, "TERUGLEVERING (HOMEWIZARD)", B, 6, FG)
+    text(x + colw - 8 - c.stringWidth(hx_, B, 6), yt + 3.3, hx_, B, 6, FG)
+    c.setFillColor(col); c.rect(x, yt - HEAD, colw, HEAD, stroke=0, fill=1)
+    text(x + 8, yt - 22, l, B, 22, white)
+    text(x + colw - 8 - c.stringWidth(als_t, B, 8.5), yt - 18, als_t, B, 8.5, white)
+    c.setFillColor(soft); c.rect(x, yt - HEAD - POS, colw, POS, stroke=0, fill=1)
+    text(x + 8, yt - HEAD - 9.3, pos_t.upper(), R, 6.5)
+    ry = yt - HEAD - POS
     for num, items, kind in rows:
         tag = tag_of(num, items)
         h = row_h(items, num, tag)
@@ -236,7 +247,7 @@ for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
         if tag:
             text(tx + BUL, ly, tag, R, 6.8)
         ry -= h
-y -= colh + 14
+y -= colh + 12
 
 # matrix
 text(M, y - 9, "MEERFASE-VERBRUIKERS MET EIGEN AANSLUITING", B, 9.5)
