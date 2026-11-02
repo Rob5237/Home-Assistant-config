@@ -1,0 +1,130 @@
+# Bescherming tegen overbelasting van een fase (3×25 A) door het elektrische element
+# van de warmtepomp (L1 + L3, ~9 A per fase) en een waarschuwing bij aanhoudend hoge
+# fasebelasting. Zie ook packages/ev_load_balancing.yaml (afschakellijst, noodstop).
+
+input_number:
+  # Het element start alleen als L1 én L3 hieronder (of op) deze netstroom staan:
+  # element ~8,7 A erbij blijft dan onder de regelgrens van 23 A. Geen initial: de waarde
+  # blijft na een herstart behouden (default bij eerste gebruik: 14).
+  element_start_max_fase_a:
+    name: "Element – start alleen als L1 en L3 hieronder staan"
+    min: 5
+    max: 23
+    step: 1
+    unit_of_measurement: A
+    mode: box
+
+input_datetime:
+  fase_hoog_laatste_l1:
+    name: "Laatste waarschuwing hoge belasting L1"
+    has_date: true
+    has_time: true
+  fase_hoog_laatste_l2:
+    name: "Laatste waarschuwing hoge belasting L2"
+    has_date: true
+    has_time: true
+  fase_hoog_laatste_l3:
+    name: "Laatste waarschuwing hoge belasting L3"
+    has_date: true
+    has_time: true
+
+template:
+  - switch:
+      # Maakt het element voor de afschakellijst (ev_lb_afschakellijst) een gewone aan/uit-last.
+      # Aan = dhw_mode 'Second heatsource' (andere standen als Party/Holidays tellen niet mee).
+      - name: "WP element tapwater"
+        unique_id: wp_element_tapwater
+        icon: mdi:radiator
+        state: "{{ is_state('select.luxtronik_280807_0450_dhw_mode', 'Second heatsource') }}"
+        turn_off:
+          # Dezelfde reset als tapwater_element_stop: setpoint 50, hysterese 10 K, modus terug, lock uit
+          - action: automation.trigger
+            target:
+              entity_id: automation.tdi_einde_reset
+            data:
+              skip_condition: true
+        turn_on:
+          # Herstel na afschakelen: alleen als de reden (negatieve prijs) nog geldt
+          - if:
+              - condition: numeric_state
+                entity_id: sensor.zonneplan_current_quarter_hourly_electricity_tariff
+                below: 0
+              - condition: numeric_state
+                entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+                below: 64
+            then:
+              - action: number.set_value
+                target:
+                  entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+                data:
+                  value: 3
+              - action: number.set_value
+                target:
+                  entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+                data:
+                  value: 65
+              - action: select.select_option
+                target:
+                  entity_id: select.luxtronik_280807_0450_dhw_mode
+                data:
+                  option: "Second heatsource"
+              - action: input_boolean.turn_on
+                target:
+                  entity_id: input_boolean.tapwater_overschot_lock
+
+automation:
+  - id: fase_hoog_waarschuwing
+    alias: "Fase hoog belast: waarschuwing (>20 A langer dan 5 min)"
+    description: >
+      Alleen informatie, stuurt niets aan. Korte pieken (Quooker-puls van 10 s) activeren dit
+      niet. Maximaal één melding per fase per 2 uur. Het bericht noemt de bekende grote
+      verbruikers; vaatwasser, droger en wasmachine zijn (nog) niet meetbaar in HA.
+    mode: parallel
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.ev_lb_stroom_l1
+        above: 20
+        for: "00:05:00"
+        id: L1
+      - trigger: numeric_state
+        entity_id: sensor.ev_lb_stroom_l2
+        above: 20
+        for: "00:05:00"
+        id: L2
+      - trigger: numeric_state
+        entity_id: sensor.ev_lb_stroom_l3
+        above: 20
+        for: "00:05:00"
+        id: L3
+    conditions:
+      - condition: template
+        value_template: >
+          {% set s = states('input_datetime.fase_hoog_laatste_' ~ trigger.id | lower) %}
+          {% set t = as_datetime(s) if s not in ['unknown', 'unavailable', ''] else none %}
+          {{ t is none or (now() - t | as_local).total_seconds() > 7200 }}
+    actions:
+      - variables:
+          bericht: >
+            Fase {{ trigger.id }} staat al meer dan 5 minuten op
+            {{ states('sensor.ev_lb_stroom_' ~ trigger.id | lower) | float(0) | round(1) }} A
+            (regelgrens 23 A, aansluiting 25 A). Nu: L1 {{ states('sensor.ev_lb_stroom_l1') }} A,
+            L2 {{ states('sensor.ev_lb_stroom_l2') }} A, L3 {{ states('sensor.ev_lb_stroom_l3') }} A.
+            EV-Sonia {{ states('sensor.ev_sonia_vermogen') }} W, EV-Rob {{ states('sensor.ev_rob_vermogen') }} W.
+            Element {{ 'AAN (Second heatsource)' if is_state('switch.wp_element_tapwater', 'on') else 'uit' }},
+            compressor {{ states('binary_sensor.luxtronik_280807_0450_compressor') }}.
+            Zet zware apparaten (droger, wasmachine, vaatwasser, kookplaat) niet tegelijk aan.
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: "input_datetime.fase_hoog_laatste_{{ trigger.id | lower }}"
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - action: notify.mobile_app_sm_g781b
+        data:
+          title: "⚡ Fase {{ trigger.id }} hoog belast"
+          message: "{{ bericht }}"
+        continue_on_error: true
+      - action: persistent_notification.create
+        data:
+          notification_id: "fase_hoog_{{ trigger.id | lower }}"
+          title: "Fase {{ trigger.id }} hoog belast"
+          message: "{{ bericht }}"

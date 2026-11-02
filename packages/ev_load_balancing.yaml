@@ -407,7 +407,8 @@ template:
         attributes:
           lasten: >
             {{ [
-              {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1}
+              {'naam': 'Fietsaccu',               'type': 'switch', 'entity': 'switch.fietsaccu_2',                    'ampere': 1},
+              {'naam': 'Warmtepomp-element',      'type': 'switch', 'entity': 'switch.wp_element_tapwater',            'ampere': 9}
             ] }}
 
   # -------------------------------------------------------------------
