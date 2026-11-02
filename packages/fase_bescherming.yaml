@@ -3,18 +3,8 @@
 # fasebelasting. Zie ook packages/ev_load_balancing.yaml (afschakellijst, noodstop).
 
 input_number:
-  # Het element start alleen als L1 én L3 hieronder (of op) deze netstroom staan:
-  # element ~8,7 A erbij blijft dan onder de regelgrens van 23 A. Geen initial: de waarde
-  # blijft na een herstart behouden. LET OP: een helper zonder opgeslagen waarde begint op het
-  # minimum (5 A; dat was het geval tot 02-11-2026, het element startte dus bijna nooit): na
-  # het (her)aanmaken de waarde zetten op 14.
-  element_start_max_fase_a:
-    name: "Element – start alleen als L1 en L3 hieronder staan"
-    min: 5
-    max: 23
-    step: 1
-    unit_of_measurement: A
-    mode: box
+  # De startdrempel van het element (L1 en L3 elk <= 14 A) is een vast getal in de
+  # voorwaarde van tapwater_negatieve_prijs_opwarmen (automations.yaml); geen helper meer.
   # Draait het element en gaat L1 of L3 langer dan 20 s boven deze netstroom (inclusief het
   # element zelf, ~9 A), dan wordt het element gestopt (fase_element_stoppen). Zo grijpt de
   # bescherming in vóór de algemene regelgrens van 23 A (tekort na 12 s) bereikt wordt.

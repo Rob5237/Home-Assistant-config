@@ -75,7 +75,7 @@ Aansluiting 3×25 A, regelgrens 23 A (zekering − marge 2 A). Code: `packages/e
 - **Drempels**: tekort > 23 A na 3 s; laders terug na 12 s aanhoudend tekort; overbelasting > 25 A na 15 s; zwaar > 29 A na 12 s (laders naar 6 A/0 A, melding, kritieke melding na 20 s).
 - **Afschakellijst fasegevoelig**: lasten met `fasen` (element: L1, L3) worden alleen uitgezet als de zwaarst belaste fase erbij zit; overgeslagen lasten tellen mee in `ev_lb_afschakel_niveau` zonder scene en vragen bij herstel geen extra ruimte. De laders gaan pas terug als de hele lijst is afgewerkt.
 - **Opregelen per fase**: een lader op 1 fase mag omhoog zolang zijn eigen fase ruimte heeft (`pf` in `ev_lb_dynamisch`); 3-fase en onbekend rekenen met de krapste fase.
-- **Element**: start alleen bij negatieve prijs en L1 én L3 ≤ `input_number.element_start_max_fase_a` (14 A; stond per ongeluk op 5 A omdat de helper geen opgeslagen waarde had). Daarna stopt `fase_element_stoppen` het element als L1 of L3 langer dan 20 s boven `input_number.element_stop_max_fase_a` (21 A) komt.
+- **Element**: start alleen bij negatieve prijs en L1 én L3 ≤ 14 A (vast getal in de voorwaarde van `tapwater_negatieve_prijs_opwarmen`; was een helper die per ongeluk op 5 A stond, sinds 02-11-2026 vervangen). Daarna stopt `fase_element_stoppen` het element als L1 of L3 langer dan 20 s boven `input_number.element_stop_max_fase_a` (21 A) komt.
 - **Valkuil helpers zonder `initial`**: na (her)aanmaken beginnen ze op het minimum; waarde zetten.
 
 ## Energie-meters (utility_meter)

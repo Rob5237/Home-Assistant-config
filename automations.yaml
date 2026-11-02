@@ -899,13 +899,13 @@
           entity_id: select.luxtronik_280807_0450_dhw_mode
           state: "Second heatsource"
     # Faseveiligheid (fase_bescherming.yaml): het element belast L1 en L3 elk met ~9 A.
-    # Alleen starten als beide fasen onder de drempel staan; anders volgt een nieuwe poging
+    # Alleen starten als beide fasen op of onder 14 A staan (vast getal sinds 02-11-2026: 14 + ~8,7 A
+    # van het element blijft onder de regelgrens van 23 A); anders volgt een nieuwe poging
     # bij de volgende controle (elk kwartier).
     - condition: template
       value_template: >
-        {% set m = states('input_number.element_start_max_fase_a') | float(14) %}
-        {{ states('sensor.ev_lb_stroom_l1') | float(99) <= m
-           and states('sensor.ev_lb_stroom_l3') | float(99) <= m }}
+        {{ states('sensor.ev_lb_stroom_l1') | float(99) <= 14
+           and states('sensor.ev_lb_stroom_l3') | float(99) <= 14 }}
   actions:
     - action: number.set_value
       target:
