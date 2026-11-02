@@ -36,6 +36,14 @@ template te hergebruiken i.p.v. de nieuwe macro-code te binden. Bij twijfel
 na een macro-wijziging: een volledige `core/restart` forceert altijd een
 verse herlading.
 
+## Overzicht van de sturing (02-11-2026)
+Samenvatting; details staan in de secties hieronder. Overzichtspagina: https://claude.ai/artifact/NZXd672CBjabfZTSmX2BE8
+- **Lagen**: ingangen (Zonneplan-kwartiertarief, P1 per fase, Enphase en Forecast.Solar, Luxtronik, weer, OCPP, knoppen) → beslissers (macro's in `custom_templates/`, beslissingssensoren, blokplanning, vlaggen) → stuurpunten (warmtepomp-correctie en parallelverschuiving, tapwatermodus/setpoint/hysterese, `switch.wp_element_tapwater`, laadprofiel per lader, fietsaccu).
+- **Domeinen**: ruimteverwarming (goedkoopste kwartier +0,5 °C, vloerbuffer vóór 17:00, zachte kamertemp-correctie), tapwater (zes starters, drie resetters, element), auto's (blokplanning en 10 s-regeling, voorrang Sonia), netaansluiting (fasebescherming), alleen meten (rapporten, COP, signalen, bewaking).
+- **Gedeelde stuurpunten en afstemming**: `heating_target_correction` (mutex `warmtepomp_goedkoop_uur_boost_actief`); `dhw_mode`/setpoint/hysterese (lock `tapwater_overschot_lock`, Party-guard, hysterese-watchdog); `heating_mode`/parallelverschuiving (alleen vakantiesync); netruimte per fase (`ev_lb_dynamisch` met afschakellijst); prijs (dezelfde macro's en `eff_prijs`).
+- **Ongekalibreerde aannames**: `wp_kw` 1,2 kW (CV) en 2,0 kW (tapwater/TDI); vloerbuffer (begintijd 09:00-12:00, aanvoerformule, 5%-marge); zonwaarde-factor 1,0 tot 1-1-2027; `saldering_na_*`-drempels; stooklijndrempel 18 °C; element start ≤ 14 A en stopt > 21 A. Bij gebruik bijstellen.
+- **Beperkingen**: alleen de twee laders houden in hun planning rekening met elkaar (warmtepomp en boiler kiezen apart, dus kunnen in hetzelfde kwartier vallen; uit de documentatie afgeleid, niet in de macro's nagelopen); zonoverschot wordt per verbruiker met eigen drempels gebruikt; geen batterij (opnieuw bekijken vanaf maart 2027).
+
 ## Integraties
 - **Luxtronik** — warmtepomp (entiteit-prefix: `luxtronik_280807_0450_`)
 - **Zonneplan** — dynamisch elektricteitstarief. Twee forecast-sensoren: `sensor.zonneplan_current_electricity_tariff` (uurlijkse forecast, attribuut `forecast`, velden `datetime`/`electricity_price`/`tariff_group`) en `sensor.zonneplan_current_quarter_hourly_electricity_tariff` (kwartier-forecast, attribuut `forecast`, andere veldnamen: `start_date`/`end_date`/`price_tax_included.amount`/`sustainability_score.permille`, geen `tariff_group`). Zonneplan varieert het tarief daadwerkelijk per 15 minuten — sinds 14-10-2026 gebruiken alle "goedkoopste moment"-routines (zie hieronder) de kwartier-sensor, niet meer de uur-sensor.
