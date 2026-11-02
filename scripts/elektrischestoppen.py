@@ -223,7 +223,6 @@ for i, (pn, l, als_t, pos_t, rows) in enumerate(cols):
     nm_, hx_ = overschot[l]
     c.setFillColor(HexColor(hx_)); c.rect(x, yt, colw, SR, stroke=0, fill=1)
     text(x + 8, yt + 3.3, "TERUGLEVERING (HOMEWIZARD)", B, 6, FG)
-    text(x + colw - 8 - c.stringWidth(hx_, B, 6), yt + 3.3, hx_, B, 6, FG)
     c.setFillColor(col); c.rect(x, yt - HEAD, colw, HEAD, stroke=0, fill=1)
     text(x + 8, yt - 22, l, B, 22, white)
     if l not in ALS_VERBERGEN:
