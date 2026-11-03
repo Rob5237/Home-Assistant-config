@@ -159,6 +159,30 @@ views:
               columns: full
             cards:
               - type: statistics-graph
+                title: Zelfverbruik zonnepanelen (% per dag)
+                chart_type: line
+                period: day
+                days_to_show: 150
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.zelfverbruik_zon_dag
+                    name: Per dag
+              - type: statistics-graph
+                title: Zelfverbruik zonnepanelen (% per week en maand)
+                chart_type: line
+                period: week
+                days_to_show: 400
+                stat_types: [mean]
+                entities:
+                  - entity: sensor.zelfverbruik_zon_week
+                    name: Per week
+                  - entity: sensor.zelfverbruik_zon_maand
+                    name: Per maand
+          - type: horizontal-stack
+            grid_options:
+              columns: full
+            cards:
+              - type: statistics-graph
                 title: Afname en teruglevering (€)
                 chart_type: bar
                 period: week

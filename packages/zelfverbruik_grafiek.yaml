@@ -1,0 +1,40 @@
+# =====================================================================
+# Zelfverbruik zonnepanelen (aangemaakt 03-11-2026): percentage van de opgewekte zonnestroom dat in huis
+# zelf is gebruikt (niet teruggeleverd). Zelfde berekening als het weekrapport:
+#   (opwek - teruglevering) / opwek x 100, met opwek = Enphase en teruglevering = P1 export.
+# Dag: sensor.enphase_daily en sensor.solar_daily (P1 export). Week/maand/jaar: de meters uit
+# weekoverzicht.yaml, maandrapport.yaml en jaarrapport.yaml. Zolang er in de periode minder dan 1 kWh is
+# opgewekt, is de sensor 'unavailable'. De waarde van een lopende periode is het percentage tot nu toe;
+# de dagwaarde is pas aan het eind van de dag precies (Enphase telt in stappen).
+# Grafiek: dashboards/weekoverzicht.yaml. Geschiedenis (dagwaarden vanaf 2025-07) is eenmalig geïmporteerd
+# via recorder/import_statistics uit de langetermijnstatistieken van Enphase en P1.
+# =====================================================================
+template:
+  - sensor:
+      - name: "Zelfverbruik zon dag"
+        unique_id: zelfverbruik_zon_dag
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:solar-power
+        availability: "{{ states('sensor.enphase_daily') | float(0) * 1000 > 1 and has_value('sensor.solar_daily') }}"
+        state: >-
+          {% set op = states('sensor.enphase_daily') | float(0) * 1000 %}
+          {{ ([[(op - states('sensor.solar_daily') | float(0)) / op * 100, 0] | max, 100] | min) | round(1) }}
+      - name: "Zelfverbruik zon week"
+        unique_id: zelfverbruik_zon_week
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:solar-power
+        availability: "{{ states('sensor.week_opwek') | float(0) * 1000 > 1 and has_value('sensor.week_teruglevering_kwh') }}"
+        state: >-
+          {% set op = states('sensor.week_opwek') | float(0) * 1000 %}
+          {{ ([[(op - states('sensor.week_teruglevering_kwh') | float(0)) / op * 100, 0] | max, 100] | min) | round(1) }}
+      - name: "Zelfverbruik zon maand"
+        unique_id: zelfverbruik_zon_maand
+        unit_of_measurement: "%"
+        state_class: measurement
+        icon: mdi:solar-power
+        availability: "{{ states('sensor.maand_opwek') | float(0) * 1000 > 1 and has_value('sensor.maand_teruglevering_kwh') }}"
+        state: >-
+          {% set op = states('sensor.maand_opwek') | float(0) * 1000 %}
+          {{ ([[(op - states('sensor.maand_teruglevering_kwh') | float(0)) / op * 100, 0] | max, 100] | min) | round(1) }}
