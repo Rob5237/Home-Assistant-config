@@ -549,7 +549,7 @@ views:
                   ha-state-icon { --mdc-icon-size: 40px; width: 40px !important; height: 40px !important; min-width: 40px; min-height: 40px; flex: none; }
                   ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                   ha-state-icon, ha-icon, state-badge { color: #F44336 !important; --icon-primary-color: #F44336; --state-icon-color: #F44336; }
-                  ha-card { height: 84px !important; min-height: 0 !important; padding: 4px 2px !important; justify-content: center !important; }
+                  ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; justify-content: center !important; }
                   ha-card { display: flex !important; flex-direction: row !important; align-items: center !important; align-content: center !important; justify-content: center !important; gap: 10px !important; } ha-state-icon, ha-icon, state-badge { flex: none !important; align-self: center !important; margin: 0 !important; } span { text-align: left !important; flex: 0 1 auto !important; align-self: center !important; margin: 0 !important; padding: 0 !important; }
                   ha-card { gap: 3px !important; } ha-state-icon, ha-icon, state-badge { margin: 0 !important; } ha-card > span, span { margin-top: 0 !important; padding-top: 0 !important; }
                   ha-state-icon, ha-icon { --mdc-icon-size: 26.6px !important; width: 26.6px !important; height: 26.6px !important; min-width: 26.6px !important; min-height: 26.6px !important; -webkit-mask-size: 26.6px 26.6px !important; mask-size: 26.6px 26.6px !important; }
