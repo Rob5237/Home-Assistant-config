@@ -72,6 +72,17 @@ views:
             grid_options:
               columns: 12
               rows: auto
+          - type: heading
+            heading: Percentage van accu nu
+            heading_style: subtitle
+            icon: mdi:battery-medium
+            card_mod:
+              style: |
+                ha-card *:not(ha-icon):not(ha-state-icon):not(svg):not(path), .title, .title *, p { font-size: 21.1px !important; line-height: 26px !important; font-weight: 700 !important; color: var(--primary-text-color) !important; }
+                ha-icon, ha-state-icon { color: var(--primary-text-color) !important; --mdc-icon-size: 32px; }
+            grid_options:
+              columns: 12
+              rows: auto
           - type: button
             name: "10%"
             icon: mdi:battery-10
