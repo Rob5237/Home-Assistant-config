@@ -109,7 +109,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
@@ -132,7 +132,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
@@ -155,7 +155,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
@@ -178,7 +178,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
@@ -201,7 +201,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
@@ -224,7 +224,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
@@ -247,7 +247,7 @@ views:
                         {% else %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
                         {% endif %}
-                        ha-card { height: 64px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
+                        ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
                         span { font-size: 13px !important; font-weight: 700 !important; line-height: 1.15 !important; text-align: center; margin: 0 !important; padding: 0 !important; }
                     tap_action:
