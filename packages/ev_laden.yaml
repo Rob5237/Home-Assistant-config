@@ -411,7 +411,8 @@ template:
   #    4,5 min; eerder ten onrechte door 1000 gedeeld); bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
   # 2. Staat input_boolean.ev_sonia_accu_vol aan (de auto stopte zelf: accu vol), dan staat de
   #    teller stil: wat de auto daarna afneemt (interieur verwarmen/koelen) is geen accu-lading.
-  #    Bij het uitzetten van de vlag (stekker eruit) begint de teller weer op 0.
+  #    Bij het uitzetten van de vlag (stekker eruit) blijft de laatste waarde staan ("Vorige keer" op het
+#    dashboard); de teller volgt de ruwe sensor weer zodra die verandert (nieuwe sessie).
   - trigger:
       - trigger: state
         entity_id: sensor.ev_sonia_energy_session
@@ -432,7 +433,7 @@ template:
           {% set vol = is_state('input_boolean.ev_sonia_accu_vol', 'on') %}
           {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 0 %}
           {% set basis = this.attributes.get('basis') if this is defined else none %}
-          {% if trigger.id == 'reset' %}0
+          {% if trigger.id == 'reset' %}{{ oud | round(3) }}
           {% elif raw is none or vol %}{{ oud }}
           {% elif raw <= 1000 %}{{ raw | round(3) }}
           {% elif basis is none or raw < basis %}{{ (oud if oud < 1000 else 0) | round(3) }}
@@ -462,7 +463,8 @@ template:
   #    4,5 min; eerder ten onrechte door 1000 gedeeld); bij een normale sessie (<= 1000) volgt hij de ruwe sensor.
   # 2. Staat input_boolean.ev_rob_accu_vol aan (de auto stopte zelf: accu vol), dan staat de
   #    teller stil: wat de auto daarna afneemt (interieur verwarmen/koelen) is geen accu-lading.
-  #    Bij het uitzetten van de vlag (stekker eruit) begint de teller weer op 0.
+  #    Bij het uitzetten van de vlag (stekker eruit) blijft de laatste waarde staan ("Vorige keer" op het
+#    dashboard); de teller volgt de ruwe sensor weer zodra die verandert (nieuwe sessie).
   - trigger:
       - trigger: state
         entity_id: sensor.ev_rob_energy_session
@@ -483,7 +485,7 @@ template:
           {% set vol = is_state('input_boolean.ev_rob_accu_vol', 'on') %}
           {% set oud = this.state | float(0) if this is defined and this.state not in ['unknown', 'unavailable', 'none', None] else 0 %}
           {% set basis = this.attributes.get('basis') if this is defined else none %}
-          {% if trigger.id == 'reset' %}0
+          {% if trigger.id == 'reset' %}{{ oud | round(3) }}
           {% elif raw is none or vol %}{{ oud }}
           {% elif raw <= 1000 %}{{ raw | round(3) }}
           {% elif basis is none or raw < basis %}{{ (oud if oud < 1000 else 0) | round(3) }}
