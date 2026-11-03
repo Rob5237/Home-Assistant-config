@@ -81,16 +81,19 @@
   {%- set t17 = vt_volgende.replace(hour=17, minute=0, second=0, microsecond=0) -%}
   {#- modus 'normaal': gewone planning, deadline = de vertrektijd zelf; modus 'dag' ('morgen thuis blijven'): tot 17:00 -#}
   {%- set t_end = vt_volgende if modus == 'normaal' else t17 -%}
-  {#- Laadvermogen (kW) en aantal kwartieren, gelijk aan sensor.ev_<n>_plan_uren -#}
+  {#- Laadvermogen (kW) per kwartier (03-11-2026). Sonia (voorrang) kiest eerst haar goedkoopste blok met de volle
+      stroom (max); Rob zoekt zijn blok daaromheen en overlapt het blok van Sonia alleen als het niet anders kan.
+      In de kwartieren van haar blok geldt voor Rob zijn deelstroom, elders zijn volle stroom. Het blok kiest alleen
+      de starttijd: geladen wordt vanaf de start tot de auto vol is of tot de vertrektijd. -#}
   {%- set f = 3 if is_state('sensor.ev_lb_' ~ n ~ '_fase_actief', '3-fase') else 1 -%}
-  {%- if n == 'rob' -%}
-    {%- set sonia_aan = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE', 'SuspendedEV'] -%}
-    {%- set a = states('input_number.ev_lb_deel_max_rob') | float(9) if sonia_aan else states('input_number.ev_lb_max_rob') | float(16) -%}
-  {%- else -%}
-    {%- set a = states('input_number.ev_lb_deel_max_sonia') | float(13) -%}
-  {%- endif -%}
-  {%- set p_kw = f * 230 * a / 1000 -%}
-  {%- set k = (states('sensor.ev_' ~ n ~ '_plan_uren') | float(0) * 4) | round(0, 'ceil') | int -%}
+  {%- set aan = ['Preparing', 'Charging', 'SuspendedEVSE', 'SuspendedEV'] -%}
+  {%- set a_deel = states('input_number.ev_lb_deel_max_' ~ n) | float(13 if n == 'sonia' else 9) -%}
+  {%- set a_vol = states('input_number.ev_lb_max_' ~ n) | float(16) -%}
+  {%- set p_deel = f * 230 * a_deel / 1000 -%}
+  {%- set p_vol = f * 230 * a_vol / 1000 -%}
+  {%- set p_kw = p_vol -%}
+  {%- set kwh_nodig = states('input_number.ev_lb_' ~ n ~ '_plan_kwh') | float(0) -%}
+  {%- set k = (states('sensor.ev_' ~ n ~ '_plan_uren') | float(0) * 4) | round(0, 'ceil') | int if n == 'sonia' else 0 -%}
   {%- set huis_kw = states('sensor.ev_huisverbruik_24u') | float(850) / 1000 -%}
   {#- Zon: zonsopkomst/-ondergang van vandaag (de sensor geeft alleen de eerstvolgende; terugschuiven in hele dagen) -#}
   {%- set rise = state_attr('sun.sun', 'next_rising') | as_datetime | as_local -%}
@@ -124,28 +127,47 @@
       {%- set mid = st + timedelta(minutes=7.5) -%}
       {%- set zon = zon_kw(mid, nu) | float(0) -%}
       {%- set o_nu = o_telt and st.timestamp() >= o_s and st.timestamp() < o_s + o_k * 900 -%}
-      {%- set aandeel = ([[(zon - huis_kw - (o_p if o_nu else 0)) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
+      {%- set p_q = p_deel if (n == 'rob' and o_nu) else p_kw -%}
+      {%- set aandeel = ([[(zon - huis_kw - (o_p if o_nu else 0)) / p_q, 0] | max, 1] | min) if p_q > 0 else 0 -%}
       {%- set waarde = p * factor if st < einde else ([pe + aanpas, 0] | max) -%}
       {#- zonder prijsverschil (waarde = tarief) exact het tarief, geen afrondingsruis die gelijke blokken anders rangschikt -#}
       {%- set kosten = p if waarde == p else (p * (1 - aandeel) + waarde * aandeel) -%}
-      {%- set ns.l = ns.l + [{'t': st, 'c': kosten, 'a': aandeel}] -%}
+      {%- set ns.l = ns.l + [{'t': st, 'c': kosten, 'a': aandeel, 'p': p_q, 'ov': 1 if (n == 'rob' and o_nu) else 0}] -%}
     {%- endif -%}
   {%- endfor -%}
   {%- set l = ns.l -%}
   {%- set b = namespace(alle=none, nacht=none, dag=none) -%}
-  {%- if k > 0 -%}
-    {%- for i in range(0, l | count - k + 1) -%}
-      {%- if (l[i + k - 1].t - l[i].t).total_seconds() == (k - 1) * 900 -%}
-        {%- set blok = l[i:i + k] -%}
+  {%- if k > 0 or (n == 'rob' and kwh_nodig > 0) -%}
+    {%- for i in range(0, l | count) -%}
+      {#- Aantal kwartieren (kk) vanaf deze start: Sonia vast; Rob tot de te laden kWh gehaald zijn, met per kwartier
+          het eigen vermogen (deelstroom in het blok van Sonia, anders vol) -#}
+      {%- set w = namespace(kk=k, e=0, stop=false) -%}
+      {%- if n == 'rob' -%}
+        {%- set w.kk = 0 -%}
+        {%- for j in range(i, l | count) -%}
+          {%- if not w.stop and w.e < kwh_nodig - 0.0001 -%}
+            {%- if (l[j].t - l[i].t).total_seconds() != (j - i) * 900 -%}{%- set w.stop = true -%}
+            {%- else -%}{%- set w.e = w.e + l[j].p / 4 -%}{%- set w.kk = w.kk + 1 -%}{%- endif -%}
+          {%- endif -%}
+        {%- endfor -%}
+        {%- if w.e < kwh_nodig - 0.0001 -%}{%- set w.kk = 0 -%}{%- endif -%}
+      {%- endif -%}
+      {%- set kk = w.kk -%}
+      {%- if kk > 0 and i + kk <= l | count and (l[i + kk - 1].t - l[i].t).total_seconds() == (kk - 1) * 900 -%}
+        {%- set blok = l[i:i + kk] -%}
         {%- set som = blok | sum(attribute='c') -%}
         {%- set zsom = blok | sum(attribute='a') -%}
-        {%- set eind_blok = l[i + k - 1].t + timedelta(minutes=15) -%}
+        {%- set p_gem = (blok | sum(attribute='p')) / kk -%}
+        {%- set eind_blok = l[i + kk - 1].t + timedelta(minutes=15) -%}
         {#- 'nacht' = blok eindigt vóór de vertrektijd; anders 'dag' (de dag na de nacht) -#}
         {%- set is_nacht = eind_blok <= vt_volgende -%}
-        {%- set item = {'start': l[i].t.isoformat(), 'eind': eind_blok.isoformat(), 'kosten': (som / k) | round(4), 'zon': (zsom / k) | round(2), 'p_kw': p_kw | round(1), 'zon_kw': (zsom / k * p_kw) | round(1), 'net_kw': ((1 - zsom / k) * p_kw) | round(1), 'soort': 'nacht' if is_nacht else 'dag'} -%}
-        {%- if b.alle is none or som / k < b.alle.kosten -%}{%- set b.alle = item -%}{%- endif -%}
-        {%- if is_nacht and (b.nacht is none or som / k < b.nacht.kosten) -%}{%- set b.nacht = item -%}{%- endif -%}
-        {%- if not is_nacht and (b.dag is none or som / k < b.dag.kosten) -%}{%- set b.dag = item -%}{%- endif -%}
+        {%- set item = {'start': l[i].t.isoformat(), 'eind': eind_blok.isoformat(), 'kosten': (som / kk) | round(4), 'zon': (zsom / kk) | round(2), 'p_kw': p_gem | round(1), 'zon_kw': (zsom / kk * p_gem) | round(1), 'net_kw': ((1 - zsom / kk) * p_gem) | round(1), 'soort': 'nacht' if is_nacht else 'dag', 'kwh': ((blok | sum(attribute='p')) / 4) | round(2)} -%}
+        {#- Rob: een blok zonder overlap met dat van Sonia gaat voor een goedkoper blok met overlap (ovl 0 < 1) -#}
+        {%- set ovl = 1 if (blok | sum(attribute='ov')) > 0 else 0 -%}
+        {%- set item = dict(item, ovl=ovl) -%}
+        {%- if b.alle is none or ovl < b.alle.ovl or (ovl == b.alle.ovl and som / kk < b.alle.kosten) -%}{%- set b.alle = item -%}{%- endif -%}
+        {%- if is_nacht and (b.nacht is none or ovl < b.nacht.ovl or (ovl == b.nacht.ovl and som / kk < b.nacht.kosten)) -%}{%- set b.nacht = item -%}{%- endif -%}
+        {%- if not is_nacht and (b.dag is none or ovl < b.dag.ovl or (ovl == b.dag.ovl and som / kk < b.dag.kosten)) -%}{%- set b.dag = item -%}{%- endif -%}
       {%- endif -%}
     {%- endfor -%}
   {%- endif -%}
@@ -154,7 +176,7 @@
   {%- else -%}
     {#- Besparing t.o.v. het goedkoopste nachtblok (voor de status bij 'morgen thuis blijven') -#}
     {%- set nk = b.nacht.kosten if b.nacht is not none else none -%}
-    {%- set kwh = p_kw * k / 4 -%}
+    {%- set kwh = b.alle.kwh -%}
     {%- set besp_eur = ((nk - b.alle.kosten) * kwh) | round(2) if nk is not none else none -%}
     {%- set besp_pct = ((nk - b.alle.kosten) / nk * 100) | round(1) if (nk is not none and nk > 0) else none -%}
     {{- dict(b.alle, besp_eur=besp_eur, besp_pct=besp_pct, dl=t_end.isoformat(), nacht=({'start': b.nacht.start, 'kosten': b.nacht.kosten, 'zon': b.nacht.zon} if b.nacht is not none else {}), dag=({'start': b.dag.start, 'kosten': b.dag.kosten, 'zon': b.dag.zon} if b.dag is not none else {})) | tojson -}}

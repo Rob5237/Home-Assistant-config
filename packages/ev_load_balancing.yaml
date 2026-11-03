@@ -1095,15 +1095,19 @@ template:
           {% endif %}
 
   - sensor:
-      # Geplande laadduur (uren) = te laden kWh / vermogen bij samen laden (nacht):
-      # fasen x 230 V x max stroom bij samen laden. Alleen voor het kiezen van de starttijd.
+      # Geplande laadduur (uren) = te laden kWh / laadvermogen, alleen voor het kiezen van de starttijd.
+      # Aangepast 03-11-2026: niet meer altijd de deelstroom (samen laden, nacht), want na elkaar laden gaat met de
+      # volle stroom (max). Sonia: altijd de volle stroom; ze kiest eerst, Rob zoekt zijn blok liefst buiten het hare.
+      # Rob: deelstroom alleen in de kwartieren van het blok van Sonia, elders volle stroom; zelfde rekenwijze als
+      # macro ev_dag_blok in ev_macros.jinja.
       - name: "EV Sonia plan uren"
         unique_id: ev_sonia_plan_uren
         unit_of_measurement: h
         state: >
           {% set kwh = states('input_number.ev_lb_sonia_plan_kwh') | float(0) %}
           {% set f = 3 if is_state('sensor.ev_lb_sonia_fase_actief', '3-fase') else 1 %}
-          {% set kw = f * 230 * states('input_number.ev_lb_deel_max_sonia') | float(13) / 1000 %}
+          {% set a = states('input_number.ev_lb_max_sonia') | float(16) %}
+          {% set kw = f * 230 * a / 1000 %}
           {{ ((kwh / kw * 4) | round(0, 'ceil') / 4) if kw > 0 else 0 }}
       - name: "EV Rob plan uren"
         unique_id: ev_rob_plan_uren
@@ -1111,11 +1115,29 @@ template:
         state: >
           {% set kwh = states('input_number.ev_lb_rob_plan_kwh') | float(0) %}
           {% set f = 3 if is_state('sensor.ev_lb_rob_fase_actief', '3-fase') else 1 %}
-          {# Alleen aan de lader: Rob laadt met zijn volle stroom (ev_lb_max_rob, 16 A). Is Sonia ook aangesloten, dan telt de deelmodus-stroom #}
-          {% set sonia_aan = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE', 'SuspendedEV'] %}
-          {% set a = states('input_number.ev_lb_deel_max_rob') | float(9) if sonia_aan else states('input_number.ev_lb_max_rob') | float(16) %}
-          {% set kw = f * 230 * a / 1000 %}
-          {{ ((kwh / kw * 4) | round(0, 'ceil') / 4) if kw > 0 else 0 }}
+          {% set p_vol = f * 230 * states('input_number.ev_lb_max_rob') | float(16) / 1000 %}
+          {% set p_deel = f * 230 * states('input_number.ev_lb_deel_max_rob') | float(9) / 1000 %}
+          {% set sonia_aan = states('sensor.ev_sonia_status_connector') in ['Preparing', 'Charging', 'SuspendedEVSE'] %}
+          {% set s_ts = state_attr('input_datetime.ev_sonia_blok_start', 'timestamp') | float(0) %}
+          {% set s_k = (states('sensor.ev_sonia_plan_uren') | float(0) * 4) | round(0, 'ceil') | int %}
+          {% set r_ts = state_attr('input_datetime.ev_rob_blok_start', 'timestamp') | float(0) %}
+          {% set nu_ts = now().timestamp() %}
+          {% set s_telt = sonia_aan and s_k > 0 and s_ts > nu_ts - 86400 and s_ts < nu_ts + 172800 and s_ts + s_k * 900 > nu_ts %}
+          {% set r_geldig = r_ts > nu_ts - 86400 and r_ts < nu_ts + 172800 %}
+          {% if kwh <= 0 or p_vol <= 0 %}0
+          {% elif not s_telt %}{{ ((kwh / p_vol * 4) | round(0, 'ceil') / 4) }}
+          {% elif not r_geldig %}{{ ((kwh / p_deel * 4) | round(0, 'ceil') / 4) if p_deel > 0 else 0 }}
+          {% else %}
+            {% set w = namespace(e=0, n=0) %}
+            {% for j in range(0, 120) %}
+              {% if w.e < kwh - 0.0001 %}
+                {% set t = r_ts + j * 900 %}
+                {% set w.e = w.e + (p_deel if (t >= s_ts and t < s_ts + s_k * 900) else p_vol) / 4 %}
+                {% set w.n = w.n + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ w.n / 4 }}
+          {% endif %}
 
   - sensor:
       # Aaneengesloten goedkoopste laadblok (k kwartieren). Alleen kandidaten;
@@ -1546,6 +1568,27 @@ script:
           entity_id:
             - input_boolean.ev_sonia_direct_laden
             - input_boolean.ev_sonia_alleen_zon
+  # Knoppen 10/20/40/60 % op het dashboard: hoe vol de accu van de Ioniq nu is (100 % = 73 kWh). Zet de te laden kWh
+  # voor de planning (input_number.ev_lb_sonia_plan_kwh) op (100 - procent) % x 73 kWh. Loopt er al een laadsessie,
+  # dan komt de al geladen sessie-energie erbij, want de planning trekt die van de plan-kWh af.
+  ev_sonia_accu_percentage:
+    alias: "EV-Sonia – accustand instellen (knop)"
+    mode: single
+    fields:
+      procent:
+        description: "Huidige accustand in % (100 % = 73 kWh)"
+        example: 20
+    sequence:
+      - variables:
+          laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] }}"
+          kwh: >
+            {{ ((100 - (procent | float(50))) / 100 * 73 + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0))
+               | round(0) | int }}
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_lb_sonia_plan_kwh
+        data:
+          value: "{{ [[kwh, 0] | max, 100] | min }}"
   ev_sonia_alleen_zon_laden:
     alias: "EV-Sonia – alleen gratis laden op zonnepanelen (knop)"
     sequence:
