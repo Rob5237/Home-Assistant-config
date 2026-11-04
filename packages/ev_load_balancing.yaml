@@ -130,6 +130,36 @@ input_select:
     icon: mdi:sine-wave
 
 input_number:
+  # Instellingen per auto (dashboard Laden, view 'Instellingen', bereikbaar met lang indrukken). Geen 'initial': na
+  # (her)aanmaken beginnen ze op het minimum, zet dan de waarde (Sonia 73 kWh / 80 %, Rob 10 kWh / 90 %).
+  ev_sonia_accu_kwh:
+    name: "EV Sonia – accucapaciteit"
+    min: 10
+    max: 150
+    step: 0.5
+    unit_of_measurement: kWh
+    mode: box
+  ev_sonia_laadlimiet:
+    name: "EV Sonia – laden tot (limiet van de auto)"
+    min: 50
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: box
+  ev_rob_accu_kwh:
+    name: "EV Rob – accucapaciteit"
+    min: 5
+    max: 150
+    step: 0.5
+    unit_of_measurement: kWh
+    mode: box
+  ev_rob_laadlimiet:
+    name: "EV Rob – laden tot (limiet van de auto)"
+    min: 50
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: box
   # Na het einde van de saldering: bijtelling op de prijs excl. belasting als terugleververgoeding
   # (EUR/kWh, bv. +0,02 inkoopvergoeding, negatief bij teruglevermaten). Zie ev_macros.jinja.
   ev_lb_terugleveraanpassing:
@@ -1568,7 +1598,7 @@ script:
           entity_id:
             - input_boolean.ev_sonia_direct_laden
             - input_boolean.ev_sonia_alleen_zon
-  # Knoppen 10-70 % op het dashboard: hoe vol de accu van de Ioniq nu is (100 % = 73 kWh; de auto laadt tot 80 %). Zet de te laden kWh
+  # Knoppen 10-70 % op het dashboard: hoe vol de accu van de Ioniq nu is (capaciteit en laadlimiet staan in de helpers ev_sonia_accu_kwh en ev_sonia_laadlimiet). Zet de te laden kWh
   # voor de planning (input_number.ev_lb_sonia_plan_kwh) op (80 - procent) % x 73 kWh: beide auto's laden tot 80 %. Loopt er al een laadsessie,
   # dan komt de al geladen sessie-energie erbij, want de planning trekt die van de plan-kWh af. Staat 'accu vol' aan
   # (auto stopte zelf), dan telt de sessie niet mee: de knop zegt dan hoe vol de accu nu is.
@@ -1583,15 +1613,16 @@ script:
       - variables:
           laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_sonia_accu_vol', 'off') }}"
           kwh: >
-            {{ ([80 - (procent | float(50)), 0] | max / 100 * 73 + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0))
-               | round(0) | int }}
+            {{ [states('input_number.ev_sonia_laadlimiet') | float(80) - (procent | float(50)), 0] | max / 100
+               * states('input_number.ev_sonia_accu_kwh') | float(73)
+               + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
           entity_id: input_number.ev_lb_sonia_plan_kwh
         data:
-          value: "{{ [[kwh, 0] | max, 100] | min }}"
-  # Knoppen 10-70 % op het dashboard van Rob: hoe vol de accu van de Passat nu is (100 % = 10 kWh, aangenomen 04-11-2026,
-  # pas aan als de capaciteit anders blijkt; de Passat laadt tot 90 %, dus kWh = (90 - procent) % x capaciteit). Zelfde werking als ev_sonia_accu_percentage, op ev_lb_rob_plan_kwh.
+          value: "{{ [[kwh, 0] | max, 100] | min | round(1) }}"
+  # Knoppen 10-70 % op het dashboard van Rob: hoe vol de accu van de Passat nu is (capaciteit en laadlimiet
+  # staan in de helpers ev_rob_accu_kwh en ev_rob_laadlimiet; kWh = (limiet - procent) % x capaciteit). Zelfde werking als ev_sonia_accu_percentage, op ev_lb_rob_plan_kwh.
   ev_rob_accu_percentage:
     alias: "EV-Rob – accustand instellen (knop)"
     mode: single
@@ -1603,7 +1634,8 @@ script:
       - variables:
           laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_rob_accu_vol', 'off') }}"
           kwh: >
-            {{ [90 - (procent | float(50)), 0] | max / 100 * 10
+            {{ [states('input_number.ev_rob_laadlimiet') | float(90) - (procent | float(50)), 0] | max / 100
+               * states('input_number.ev_rob_accu_kwh') | float(10)
                + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
