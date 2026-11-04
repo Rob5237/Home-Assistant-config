@@ -54,7 +54,8 @@ Samenvatting; details staan in de secties hieronder. Overzichtspagina: https://c
 - **Weer** — `weather.thuis` (uurlijkse forecast via `weather.get_forecasts`)
 
 ## Helpers
-- `input_number.tapwater_tarief_drempel` — max tarief voor bijverwarmen (default 0.25 €/kWh)
+- `sensor.tapwater_dynamische_drempel` (04-11-2026, templates/tapwater_decisions.yaml) — 25e percentiel van de kwartiertarieven in de komende 24 uur, zonder plafond; `tapwater_bijverwarmen` gebruikt dit als tariefdrempel (huidig kwartiertarief ≤ drempel). Die automatisering draait nu ook elk kwartier (bij DHW < 46 °C en setpoint < 56, dus geen lopende cyclus overschrijven), anders zou een gemiste prijsmoment-trigger nooit worden herhaald.
+- `input_number.tapwater_tarief_drempel` — terugvalwaarde als de dynamische drempel onbekend is (standaard 0.35 €/kWh sinds 04-11-2026, was 0.25)
 - `input_number.zon_forecast_drempel_kwh` — drempel voor `binary_sensor.zon_forecast_volgend_uur_voldoende` (default 2.0 kWh/uur)
 - `input_datetime.tdi_laatste_start` — tijdstip laatste TDI (thermische desinfectie)
 - `input_datetime.last_github_backup` — marker voor dagelijkse backup-poging
@@ -146,7 +147,7 @@ Alleen meten, geen sturing. `packages/weekoverzicht.yaml` + `custom_templates/we
 ## Tapwater opwarm-events
 | Trigger | Conditie | Doel-setpoint | DHW-mode | Automatie |
 |---|---|---|---|---|
-| DHW < 46°C voor 5 min | tarief ≤ drempel (€0.25) **OF** DHW < 40°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
+| DHW < 46°C voor 5 min, daarna elk kwartier | tarief ≤ dynamische drempel (25e percentiel 24 u) **OF** DHW < 40°C (nood) | 57°C | Automatic | `tapwater_bijverwarmen` |
 | Elk kwartier 22:00-06:00 | goedkoopste kwartier **EN** DHW < 47°C | 57°C | Automatic | `tapwater_goedkoopste_nachtuur` |
 | P1 < -2000W voor 5 min (okt-feb: < -1000W) | DHW < 52°C **EN** zon-forecast ≥ 2 kWh (okt-feb: ≥ 1 kWh) **EN** Enphase nu > 1500W (okt-feb: > 1000W) **EN** dhw_mode ≠ Party | 57°C | Automatic | `tapwater_zonne_overschot_klein` |
 | P1 < -4000W voor 10 min | setpoint 55-60°C **EN** DHW < 61°C **EN** forecast ≥ 2 kWh | 62°C (+ hysterese 10K→3K) | Party | `tapwater_extra_opslag_groot_overschot` |

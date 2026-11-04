@@ -1386,7 +1386,7 @@
   alias: "Tapwater: bijverwarmen bij lage temperatuur"
   description: >
     Verwarm tapwater naar 57°C als het onder 46°C zakt. Blokkeert bij hoog tarief
-    (> drempel in input_number.tapwater_tarief_drempel), tenzij noodgeval (< 40°C, verlaagd van 41 op 26-10-2026).
+    (> sensor.tapwater_dynamische_drempel = 25e percentiel van de komende 24 uur, terugval input_number.tapwater_tarief_drempel), tenzij noodgeval (< 40°C, verlaagd van 41 op 26-10-2026).
     Drempel 46°C (was 43): 3°C hogere drempel geeft grotere douche-buffer
     (~50L trekking = ~5-6°C drop; van 46 kom je op 40, van 43 op 37 = koud).
     Impact op solar-benutting minimaal — bijverwarmen activeert alleen als het
@@ -1399,7 +1399,16 @@
     for:
       minutes: 5
     trigger: numeric_state
+  - trigger: time_pattern
+    minutes: /15
   conditions:
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 46
+  # Geen lopende cyclus overschrijven (rust-setpoint is 50; 57 = bijverwarmen/nacht/overschot, 62/65 = extra opslag/TDI)
+  - condition: numeric_state
+    entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    below: 56
   - condition: not
     conditions:
     - condition: state
@@ -1417,8 +1426,8 @@
         state: "off"
       - condition: template
         value_template: >
-          {% set tarief = states('sensor.zonneplan_current_electricity_tariff') | float(0.30) %}
-          {% set drempel = states('input_number.tapwater_tarief_drempel') | float(0.25) %}
+          {% set tarief = states('sensor.zonneplan_current_quarter_hourly_electricity_tariff') | float(0.30) %}
+          {% set drempel = states('sensor.tapwater_dynamische_drempel') | float(states('input_number.tapwater_tarief_drempel') | float(0.35)) %}
           {{ tarief <= drempel }}
   actions:
   - target:

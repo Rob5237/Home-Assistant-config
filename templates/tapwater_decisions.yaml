@@ -126,3 +126,34 @@
           {% else %}
             onbekend
           {% endif %}
+
+# Dynamische tariefdrempel voor tapwater (04-11-2026): 25e percentiel van de kwartiertarieven in de komende 24 uur
+# (incl. het lopende kwartier), zonder plafond. Het tarief is dan "laag" als het bij de goedkoopste kwart van die
+# 24 uur hoort. Te weinig kwartieren (< 8, bv. na een storing van Zonneplan): state onbekend; de automatisering
+# valt dan terug op input_number.tapwater_tarief_drempel.
+- sensor:
+    - name: "Tapwater dynamische drempel"
+      unique_id: "tapwater_dynamische_drempel"
+      unit_of_measurement: "€/kWh"
+      state_class: measurement
+      icon: mdi:cash-clock
+      state: >
+        {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+        {% set grens = now() + timedelta(hours=24) %}
+        {% set ns = namespace(p=[]) %}
+        {% for q in fc %}
+          {% if (q.end_date | as_datetime | as_local) > now() and (q.start_date | as_datetime | as_local) < grens %}
+            {% set ns.p = ns.p + [q.price_tax_included.amount | float(0) / 10000000] %}
+          {% endif %}
+        {% endfor %}
+        {% set p = ns.p | sort %}
+        {% if p | count >= 8 %}
+          {{ p[((p | count - 1) * 0.25) | int] | round(4) }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      attributes:
+        aantal_kwartieren: >
+          {% set fc = state_attr('sensor.zonneplan_current_quarter_hourly_electricity_tariff', 'forecast') or [] %}
+          {% set grens = now() + timedelta(hours=24) %}
+          {{ fc | selectattr('end_date', 'defined') | map(attribute='end_date') | map('as_datetime') | map('as_local') | select('gt', now()) | select('lt', grens + timedelta(minutes=15)) | list | count }}
