@@ -1589,6 +1589,26 @@ script:
           entity_id: input_number.ev_lb_sonia_plan_kwh
         data:
           value: "{{ [[kwh, 0] | max, 100] | min }}"
+  # Knoppen 10-70 % op het dashboard van Rob: hoe vol de accu van de Passat nu is (100 % = 10 kWh, aangenomen 04-11-2026,
+  # pas aan als de capaciteit anders blijkt). Zelfde werking als ev_sonia_accu_percentage, op ev_lb_rob_plan_kwh.
+  ev_rob_accu_percentage:
+    alias: "EV-Rob – accustand instellen (knop)"
+    mode: single
+    fields:
+      procent:
+        description: "Huidige accustand in % (100 % = 10 kWh)"
+        example: 20
+    sequence:
+      - variables:
+          laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] }}"
+          kwh: >
+            {{ (100 - (procent | float(50))) / 100 * 10
+               + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_lb_rob_plan_kwh
+        data:
+          value: "{{ [[kwh, 0] | max, 100] | min | round(1) }}"
   ev_sonia_alleen_zon_laden:
     alias: "EV-Sonia – alleen gratis laden op zonnepanelen (knop)"
     sequence:
