@@ -1659,51 +1659,45 @@ views:
     sections:
       - type: grid
         cards:
-          - type: heading
-            heading: Instellingen accu
-            heading_style: subtitle
-            icon: mdi:cog
           - type: entities
-            title: EV Sonia
             show_header_toggle: false
+            card_mod:
+              style: |
+                ha-card { padding: 4px 0 !important; }
+                #states { padding: 0 8px !important; gap: 0 !important; }
             entities:
               - entity: input_select.ev_sonia_auto_keuze
-                name: Auto aan de lader
-              - type: section
-                label: Standaard auto
+                name: "Sonia: auto aan de lader"
               - entity: input_text.ev_sonia_standaard_auto
-                name: Naam
+                name: Standaard auto
               - entity: input_number.ev_sonia_accu_kwh
-                name: Accucapaciteit
+                name: Standaard, capaciteit
               - entity: input_number.ev_sonia_laadlimiet
-                name: Laden tot
-              - type: section
-                label: Andere auto
+                name: Standaard, laden tot
               - entity: input_text.ev_sonia_andere_auto
-                name: Naam
+                name: Andere auto
               - entity: input_number.ev_sonia_andere_accu_kwh
-                name: Accucapaciteit
+                name: Andere, capaciteit
               - entity: input_number.ev_sonia_andere_laadlimiet
-                name: Laden tot
+                name: Andere, laden tot
           - type: entities
-            title: EV Rob
             show_header_toggle: false
+            card_mod:
+              style: |
+                ha-card { padding: 4px 0 !important; }
+                #states { padding: 0 8px !important; gap: 0 !important; }
             entities:
               - entity: input_select.ev_rob_auto_keuze
-                name: Auto aan de lader
-              - type: section
-                label: Standaard auto
+                name: "Rob: auto aan de lader"
               - entity: input_text.ev_rob_standaard_auto
-                name: Naam
+                name: Standaard auto
               - entity: input_number.ev_rob_accu_kwh
-                name: Accucapaciteit
+                name: Standaard, capaciteit
               - entity: input_number.ev_rob_laadlimiet
-                name: Laden tot
-              - type: section
-                label: Andere auto
+                name: Standaard, laden tot
               - entity: input_text.ev_rob_andere_auto
-                name: Naam
+                name: Andere auto
               - entity: input_number.ev_rob_andere_accu_kwh
-                name: Accucapaciteit
+                name: Andere, capaciteit
               - entity: input_number.ev_rob_andere_laadlimiet
-                name: Laden tot
+                name: Andere, laden tot
