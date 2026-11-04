@@ -130,11 +130,6 @@ input_datetime:
     has_time: false
 
 input_select:
-  # Tabblad op de view 'Instellingen' van dashboard Laden (Sonia of Rob); alleen weergave, geen invloed op de sturing.
-  ev_instellingen_tab:
-    name: "EV instellingen – tabblad"
-    options: ["Sonia", "Rob"]
-    icon: mdi:tab
   # Welke auto hangt nu aan de lader: de standaard auto of een andere (andere capaciteit en laadlimiet).
   # Valt terug op de standaard auto zodra de stekker eruit gaat (automation ev_auto_terug_naar_standaard).
   ev_sonia_auto_keuze:

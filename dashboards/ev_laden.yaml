@@ -824,7 +824,7 @@ views:
               action: none
             hold_action:
               action: navigate
-              navigation_path: /dashboard-laden/instellingen
+              navigation_path: /dashboard-laden/instellingen-sonia
             card_mod:
               style: |
                 ha-card { border: 2px solid rgba(255, 255, 255, 0.35) !important; border-radius: 14px !important; background: linear-gradient(rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.2)), var(--card-background-color); height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; box-shadow: none !important; }
@@ -1641,7 +1641,7 @@ views:
               action: none
             hold_action:
               action: navigate
-              navigation_path: /dashboard-laden/instellingen
+              navigation_path: /dashboard-laden/instellingen-rob
             card_mod:
               style: |
                 ha-card { border: 2px solid rgba(255, 255, 255, 0.35) !important; border-radius: 14px !important; background: linear-gradient(rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.2)), var(--card-background-color); height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; box-shadow: none !important; }
@@ -1650,8 +1650,8 @@ views:
             grid_options:
               columns: 12
               rows: auto
-  - title: Instellingen
-    path: instellingen
+  - title: Instellingen Sonia
+    path: instellingen-sonia
     subview: true
     back_path: /dashboard-laden/sonia
     type: sections
@@ -1672,22 +1672,14 @@ views:
                 icon: mdi:car-electric
                 show_state: false
                 tap_action:
-                  action: perform-action
-                  perform_action: input_select.select_option
-                  target:
-                    entity_id: input_select.ev_instellingen_tab
-                  data:
-                    option: Sonia
+                  action: navigate
+                  navigation_path: /dashboard-laden/instellingen-sonia
                 card_mod:
                   style: |
                     ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; margin-bottom: 5px; height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; }
-                    {% if is_state('input_select.ev_instellingen_tab', 'Sonia') %}
                     ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                     ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; }
                     span { color: #FFC107 !important; font-weight: bold !important; }
-                    {% else %}
-                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
-                    {% endif %}
                     ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; flex: none !important; margin: 0 !important; }
                     span { font-size: 16px !important; margin: 0 !important; padding: 0 !important; }
               - type: button
@@ -1695,75 +1687,98 @@ views:
                 icon: mdi:car-electric
                 show_state: false
                 tap_action:
-                  action: perform-action
-                  perform_action: input_select.select_option
-                  target:
-                    entity_id: input_select.ev_instellingen_tab
-                  data:
-                    option: Rob
+                  action: navigate
+                  navigation_path: /dashboard-laden/instellingen-rob
                 card_mod:
                   style: |
                     ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; margin-bottom: 5px; height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; }
-                    {% if is_state('input_select.ev_instellingen_tab', 'Rob') %}
+                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                    ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; flex: none !important; margin: 0 !important; }
+                    span { font-size: 16px !important; margin: 0 !important; padding: 0 !important; }
+          - type: entities
+            show_header_toggle: false
+            card_mod:
+              style: |
+                ha-card { padding: 4px 0 !important; }
+                #states { padding: 0 8px !important; gap: 0 !important; }
+            entities:
+              - entity: input_select.ev_sonia_auto_keuze
+                name: Auto aan de lader
+              - entity: input_text.ev_sonia_standaard_auto
+                name: Standaard auto
+              - entity: input_number.ev_sonia_accu_kwh
+                name: Standaard, capaciteit
+              - entity: input_number.ev_sonia_laadlimiet
+                name: Standaard, laden tot
+              - entity: input_text.ev_sonia_andere_auto
+                name: Andere auto
+              - entity: input_number.ev_sonia_andere_accu_kwh
+                name: Andere, capaciteit
+              - entity: input_number.ev_sonia_andere_laadlimiet
+                name: Andere, laden tot
+  - title: Instellingen Rob
+    path: instellingen-rob
+    subview: true
+    back_path: /dashboard-laden/rob
+    type: sections
+    max_columns: 1
+    sections:
+      - type: grid
+        cards:
+          - type: horizontal-stack
+            card_mod:
+              style: |
+                :host { --stack-card-gap: 8px; }
+            grid_options:
+              columns: 12
+              rows: auto
+            cards:
+              - type: button
+                name: Sonia
+                icon: mdi:car-electric
+                show_state: false
+                tap_action:
+                  action: navigate
+                  navigation_path: /dashboard-laden/instellingen-sonia
+                card_mod:
+                  style: |
+                    ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; margin-bottom: 5px; height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; }
+                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                    ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; flex: none !important; margin: 0 !important; }
+                    span { font-size: 16px !important; margin: 0 !important; padding: 0 !important; }
+              - type: button
+                name: Rob
+                icon: mdi:car-electric
+                show_state: false
+                tap_action:
+                  action: navigate
+                  navigation_path: /dashboard-laden/instellingen-rob
+                card_mod:
+                  style: |
+                    ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; margin-bottom: 5px; height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; }
                     ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                     ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; }
                     span { color: #FFC107 !important; font-weight: bold !important; }
-                    {% else %}
-                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
-                    {% endif %}
                     ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; flex: none !important; margin: 0 !important; }
                     span { font-size: 16px !important; margin: 0 !important; padding: 0 !important; }
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: input_select.ev_instellingen_tab
-                state: Sonia
-            card:
-              type: entities
-              show_header_toggle: false
-              card_mod:
-                style: |
-                  ha-card { padding: 4px 0 !important; }
-                  #states { padding: 0 8px !important; gap: 0 !important; }
-              entities:
-                - entity: input_select.ev_sonia_auto_keuze
-                  name: Auto aan de lader
-                - entity: input_text.ev_sonia_standaard_auto
-                  name: Standaard auto
-                - entity: input_number.ev_sonia_accu_kwh
-                  name: Standaard, capaciteit
-                - entity: input_number.ev_sonia_laadlimiet
-                  name: Standaard, laden tot
-                - entity: input_text.ev_sonia_andere_auto
-                  name: Andere auto
-                - entity: input_number.ev_sonia_andere_accu_kwh
-                  name: Andere, capaciteit
-                - entity: input_number.ev_sonia_andere_laadlimiet
-                  name: Andere, laden tot
-          - type: conditional
-            conditions:
-              - condition: state
-                entity: input_select.ev_instellingen_tab
-                state: Rob
-            card:
-              type: entities
-              show_header_toggle: false
-              card_mod:
-                style: |
-                  ha-card { padding: 4px 0 !important; }
-                  #states { padding: 0 8px !important; gap: 0 !important; }
-              entities:
-                - entity: input_select.ev_rob_auto_keuze
-                  name: Auto aan de lader
-                - entity: input_text.ev_rob_standaard_auto
-                  name: Standaard auto
-                - entity: input_number.ev_rob_accu_kwh
-                  name: Standaard, capaciteit
-                - entity: input_number.ev_rob_laadlimiet
-                  name: Standaard, laden tot
-                - entity: input_text.ev_rob_andere_auto
-                  name: Andere auto
-                - entity: input_number.ev_rob_andere_accu_kwh
-                  name: Andere, capaciteit
-                - entity: input_number.ev_rob_andere_laadlimiet
-                  name: Andere, laden tot
+          - type: entities
+            show_header_toggle: false
+            card_mod:
+              style: |
+                ha-card { padding: 4px 0 !important; }
+                #states { padding: 0 8px !important; gap: 0 !important; }
+            entities:
+              - entity: input_select.ev_rob_auto_keuze
+                name: Auto aan de lader
+              - entity: input_text.ev_rob_standaard_auto
+                name: Standaard auto
+              - entity: input_number.ev_rob_accu_kwh
+                name: Standaard, capaciteit
+              - entity: input_number.ev_rob_laadlimiet
+                name: Standaard, laden tot
+              - entity: input_text.ev_rob_andere_auto
+                name: Andere auto
+              - entity: input_number.ev_rob_andere_accu_kwh
+                name: Andere, capaciteit
+              - entity: input_number.ev_rob_andere_laadlimiet
+                name: Andere, laden tot
