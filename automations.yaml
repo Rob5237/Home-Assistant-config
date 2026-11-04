@@ -3325,3 +3325,29 @@
           tag: ev_sonia_laadsessie_einde
           channel: "EV laden"
   mode: single
+- id: wasmachine_online_melding
+  alias: 'Wasmachine: melding zodra Home Connect weer online is'
+  description: Eenmalige melding; daarna kan de wasmachine in de zonbudget-planning worden opgenomen (uitgestelde start via number.wasmachine_delayed_end).
+  triggers:
+  - trigger: state
+    entity_id: sensor.wasmachine_huidige_status
+    from: unavailable
+    for: '00:02:00'
+  conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: sensor.wasmachine_huidige_status
+      state:
+      - unavailable
+      - unknown
+  actions:
+  - action: notify.mobile_app_sm_g781b
+    data:
+      title: Wasmachine online
+      message: >-
+        Home Connect ziet de wasmachine weer (status {{ states('sensor.wasmachine_huidige_status') }}).
+        Zeg het tegen Claude om hem in de planning op te nemen.
+      data:
+        tag: wasmachine_online
+  mode: single
