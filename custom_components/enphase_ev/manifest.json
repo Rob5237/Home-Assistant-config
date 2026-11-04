@@ -5,6 +5,9 @@
     "logbook",
     "recorder"
   ],
+  "categories": [
+    "energy"
+  ],
   "codeowners": [
     "@barneyonline"
   ],
@@ -19,5 +22,5 @@
   ],
   "quality_scale": "platinum",
   "requirements": [],
-  "version": "5.2.2"
+  "version": "5.2.4"
 }

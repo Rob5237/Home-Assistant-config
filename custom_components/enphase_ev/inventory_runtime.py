@@ -196,6 +196,7 @@ class InventoryRuntime:
         self.coordinator = coordinator
         self.health = RuntimeHealthServices(coordinator)
         self.auth = RuntimeAuthServices(coordinator)
+        self._hems_devices_auth_backoff_until: float | None = None
         self._inverter_parameter_last_request_mono: float | None = None
         self._inverter_diagnostic_attempts: dict[str, float] = {}
         self.discovery_state = coordinator.discovery_state
@@ -1030,8 +1031,7 @@ class InventoryRuntime:
             if serial is not None:
                 identity_parts.append(f"serial:{serial}")
             if identity_parts:
-                if source_type is not None:
-                    identity_parts.insert(0, f"source:{source_type}")
+                identity_parts.insert(0, f"source:{source_type}")
                 return "|".join(identity_parts)
 
             fingerprint_parts: list[str] = []
@@ -1134,8 +1134,7 @@ class InventoryRuntime:
                 if name_counts:
                     bucket["model_counts"] = dict(name_counts)
                     summary = self._format_inverter_model_summary(name_counts)
-                    if isinstance(summary, str) and summary.strip():
-                        bucket["model_summary"] = summary
+                    bucket["model_summary"] = summary
 
         return valid, dict(grouped), list(dict.fromkeys(ordered_keys))
 
@@ -1611,7 +1610,7 @@ class InventoryRuntime:
                     connected = None
             elif isinstance(connected, (int, float)):
                 connected = connected != 0
-            elif not isinstance(connected, bool):
+            else:
                 connected = None
             if connected is None:
                 if status == "normal":
@@ -1837,7 +1836,7 @@ class InventoryRuntime:
                 connectivity_state = "offline"
             elif reporting > 0 and reporting < total_inverters:
                 connectivity_state = "degraded"
-            elif unknown >= total_inverters:
+            else:
                 connectivity_state = "unknown"
         snapshot["connectivity_state"] = connectivity_state
         return snapshot
@@ -2423,13 +2422,14 @@ class InventoryRuntime:
         """Keep HEMS inventory stale while the coordinator auth circuit is open."""
 
         coord = self.coordinator
+        self._hems_devices_auth_backoff_until = (
+            getattr(coord, "_hems_auth_backoff_until", None) or now + cache_ttl
+        )
         self._update_shared_state(
             _hems_devices_payload=previous_payload,
             _hems_devices_using_stale=previous_payload is not None,
             _hems_inventory_ready=True,
-            _hems_devices_cache_until=(
-                getattr(coord, "_hems_auth_backoff_until", None) or now + cache_ttl
-            ),
+            _hems_devices_cache_until=self._hems_devices_auth_backoff_until,
         )
         self._merge_heatpump_type_bucket()
         self._debug_log_summary_if_changed(
@@ -2437,6 +2437,16 @@ class InventoryRuntime:
             "HEMS discovery summary",
             self._debug_hems_inventory_summary(),
         )
+
+    def clear_hems_auth_backoff(self) -> None:
+        """Release an inventory cache delay inherited from the shared auth pause."""
+
+        if (
+            self._hems_devices_auth_backoff_until is not None
+            and self._hems_devices_cache_until == self._hems_devices_auth_backoff_until
+        ):
+            self._set_shared_state_attr("_hems_devices_cache_until", None)
+        self._hems_devices_auth_backoff_until = None
 
     def _mark_hems_inventory_polling_disabled(self) -> None:
         """Discard Heat Pump HEMS inventory state when its group is disabled."""
@@ -2613,8 +2623,7 @@ class InventoryRuntime:
             merged: dict[str, object] = {}
             for source_type, payload in payloads_by_source.items():
                 redacted = self._redact_battery_payload(payload)
-                if isinstance(redacted, dict):
-                    merged[source_type] = redacted
+                merged[source_type] = cast(dict[str, object], redacted)
             redacted_details[canonical_type] = merged
         self._update_shared_state(
             _system_dashboard_devices_tree_payload=tree_payload_out,
