@@ -4,9 +4,11 @@
 tabkleuren:
   card-mod-theme: tabkleuren
   card-mod-root: |
-    ha-tab-group-tab[data-path="sonia"] { background: rgba(76, 175, 80, 0.4); border-radius: 8px 8px 0 0; }
+    ha-tab-group-tab[data-path="sonia"] { background: rgba(128, 128, 128, 0.15); border-radius: 8px 8px 0 0; }
     ha-tab-group-tab[data-path="sonia"][active] { background: rgba(76, 175, 80, 0.65); }
-    ha-tab-group-tab[data-path="rob"] { background: rgba(33, 150, 243, 0.4); border-radius: 8px 8px 0 0; }
+    ha-tab-group-tab[data-path="rob"] { background: rgba(128, 128, 128, 0.15); border-radius: 8px 8px 0 0; }
     ha-tab-group-tab[data-path="rob"][active] { background: rgba(33, 150, 243, 0.65); }
     ha-tab-group:has(ha-tab-group-tab[data-path="sonia"][active]) { --ha-tab-indicator-color: #4CAF50; }
     ha-tab-group:has(ha-tab-group-tab[data-path="rob"][active]) { --ha-tab-indicator-color: #2196F3; }
+    ha-tab-group-tab[data-path="sonia"]::after { content: " {{ states('sensor.ev_sonia_auto_actief') }}"; align-self: center; white-space: nowrap; font-size: var(--ha-font-size-m, 14px); padding-right: 16px; }
+    ha-tab-group-tab[data-path="rob"]::after { content: " {{ states('sensor.ev_rob_auto_actief') }}"; align-self: center; white-space: nowrap; font-size: var(--ha-font-size-m, 14px); padding-right: 16px; }

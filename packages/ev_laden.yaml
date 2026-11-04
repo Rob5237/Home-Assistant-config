@@ -586,10 +586,12 @@ automation:
       - trigger: state
         entity_id: sensor.ev_sonia_status_connector
         to: ["Available", "Finishing"]
+        not_from: ["Unavailable", "unavailable", "unknown"]
         variables: {n: sonia}
       - trigger: state
         entity_id: sensor.ev_rob_status_connector
         to: ["Available", "Finishing"]
+        not_from: ["Unavailable", "unavailable", "unknown"]
         variables: {n: rob}
     actions:
       - action: input_boolean.turn_off
@@ -616,10 +618,12 @@ automation:
       - trigger: state
         entity_id: sensor.ev_sonia_status_connector
         to: "Available"
+        not_from: ["Unavailable", "unavailable", "unknown"]
         id: a_uit
       - trigger: state
         entity_id: sensor.ev_rob_status_connector
         to: "Available"
+        not_from: ["Unavailable", "unavailable", "unknown"]
         id: b_uit
     actions:
       - variables:

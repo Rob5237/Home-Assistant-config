@@ -5,5 +5,13 @@ laden_koppen:
   ha-heading-card-title-color: "var(--primary-text-color)"
   ha-heading-card-title-font-weight: 700
   # Zelfde ruimte tussen alle kaarten, horizontaal en verticaal (8 px)
+  # Sectie links uitlijnen op brede schermen: kolom mag de hele breedte pakken, de sectie zelf is max 500 px
+  ha-view-sections-column-max-width: 3000px
+  card-mod-theme: laden_koppen
+  # Icoontjes zwart
+  state-icon-color: "#000000"
+  state-icon-active-color: "#000000"
+  paper-item-icon-color: "#000000"
+  paper-item-icon-active-color: "#000000"
   ha-view-sections-row-gap: 8px
   ha-view-sections-column-gap: 8px

@@ -1969,10 +1969,12 @@ automation:
       - trigger: state
         entity_id: sensor.ev_sonia_status_connector
         to: ["Available", "Finishing"]
+        not_from: ["Unavailable", "unavailable", "unknown"]
         variables: {n: sonia}
       - trigger: state
         entity_id: sensor.ev_rob_status_connector
         to: ["Available", "Finishing"]
+        not_from: ["Unavailable", "unavailable", "unknown"]
         variables: {n: rob}
     actions:
       - action: input_select.select_option
@@ -1980,6 +1982,40 @@ automation:
           entity_id: "input_select.ev_{{ n }}_auto_keuze"
         data:
           option: "Standaard auto"
+  - id: ev_zon_of_snel_standaard
+    alias: "EV – 'GRATIS met de zon' staat aan zolang 'NU SNEL' en 'opladen uitzetten' uit staan"
+    description: >
+      Op verzoek (04-11-2026): precies één van de knoppen 'Accu GRATIS opladen met de zon' en
+      'Accu NU SNEL opladen' is ingedrukt. Staan beide uit (en ook 'opladen uitzetten' niet aan), dan
+      gaat 'GRATIS met de zon' aan. Gevolg: de lader laadt dan alleen op zonne-overschot en niet meer
+      volgens het goedkoopste blok, tot je 'NU SNEL' indrukt. 'Weer volgens planning laden' blijft
+      daardoor niet staan. De knoppen sluiten elkaar al uit (boost wist de rest, de zonknop zet de boost uit).
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.ev_sonia_alleen_zon
+          - input_boolean.ev_sonia_direct_laden
+          - input_boolean.ev_sonia_opladen_uitgezet
+          - input_boolean.ev_rob_alleen_zon
+          - input_boolean.ev_rob_direct_laden
+          - input_boolean.ev_rob_opladen_uitgezet
+        to: "off"
+        for: "00:00:03"
+    actions:
+      - repeat:
+          for_each: ["sonia", "rob"]
+          sequence:
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ is_state('input_boolean.ev_' ~ repeat.item ~ '_alleen_zon', 'off')
+                       and is_state('input_boolean.ev_' ~ repeat.item ~ '_direct_laden', 'off')
+                       and is_state('input_boolean.ev_' ~ repeat.item ~ '_opladen_uitgezet', 'off') }}
+              then:
+                - action: input_boolean.turn_on
+                  target:
+                    entity_id: "input_boolean.ev_{{ repeat.item }}_alleen_zon"
   - id: ev_opladen_uitgezet_vlag_wissen
     alias: "EV – knopvlag 'opladen uitgezet' wissen bij start laden of boost"
     mode: parallel

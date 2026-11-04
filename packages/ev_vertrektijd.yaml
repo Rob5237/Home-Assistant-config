@@ -195,6 +195,37 @@ automation:
           entity_id: >-
             {{ 'input_boolean.ev_' ~ trigger.id.split('_')[0] ~ ('_nacht_overslaan' if trigger.id.endswith('_vroeg') else '_vroeg_weg') }}
 
+  - id: ev_vroeg_weg_standaard_aan
+    alias: "EV – 'morgen vroeg weg' staat aan zolang 'morgen thuis blijven' uit staat"
+    description: >
+      Precies één van de twee knoppen is ingedrukt (04-11-2026). Zijn beide uit, bijvoorbeeld nadat
+      'vroeg weg' op de vertrektijd is gewist of 'thuis blijven' om 17:00 is vervallen, dan gaat
+      'vroeg weg' weer aan. Gevolg: de werkdagtijd geldt als vertrektijd, ook in het weekend, tenzij
+      'thuis blijven' aan staat.
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.ev_sonia_vroeg_weg
+          - input_boolean.ev_sonia_nacht_overslaan
+          - input_boolean.ev_rob_vroeg_weg
+          - input_boolean.ev_rob_nacht_overslaan
+        to: "off"
+        for: "00:00:03"
+    actions:
+      - repeat:
+          for_each: ["sonia", "rob"]
+          sequence:
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ is_state('input_boolean.ev_' ~ repeat.item ~ '_vroeg_weg', 'off')
+                       and is_state('input_boolean.ev_' ~ repeat.item ~ '_nacht_overslaan', 'off') }}
+              then:
+                - action: input_boolean.turn_on
+                  target:
+                    entity_id: "input_boolean.ev_{{ repeat.item }}_vroeg_weg"
+
 # Tekstversie (HH:MM met voorloopnul) van de tijden, zodat de dubbele punten in het
 # dashboard onder elkaar staan (anders toont HA '7:00' en '10:00' verschillend breed).
 template:
