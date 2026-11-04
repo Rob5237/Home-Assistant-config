@@ -636,6 +636,11 @@ automation:
           option: "Onbekend"
       - action: input_number.set_value
         target:
+          entity_id: "input_number.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_pct_start"
+        data:
+          value: -1
+      - action: input_number.set_value
+        target:
           entity_id: "input_number.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_laatst_gezet"
         data:
           value: -1

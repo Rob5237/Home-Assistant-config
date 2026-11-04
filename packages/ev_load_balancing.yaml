@@ -183,6 +183,40 @@ input_number:
     step: 1
     unit_of_measurement: "%"
     mode: box
+  # Accustand-schatting (04-11-2026): het percentage dat met een knop is gekozen en de sessie-energie op dat
+  # moment. Daaruit volgt sensor.ev_sonia_accupercentage_geschat. -1 = geen knop gebruikt (gewist bij in- en uitpluggen).
+  # Geen initial: begint op het minimum (-1) en wordt bewaard.
+  ev_sonia_pct_start:
+    name: "EV Sonia – gekozen accupercentage (schatting)"
+    min: -1
+    max: 100
+    step: 0.1
+    unit_of_measurement: "%"
+    mode: box
+  ev_sonia_pct_sessie_kwh:
+    name: "EV Sonia – sessie-energie bij gekozen percentage"
+    min: 0
+    max: 300
+    step: 0.01
+    unit_of_measurement: kWh
+    mode: box
+  # Accustand-schatting (04-11-2026): het percentage dat met een knop is gekozen en de sessie-energie op dat
+  # moment. Daaruit volgt sensor.ev_rob_accupercentage_geschat. -1 = geen knop gebruikt (gewist bij in- en uitpluggen).
+  # Geen initial: begint op het minimum (-1) en wordt bewaard.
+  ev_rob_pct_start:
+    name: "EV Rob – gekozen accupercentage (schatting)"
+    min: -1
+    max: 100
+    step: 0.1
+    unit_of_measurement: "%"
+    mode: box
+  ev_rob_pct_sessie_kwh:
+    name: "EV Rob – sessie-energie bij gekozen percentage"
+    min: 0
+    max: 300
+    step: 0.01
+    unit_of_measurement: kWh
+    mode: box
   ev_sonia_andere_accu_kwh:
     name: "EV Sonia – accucapaciteit andere auto"
     min: 5
@@ -1222,6 +1256,30 @@ template:
 
   - sensor:
       # Actieve auto per lader (standaard of andere), voor de scripts van de procentknoppen en de dashboards.
+      # Geschatte accustand nu: het gekozen percentage plus wat er sindsdien is bijgeladen (sessie-energie).
+      # Onbekend zolang er geen knop is gebruikt (zie ev_sonia_pct_start).
+      - name: "EV Sonia accupercentage geschat"
+        unique_id: ev_sonia_accupercentage_geschat
+        unit_of_measurement: "%"
+        state: >
+          {% set p = states('input_number.ev_sonia_pct_start') | float(-1) %}
+          {% if p < 0 or not has_value('sensor.ev_sonia_sessie_energie') %}{{ none }}
+          {% else %}
+            {% set bij = [states('sensor.ev_sonia_sessie_energie') | float(0) - states('input_number.ev_sonia_pct_sessie_kwh') | float(0), 0] | max %}
+            {{ [p + bij / (states('sensor.ev_sonia_accucapaciteit_actief') | float(10)) * 100, 100] | min | round(1) }}
+          {% endif %}
+      # Geschatte accustand nu: het gekozen percentage plus wat er sindsdien is bijgeladen (sessie-energie).
+      # Onbekend zolang er geen knop is gebruikt (zie ev_rob_pct_start).
+      - name: "EV Rob accupercentage geschat"
+        unique_id: ev_rob_accupercentage_geschat
+        unit_of_measurement: "%"
+        state: >
+          {% set p = states('input_number.ev_rob_pct_start') | float(-1) %}
+          {% if p < 0 or not has_value('sensor.ev_rob_sessie_energie') %}{{ none }}
+          {% else %}
+            {% set bij = [states('sensor.ev_rob_sessie_energie') | float(0) - states('input_number.ev_rob_pct_sessie_kwh') | float(0), 0] | max %}
+            {{ [p + bij / (states('sensor.ev_rob_accucapaciteit_actief') | float(10)) * 100, 100] | min | round(1) }}
+          {% endif %}
       - name: "EV Sonia accucapaciteit actief"
         unique_id: ev_sonia_accu_kwh_actief
         unit_of_measurement: kWh
@@ -1706,6 +1764,16 @@ script:
                + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
+          entity_id: input_number.ev_sonia_pct_start
+        data:
+          value: "{{ [[procent | float(0), 0] | max, 100] | min }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_sonia_pct_sessie_kwh
+        data:
+          value: "{{ [states('sensor.ev_sonia_sessie_energie') | float(0), 300] | min }}"
+      - action: input_number.set_value
+        target:
           entity_id: input_number.ev_lb_sonia_plan_kwh
         data:
           value: "{{ [[kwh, 0] | max, 100] | min | round(1) }}"
@@ -1725,6 +1793,16 @@ script:
             {{ [states('sensor.ev_rob_laadlimiet_actief') | float(90) - (procent | float(50)), 0] | max / 100
                * states('sensor.ev_rob_accucapaciteit_actief') | float(10)
                + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_rob_pct_start
+        data:
+          value: "{{ [[procent | float(0), 0] | max, 100] | min }}"
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.ev_rob_pct_sessie_kwh
+        data:
+          value: "{{ [states('sensor.ev_rob_sessie_energie') | float(0), 300] | min }}"
       - action: input_number.set_value
         target:
           entity_id: input_number.ev_lb_rob_plan_kwh

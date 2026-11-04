@@ -31,7 +31,7 @@ views:
             :host { max-width: 500px; }
         cards:
           - type: heading
-            heading: EV Sonia
+            heading: EV-Sonia
             heading_style: subtitle
             icon: mdi:car-electric
             card_mod:
@@ -108,7 +108,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 0, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 0) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 0, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -132,7 +133,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 10, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 10) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 10, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -156,7 +158,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 20, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 20) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 20, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -180,7 +183,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 30, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 30) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 30, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -204,7 +208,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 40, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 40) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 40, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -228,7 +233,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 50, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 50) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 50, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -252,7 +258,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 60, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 60) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 60, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -276,7 +283,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 70, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_sonia_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 70) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - ([states('sensor.ev_sonia_laadlimiet_actief') | float(80) - 70, 0] | max / 100 * states('sensor.ev_sonia_accucapaciteit_actief') | float(73))) | abs < 0.3) %}
                         ha-card { background: #2E7D32; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -818,7 +826,7 @@ views:
                         .state, span.state { font-size: 13px !important; font-weight: 700 !important; color: #fff !important; }
                   - type: button
                     entity: sensor.ev_sonia_vertrektijd_weekend_en_feestdag_tekst
-                    name: Weekend/feestdag
+                    name: Weekend/Thuisdag
                     show_icon: false
                     show_state: true
                     tap_action:
@@ -949,7 +957,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 0, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 0) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 0, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -973,7 +982,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 10, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 10) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 10, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -997,7 +1007,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 20, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 20) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 20, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -1021,7 +1032,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 30, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 30) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 30, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -1045,7 +1057,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 40, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 40) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 40, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -1069,7 +1082,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 50, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 50) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 50, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -1093,7 +1107,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 60, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 60) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 60, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -1117,7 +1132,8 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 70, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
+                        {% set est = states('sensor.ev_rob_accupercentage_geschat') %}
+                        {% if (est not in ['unknown', 'unavailable', 'none', ''] and ((est | float(0) / 10) | round(0) * 10) == 70) or (est in ['unknown', 'unavailable', 'none', ''] and (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 70, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3) %}
                         ha-card { background: #1565C0; }
                         ha-state-icon, ha-icon, state-badge { color: #fff !important; --icon-primary-color: #fff; --state-icon-color: #fff; }
                         .name, span, ha-card > span { color: #fff !important; font-weight: bold !important; }
@@ -1658,7 +1674,7 @@ views:
                         .state, span.state { font-size: 13px !important; font-weight: 700 !important; color: #fff !important; }
                   - type: button
                     entity: sensor.ev_rob_vertrektijd_weekend_en_feestdag_tekst
-                    name: Weekend/feestdag
+                    name: Weekend/Thuisdag
                     show_icon: false
                     show_state: true
                     tap_action:
@@ -1810,7 +1826,7 @@ views:
                     #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
                 cards:
                   - type: button
-                    name: Weekend en feestdag
+                    name: Weekend en Thuisdag
                     icon: mdi:clock-outline
                     show_state: false
                     tap_action:
@@ -1978,7 +1994,7 @@ views:
                     #root { grid-template-columns: 1fr 72px !important; gap: 3px !important; align-items: center !important; padding: 3px 13px 3px 8px !important; }
                 cards:
                   - type: button
-                    name: Weekend en feestdag
+                    name: Weekend en Thuisdag
                     icon: mdi:clock-outline
                     show_state: false
                     tap_action:

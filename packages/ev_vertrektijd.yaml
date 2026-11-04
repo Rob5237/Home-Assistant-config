@@ -20,7 +20,7 @@ input_datetime:
     has_date: false
     has_time: true
   ev_sonia_vertrek_weekend:
-    name: "EV-Sonia – vertrektijd weekend en feestdag"
+    name: "EV-Sonia – vertrektijd weekend en Thuisdag"
     has_date: false
     has_time: true
   ev_rob_vertrek_werkdag:
@@ -28,7 +28,7 @@ input_datetime:
     has_date: false
     has_time: true
   ev_rob_vertrek_weekend:
-    name: "EV-Rob – vertrektijd weekend en feestdag"
+    name: "EV-Rob – vertrektijd weekend en Thuisdag"
     has_date: false
     has_time: true
 
