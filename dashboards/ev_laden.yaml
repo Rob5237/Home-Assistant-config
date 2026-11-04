@@ -429,7 +429,7 @@ views:
                 state: "off"
             card:
               type: button
-              name: "Accu GRATIS opladen"
+              name: "Accu OVERDAG GRATIS opladen"
               icon: mdi:solar-power
               show_state: false
               card_mod:
@@ -459,7 +459,7 @@ views:
                 state: "on"
             card:
               type: button
-              name: "Accu GRATIS opladen"
+              name: "Accu OVERDAG GRATIS opladen"
               icon: mdi:solar-power
               show_state: false
               card_mod:
@@ -1269,7 +1269,7 @@ views:
                 state: "off"
             card:
               type: button
-              name: "Accu GRATIS opladen"
+              name: "Accu OVERDAG GRATIS opladen"
               icon: mdi:solar-power
               show_state: false
               card_mod:
@@ -1299,7 +1299,7 @@ views:
                 state: "on"
             card:
               type: button
-              name: "Accu GRATIS opladen"
+              name: "Accu OVERDAG GRATIS opladen"
               icon: mdi:solar-power
               show_state: false
               card_mod:

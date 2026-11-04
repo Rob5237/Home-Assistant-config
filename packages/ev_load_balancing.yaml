@@ -2001,7 +2001,6 @@ automation:
           - input_boolean.ev_rob_direct_laden
           - input_boolean.ev_rob_opladen_uitgezet
         to: "off"
-        for: "00:00:03"
     actions:
       - repeat:
           for_each: ["sonia", "rob"]
