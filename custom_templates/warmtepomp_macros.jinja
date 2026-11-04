@@ -190,8 +190,9 @@
 {#
   bereken_tdi_kwartieren: kwartier-precisie variant van bereken_tdi_uren,
   zelfde dag-selectielogica (eerste dag waarop tdi_dagen + dagen_vooruit >=
-  7), maar daarna alle kwartieren binnen 09:00-16:00 van die dag i.p.v. hele
-  uren. Zie bereken_kwartieren voor de forecast-structuurverschillen.
+  7), maar daarna alle kwartieren binnen 09:00-12:00 van die dag i.p.v. hele
+  uren (04-11-2026: was 09:00-16:00; de TDI duurt ~60 min met voorrang op de vloer, dus moet vóór
+  12:00 starten, anders past de pre-17:00-vloerbuffer van 3-4 uur er niet meer achter). Zie bereken_kwartieren voor de forecast-structuurverschillen.
 #}
 {%- macro bereken_tdi_kwartieren(prijzen_kw, weer, tdi_dagen, wp_kw=2.0) -%}
   {%- from 'ev_macros.jinja' import eff_prijs -%}
@@ -200,7 +201,7 @@
   {%- for p in prijzen_kw -%}
     {%- set p_start = as_datetime(p.start_date) | as_local -%}
     {%- set p_end = as_datetime(p.end_date) | as_local -%}
-    {%- if p_end > now() and 9 <= p_start.hour < 16 and ns.eerste_dag is none -%}
+    {%- if p_end > now() and 9 <= p_start.hour < 12 and ns.eerste_dag is none -%}
       {%- if tdi_dagen + (p_start.date() - now().date()).days >= 7 -%}
         {%- set ns.eerste_dag = p_start.strftime('%Y-%m-%d') -%}
       {%- endif -%}
@@ -210,7 +211,7 @@
   {%- if ns.eerste_dag is not none -%}
     {%- for p in prijzen_kw -%}
       {%- set p_start = as_datetime(p.start_date) | as_local -%}
-      {%- if p_start.strftime('%Y-%m-%d') == ns.eerste_dag and 9 <= p_start.hour < 16 -%}
+      {%- if p_start.strftime('%Y-%m-%d') == ns.eerste_dag and 9 <= p_start.hour < 12 -%}
         {%- set m = namespace(t=none) -%}
         {%- for w in weer -%}
           {%- set w_dt = as_datetime(w.datetime) | as_local -%}

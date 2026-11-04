@@ -91,7 +91,7 @@
         {% if weer and prijzen %}
           {% set uren = bereken_dhw_kwartieren(prijzen, weer, 65) | from_json %}
           {% set vandaag = now().strftime('%Y-%m-%d') %}
-          {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 16) | list %}
+          {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 12) | list %}
           {% if venster %}
             {% set best = venster | min(attribute='kosten_warmte') %}
             {{ as_datetime(best.start) <= now() < as_datetime(best.einde) }}
@@ -109,7 +109,7 @@
           {% if weer and prijzen %}
             {% set uren = bereken_dhw_kwartieren(prijzen, weer, 65) | from_json %}
             {% set vandaag = now().strftime('%Y-%m-%d') %}
-            {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 16) | list %}
+            {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 12) | list %}
             {{ (venster | min(attribute='kosten_warmte')).kosten_warmte if venster else none }}
           {% else %}
             {{ none }}
@@ -121,7 +121,7 @@
           {% if weer and prijzen %}
             {% set uren = bereken_dhw_kwartieren(prijzen, weer, 65) | from_json %}
             {% set vandaag = now().strftime('%Y-%m-%d') %}
-            {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 16) | list %}
+            {% set venster = uren | selectattr('dag', 'equalto', vandaag) | selectattr('uur', 'lt', 12) | list %}
             {{ (venster | min(attribute='kosten_warmte')).label if venster else 'onbekend' }}
           {% else %}
             onbekend

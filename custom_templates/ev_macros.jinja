@@ -30,6 +30,10 @@
     (zonforecast - huisverbruik, begrensd op 0..1 van p_kw) wordt gewaardeerd tegen de zonwaarde, de rest tegen
     het tarief incl. belasting. Zonwaarde: tot input_datetime.ev_lb_saldering_einde het tarief x
     input_number.ev_lb_zonwaarde_factor_saldering, daarna max(0, prijs excl. belasting + terugleveraanpassing).
+    Gedeeld zonbudget (04-11-2026): het zonvermogen dat de geplande EV-blokken (Sonia, Rob) in dat kwartier opeisen
+    (zon_kw in het attribuut plan van sensor.ev_<naam>_blokplanning) gaat eerst van het overschot af. Volgorde:
+    Sonia, Rob, daarna warmtepomp (vloerbuffer, CV) en boiler/TDI; de buffer en de TDI sluiten elkaar al uit
+    (de buffer wijkt uit voor het TDI-kwartier), dus die hoeven het budget niet te delen.
     Met factor 1,0 vóór de einddatum is het resultaat gelijk aan het kale tarief (gebruikt door de
     warmtepomp-macro's in warmtepomp_macros.jinja en door ev_dag_blok).
 #}
@@ -59,13 +63,28 @@
   {{- zon -}}
 {%- endmacro %}
 
-{%- macro eff_prijs(p, st, p_kw, nu_test=none) -%}
+{%- macro eff_prijs(p, st, p_kw, nu_test=none, einde_test=none, ev_test=none) -%}
   {%- set incl = p.price_tax_included.amount | float(3000000) / 10000000 -%}
   {%- set excl = (p.get('price_tax_excluded', {}).get('amount', none) | float(none) / 10000000) if p.get('price_tax_excluded', {}).get('amount', none) is not none else incl -%}
   {%- set zon = zon_kw(st + timedelta(minutes=7.5), nu_test) | float(0) -%}
   {%- set huis_kw = states('sensor.ev_huisverbruik_24u') | float(850) / 1000 -%}
-  {%- set aandeel = ([[(zon - huis_kw) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
-  {%- set einde = states('input_datetime.ev_lb_saldering_einde') | as_datetime | as_local -%}
+  {#- Gedeeld zonbudget (04-11-2026): de EV-laders gaan voor (Sonia, dan Rob). Het zonvermogen dat hun geplande
+      blok in dit kwartier al opeist (attribuut zon_kw van sensor.ev_<naam>_blokplanning, plan) gaat van het
+      overschot af; warmtepomp en boiler rekenen alleen met het restant. Geen lus: de EV-planning leest geen
+      warmtepompgegevens. -#}
+  {%- set ev = namespace(kw=0) -%}
+  {%- for naam in ['sonia', 'rob'] -%}
+    {%- set pl = state_attr('sensor.ev_' ~ naam ~ '_blokplanning', 'plan') -%}
+    {%- set pl = (pl | from_json) if (pl is string and pl) else (pl if pl is mapping else {}) -%}
+    {%- if pl.get('start') and pl.get('eind') -%}
+      {%- if (pl.start | as_datetime | as_local) <= st < (pl.eind | as_datetime | as_local) -%}
+        {%- set ev.kw = ev.kw + (pl.get('zon_kw', 0) | float(0)) -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- set ev_kw = ev_test if ev_test is not none else ev.kw -%}
+  {%- set aandeel = ([[(zon - huis_kw - ev_kw) / p_kw, 0] | max, 1] | min) if p_kw > 0 else 0 -%}
+  {%- set einde = einde_test if einde_test is not none else (states('input_datetime.ev_lb_saldering_einde') | as_datetime | as_local) -%}
   {%- set factor = states('input_number.ev_lb_zonwaarde_factor_saldering') | float(1) -%}
   {%- set aanpas = states('input_number.ev_lb_terugleveraanpassing') | float(0) -%}
   {%- set waarde = incl * factor if st < einde else ([excl + aanpas, 0] | max) -%}

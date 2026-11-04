@@ -630,6 +630,8 @@
       minutes: 5
       seconds: 0
   conditions:
+  - condition: template
+    value_template: "{{ is_state('input_boolean.tdi_element_actief', 'off') and is_state('input_boolean.element_overschot_actief', 'off') }}"
   - condition: numeric_state
     entity_id: sensor.luxtronik_280807_0450_dhw_temperature
     below: 52
@@ -806,9 +808,11 @@
   - trigger: time_pattern
     minutes: '/15'
   conditions:
+  - condition: template
+    value_template: "{{ is_state('input_boolean.tdi_element_actief', 'off') and is_state('input_boolean.element_overschot_actief', 'off') }}"
   - condition: time
     after: '09:00:00'
-    before: '16:00:00'
+    before: '12:00:00'
   - condition: template
     value_template: >
       {% set last = states('input_datetime.tdi_laatste_start') %}
@@ -945,6 +949,8 @@
     - trigger: time_pattern
       minutes: "/15"
   conditions:
+    - condition: template
+      value_template: "{{ is_state('input_boolean.tdi_element_actief', 'off') and is_state('input_boolean.element_overschot_actief', 'off') }}"
     - condition: state
       entity_id: select.luxtronik_280807_0450_dhw_mode
       state: "Second heatsource"
@@ -958,6 +964,270 @@
         entity_id: automation.tdi_einde_reset
       data:
         skip_condition: true
+  mode: single
+
+- id: tdi_element_bij_zonoverschot
+  alias: "TDI: legionella-cyclus met element bij zonoverschot"
+  description: >
+    Start de TDI met de ELEKTRISCHE ELEMENTEN (dhw_mode "Second heatsource",
+    ~4 kW op L1+L3, compressor uit) zodra er echt zonoverschot is: teruglevering
+    van minstens 3500 W gedurende 10 min. Alleen 09:00-16:00, TDI >= 7 dagen geleden en
+    boiler < 62 C (met hysterese 3 K start het element onder 62). Zet de vlag
+    tdi_element_actief; die houdt andere tapwaterroutines (klein overschot,
+    nachtuur, compressor-TDI, tapwater_element_stop) af. tdi_laatste_start wordt pas gezet
+    door tdi_element_klaar als de middensensor 15 min >= 60 C was. Stoppen
+    zonder klaar te zijn: tdi_element_pauze. Niet getest: element langer dan 5 min 49 s
+    achter elkaar (04-11-2026 aangenomen). Elke 15 min opnieuw proberen.
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.p1_meter_power
+    below: -3500
+    for:
+      minutes: 10
+  - trigger: time_pattern
+    minutes: '/15'
+  conditions:
+  - condition: time
+    after: '09:00:00'
+    before: '16:00:00'
+  - condition: template
+    value_template: "{{ is_state('input_boolean.tdi_element_actief', 'off') and is_state('input_boolean.element_overschot_actief', 'off') }}"
+  - condition: numeric_state
+    entity_id: sensor.p1_meter_power
+    below: -3500
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 62
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      state: "Second heatsource"
+  - condition: template
+    value_template: >
+      {% set last = states('input_datetime.tdi_laatste_start') %}
+      {{ last in ('unknown', 'unavailable') or (now().date() - as_datetime(last).date()).days >= 7 }}
+  - condition: template
+    value_template: >
+      {{ states('sensor.ev_lb_stroom_l1') | float(99) <= 14
+         and states('sensor.ev_lb_stroom_l3') | float(99) <= 14 }}
+  actions:
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tdi_element_actief
+  - action: select.select_option
+    target:
+      entity_id: select.luxtronik_280807_0450_thermal_desinfection_day
+    data:
+      option: 'None'
+  - action: number.set_value
+    target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 3
+  - action: number.set_value
+    target:
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    data:
+      value: 65
+  - action: select.select_option
+    target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: "Second heatsource"
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
+  - action: logbook.log
+    data:
+      name: "TDI element"
+      message: "TDI met element gestart bij zonoverschot ({{ states('sensor.p1_meter_power') }} W, boiler {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }} C)."
+  mode: single
+
+- id: tdi_element_klaar
+  alias: "TDI: element-cyclus klaar (middensensor 60 C voor 15 min)"
+  description: >
+    Rondt de element-TDI af: middensensor >= 60 C gedurende 15 min. Zet
+    tdi_laatste_start, de vlag uit en draait de bestaande reset (tdi_einde_reset,
+    setpoint 50, hysterese 10 K, modus terug, lock uit).
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    above: 59.9
+    for:
+      minutes: 15
+  conditions:
+  - condition: state
+    entity_id: input_boolean.tdi_element_actief
+    state: "on"
+  actions:
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.tdi_laatste_start
+    data:
+      datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.tdi_element_actief
+  - action: automation.trigger
+    target:
+      entity_id: automation.tdi_einde_reset
+    data:
+      skip_condition: true
+  - action: logbook.log
+    data:
+      name: "TDI element"
+      message: "TDI met element klaar; tdi_laatste_start gezet."
+  mode: single
+
+- id: tdi_element_pauze
+  alias: "TDI: element-cyclus pauzeren (overschot weg of na 16:00)"
+  description: >
+    Stopt de element-TDI zonder tdi_laatste_start te zetten als de zon wegvalt
+    (netafname > 1500 W gedurende 5 min; het element zelf trekt ~4 kW, bij
+    3500 W overschot is ~500 W afname normaal) of na 16:00. De warmte blijft in de boiler;
+    de volgende zonnige periode probeert tdi_element_bij_zonoverschot opnieuw.
+    Draait ook als vangnet elk kwartier (bv. na een HA-herstart).
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.p1_meter_power
+    above: 1500
+    for:
+      minutes: 5
+  - trigger: time
+    at: '16:00:00'
+  - trigger: time_pattern
+    minutes: '/15'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.tdi_element_actief
+    state: "on"
+  - condition: template
+    value_template: >
+      {{ now().hour >= 16 or now().hour < 9
+         or states('sensor.p1_meter_power') | float(0) > 1500 }}
+  actions:
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.tdi_element_actief
+  - action: automation.trigger
+    target:
+      entity_id: automation.tdi_einde_reset
+    data:
+      skip_condition: true
+  - action: logbook.log
+    data:
+      name: "TDI element"
+      message: "TDI met element gepauzeerd zonder afronding (P1 {{ states('sensor.p1_meter_power') }} W, boiler {{ states('sensor.luxtronik_280807_0450_dhw_temperature') }} C)."
+  mode: single
+
+- id: tapwater_element_bij_zonoverschot_na_saldering
+  alias: "Tapwater: element bij zonoverschot na de saldering"
+  description: >
+    Vanaf het einde van de saldering (binary_sensor.saldering_voorbij) is
+    teruglevering weinig waard; dan is het element op overschot goedkope opslag.
+    Bij teruglevering van minstens 3500 W gedurende 10 min (09:00-16:00) en
+    boiler < 55 C zet dit dhw_mode "Second heatsource" met setpoint 60 en
+    hysterese 3 K (element start onder 57, stopt zelf bij 60). Dagelijks
+    toegestaan; dit telt NIET als TDI (tdi_laatste_start blijft staan, de TDI op
+    65 C blijft eens per 7 dagen). Vlag element_overschot_actief houdt de andere
+    tapwaterroutines af; stoppen via element_overschot_stop. Aannames 04-11-2026:
+    drempels 3500 W / 55 C / 60 C ongekalibreerd, element langer dan 5 min 49 s
+    niet getest. Vóór 1-1-2027 (saldering) doet deze automatie niets.
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.p1_meter_power
+    below: -3500
+    for:
+      minutes: 10
+  - trigger: time_pattern
+    minutes: '/15'
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.saldering_voorbij
+    state: "on"
+  - condition: time
+    after: '09:00:00'
+    before: '16:00:00'
+  - condition: template
+    value_template: "{{ is_state('input_boolean.tdi_element_actief', 'off') and is_state('input_boolean.element_overschot_actief', 'off') }}"
+  - condition: numeric_state
+    entity_id: sensor.p1_meter_power
+    below: -3500
+  - condition: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    below: 55
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+      state: "Second heatsource"
+  - condition: template
+    value_template: >
+      {{ states('sensor.ev_lb_stroom_l1') | float(99) <= 14
+         and states('sensor.ev_lb_stroom_l3') | float(99) <= 14 }}
+  actions:
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.element_overschot_actief
+  - action: number.set_value
+    target:
+      entity_id: number.luxtronik_280807_0450_dhw_hysteresis
+    data:
+      value: 3
+  - action: number.set_value
+    target:
+      entity_id: number.luxtronik_280807_0450_dhw_target_temperature
+    data:
+      value: 60
+  - action: select.select_option
+    target:
+      entity_id: select.luxtronik_280807_0450_dhw_mode
+    data:
+      option: "Second heatsource"
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.tapwater_overschot_lock
+  mode: single
+
+- id: tapwater_element_overschot_stop
+  alias: "Tapwater: element op overschot stoppen"
+  description: >
+    Stopt het element van tapwater_element_bij_zonoverschot_na_saldering:
+    boiler >= 59,5 C, netafname > 1500 W gedurende 5 min, of na 16:00. Draait de
+    bestaande reset (tdi_einde_reset met skip_condition). Ook elk kwartier als
+    vangnet.
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.luxtronik_280807_0450_dhw_temperature
+    above: 59.5
+  - trigger: numeric_state
+    entity_id: sensor.p1_meter_power
+    above: 1500
+    for:
+      minutes: 5
+  - trigger: time
+    at: '16:00:00'
+  - trigger: time_pattern
+    minutes: '/15'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.element_overschot_actief
+    state: "on"
+  - condition: template
+    value_template: >
+      {{ now().hour >= 16 or now().hour < 9
+         or states('sensor.luxtronik_280807_0450_dhw_temperature') | float(0) >= 59.5
+         or states('sensor.p1_meter_power') | float(0) > 1500 }}
+  actions:
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.element_overschot_actief
+  - action: automation.trigger
+    target:
+      entity_id: automation.tdi_einde_reset
+    data:
+      skip_condition: true
   mode: single
 
 - id: tdi_einde_reset
@@ -1277,6 +1547,8 @@
   - trigger: time_pattern
     minutes: '/15'
   conditions:
+  - condition: template
+    value_template: "{{ is_state('input_boolean.tdi_element_actief', 'off') and is_state('input_boolean.element_overschot_actief', 'off') }}"
   - condition: state
     entity_id: input_boolean.vakantie_actief
     state: "off"

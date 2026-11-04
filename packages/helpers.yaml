@@ -106,6 +106,12 @@ input_number:
     icon: mdi:content-save-cog
 
 input_boolean:
+  element_overschot_actief:
+    name: "Element op zonoverschot actief"
+    icon: mdi:radiator
+  tdi_element_actief:
+    name: "TDI met element actief"
+    icon: mdi:radiator
   vakantie_actief:
     name: "Vakantiemodus actief"
     icon: mdi:airplane
