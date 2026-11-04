@@ -19,6 +19,8 @@
 views:
   - title: EV-Sonia
     path: sonia
+    icon: mdi:car-electric
+    show_icon_and_title: true
     theme: laden_koppen
     type: sections
     max_columns: 1
@@ -836,6 +838,8 @@ views:
 
   - title: EV-Rob
     path: rob
+    icon: mdi:car-electric
+    show_icon_and_title: true
     theme: laden_koppen
     type: sections
     max_columns: 1
@@ -892,7 +896,7 @@ views:
           - type: vertical-stack
             card_mod:
               style: |
-                :host { display: block; background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); border-radius: var(--ha-card-border-radius, 12px); padding: 8px 8px 1px 8px; box-sizing: border-box; --stack-card-gap: 8px; }
+                :host { display: block; background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); border-radius: var(--ha-card-border-radius, 12px); padding: 8px 8px 1px 8px; box-sizing: border-box; --stack-card-gap: 8px; }
             grid_options:
               columns: 12
               rows: auto
@@ -920,11 +924,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 10, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -943,11 +947,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 20, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -966,11 +970,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 30, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -989,11 +993,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 40, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -1012,11 +1016,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 50, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -1035,11 +1039,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 60, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -1058,11 +1062,11 @@ views:
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
                         {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - ([states('sensor.ev_rob_laadlimiet_actief') | float(90) - 70, 0] | max / 100 * states('sensor.ev_rob_accucapaciteit_actief') | float(10))) | abs < 0.3 %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
                         {% else %}
-                        ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                        ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                         {% endif %}
                         ha-card { height: 46px !important; min-height: 0 !important; padding: 4px 0 !important; justify-content: center !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important; }
                         ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; margin: 0 !important; flex: none !important; }
@@ -1439,7 +1443,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_ma', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1455,7 +1459,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_di', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1471,7 +1475,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_wo', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1487,7 +1491,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_do', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1503,7 +1507,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_vr', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1519,7 +1523,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_za', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1535,7 +1539,7 @@ views:
                         ha-card { height: 38px !important; min-height: 0 !important; padding: 0 !important; border-radius: 10px !important; box-shadow: none !important; display: flex; align-items: center; justify-content: center; font-weight: 600; }
                         span { font-size: 13px !important; }
                         {% if is_state('input_boolean.ev_rob_werkdag_zo', 'on') %}
-                        ha-card { background: rgba(76, 175, 80, 0.9) !important; color: #fff !important; }
+                        ha-card { background: rgba(33, 150, 243, 0.9) !important; color: #fff !important; }
                         {% else %}
                         ha-card { background: rgba(128, 128, 128, 0.25) !important; }
                         {% endif %}
@@ -1644,7 +1648,7 @@ views:
               navigation_path: /dashboard-laden/instellingen-rob
             card_mod:
               style: |
-                ha-card { border: 2px solid rgba(255, 255, 255, 0.35) !important; border-radius: 14px !important; background: linear-gradient(rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.2)), var(--card-background-color); height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; box-shadow: none !important; }
+                ha-card { border: 2px solid rgba(255, 255, 255, 0.35) !important; border-radius: 14px !important; background: linear-gradient(rgba(33, 150, 243, 0.2), rgba(33, 150, 243, 0.2)), var(--card-background-color); height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; box-shadow: none !important; }
                 ha-state-icon, ha-icon { --mdc-icon-size: 22px !important; width: 22px !important; height: 22px !important; flex: none !important; margin: 0 !important; color: var(--secondary-text-color) !important; }
                 span { font-size: 13px !important; line-height: 1.15 !important; white-space: pre-line !important; color: var(--secondary-text-color) !important; text-align: left; margin: 0 !important; padding: 0 !important; }
             grid_options:
@@ -1692,7 +1696,7 @@ views:
                 card_mod:
                   style: |
                     ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; margin-bottom: 5px; height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; }
-                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.4), rgba(76, 175, 80, 0.4)), var(--card-background-color); }
+                    ha-card { background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); }
                     ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; flex: none !important; margin: 0 !important; }
                     span { font-size: 16px !important; margin: 0 !important; padding: 0 !important; }
           - type: entities
@@ -1756,7 +1760,7 @@ views:
                 card_mod:
                   style: |
                     ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 5px 0 rgba(0, 0, 0, 0.45), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; margin-bottom: 5px; height: 46px !important; min-height: 0 !important; padding: 4px 2px !important; display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: center !important; gap: 10px !important; }
-                    ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
+                    ha-card { background: linear-gradient(rgba(33, 150, 243, 0.65), rgba(33, 150, 243, 0.65)), var(--card-background-color); }
                     ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; }
                     span { color: #FFC107 !important; font-weight: bold !important; }
                     ha-state-icon, ha-icon { --mdc-icon-size: 24px !important; width: 24px !important; height: 24px !important; flex: none !important; margin: 0 !important; }

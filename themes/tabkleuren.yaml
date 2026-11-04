@@ -1,0 +1,12 @@
+# Alleen de tabkleuren van dashboard Laden (EV-Sonia groen, EV-Rob blauw).
+# De tabbalk hoort bij het thema in je profiel; kies daar "tabkleuren".
+# Verder verandert dit thema niets aan het uiterlijk.
+tabkleuren:
+  card-mod-theme: tabkleuren
+  card-mod-root: |
+    ha-tab-group-tab[data-path="sonia"] { background: rgba(76, 175, 80, 0.4); border-radius: 8px 8px 0 0; }
+    ha-tab-group-tab[data-path="sonia"][active] { background: rgba(76, 175, 80, 0.65); }
+    ha-tab-group-tab[data-path="rob"] { background: rgba(33, 150, 243, 0.4); border-radius: 8px 8px 0 0; }
+    ha-tab-group-tab[data-path="rob"][active] { background: rgba(33, 150, 243, 0.65); }
+    ha-tab-group:has(ha-tab-group-tab[data-path="sonia"][active]) { --ha-tab-indicator-color: #4CAF50; }
+    ha-tab-group:has(ha-tab-group-tab[data-path="rob"][active]) { --ha-tab-indicator-color: #2196F3; }

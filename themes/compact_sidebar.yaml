@@ -17,3 +17,4 @@ compact_sidebar:
   # Compacte regelafstand
   sidebar-item-padding: "2px 5px"   # verkleint de ruimte tussen menu-items
   sidebar-width: "200px"            # optioneel, kleiner maakt meer items zichtbaar
+
