@@ -1670,7 +1670,7 @@ views:
               - entity: input_number.ev_sonia_accu_kwh
                 name: Accucapaciteit
               - entity: input_number.ev_sonia_laadlimiet
-                name: Laden tot (limiet van de auto)
+                name: Laden tot
           - type: entities
             title: EV Rob (Passat)
             show_header_toggle: false
@@ -1678,4 +1678,4 @@ views:
               - entity: input_number.ev_rob_accu_kwh
                 name: Accucapaciteit
               - entity: input_number.ev_rob_laadlimiet
-                name: Laden tot (limiet van de auto)
+                name: Laden tot
