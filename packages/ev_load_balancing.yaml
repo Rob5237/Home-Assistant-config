@@ -89,6 +89,19 @@ input_text:
   ev_rob_laatste_id_tag:
     name: "EV-Rob laatste id_tag"
     max: 64
+  # Namen van de auto's per lader (dashboard Laden, view 'Instellingen'). Geen 'initial': na (her)aanmaken leeg.
+  ev_sonia_standaard_auto:
+    name: "EV Sonia – standaard auto"
+    max: 30
+  ev_sonia_andere_auto:
+    name: "EV Sonia – andere auto"
+    max: 30
+  ev_rob_standaard_auto:
+    name: "EV Rob – standaard auto"
+    max: 30
+  ev_rob_andere_auto:
+    name: "EV Rob – andere auto"
+    max: 30
 
 input_datetime:
   # Laatste keer dat het setpunt van 0 A omhoog ging (voor 'laden hervatten')
@@ -117,6 +130,16 @@ input_datetime:
     has_time: false
 
 input_select:
+  # Welke auto hangt nu aan de lader: de standaard auto of een andere (andere capaciteit en laadlimiet).
+  # Valt terug op de standaard auto zodra de stekker eruit gaat (automation ev_auto_terug_naar_standaard).
+  ev_sonia_auto_keuze:
+    name: "EV Sonia – auto aan de lader"
+    options: ["Standaard auto", "Andere auto"]
+    icon: mdi:car-electric
+  ev_rob_auto_keuze:
+    name: "EV Rob – auto aan de lader"
+    options: ["Standaard auto", "Andere auto"]
+    icon: mdi:car-electric
   # Op welke fase(n) laadt de auto aan deze lader? Voor 1-fase auto's: de fase
   # waarop de auto op de P1-meter verschijnt (de Passat verscheen op L2, aan
   # beide laders). Wordt bewaard (geen initial); bij nieuwe auto aanpassen.
@@ -133,28 +156,56 @@ input_number:
   # Instellingen per auto (dashboard Laden, view 'Instellingen', bereikbaar met lang indrukken). Geen 'initial': na
   # (her)aanmaken beginnen ze op het minimum, zet dan de waarde (Sonia 73 kWh / 80 %, Rob 10 kWh / 90 %).
   ev_sonia_accu_kwh:
-    name: "EV Sonia – accucapaciteit"
+    name: "EV Sonia – accucapaciteit standaard auto"
     min: 10
     max: 150
     step: 0.5
     unit_of_measurement: kWh
     mode: box
   ev_sonia_laadlimiet:
-    name: "EV Sonia – laden tot (limiet van de auto)"
+    name: "EV Sonia – laden tot, standaard auto"
     min: 50
     max: 100
     step: 1
     unit_of_measurement: "%"
     mode: box
   ev_rob_accu_kwh:
-    name: "EV Rob – accucapaciteit"
+    name: "EV Rob – accucapaciteit standaard auto"
     min: 5
     max: 150
     step: 0.5
     unit_of_measurement: kWh
     mode: box
   ev_rob_laadlimiet:
-    name: "EV Rob – laden tot (limiet van de auto)"
+    name: "EV Rob – laden tot, standaard auto"
+    min: 50
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: box
+  ev_sonia_andere_accu_kwh:
+    name: "EV Sonia – accucapaciteit andere auto"
+    min: 5
+    max: 150
+    step: 0.5
+    unit_of_measurement: kWh
+    mode: box
+  ev_sonia_andere_laadlimiet:
+    name: "EV Sonia – laden tot, andere auto"
+    min: 50
+    max: 100
+    step: 1
+    unit_of_measurement: "%"
+    mode: box
+  ev_rob_andere_accu_kwh:
+    name: "EV Rob – accucapaciteit andere auto"
+    min: 5
+    max: 150
+    step: 0.5
+    unit_of_measurement: kWh
+    mode: box
+  ev_rob_andere_laadlimiet:
+    name: "EV Rob – laden tot, andere auto"
     min: 50
     max: 100
     step: 1
@@ -1170,6 +1221,43 @@ template:
           {% endif %}
 
   - sensor:
+      # Actieve auto per lader (standaard of andere), voor de scripts van de procentknoppen en de dashboards.
+      - name: "EV Sonia accucapaciteit actief"
+        unique_id: ev_sonia_accu_kwh_actief
+        unit_of_measurement: kWh
+        state: >
+          {{ states('input_number.ev_sonia_andere_accu_kwh') if is_state('input_select.ev_sonia_auto_keuze', 'Andere auto')
+             else states('input_number.ev_sonia_accu_kwh') }}
+      - name: "EV Sonia laadlimiet actief"
+        unique_id: ev_sonia_laadlimiet_actief
+        unit_of_measurement: "%"
+        state: >
+          {{ states('input_number.ev_sonia_andere_laadlimiet') if is_state('input_select.ev_sonia_auto_keuze', 'Andere auto')
+             else states('input_number.ev_sonia_laadlimiet') }}
+      - name: "EV Sonia auto actief"
+        unique_id: ev_sonia_auto_actief
+        state: >
+          {% if is_state('input_select.ev_sonia_auto_keuze', 'Andere auto') %}{{ states('input_text.ev_sonia_andere_auto') or 'Andere auto' }}
+          {% else %}{{ states('input_text.ev_sonia_standaard_auto') or 'Standaard auto' }}{% endif %}
+      - name: "EV Rob accucapaciteit actief"
+        unique_id: ev_rob_accu_kwh_actief
+        unit_of_measurement: kWh
+        state: >
+          {{ states('input_number.ev_rob_andere_accu_kwh') if is_state('input_select.ev_rob_auto_keuze', 'Andere auto')
+             else states('input_number.ev_rob_accu_kwh') }}
+      - name: "EV Rob laadlimiet actief"
+        unique_id: ev_rob_laadlimiet_actief
+        unit_of_measurement: "%"
+        state: >
+          {{ states('input_number.ev_rob_andere_laadlimiet') if is_state('input_select.ev_rob_auto_keuze', 'Andere auto')
+             else states('input_number.ev_rob_laadlimiet') }}
+      - name: "EV Rob auto actief"
+        unique_id: ev_rob_auto_actief
+        state: >
+          {% if is_state('input_select.ev_rob_auto_keuze', 'Andere auto') %}{{ states('input_text.ev_rob_andere_auto') or 'Andere auto' }}
+          {% else %}{{ states('input_text.ev_rob_standaard_auto') or 'Standaard auto' }}{% endif %}
+
+  - sensor:
       # Aaneengesloten goedkoopste laadblok (k kwartieren). Alleen kandidaten;
       # het vastleggen gebeurt in automation ev_blok_vastleggen.
       - name: "EV Sonia blokplanning"
@@ -1613,8 +1701,8 @@ script:
       - variables:
           laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_sonia_accu_vol', 'off') }}"
           kwh: >
-            {{ [states('input_number.ev_sonia_laadlimiet') | float(80) - (procent | float(50)), 0] | max / 100
-               * states('input_number.ev_sonia_accu_kwh') | float(73)
+            {{ [states('sensor.ev_sonia_laadlimiet_actief') | float(80) - (procent | float(50)), 0] | max / 100
+               * states('sensor.ev_sonia_accu_kwh_actief') | float(73)
                + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
@@ -1634,8 +1722,8 @@ script:
       - variables:
           laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_rob_accu_vol', 'off') }}"
           kwh: >
-            {{ [states('input_number.ev_rob_laadlimiet') | float(90) - (procent | float(50)), 0] | max / 100
-               * states('input_number.ev_rob_accu_kwh') | float(10)
+            {{ [states('sensor.ev_rob_laadlimiet_actief') | float(90) - (procent | float(50)), 0] | max / 100
+               * states('sensor.ev_rob_accu_kwh_actief') | float(10)
                + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
@@ -1874,6 +1962,24 @@ script:
         continue_on_error: true
 
 automation:
+  - id: ev_auto_terug_naar_standaard
+    alias: "EV – auto aan de lader terug naar de standaard auto bij uitpluggen"
+    mode: parallel
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_sonia_status_connector
+        to: ["Available", "Finishing"]
+        variables: {n: sonia}
+      - trigger: state
+        entity_id: sensor.ev_rob_status_connector
+        to: ["Available", "Finishing"]
+        variables: {n: rob}
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: "input_select.ev_{{ n }}_auto_keuze"
+        data:
+          option: "Standaard auto"
   - id: ev_opladen_uitgezet_vlag_wissen
     alias: "EV – knopvlag 'opladen uitgezet' wissen bij start laden of boost"
     mode: parallel
