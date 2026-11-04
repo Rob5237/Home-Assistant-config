@@ -1570,7 +1570,8 @@ script:
             - input_boolean.ev_sonia_alleen_zon
   # Knoppen 10/20/40/60 % op het dashboard: hoe vol de accu van de Ioniq nu is (100 % = 73 kWh). Zet de te laden kWh
   # voor de planning (input_number.ev_lb_sonia_plan_kwh) op (100 - procent) % x 73 kWh. Loopt er al een laadsessie,
-  # dan komt de al geladen sessie-energie erbij, want de planning trekt die van de plan-kWh af.
+  # dan komt de al geladen sessie-energie erbij, want de planning trekt die van de plan-kWh af. Staat 'accu vol' aan
+  # (auto stopte zelf), dan telt de sessie niet mee: de knop zegt dan hoe vol de accu nu is.
   ev_sonia_accu_percentage:
     alias: "EV-Sonia – accustand instellen (knop)"
     mode: single
@@ -1580,7 +1581,7 @@ script:
         example: 20
     sequence:
       - variables:
-          laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] }}"
+          laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_sonia_accu_vol', 'off') }}"
           kwh: >
             {{ ((100 - (procent | float(50))) / 100 * 73 + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0))
                | round(0) | int }}
@@ -1600,7 +1601,7 @@ script:
         example: 20
     sequence:
       - variables:
-          laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] }}"
+          laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_rob_accu_vol', 'off') }}"
           kwh: >
             {{ (100 - (procent | float(50))) / 100 * 10
                + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
