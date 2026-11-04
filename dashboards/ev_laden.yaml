@@ -102,7 +102,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 65.7) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 51.1) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -125,7 +125,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 58.4) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 43.8) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -148,7 +148,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 51.1) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 36.5) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -171,7 +171,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 43.8) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 29.2) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -194,7 +194,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 36.5) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 21.9) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -217,7 +217,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 29.2) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 14.6) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -240,7 +240,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 21.9) | abs < 1.0 %}
+                        {% if (states('input_number.ev_lb_sonia_plan_kwh') | float(0) - 7.3) | abs < 1.0 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -901,7 +901,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 9.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 7.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -924,7 +924,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 8.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 6.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -947,7 +947,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 7.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 5.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -970,7 +970,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 6.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 4.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -993,7 +993,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 5.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 3.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -1016,7 +1016,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 4.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 2.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
@@ -1039,7 +1039,7 @@ views:
                       style: |
                         ha-card { border: 2px solid rgba(255, 255, 255, 0.55) !important; border-bottom-color: rgba(0, 0, 0, 0.35) !important; border-radius: 14px !important; box-shadow: 0 7px 0 rgba(0, 0, 0, 0.45), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.55), inset 0 -4px 6px rgba(0, 0, 0, 0.2) !important; transition: transform 0.08s, box-shadow 0.08s; margin-bottom: 7px; }
                         ha-card:active { transform: translateY(6px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3), inset 0 5px 10px rgba(0, 0, 0, 0.5) !important; }
-                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 3.0) | abs < 0.4 %}
+                        {% if (states('input_number.ev_lb_rob_plan_kwh') | float(0) - 1.0) | abs < 0.4 %}
                         ha-card { background: linear-gradient(rgba(76, 175, 80, 0.65), rgba(76, 175, 80, 0.65)), var(--card-background-color); }
                         ha-state-icon, ha-icon, state-badge { color: #FFC107 !important; --icon-primary-color: #FFC107; --state-icon-color: #FFC107; }
                         .name, span, ha-card > span { color: #FFC107 !important; font-weight: bold !important; }
