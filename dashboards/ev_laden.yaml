@@ -80,15 +80,15 @@ views:
               columns: 12
               rows: auto
             cards:
-              - type: heading
-                heading: Percentage van accu nu
-                heading_style: subtitle
-                icon: mdi:battery-medium
+              - type: markdown
+                content: >-
+                  <ha-icon icon="mdi:battery-medium"></ha-icon> Percentage van accu {{ states('sensor.ev_sonia_auto_actief') }} nu
                 card_mod:
                   style: |
-                    :host { display: block; }
-                    ha-card *:not(ha-icon):not(ha-state-icon):not(svg):not(path), .title, .title *, p { font-size: 16px !important; line-height: 22px !important; font-weight: 700 !important; color: var(--primary-text-color) !important; }
-                    ha-icon, ha-state-icon { color: var(--primary-text-color) !important; --mdc-icon-size: 26px; }
+                    ha-card { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+                    ha-markdown { padding: 4px 8px 0 8px !important; }
+                    ha-markdown, ha-markdown p { font-size: 16px !important; line-height: 22px !important; font-weight: 700 !important; color: var(--primary-text-color) !important; margin: 0 !important; }
+                    ha-icon { --mdc-icon-size: 26px; color: var(--primary-text-color); margin-right: 6px; vertical-align: middle; }
               - type: horizontal-stack
                 card_mod:
                   style: |
@@ -897,15 +897,15 @@ views:
               columns: 12
               rows: auto
             cards:
-              - type: heading
-                heading: Percentage van accu nu
-                heading_style: subtitle
-                icon: mdi:battery-medium
+              - type: markdown
+                content: >-
+                  <ha-icon icon="mdi:battery-medium"></ha-icon> Percentage van accu {{ states('sensor.ev_rob_auto_actief') }} nu
                 card_mod:
                   style: |
-                    :host { display: block; }
-                    ha-card *:not(ha-icon):not(ha-state-icon):not(svg):not(path), .title, .title *, p { font-size: 16px !important; line-height: 22px !important; font-weight: 700 !important; color: var(--primary-text-color) !important; }
-                    ha-icon, ha-state-icon { color: var(--primary-text-color) !important; --mdc-icon-size: 26px; }
+                    ha-card { background: none !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+                    ha-markdown { padding: 4px 8px 0 8px !important; }
+                    ha-markdown, ha-markdown p { font-size: 16px !important; line-height: 22px !important; font-weight: 700 !important; color: var(--primary-text-color) !important; margin: 0 !important; }
+                    ha-icon { --mdc-icon-size: 26px; color: var(--primary-text-color); margin-right: 6px; vertical-align: middle; }
               - type: horizontal-stack
                 card_mod:
                   style: |
