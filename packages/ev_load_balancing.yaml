@@ -1591,19 +1591,19 @@ script:
         data:
           value: "{{ [[kwh, 0] | max, 100] | min }}"
   # Knoppen 10-70 % op het dashboard van Rob: hoe vol de accu van de Passat nu is (100 % = 10 kWh, aangenomen 04-11-2026,
-  # pas aan als de capaciteit anders blijkt; de auto laadt tot 80 %, dus kWh = (80 - procent) % x capaciteit). Zelfde werking als ev_sonia_accu_percentage, op ev_lb_rob_plan_kwh.
+  # pas aan als de capaciteit anders blijkt; de Passat laadt tot 90 %, dus kWh = (90 - procent) % x capaciteit). Zelfde werking als ev_sonia_accu_percentage, op ev_lb_rob_plan_kwh.
   ev_rob_accu_percentage:
     alias: "EV-Rob – accustand instellen (knop)"
     mode: single
     fields:
       procent:
-        description: "Huidige accustand in % (100 % = 10 kWh, laden tot 80 %)"
+        description: "Huidige accustand in % (100 % = 10 kWh, laden tot 90 %)"
         example: 20
     sequence:
       - variables:
           laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_rob_accu_vol', 'off') }}"
           kwh: >
-            {{ [80 - (procent | float(50)), 0] | max / 100 * 10
+            {{ [90 - (procent | float(50)), 0] | max / 100 * 10
                + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
