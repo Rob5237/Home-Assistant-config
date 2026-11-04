@@ -1702,7 +1702,7 @@ script:
           laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_sonia_accu_vol', 'off') }}"
           kwh: >
             {{ [states('sensor.ev_sonia_laadlimiet_actief') | float(80) - (procent | float(50)), 0] | max / 100
-               * states('sensor.ev_sonia_accu_kwh_actief') | float(73)
+               * states('sensor.ev_sonia_accucapaciteit_actief') | float(73)
                + (states('sensor.ev_sonia_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
@@ -1723,7 +1723,7 @@ script:
           laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_rob_accu_vol', 'off') }}"
           kwh: >
             {{ [states('sensor.ev_rob_laadlimiet_actief') | float(90) - (procent | float(50)), 0] | max / 100
-               * states('sensor.ev_rob_accu_kwh_actief') | float(10)
+               * states('sensor.ev_rob_accucapaciteit_actief') | float(10)
                + (states('sensor.ev_rob_sessie_energie') | float(0) if laadt else 0) }}
       - action: input_number.set_value
         target:
