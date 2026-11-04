@@ -531,6 +531,10 @@ automation:
   # zonne-overschot telt niet mee.
   # Wat de auto daarna afneemt is interieur verwarmen/koelen (zie sessie-energie).
   # -------------------------------------------------------------------
+  # Aangepast 04-11-2026: op 04-11 03:00 begon de auto van Sonia pas 22 min na de start te laden (0 A, SuspendedEV).
+  # De vlag 'accu vol' ging toen na 10 min aan, terwijl de auto later nog 24 kWh laadde; de gecorrigeerde
+  # sessie-energie bleef daardoor de hele sessie op 0,005 kWh staan. Nu pas 'vol' als de auto in deze sessie echt
+  # heeft geladen (> 0,5 kWh, na 10 min stil), of na 45 min stil zonder dat hij ooit laadde (auto al vol bij aansluiten).
   - id: ev_accu_vol_melden
     alias: "EV – accu is vol (auto stopte zelf met laden)"
     mode: parallel
@@ -539,17 +543,28 @@ automation:
         entity_id: sensor.ev_sonia_status_connector
         to: "SuspendedEV"
         for: "00:10:00"
-        variables: {n: sonia, naam: Sonia}
+        variables: {n: sonia, naam: Sonia, lang: false}
+      - trigger: state
+        entity_id: sensor.ev_sonia_status_connector
+        to: "SuspendedEV"
+        for: "00:45:00"
+        variables: {n: sonia, naam: Sonia, lang: true}
       - trigger: state
         entity_id: sensor.ev_rob_status_connector
         to: "SuspendedEV"
         for: "00:10:00"
-        variables: {n: rob, naam: Rob}
+        variables: {n: rob, naam: Rob, lang: false}
+      - trigger: state
+        entity_id: sensor.ev_rob_status_connector
+        to: "SuspendedEV"
+        for: "00:45:00"
+        variables: {n: rob, naam: Rob, lang: true}
     conditions:
       - condition: template
         value_template: >
           {{ is_state('input_boolean.ev_' ~ n ~ '_accu_vol', 'off')
-             and is_state('binary_sensor.ev_lb_' ~ n ~ '_laden_toegestaan', 'on') }}
+             and is_state('binary_sensor.ev_lb_' ~ n ~ '_laden_toegestaan', 'on')
+             and (lang or states('sensor.ev_' ~ n ~ '_energy_session') | float(0) > 0.5) }}
     actions:
       - action: input_boolean.turn_on
         target:

@@ -3000,6 +3000,9 @@
       entity_id: sensor.ev_rob_status_connector
       from: "Charging"
       for: "00:00:30"
+  conditions:
+    - condition: template
+      value_template: "{{ states('sensor.ev_rob_energy_session') | float(0) > 0.5 }}"
   actions:
     - action: persistent_notification.create
       data:
@@ -3029,6 +3032,9 @@
       entity_id: sensor.ev_sonia_status_connector
       from: "Charging"
       for: "00:00:30"
+  conditions:
+    - condition: template
+      value_template: "{{ states('sensor.ev_sonia_energy_session') | float(0) > 0.5 }}"
   actions:
     - action: persistent_notification.create
       data:
