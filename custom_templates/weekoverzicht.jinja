@@ -60,6 +60,15 @@
   {%- set wp_kosten = wv(per, 'sensor.' ~ soort ~ '_kosten_wp') | float(0) -%}
   {%- set wp_prijs = (wp_kosten / wp_in) if wp_in > 1 else none -%}
   {%- set wp_voordeel = ((markt - wp_prijs) / markt * 100) if (markt and wp_prijs is not none and markt > 0) else none -%}
+  {#- Elektriciteit van de compressor geschat uit P1 fase 2 (packages/wp_p1_schatting.yaml): aan-energie min de
+      basislast (gemiddelde van de uit-uren x aan-uren). COP = warmte in hetzelfde venster / die schatting. -#}
+  {%- set p1_aan = wv(per, 'sensor.' ~ soort ~ '_wp_p1_aan_kwh') | float(0) -%}
+  {%- set p1_uit = wv(per, 'sensor.' ~ soort ~ '_wp_p1_uit_kwh') | float(0) -%}
+  {%- set p1_aan_h = wv(per, 'sensor.' ~ soort ~ '_wp_p1_aan_uren') | float(0) -%}
+  {%- set p1_uit_h = wv(per, 'sensor.' ~ soort ~ '_wp_p1_uit_uren') | float(0) -%}
+  {%- set p1_warmte = wv(per, 'sensor.' ~ soort ~ '_wp_p1_warmte') | float(0) -%}
+  {%- set wp_p1 = (p1_aan - (p1_uit / p1_uit_h) * p1_aan_h) if (p1_uit_h > 2 and p1_aan_h > 2) else none -%}
+  {%- set wp_cop_p1 = (p1_warmte / wp_p1) if (wp_p1 is not none and wp_p1 > 1) else none -%}
   {#- EV -#}
   {%- set rob_kwh = wv(per, 'sensor.' ~ soort ~ '_ev_rob') | float(0) -%}
   {%- set rob_kosten = wv(per, 'sensor.' ~ soort ~ '_kosten_rob') | float(0) -%}
@@ -117,6 +126,8 @@
     'wp_kwh_tap': wp_in_tap | round(1),
     'wp_cop_verw': ((wp_w_verw / wp_in_verw) | round(2)) if wp_in_verw > 0.5 else none,
     'wp_cop_tap': ((wp_w_tap / wp_in_tap) | round(2)) if wp_in_tap > 0.5 else none,
+    'wp_kwh_p1': wp_p1 | round(1) if wp_p1 is not none else none,
+    'wp_cop_p1': wp_cop_p1 | round(2) if wp_cop_p1 is not none else none,
     'wp_prijs': wp_prijs | round(3) if wp_prijs is not none else none,
     'wp_voordeel_pct': wp_voordeel | round(1) if wp_voordeel is not none else none,
     'element_kwh_warmte': wv(per, 'sensor.' ~ soort ~ '_element_warmte') | float(0) | round(1),
@@ -170,6 +181,7 @@
   - Warmtepompcompressor: {{ kw(d.wp_kwh) }} kWh, € {{ f(d.wp_prijs, 3) }}/kWh ({{ f(d.wp_voordeel_pct, 1, ' %') }} t.o.v. markt){{ '  ' }}
     COP verwarming {{ f(d.wp_cop_verw) }} ({{ kw(d.wp_kwh_verw) }} kWh){{ '  ' }}
     COP tapwater {{ f(d.wp_cop_tap) }} ({{ kw(d.wp_kwh_tap) }} kWh){{ '  ' }}
+    COP volgens P1-schatting {{ f(d.wp_cop_p1) }} ({{ kw(d.wp_kwh_p1) }} kWh, geschat uit fase 2){{ '  ' }}
     Element {{ kw(d.element_kwh_warmte) }} kWh warmte
   - Compressor: {{ f(d.compressor_starts, 0) }} starts, gem. run {{ f(d.compressor_gem_run_min, 0, ' min') }}; kamer {{ f(d.kamer_te_koud_pct, 1, ' %') }} van de tijd meer dan 0,5 °C onder setpoint
 {{ ev_blok }}

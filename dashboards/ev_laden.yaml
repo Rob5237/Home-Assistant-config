@@ -497,9 +497,17 @@ views:
               rows: auto
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_boolean.ev_sonia_opladen_uitgezet
-                state: "on"
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity: input_boolean.ev_sonia_alleen_zon
+                    state: "off"
+                  - condition: state
+                    entity: input_boolean.ev_sonia_direct_laden
+                    state: "off"
+                  - condition: state
+                    entity: input_boolean.ev_sonia_opladen_uitgezet
+                    state: "off"
             card:
               type: button
               name: "Accu LAAGSTE TARIEF opladen"
@@ -529,15 +537,23 @@ views:
                   ha-state-icon { width: 57px !important; height: 38px !important; min-width: 57px !important; min-height: 38px !important; background-size: 57px 38px !important; }
               tap_action:
                 action: perform-action
-                perform_action: script.ev_sonia_laden_volgens_planning
+                perform_action: script.ev_sonia_opladen_uitzetten
             grid_options:
               columns: 4
               rows: auto
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_boolean.ev_sonia_opladen_uitgezet
-                state: "off"
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: input_boolean.ev_sonia_alleen_zon
+                    state: "on"
+                  - condition: state
+                    entity: input_boolean.ev_sonia_direct_laden
+                    state: "on"
+                  - condition: state
+                    entity: input_boolean.ev_sonia_opladen_uitgezet
+                    state: "on"
             card:
               type: button
               name: Accu LAAGSTE TARIEF opladen
@@ -563,7 +579,7 @@ views:
                   ha-state-icon, ha-icon, state-badge { color: transparent !important; --icon-primary-color: transparent !important; --state-icon-color: transparent !important; }
               tap_action:
                 action: perform-action
-                perform_action: script.ev_sonia_opladen_uitzetten
+                perform_action: script.ev_sonia_laden_volgens_planning
             grid_options:
               columns: 4
               rows: auto
@@ -1345,9 +1361,17 @@ views:
               rows: auto
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_boolean.ev_rob_opladen_uitgezet
-                state: "on"
+              - condition: and
+                conditions:
+                  - condition: state
+                    entity: input_boolean.ev_rob_alleen_zon
+                    state: "off"
+                  - condition: state
+                    entity: input_boolean.ev_rob_direct_laden
+                    state: "off"
+                  - condition: state
+                    entity: input_boolean.ev_rob_opladen_uitgezet
+                    state: "off"
             card:
               type: button
               name: "Accu LAAGSTE TARIEF opladen"
@@ -1377,15 +1401,23 @@ views:
                   ha-state-icon { width: 57px !important; height: 38px !important; min-width: 57px !important; min-height: 38px !important; background-size: 57px 38px !important; }
               tap_action:
                 action: perform-action
-                perform_action: script.ev_rob_laden_volgens_planning
+                perform_action: script.ev_rob_opladen_uitzetten
             grid_options:
               columns: 4
               rows: auto
           - type: conditional
             conditions:
-              - condition: state
-                entity: input_boolean.ev_rob_opladen_uitgezet
-                state: "off"
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: input_boolean.ev_rob_alleen_zon
+                    state: "on"
+                  - condition: state
+                    entity: input_boolean.ev_rob_direct_laden
+                    state: "on"
+                  - condition: state
+                    entity: input_boolean.ev_rob_opladen_uitgezet
+                    state: "on"
             card:
               type: button
               name: Accu LAAGSTE TARIEF opladen
@@ -1411,7 +1443,7 @@ views:
                   ha-state-icon, ha-icon, state-badge { color: transparent !important; --icon-primary-color: transparent !important; --state-icon-color: transparent !important; }
               tap_action:
                 action: perform-action
-                perform_action: script.ev_rob_opladen_uitzetten
+                perform_action: script.ev_rob_laden_volgens_planning
             grid_options:
               columns: 4
               rows: auto

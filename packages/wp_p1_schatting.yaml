@@ -1,0 +1,142 @@
+# =====================================================================
+# Warmtepomp: elektriciteitsverbruik geschat uit de P1-meter (04-11-2026)
+# Alleen meten; niets in de sturing gebruikt dit.
+#
+# Waarom: de Luxtronik meldt een eigen schatting van het elektrisch verbruik (heat_energy_input /
+# dhw_energy_input, geen echte meting). Controle op 04-11-2026 (72 uur): Luxtronik 26,8 kWh, P1-schatting
+# 38,7 kWh bij dezelfde 166 kWh warmte (COP 6,2 tegenover 4,3).
+#
+# Methode: de compressor loopt alleen op L2 (zie .claude/rules/elektrischestoppen.md). Het P1-vermogen van fase 2
+# wordt apart geïntegreerd terwijl de compressor aan staat (aan_kwh) en terwijl hij uit staat (uit_kwh), met de
+# uren van beide standen. Het huishouden op L2 (basislast, Quooker, zon) wordt geschat als het gemiddelde van de
+# uit-uren en afgetrokken van de aan-uren:
+#   wp_p1_kwh = aan_kwh - (uit_kwh / uit_uren) * aan_uren
+# Beperking: de basislast tijdens de aan-uren kan van die in de uit-uren afwijken (andere tijden van de dag, zon
+# op L2 ~27% van de opwek); het getal is een schatting, geen meting. Nauwkeurig is alleen een eigen kWh-meter.
+#
+# Meters (utility_meter week/maand/jaar): <soort>_wp_p1_aan_kwh, _uit_kwh, _aan_uren, _uit_uren en _warmte
+# (warmte = heat_amount_heating + dhw_heat_amount, in hetzelfde venster als de P1-cijfers, zodat de COP klopt).
+# De meters zijn eenmalig gelijkgezet met de recorder-historie (zie CLAUDE.md); week vanaf 02-11, maand en jaar
+# vanaf 01-11-2026. 'Vorige' periodes hebben pas data na de eerste echte wissel.
+# =====================================================================
+
+template:
+  - sensor:
+      - name: "WP L2 vermogen compressor aan"
+        unique_id: wp_l2_vermogen_aan
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% if is_state('binary_sensor.luxtronik_280807_0450_compressor', 'on') %}
+            {{ states('sensor.p1_meter_power_phase_2') | float(0) }}
+          {% else %}0{% endif %}
+        availability: "{{ states('sensor.p1_meter_power_phase_2') | is_number }}"
+      - name: "WP L2 vermogen compressor uit"
+        unique_id: wp_l2_vermogen_uit
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        state: >
+          {% if is_state('binary_sensor.luxtronik_280807_0450_compressor', 'off') %}
+            {{ states('sensor.p1_meter_power_phase_2') | float(0) }}
+          {% else %}0{% endif %}
+        availability: "{{ states('sensor.p1_meter_power_phase_2') | is_number }}"
+      - name: "WP compressor aan indicator"
+        unique_id: wp_aan_indicator
+        state_class: measurement
+        state: "{{ 1 if is_state('binary_sensor.luxtronik_280807_0450_compressor', 'on') else 0 }}"
+      - name: "WP compressor uit indicator"
+        unique_id: wp_uit_indicator
+        state_class: measurement
+        state: "{{ 1 if is_state('binary_sensor.luxtronik_280807_0450_compressor', 'off') else 0 }}"
+      - name: "WP warmte totaal"
+        unique_id: wp_warmte_totaal
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        state: >
+          {{ (states('sensor.luxtronik_280807_0450_heat_amount_heating') | float(0)
+              + states('sensor.luxtronik_280807_0450_dhw_heat_amount') | float(0)) | round(1) }}
+        availability: >
+          {{ states('sensor.luxtronik_280807_0450_heat_amount_heating') | is_number
+             and states('sensor.luxtronik_280807_0450_dhw_heat_amount') | is_number }}
+
+sensor:
+  - platform: integration
+    name: "WP L2 aan kWh"
+    unique_id: wp_l2_aan_kwh
+    source: sensor.wp_l2_vermogen_compressor_aan
+    unit_prefix: k
+    unit_time: h
+    round: 4
+    method: left
+  - platform: integration
+    name: "WP L2 uit kWh"
+    unique_id: wp_l2_uit_kwh
+    source: sensor.wp_l2_vermogen_compressor_uit
+    unit_prefix: k
+    unit_time: h
+    round: 4
+    method: left
+  - platform: integration
+    name: "WP aan uren"
+    unique_id: wp_aan_uren
+    source: sensor.wp_compressor_aan_indicator
+    unit_time: h
+    round: 4
+    method: left
+  - platform: integration
+    name: "WP uit uren"
+    unique_id: wp_uit_uren
+    source: sensor.wp_compressor_uit_indicator
+    unit_time: h
+    round: 4
+    method: left
+
+utility_meter:
+  week_wp_p1_aan_kwh:
+    source: sensor.wp_l2_aan_kwh
+    cycle: weekly
+  week_wp_p1_uit_kwh:
+    source: sensor.wp_l2_uit_kwh
+    cycle: weekly
+  week_wp_p1_aan_uren:
+    source: sensor.wp_aan_uren
+    cycle: weekly
+  week_wp_p1_uit_uren:
+    source: sensor.wp_uit_uren
+    cycle: weekly
+  week_wp_p1_warmte:
+    source: sensor.wp_warmte_totaal
+    cycle: weekly
+  maand_wp_p1_aan_kwh:
+    source: sensor.wp_l2_aan_kwh
+    cycle: monthly
+  maand_wp_p1_uit_kwh:
+    source: sensor.wp_l2_uit_kwh
+    cycle: monthly
+  maand_wp_p1_aan_uren:
+    source: sensor.wp_aan_uren
+    cycle: monthly
+  maand_wp_p1_uit_uren:
+    source: sensor.wp_uit_uren
+    cycle: monthly
+  maand_wp_p1_warmte:
+    source: sensor.wp_warmte_totaal
+    cycle: monthly
+  jaar_wp_p1_aan_kwh:
+    source: sensor.wp_l2_aan_kwh
+    cycle: yearly
+  jaar_wp_p1_uit_kwh:
+    source: sensor.wp_l2_uit_kwh
+    cycle: yearly
+  jaar_wp_p1_aan_uren:
+    source: sensor.wp_aan_uren
+    cycle: yearly
+  jaar_wp_p1_uit_uren:
+    source: sensor.wp_uit_uren
+    cycle: yearly
+  jaar_wp_p1_warmte:
+    source: sensor.wp_warmte_totaal
+    cycle: yearly
