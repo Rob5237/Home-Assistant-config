@@ -200,6 +200,14 @@ input_number:
     step: 0.01
     unit_of_measurement: kWh
     mode: box
+  # Waarde van ev_lb_sonia_plan_kwh vóór de eerste percentageknop van deze sessie; terugzetten bij uitpluggen. -1 = niets bewaard.
+  ev_sonia_plan_kwh_voor_knop:
+    name: "EV Sonia – te laden kWh vóór de percentageknop"
+    min: -1
+    max: 100
+    step: 0.1
+    unit_of_measurement: kWh
+    mode: box
   # Accustand-schatting (04-11-2026): het percentage dat met een knop is gekozen en de sessie-energie op dat
   # moment. Daaruit volgt sensor.ev_rob_accupercentage_geschat. -1 = geen knop gebruikt (gewist bij in- en uitpluggen).
   # Geen initial: begint op het minimum (-1) en wordt bewaard.
@@ -215,6 +223,14 @@ input_number:
     min: 0
     max: 300
     step: 0.01
+    unit_of_measurement: kWh
+    mode: box
+  # Waarde van ev_lb_rob_plan_kwh vóór de eerste percentageknop van deze sessie; terugzetten bij uitpluggen. -1 = niets bewaard.
+  ev_rob_plan_kwh_voor_knop:
+    name: "EV Rob – te laden kWh vóór de percentageknop"
+    min: -1
+    max: 100
+    step: 0.1
     unit_of_measurement: kWh
     mode: box
   ev_sonia_andere_accu_kwh:
@@ -1756,6 +1772,14 @@ script:
         description: "Huidige accustand in % (100 % = 73 kWh, laden tot 80 %)"
         example: 20
     sequence:
+      # Eerste knop van deze sessie: de oude plan-kWh bewaren zodat het uitpluggen die kan terugzetten
+      - if: "{{ states('input_number.ev_sonia_pct_start') | float(-1) < 0 }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.ev_sonia_plan_kwh_voor_knop
+            data:
+              value: "{{ states('input_number.ev_lb_sonia_plan_kwh') | float(0) }}"
       - variables:
           laadt: "{{ states('sensor.ev_sonia_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_sonia_accu_vol', 'off') }}"
           kwh: >
@@ -1787,6 +1811,14 @@ script:
         description: "Huidige accustand in % (100 % = 10 kWh, laden tot 90 %)"
         example: 20
     sequence:
+      # Eerste knop van deze sessie: de oude plan-kWh bewaren zodat het uitpluggen die kan terugzetten
+      - if: "{{ states('input_number.ev_rob_pct_start') | float(-1) < 0 }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.ev_rob_plan_kwh_voor_knop
+            data:
+              value: "{{ states('input_number.ev_lb_rob_plan_kwh') | float(0) }}"
       - variables:
           laadt: "{{ states('sensor.ev_rob_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] and is_state('input_boolean.ev_rob_accu_vol', 'off') }}"
           kwh: >

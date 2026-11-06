@@ -826,6 +826,25 @@ automation:
             data:
               timestamp: 0
         else:
+          # Uitgepluggen: het indrukken van de percentageknop ongedaan maken (06-11-2026): de knop zelf is hierboven
+          # gewist (pct_start -1); nu ook de te laden kWh terug naar de waarde van vóór de knop.
+          - if: "{{ states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_plan_kwh_voor_knop') | float(-1) >= 0 }}"
+            then:
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.ev_lb_{{ {'a': 'sonia', 'b': 'rob'}[x] }}_plan_kwh"
+                data:
+                  value: "{{ states('input_number.' ~ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] ~ '_plan_kwh_voor_knop') | float(0) }}"
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_plan_kwh_voor_knop"
+                data:
+                  value: -1
+          - action: input_number.set_value
+            target:
+              entity_id: "input_number.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_pct_sessie_kwh"
+            data:
+              value: 0
           - action: input_boolean.turn_off
             target:
               entity_id: "input_boolean.{{ {'a': 'ev_sonia', 'b': 'ev_rob'}[x] }}_direct_laden"
