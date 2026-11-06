@@ -733,6 +733,36 @@ automation:
               procent: "{{ states('input_number.ev_' ~ n ~ '_pct_start') | float(0) }}"
 
   # -------------------------------------------------------------------
+  # Toegevoegd 06-11-2026: de percentageknop schuift mee tijdens het laden. Is er voor 10 % van de accu bijgeladen
+  # (de geschatte stand staat 10 punten boven de ingedrukte knop), dan wordt de volgende knop (10 % hoger) ingedrukt.
+  # Dat doet hetzelfde als een tik op het scherm: de plan-kWh en het beginpunt worden opnieuw gezet.
+  # Gaat alleen door tot de knop van 70 % (de hoogste knop).
+  # -------------------------------------------------------------------
+  - id: ev_accu_percentage_knop_schuift_mee
+    alias: "EV – percentageknop schuift 10 % op zodra zoveel is bijgeladen"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_sonia_accupercentage_geschat
+        variables: {n: sonia}
+      - trigger: state
+        entity_id: sensor.ev_rob_accupercentage_geschat
+        variables: {n: rob}
+    conditions:
+      - condition: template
+        value_template: >
+          {% set start = states('input_number.ev_' ~ n ~ '_pct_start') | float(-1) %}
+          {{ is_number(trigger.to_state.state)
+             and start >= 0 and start + 10 <= 70
+             and trigger.to_state.state | float(0) >= start + 10
+             and is_state('sensor.ev_' ~ n ~ '_status_connector', 'Charging')
+             and is_state('input_boolean.ev_' ~ n ~ '_accu_vol', 'off') }}
+    actions:
+      - action: "script.ev_{{ n }}_accu_percentage"
+        data:
+          procent: "{{ states('input_number.ev_' ~ n ~ '_pct_start') | float(0) + 10 }}"
+
+  # -------------------------------------------------------------------
   # Hoofdregelaar: bepaalt per lader stroom en fasen, met load balancing
   # -------------------------------------------------------------------
   - id: ev_in_uitpluggen
