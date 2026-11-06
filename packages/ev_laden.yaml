@@ -662,6 +662,77 @@ automation:
             channel: "EV laden"
 
   # -------------------------------------------------------------------
+  # Toegevoegd 06-11-2026: auto herkennen aan het aantal fasen. Laadt de auto op 1 fase (L1/L2/L3), dan is het de
+  # VW Passat (capaciteit en limiet uit de helpers van Rob); laadt hij op 3 fasen, dan is het de Ioniq (helpers van Sonia).
+  # Hangt die auto niet aan zijn eigen lader, dan wordt 'Andere auto' gekozen met de gegevens van die auto.
+  # Een zelf ingestelde andere auto (andere naam dan Passat of Ioniq) blijft ongemoeid.
+  # -------------------------------------------------------------------
+  - id: ev_auto_herkennen_op_fasen
+    alias: "EV – auto kiezen op het aantal fasen (1 fase = Passat, 3 fasen = Ioniq)"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: sensor.ev_lb_sonia_fase_actief
+        variables: {n: sonia}
+      - trigger: state
+        entity_id: sensor.ev_lb_rob_fase_actief
+        variables: {n: rob}
+    conditions:
+      - condition: template
+        value_template: >
+          {{ trigger.to_state.state in ['L1', 'L2', 'L3', '3-fase']
+             and states('sensor.ev_' ~ n ~ '_status_connector') in ['Charging', 'SuspendedEV', 'SuspendedEVSE'] }}
+    actions:
+      - variables:
+          passat: "{{ trigger.to_state.state in ['L1', 'L2', 'L3'] }}"
+          bron: "{{ 'rob' if passat else 'sonia' }}"
+          eigen_is_passat: "{{ n == 'rob' }}"
+          naam_passat: "{{ states('input_text.ev_rob_standaard_auto') }}"
+          naam_ioniq: "{{ states('input_text.ev_sonia_standaard_auto') }}"
+          nu_andere: "{{ is_state('input_select.ev_' ~ n ~ '_auto_keuze', 'Andere auto') }}"
+          andere_naam: "{{ states('input_text.ev_' ~ n ~ '_andere_auto') }}"
+      - choose:
+          # Auto hoort bij deze lader, maar er stond een eerder automatisch gekozen andere auto: terug naar standaard
+          - conditions: "{{ passat == eigen_is_passat and nu_andere and andere_naam in [naam_passat, naam_ioniq] }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: "input_select.ev_{{ n }}_auto_keuze"
+                data:
+                  option: "Standaard auto"
+          # Auto hoort bij de andere lader: kies 'Andere auto' met de gegevens van de herkende auto
+          - conditions: >
+              {{ passat != eigen_is_passat
+                 and (not nu_andere or andere_naam in [naam_passat, naam_ioniq]) }}
+            sequence:
+              - action: input_text.set_value
+                target:
+                  entity_id: "input_text.ev_{{ n }}_andere_auto"
+                data:
+                  value: "{{ naam_passat if passat else naam_ioniq }}"
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.ev_{{ n }}_andere_accu_kwh"
+                data:
+                  value: "{{ states('input_number.ev_' ~ bron ~ '_accu_kwh') }}"
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.ev_{{ n }}_andere_laadlimiet"
+                data:
+                  value: "{{ states('input_number.ev_' ~ bron ~ '_laadlimiet') }}"
+              - action: input_select.select_option
+                target:
+                  entity_id: "input_select.ev_{{ n }}_auto_keuze"
+                data:
+                  option: "Andere auto"
+      # Capaciteit kan veranderd zijn: de gekozen knop opnieuw toepassen, zodat de te laden kWh klopt
+      - if: "{{ states('input_number.ev_' ~ n ~ '_pct_start') | float(-1) >= 0 }}"
+        then:
+          - action: "script.ev_{{ n }}_accu_percentage"
+            data:
+              procent: "{{ states('input_number.ev_' ~ n ~ '_pct_start') | float(0) }}"
+
+  # -------------------------------------------------------------------
   # Hoofdregelaar: bepaalt per lader stroom en fasen, met load balancing
   # -------------------------------------------------------------------
   - id: ev_in_uitpluggen
