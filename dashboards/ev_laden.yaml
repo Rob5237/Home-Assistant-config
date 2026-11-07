@@ -946,7 +946,7 @@ views:
           - type: vertical-stack
             card_mod:
               style: |
-                :host { display: block; background: linear-gradient(rgba(33, 150, 243, 0.4), rgba(33, 150, 243, 0.4)), var(--card-background-color); border-radius: var(--ha-card-border-radius, 12px); padding: 8px 8px 1px 8px; box-sizing: border-box; --stack-card-gap: 8px; }
+                :host { display: block; background: linear-gradient(rgba(33, 150, 243, 0.18), rgba(33, 150, 243, 0.18)), var(--card-background-color); border-radius: var(--ha-card-border-radius, 12px); padding: 8px 8px 1px 8px; box-sizing: border-box; --stack-card-gap: 8px; }
             grid_options:
               columns: 12
               rows: auto
